@@ -1,0 +1,2255 @@
+Continente,Pais,Nome,Liga,Categoria
+Europa,Franca,Paris Saint-Germain,Ligue 1,Profissional
+Europa,Franca,Marseille,Ligue 1,Profissional
+Europa,Franca,Lyon,Ligue 1,Profissional
+Europa,Franca,Monaco,Ligue 1,Profissional
+Europa,Franca,Lille,Ligue 1,Profissional
+Europa,Franca,Rennes,Ligue 1,Profissional
+Europa,Franca,Nice,Ligue 1,Profissional
+Europa,Franca,Nantes,Ligue 1,Profissional
+Europa,Franca,Reims,Ligue 1,Profissional
+Europa,Franca,Strasbourg,Ligue 1,Profissional
+Europa,Franca,Montpellier,Ligue 1,Profissional
+Europa,Franca,Toulouse,Ligue 1,Profissional
+Europa,Franca,Brest,Ligue 1,Profissional
+Europa,Franca,Clermont,Ligue 1,Profissional
+Europa,Franca,Lorient,Ligue 1,Profissional
+Europa,Franca,Auxerre,Ligue 1,Profissional
+Europa,Franca,Ajaccio,Ligue 1,Profissional
+Europa,Franca,Angers,Ligue 1,Profissional
+Europa,Alemanha,Bayern Munchen,Bundesliga,Profissional
+Europa,Alemanha,Borussia Dortmund,Bundesliga,Profissional
+Europa,Alemanha,RB Leipzig,Bundesliga,Profissional
+Europa,Alemanha,Bayer Leverkusen,Bundesliga,Profissional
+Europa,Alemanha,Eintracht Frankfurt,Bundesliga,Profissional
+Europa,Alemanha,Union Berlin,Bundesliga,Profissional
+Europa,Alemanha,Freiburg,Bundesliga,Profissional
+Europa,Alemanha,Wolfsburg,Bundesliga,Profissional
+Europa,Alemanha,Mainz,Bundesliga,Profissional
+Europa,Alemanha,Borussia Monchengladbach,Bundesliga,Profissional
+Europa,Alemanha,Cologne,Bundesliga,Profissional
+Europa,Alemanha,Hoffenheim,Bundesliga,Profissional
+Europa,Alemanha,Augsburg,Bundesliga,Profissional
+Europa,Alemanha,Werder Bremen,Bundesliga,Profissional
+Europa,Alemanha,Bochum,Bundesliga,Profissional
+Europa,Alemanha,Heidenheim,Bundesliga,Profissional
+Europa,Alemanha,Stuttgart,Bundesliga,Profissional
+Europa,Alemanha,Darmstadt,Bundesliga,Profissional
+Europa,Espanha,Real Madrid,La Liga,Profissional
+Europa,Espanha,Barcelona,La Liga,Profissional
+Europa,Espanha,Atletico de Madrid,La Liga,Profissional
+Europa,Espanha,Sevilla,La Liga,Profissional
+Europa,Espanha,Real Sociedad,La Liga,Profissional
+Europa,Espanha,Real Betis,La Liga,Profissional
+Europa,Espanha,Villarreal,La Liga,Profissional
+Europa,Espanha,Athletic Bilbao,La Liga,Profissional
+Europa,Espanha,Valencia,La Liga,Profissional
+Europa,Espanha,Celta de Vigo,La Liga,Profissional
+Europa,Espanha,Osasuna,La Liga,Profissional
+Europa,Espanha,Getafe,La Liga,Profissional
+Europa,Espanha,Rayo Vallecano,La Liga,Profissional
+Europa,Espanha,Mallorca,La Liga,Profissional
+Europa,Espanha,Almeria,La Liga,Profissional
+Europa,Espanha,Cadiz,La Liga,Profissional
+Europa,Espanha,Las Palmas,La Liga,Profissional
+Europa,Espanha,Granada,La Liga,Profissional
+Europa,Espanha,Alaves,La Liga,Profissional
+Europa,Espanha,Girona,La Liga,Profissional
+Europa,Inglaterra,Arsenal,Premier League,Profissional
+Europa,Inglaterra,Aston Villa,Premier League,Profissional
+Europa,Inglaterra,Bournemouth,Premier League,Profissional
+Europa,Inglaterra,Brentford,Premier League,Profissional
+Europa,Inglaterra,Brighton,Premier League,Profissional
+Europa,Inglaterra,Burnley,Premier League,Profissional
+Europa,Inglaterra,Chelsea,Premier League,Profissional
+Europa,Inglaterra,Crystal Palace,Premier League,Profissional
+Europa,Inglaterra,Everton,Premier League,Profissional
+Europa,Inglaterra,Fulham,Premier League,Profissional
+Europa,Inglaterra,Leeds United,Premier League,Profissional
+Europa,Inglaterra,Liverpool,Premier League,Profissional
+Europa,Inglaterra,Manchester City,Premier League,Profissional
+Europa,Inglaterra,Manchester United,Premier League,Profissional
+Europa,Inglaterra,Newcastle United,Premier League,Profissional
+Europa,Inglaterra,Nottingham Forest,Premier League,Profissional
+Europa,Inglaterra,Tottenham Hotspur,Premier League,Profissional
+Europa,Inglaterra,West Ham,Premier League,Profissional
+Europa,Inglaterra,Wolves,Premier League,Profissional
+Europa,Inglaterra,Sheffield United,Premier League,Profissional
+Europa,Italia,Juventus,Serie A,Profissional
+Europa,Italia,Inter de Milao,Serie A,Profissional
+Europa,Italia,Milan,Serie A,Profissional
+Europa,Italia,Napoli,Serie A,Profissional
+Europa,Italia,Roma,Serie A,Profissional
+Europa,Italia,Lazio,Serie A,Profissional
+Europa,Italia,Atalanta,Serie A,Profissional
+Europa,Italia,Fiorentina,Serie A,Profissional
+Europa,Italia,Torino,Serie A,Profissional
+Europa,Italia,Udinese,Serie A,Profissional
+Europa,Italia,Sassuolo,Serie A,Profissional
+Europa,Italia,Bologna,Serie A,Profissional
+Europa,Italia,Monza,Serie A,Profissional
+Europa,Italia,Empoli,Serie A,Profissional
+Europa,Italia,Salernitana,Serie A,Profissional
+Europa,Italia,Genoa,Serie A,Profissional
+Europa,Italia,Verona,Serie A,Profissional
+Europa,Italia,Lecce,Serie A,Profissional
+Europa,Italia,Cagliari,Serie A,Profissional
+Europa,Italia,Frosinone,Serie A,Profissional
+Europa,Portugal,Benfica,Primeira Liga,Profissional
+Europa,Portugal,Porto,Primeira Liga,Profissional
+Europa,Portugal,Sporting,Primeira Liga,Profissional
+Europa,Portugal,Braga,Primeira Liga,Profissional
+Europa,Portugal,Guimaraes,Primeira Liga,Profissional
+Europa,Portugal,Arouca,Primeira Liga,Profissional
+Europa,Portugal,Casa Pia,Primeira Liga,Profissional
+Europa,Portugal,Estoril,Primeira Liga,Profissional
+Europa,Portugal,Famalicao,Primeira Liga,Profissional
+Europa,Portugal,Gil Vicente,Primeira Liga,Profissional
+Europa,Portugal,Boavista,Primeira Liga,Profissional
+Europa,Portugal,Portimonense,Primeira Liga,Profissional
+Europa,Portugal,Vizela,Primeira Liga,Profissional
+Europa,Portugal,Chaves,Primeira Liga,Profissional
+Europa,Portugal,Rio Ave,Primeira Liga,Profissional
+Europa,Portugal,Moreirense,Primeira Liga,Profissional
+Europa,Portugal,Farense,Primeira Liga,Profissional
+Europa,Portugal,Estrela da Amadora,Primeira Liga,Profissional
+Europa,Belgica,Club Brugge,Jupiler Pro League,Profissional
+Europa,Belgica,Anderlecht,Jupiler Pro League,Profissional
+Europa,Belgica,Genk,Jupiler Pro League,Profissional
+Europa,Belgica,Gent,Jupiler Pro League,Profissional
+Europa,Belgica,Royal Antwerp,Jupiler Pro League,Profissional
+Europa,Belgica,Charleroi,Jupiler Pro League,Profissional
+Europa,Belgica,Standard Liege,Jupiler Pro League,Profissional
+Europa,Belgica,Westerlo,Jupiler Pro League,Profissional
+Europa,Belgica,KV Mechelen,Jupiler Pro League,Profissional
+Europa,Belgica,Sint-Truiden,Jupiler Pro League,Profissional
+Europa,Belgica,Kortrijk,Jupiler Pro League,Profissional
+Europa,Belgica,Eupen,Jupiler Pro League,Profissional
+Europa,Belgica,Cercle Brugge,Jupiler Pro League,Profissional
+Europa,Belgica,OH Leuven,Jupiler Pro League,Profissional
+Europa,Belgica,RWDM,Jupiler Pro League,Profissional
+Europa,Belgica,Union Saint-Gilloise,Jupiler Pro League,Profissional
+Europa,Paises Baixos,Ajax,Eredivisie,Profissional
+Europa,Paises Baixos,PSV,Eredivisie,Profissional
+Europa,Paises Baixos,Feyenoord,Eredivisie,Profissional
+Europa,Paises Baixos,AZ Alkmaar,Eredivisie,Profissional
+Europa,Paises Baixos,Twente,Eredivisie,Profissional
+Europa,Paises Baixos,Utrecht,Eredivisie,Profissional
+Europa,Paises Baixos,Heerenveen,Eredivisie,Profissional
+Europa,Paises Baixos,Sparta Rotterdam,Eredivisie,Profissional
+Europa,Paises Baixos,Vitesse,Eredivisie,Profissional
+Europa,Paises Baixos,Groningen,Eredivisie,Profissional
+Europa,Paises Baixos,RKC Waalwijk,Eredivisie,Profissional
+Europa,Paises Baixos,NEC,Eredivisie,Profissional
+Europa,Paises Baixos,Go Ahead Eagles,Eredivisie,Profissional
+Europa,Paises Baixos,Cambuur,Eredivisie,Profissional
+Europa,Paises Baixos,Fortuna Sittard,Eredivisie,Profissional
+Europa,Paises Baixos,Volendam,Eredivisie,Profissional
+Europa,Paises Baixos,Excelsior,Eredivisie,Profissional
+Europa,Paises Baixos,Emmen,Eredivisie,Profissional
+Europa,Suica,Young Boys,Super League,Profissional
+Europa,Suica,FC Zurich,Super League,Profissional
+Europa,Suica,FC Basel,Super League,Profissional
+Europa,Suica,St. Gallen,Super League,Profissional
+Europa,Suica,Servette,Super League,Profissional
+Europa,Suica,Lugano,Super League,Profissional
+Europa,Suica,Grasshopper,Super League,Profissional
+Europa,Suica,Winterthur,Super League,Profissional
+Europa,Suica,Yverdon,Super League,Profissional
+Europa,Suica,Lausanne,Super League,Profissional
+Europa,Suica,Lucerne,Super League,Profissional
+Europa,Suica,Bellinzona,Super League,Profissional
+Europa,Austria,Red Bull Salzburg,Bundesliga,Profissional
+Europa,Austria,Sturm Graz,Bundesliga,Profissional
+Europa,Austria,Rapid Wien,Bundesliga,Profissional
+Europa,Austria,Austria Wien,Bundesliga,Profissional
+Europa,Austria,LASK,Bundesliga,Profissional
+Europa,Austria,Wolfsberger AC,Bundesliga,Profissional
+Europa,Austria,WSG Tirol,Bundesliga,Profissional
+Europa,Austria,Austria Klagenfurt,Bundesliga,Profissional
+Europa,Austria,SV Ried,Bundesliga,Profissional
+Europa,Austria,TSV Hartberg,Bundesliga,Profissional
+Europa,Austria,SCR Altach,Bundesliga,Profissional
+Europa,Austria,Blau-Weiss Linz,Bundesliga,Profissional
+Europa,Polonia,Legia Varsovia,Ekstraklasa,Profissional
+Europa,Polonia,Lech Poznan,Ekstraklasa,Profissional
+Europa,Polonia,Rakow,Ekstraklasa,Profissional
+Europa,Polonia,Pogon Szczecin,Ekstraklasa,Profissional
+Europa,Polonia,Slask Wroclaw,Ekstraklasa,Profissional
+Europa,Polonia,Wisla Plock,Ekstraklasa,Profissional
+Europa,Polonia,Cracovia,Ekstraklasa,Profissional
+Europa,Polonia,Gornik Zabrze,Ekstraklasa,Profissional
+Europa,Polonia,Zaglebie Lubin,Ekstraklasa,Profissional
+Europa,Polonia,Piast Gliwice,Ekstraklasa,Profissional
+Europa,Polonia,Jagiellonia,Ekstraklasa,Profissional
+Europa,Polonia,Korona Kielce,Ekstraklasa,Profissional
+Europa,Polonia,Radomiak Radom,Ekstraklasa,Profissional
+Europa,Polonia,Warta Poznan,Ekstraklasa,Profissional
+Europa,Polonia,Stal Mielec,Ekstraklasa,Profissional
+Europa,Polonia,Widzew Lodz,Ekstraklasa,Profissional
+Europa,Polonia,LKS Lodz,Ekstraklasa,Profissional
+Europa,Polonia,Ruch Chorzow,Ekstraklasa,Profissional
+Europa,Suecia,Malmo FF,Allsvenskan,Profissional
+Europa,Suecia,AIK,Allsvenskan,Profissional
+Europa,Suecia,Djurgardens,Allsvenskan,Profissional
+Europa,Suecia,Hammarby,Allsvenskan,Profissional
+Europa,Suecia,IFK Goteborg,Allsvenskan,Profissional
+Europa,Suecia,Hacken,Allsvenskan,Profissional
+Europa,Suecia,Elfsborg,Allsvenskan,Profissional
+Europa,Suecia,Kalmar FF,Allsvenskan,Profissional
+Europa,Suecia,Norrkoping,Allsvenskan,Profissional
+Europa,Suecia,Sirius,Allsvenskan,Profissional
+Europa,Suecia,Varbergs,Allsvenskan,Profissional
+Europa,Suecia,Degerfors,Allsvenskan,Profissional
+Europa,Suecia,Brommapojkarna,Allsvenskan,Profissional
+Europa,Suecia,Mjallby,Allsvenskan,Profissional
+Europa,Suecia,Varnamo,Allsvenskan,Profissional
+Europa,Suecia,Halmstad,Allsvenskan,Profissional
+Europa,Noruega,Rosenborg,Eliteserien,Profissional
+Europa,Noruega,Molde,Eliteserien,Profissional
+Europa,Noruega,Bodo/Glimt,Eliteserien,Profissional
+Europa,Noruega,Valerenga,Eliteserien,Profissional
+Europa,Noruega,Lillestrom,Eliteserien,Profissional
+Europa,Noruega,Haugesund,Eliteserien,Profissional
+Europa,Noruega,Odd,Eliteserien,Profissional
+Europa,Noruega,Sarpsborg,Eliteserien,Profissional
+Europa,Noruega,Stabaek,Eliteserien,Profissional
+Europa,Noruega,Tromso,Eliteserien,Profissional
+Europa,Noruega,Viking,Eliteserien,Profissional
+Europa,Noruega,Sandefjord,Eliteserien,Profissional
+Europa,Noruega,Kristiansund,Eliteserien,Profissional
+Europa,Noruega,HamKam,Eliteserien,Profissional
+Europa,Noruega,Aalesund,Eliteserien,Profissional
+Europa,Noruega,Brann,Eliteserien,Profissional
+Europa,Dinamarca,FC Copenhagen,Superliga,Profissional
+Europa,Dinamarca,Midtjylland,Superliga,Profissional
+Europa,Dinamarca,Brondby,Superliga,Profissional
+Europa,Dinamarca,Nordsjaelland,Superliga,Profissional
+Europa,Dinamarca,AGF Aarhus,Superliga,Profissional
+Europa,Dinamarca,Odense BK,Superliga,Profissional
+Europa,Dinamarca,Silkeborg,Superliga,Profissional
+Europa,Dinamarca,Viborg,Superliga,Profissional
+Europa,Dinamarca,Randers,Superliga,Profissional
+Europa,Dinamarca,Lyngby,Superliga,Profissional
+Europa,Dinamarca,Hvidovre,Superliga,Profissional
+Europa,Dinamarca,Vejle,Superliga,Profissional
+Europa,Finlandia,HJK,Veikkausliiga,Profissional
+Europa,Finlandia,KuPS,Veikkausliiga,Profissional
+Europa,Finlandia,SJK,Veikkausliiga,Profissional
+Europa,Finlandia,FC Honka,Veikkausliiga,Profissional
+Europa,Finlandia,Ilves,Veikkausliiga,Profissional
+Europa,Finlandia,Inter Turku,Veikkausliiga,Profissional
+Europa,Finlandia,VPS,Veikkausliiga,Profissional
+Europa,Finlandia,Lahti,Veikkausliiga,Profissional
+Europa,Finlandia,Mariehamn,Veikkausliiga,Profissional
+Europa,Finlandia,EIF,Veikkausliiga,Profissional
+Europa,Finlandia,KTP,Veikkausliiga,Profissional
+Europa,Finlandia,AC Oulu,Veikkausliiga,Profissional
+Europa,Estonia,Flora Tallinn,Meistriliiga,Profissional
+Europa,Estonia,Levadia Tallinn,Meistriliiga,Profissional
+Europa,Estonia,Nomme Kalju,Meistriliiga,Profissional
+Europa,Estonia,Paide Linnameeskond,Meistriliiga,Profissional
+Europa,Estonia,Tulevik,Meistriliiga,Profissional
+Europa,Estonia,Kuressaare,Meistriliiga,Profissional
+Europa,Estonia,Trans Narva,Meistriliiga,Profissional
+Europa,Estonia,Tammeka,Meistriliiga,Profissional
+Europa,Estonia,Parnu,Meistriliiga,Profissional
+Europa,Estonia,Harju Jalgpallikool,Meistriliiga,Profissional
+Europa,Russia,Zenit,Russian Premier League,Profissional
+Europa,Russia,CSKA Moscou,Russian Premier League,Profissional
+Europa,Russia,Spartak Moscou,Russian Premier League,Profissional
+Europa,Russia,Lokomotiv Moscou,Russian Premier League,Profissional
+Europa,Russia,Dynamo Moscou,Russian Premier League,Profissional
+Europa,Russia,Krasnodar,Russian Premier League,Profissional
+Europa,Russia,Rostov,Russian Premier League,Profissional
+Europa,Russia,Rubin Kazan,Russian Premier League,Profissional
+Europa,Russia,Akhmat Grozny,Russian Premier League,Profissional
+Europa,Russia,Ural,Russian Premier League,Profissional
+Europa,Russia,Sochi,Russian Premier League,Profissional
+Europa,Russia,Orenburg,Russian Premier League,Profissional
+Europa,Russia,Krylya Sovetov,Russian Premier League,Profissional
+Europa,Russia,Fakel Voronezh,Russian Premier League,Profissional
+Europa,Russia,Baltika,Russian Premier League,Profissional
+Europa,Russia,Nizhny Novgorod,Russian Premier League,Profissional
+Europa,Ucrania,Shakhtar Donetsk,Ukrainian Premier League,Profissional
+Europa,Ucrania,Dynamo Kiev,Ukrainian Premier League,Profissional
+Europa,Ucrania,Dnipro,Ukrainian Premier League,Profissional
+Europa,Ucrania,Zorya,Ukrainian Premier League,Profissional
+Europa,Ucrania,Vorskla,Ukrainian Premier League,Profissional
+Europa,Ucrania,Oleksandriya,Ukrainian Premier League,Profissional
+Europa,Ucrania,Kolos Kovalivka,Ukrainian Premier League,Profissional
+Europa,Ucrania,Chornomorets,Ukrainian Premier League,Profissional
+Europa,Ucrania,LNZ Cherkasy,Ukrainian Premier League,Profissional
+Europa,Ucrania,Polissya Zhytomyr,Ukrainian Premier League,Profissional
+Europa,Ucrania,Rukh Lviv,Ukrainian Premier League,Profissional
+Europa,Ucrania,Minaj,Ukrainian Premier League,Profissional
+Europa,Ucrania,Metalist 1925,Ukrainian Premier League,Profissional
+Europa,Ucrania,Obolon Kyiv,Ukrainian Premier League,Profissional
+Europa,Ucrania,Veres Rivne,Ukrainian Premier League,Profissional
+Europa,Ucrania,Kryvbas Kryvyi Rih,Ukrainian Premier League,Profissional
+Europa,Servia,Crvena Zvezda,SuperLiga,Profissional
+Europa,Servia,Partizan,SuperLiga,Profissional
+Europa,Servia,Vojvodina,SuperLiga,Profissional
+Europa,Servia,Cukaricki,SuperLiga,Profissional
+Europa,Servia,Radnicki Nis,SuperLiga,Profissional
+Europa,Servia,Novi Pazar,SuperLiga,Profissional
+Europa,Servia,TSC Backa Topola,SuperLiga,Profissional
+Europa,Servia,Spartak Subotica,SuperLiga,Profissional
+Europa,Servia,Napredak,SuperLiga,Profissional
+Europa,Servia,Radnik Surdulica,SuperLiga,Profissional
+Europa,Servia,Mladost,SuperLiga,Profissional
+Europa,Servia,Javor Ivanjica,SuperLiga,Profissional
+Europa,Servia,IMT Belgrade,SuperLiga,Profissional
+Europa,Servia,Zeleznicar Pancevo,SuperLiga,Profissional
+Europa,Servia,Zlatibor,SuperLiga,Profissional
+Europa,Servia,Radnicki Kragujevac,SuperLiga,Profissional
+Europa,Croacia,Dinamo Zagreb,HNL,Profissional
+Europa,Croacia,Hajduk Split,HNL,Profissional
+Europa,Croacia,Osijek,HNL,Profissional
+Europa,Croacia,Rijeka,HNL,Profissional
+Europa,Croacia,Lokomotiva,HNL,Profissional
+Europa,Croacia,Slaven Belupo,HNL,Profissional
+Europa,Croacia,Istra 1961,HNL,Profissional
+Europa,Croacia,Varazdin,HNL,Profissional
+Europa,Croacia,Gorica,HNL,Profissional
+Europa,Croacia,Rudes,HNL,Profissional
+Europa,Grecia,Olympiacos,Super League,Profissional
+Europa,Grecia,Panathinaikos,Super League,Profissional
+Europa,Grecia,AEK Athens,Super League,Profissional
+Europa,Grecia,PAOK,Super League,Profissional
+Europa,Grecia,Aris,Super League,Profissional
+Europa,Grecia,Atromitos,Super League,Profissional
+Europa,Grecia,Volos,Super League,Profissional
+Europa,Grecia,OFI Crete,Super League,Profissional
+Europa,Grecia,Asteras Tripolis,Super League,Profissional
+Europa,Grecia,Lamia,Super League,Profissional
+Europa,Grecia,Panetolikos,Super League,Profissional
+Europa,Grecia,Levadiakos,Super League,Profissional
+Europa,Grecia,Ionikos,Super League,Profissional
+Europa,Grecia,PAS Giannina,Super League,Profissional
+Europa,Turquia,Galatasaray,Super Lig,Profissional
+Europa,Turquia,Fenerbahce,Super Lig,Profissional
+Europa,Turquia,Besiktas,Super Lig,Profissional
+Europa,Turquia,Trabzonspor,Super Lig,Profissional
+Europa,Turquia,Istanbul Basaksehir,Super Lig,Profissional
+Europa,Turquia,Konyaspor,Super Lig,Profissional
+Europa,Turquia,Alanyaspor,Super Lig,Profissional
+Europa,Turquia,Sivasspor,Super Lig,Profissional
+Europa,Turquia,Gaziantep,Super Lig,Profissional
+Europa,Turquia,Antalyaspor,Super Lig,Profissional
+Europa,Turquia,Kayserispor,Super Lig,Profissional
+Europa,Turquia,Hatayspor,Super Lig,Profissional
+Europa,Turquia,Giresunspor,Super Lig,Profissional
+Europa,Turquia,Umraniyespor,Super Lig,Profissional
+Europa,Turquia,Ankaragucu,Super Lig,Profissional
+Europa,Turquia,Adana Demirspor,Super Lig,Profissional
+Europa,Turquia,Kasimpasa,Super Lig,Profissional
+Europa,Turquia,Istanbulspor,Super Lig,Profissional
+Europa,Turquia,Karagumruk,Super Lig,Profissional
+Europa,Turquia,Samsunspor,Super Lig,Profissional
+Europa,Chipre,APOEL,1a Divisao,Profissional
+Europa,Chipre,Omonia,1a Divisao,Profissional
+Europa,Chipre,AEL Limassol,1a Divisao,Profissional
+Europa,Chipre,Anorthosis,1a Divisao,Profissional
+Europa,Chipre,AEK Larnaca,1a Divisao,Profissional
+Europa,Chipre,Apollon Limassol,1a Divisao,Profissional
+Europa,Chipre,Pafos,1a Divisao,Profissional
+Europa,Chipre,Doxa Katokopias,1a Divisao,Profissional
+Europa,Chipre,Olympiakos Nicosia,1a Divisao,Profissional
+Europa,Chipre,Nea Salamis,1a Divisao,Profissional
+Europa,Chipre,Ethnikos Achna,1a Divisao,Profissional
+Europa,Chipre,Aris Limassol,1a Divisao,Profissional
+Europa,Chipre,EN Paralimni,1a Divisao,Profissional
+Europa,Chipre,Karmiotissa,1a Divisao,Profissional
+Europa,Israel,Maccabi Tel Aviv,Ligat Ha'Al,Profissional
+Europa,Israel,Hapoel Tel Aviv,Ligat Ha'Al,Profissional
+Europa,Israel,Beitar Jerusalem,Ligat Ha'Al,Profissional
+Europa,Israel,Maccabi Haifa,Ligat Ha'Al,Profissional
+Europa,Israel,Hapoel Haifa,Ligat Ha'Al,Profissional
+Europa,Israel,Hapoel Be'er Sheva,Ligat Ha'Al,Profissional
+Europa,Israel,Maccabi Netanya,Ligat Ha'Al,Profissional
+Europa,Israel,Ashdod,Ligat Ha'Al,Profissional
+Europa,Israel,Hapoel Hadera,Ligat Ha'Al,Profissional
+Europa,Israel,Sektzia Ness Ziona,Ligat Ha'Al,Profissional
+Europa,Israel,Hapoel Jerusalem,Ligat Ha'Al,Profissional
+Europa,Israel,Bnei Sakhnin,Ligat Ha'Al,Profissional
+Europa,Israel,Ironi Kiryat Shmona,Ligat Ha'Al,Profissional
+Europa,Israel,Maccabi Bnei Reineh,Ligat Ha'Al,Profissional
+Europa,Bulgaria,Ludogorets Razgrad,First League,Profissional
+Europa,Bulgaria,CSKA Sofia,First League,Profissional
+Europa,Bulgaria,Levski Sofia,First League,Profissional
+Europa,Bulgaria,Cherno More,First League,Profissional
+Europa,Bulgaria,Lokomotiv Plovdiv,First League,Profissional
+Europa,Bulgaria,Botev Plovdiv,First League,Profissional
+Europa,Bulgaria,Slavia Sofia,First League,Profissional
+Europa,Bulgaria,Beroe,First League,Profissional
+Europa,Bulgaria,Arda Kardzhali,First League,Profissional
+Europa,Bulgaria,Pirin Blagoevgrad,First League,Profissional
+Europa,Bulgaria,Hebar Pazardzhik,First League,Profissional
+Europa,Bulgaria,Etar Veliko Tarnovo,First League,Profissional
+Europa,Bulgaria,Lokomotiv Sofia,First League,Profissional
+Europa,Bulgaria,Spartak Varna,First League,Profissional
+Europa,Eslovaquia,Slovan Bratislava,Fortuna Liga,Profissional
+Europa,Eslovaquia,DAC Dunajska Streda,Fortuna Liga,Profissional
+Europa,Eslovaquia,Spartak Trnava,Fortuna Liga,Profissional
+Europa,Eslovaquia,Zilina,Fortuna Liga,Profissional
+Europa,Eslovaquia,Trencin,Fortuna Liga,Profissional
+Europa,Eslovaquia,Podbrezova,Fortuna Liga,Profissional
+Europa,Eslovaquia,Ruzomberok,Fortuna Liga,Profissional
+Europa,Eslovaquia,Zemplin Michalovce,Fortuna Liga,Profissional
+Europa,Eslovaquia,Skalica,Fortuna Liga,Profissional
+Europa,Eslovaquia,Banska Bystrica,Fortuna Liga,Profissional
+Europa,Eslovaquia,Kosice,Fortuna Liga,Profissional
+Europa,Eslovaquia,Liptovsky Mikulas,Fortuna Liga,Profissional
+Europa,Eslovenia,Olimpija Ljubljana,PrvaLiga,Profissional
+Europa,Eslovenia,Maribor,PrvaLiga,Profissional
+Europa,Eslovenia,Celje,PrvaLiga,Profissional
+Europa,Eslovenia,Domzale,PrvaLiga,Profissional
+Europa,Eslovenia,Bravo,PrvaLiga,Profissional
+Europa,Eslovenia,Koper,PrvaLiga,Profissional
+Europa,Eslovenia,Aluminij,PrvaLiga,Profissional
+Europa,Eslovenia,Radomlje,PrvaLiga,Profissional
+Europa,Eslovenia,Tabor Sezana,PrvaLiga,Profissional
+Europa,Eslovenia,Rudar Velenje,PrvaLiga,Profissional
+Europa,Albania,Partizani,Kategoria Superiore,Profissional
+Europa,Albania,Tirana,Kategoria Superiore,Profissional
+Europa,Albania,Vllaznia,Kategoria Superiore,Profissional
+Europa,Albania,Kukesi,Kategoria Superiore,Profissional
+Europa,Albania,Laci,Kategoria Superiore,Profissional
+Europa,Albania,Teuta,Kategoria Superiore,Profissional
+Europa,Albania,Skenderbeu,Kategoria Superiore,Profissional
+Europa,Albania,Egnatia,Kategoria Superiore,Profissional
+Europa,Albania,Erzeni,Kategoria Superiore,Profissional
+Europa,Albania,Dinamo Tirana,Kategoria Superiore,Profissional
+Europa,Montenegro,Buducnost Podgorica,First League,Profissional
+Europa,Montenegro,Sutjeska,First League,Profissional
+Europa,Montenegro,Decic,First League,Profissional
+Europa,Montenegro,Petrovac,First League,Profissional
+Europa,Montenegro,Jezero,First League,Profissional
+Europa,Montenegro,Mornar,First League,Profissional
+Europa,Montenegro,Arsenal Tivat,First League,Profissional
+Europa,Montenegro,Rudar Pljevlja,First League,Profissional
+Europa,Montenegro,Iskra,First League,Profissional
+Europa,Montenegro,Jedinstvo,First League,Profissional
+Europa,Macedonia,Shkupi,First League,Profissional
+Europa,Macedonia,Shkendija,First League,Profissional
+Europa,Macedonia,Rabotnicki,First League,Profissional
+Europa,Macedonia,Sileks,First League,Profissional
+Europa,Macedonia,Bregalnica,First League,Profissional
+Europa,Macedonia,Struga,First League,Profissional
+Europa,Macedonia,Tikves,First League,Profissional
+Europa,Macedonia,Vardar,First League,Profissional
+Europa,Macedonia,Gostivar,First League,Profissional
+Europa,Macedonia,Voska Sport,First League,Profissional
+Europa,Kosovo,Ballkani,Superliga,Profissional
+Europa,Kosovo,Drita,Superliga,Profissional
+Europa,Kosovo,Gjilani,Superliga,Profissional
+Europa,Kosovo,Prishtina,Superliga,Profissional
+Europa,Kosovo,Llapi,Superliga,Profissional
+Europa,Kosovo,Malisheva,Superliga,Profissional
+Europa,Kosovo,Dukagjini,Superliga,Profissional
+Europa,Kosovo,Feronikeli,Superliga,Profissional
+Europa,Kosovo,Trepca 89,Superliga,Profissional
+Europa,Kosovo,Vushtrria,Superliga,Profissional
+Europa,Moldavia,Sheriff Tiraspol,Super Liga,Profissional
+Europa,Moldavia,Petrocub,Super Liga,Profissional
+Europa,Moldavia,Milsami,Super Liga,Profissional
+Europa,Moldavia,Zimbru,Super Liga,Profissional
+Europa,Moldavia,Dacia Buiucani,Super Liga,Profissional
+Europa,Moldavia,Sfintul Gheorghe,Super Liga,Profissional
+Europa,Moldavia,Floresti,Super Liga,Profissional
+Europa,Moldavia,CSF Balti,Super Liga,Profissional
+Europa,Moldavia,Dinamo-Auto,Super Liga,Profissional
+Europa,Moldavia,Sucleia,Super Liga,Profissional
+Europa,Georgia,Dinamo Tbilisi,Erovnuli Liga,Profissional
+Europa,Georgia,Saburtalo,Erovnuli Liga,Profissional
+Europa,Georgia,Torpedo Kutaisi,Erovnuli Liga,Profissional
+Europa,Georgia,Dila Gori,Erovnuli Liga,Profissional
+Europa,Georgia,Locomotive Tbilisi,Erovnuli Liga,Profissional
+Europa,Georgia,Samgurali,Erovnuli Liga,Profissional
+Europa,Georgia,Samtredia,Erovnuli Liga,Profissional
+Europa,Georgia,Shukura,Erovnuli Liga,Profissional
+Europa,Georgia,Gagra,Erovnuli Liga,Profissional
+Europa,Georgia,Telavi,Erovnuli Liga,Profissional
+Europa,Armenia,Pyunik,Premier League,Profissional
+Europa,Armenia,Ararat-Armenia,Premier League,Profissional
+Europa,Armenia,Urartu,Premier League,Profissional
+Europa,Armenia,Alashkert,Premier League,Profissional
+Europa,Armenia,Noah,Premier League,Profissional
+Europa,Armenia,Van,Premier League,Profissional
+Europa,Armenia,Shirak,Premier League,Profissional
+Europa,Armenia,BKMA Yerevan,Premier League,Profissional
+Europa,Armenia,West Armenia,Premier League,Profissional
+Europa,Armenia,Ararat,Premier League,Profissional
+Europa,Letonia,Riga FC,Virsliga,Profissional
+Europa,Letonia,RFS,Virsliga,Profissional
+Europa,Letonia,Liepaja,Virsliga,Profissional
+Europa,Letonia,Valmiera,Virsliga,Profissional
+Europa,Letonia,Auda,Virsliga,Profissional
+Europa,Letonia,Metta,Virsliga,Profissional
+Europa,Letonia,Daugavpils,Virsliga,Profissional
+Europa,Letonia,Tukums 2000,Virsliga,Profissional
+Europa,Letonia,Jelgava,Virsliga,Profissional
+Europa,Letonia,Grobina,Virsliga,Profissional
+Europa,Lituania,Zalgiris Vilnius,A Lyga,Profissional
+Europa,Lituania,Panevezys,A Lyga,Profissional
+Europa,Lituania,Suduva,A Lyga,Profissional
+Europa,Lituania,Banga Gargzdai,A Lyga,Profissional
+Europa,Lituania,Hegelmann,A Lyga,Profissional
+Europa,Lituania,Dziugas,A Lyga,Profissional
+Europa,Lituania,Kauno Zalgiris,A Lyga,Profissional
+Europa,Lituania,Transinvest,A Lyga,Profissional
+Europa,Lituania,FA Siauliai,A Lyga,Profissional
+Europa,Lituania,Jonava,A Lyga,Profissional
+Europa,Azerbaijao,Qarabag,Premier League,Profissional
+Europa,Azerbaijao,Sabah,Premier League,Profissional
+Europa,Azerbaijao,Zira,Premier League,Profissional
+Europa,Azerbaijao,Neftci,Premier League,Profissional
+Europa,Azerbaijao,Sabail,Premier League,Profissional
+Europa,Azerbaijao,Kapaz,Premier League,Profissional
+Europa,Azerbaijao,Turan Tovuz,Premier League,Profissional
+Europa,Azerbaijao,Sumgayit,Premier League,Profissional
+Europa,Azerbaijao,Araz-Naxcvan,Premier League,Profissional
+Europa,Azerbaijao,MOIK Baku,Premier League,Profissional
+Europa,Bosnia,Zrinjski Mostar,Premier League,Profissional
+Europa,Bosnia,Borac Banja Luka,Premier League,Profissional
+Europa,Bosnia,Sarajevo,Premier League,Profissional
+Europa,Bosnia,Zeljeznicar,Premier League,Profissional
+Europa,Bosnia,Tuzla City,Premier League,Profissional
+Europa,Bosnia,Siroki Brijeg,Premier League,Profissional
+Europa,Bosnia,Posusje,Premier League,Profissional
+Europa,Bosnia,Igman Konjic,Premier League,Profissional
+Europa,Bosnia,Gabela,Premier League,Profissional
+Europa,Bosnia,Sloga Doboj,Premier League,Profissional
+Europa,Luxemburgo,F91 Dudelange,National Division,Profissional
+Europa,Luxemburgo,Swift Hesperange,National Division,Profissional
+Europa,Luxemburgo,Progres Niederkorn,National Division,Profissional
+Europa,Luxemburgo,Differdange 03,National Division,Profissional
+Europa,Luxemburgo,Jeunesse Esch,National Division,Profissional
+Europa,Luxemburgo,RM Hamm Benfica,National Division,Profissional
+Europa,Luxemburgo,Mondorf-les-Bains,National Division,Profissional
+Europa,Luxemburgo,Wiltz,National Division,Profissional
+Europa,Luxemburgo,Rosport,National Division,Profissional
+Europa,Luxemburgo,Petange,National Division,Profissional
+Europa,Malta,Hibernians,Premier League,Profissional
+Europa,Malta,Valletta,Premier League,Profissional
+Europa,Malta,Floriana,Premier League,Profissional
+Europa,Malta,Birkirkara,Premier League,Profissional
+Europa,Malta,Sliema Wanderers,Premier League,Profissional
+Europa,Malta,Balzan,Premier League,Profissional
+Europa,Malta,Mosta,Premier League,Profissional
+Europa,Malta,Gudja United,Premier League,Profissional
+Europa,Malta,Gzira United,Premier League,Profissional
+Europa,Malta,Sirens,Premier League,Profissional
+Europa,Ilhas Faroe,Klaksvik,Premier League,Profissional
+Europa,Ilhas Faroe,HB Torshavn,Premier League,Profissional
+Europa,Ilhas Faroe,NSI Runavik,Premier League,Profissional
+Europa,Ilhas Faroe,Vikingur Gota,Premier League,Profissional
+Europa,Ilhas Faroe,B36 Torshavn,Premier League,Profissional
+Europa,Ilhas Faroe,EB/Streymur,Premier League,Profissional
+Europa,Ilhas Faroe,IF Fuglafjordur,Premier League,Profissional
+Europa,Ilhas Faroe,Skala,Premier League,Profissional
+Europa,Ilhas Faroe,AB Argir,Premier League,Profissional
+Europa,Ilhas Faroe,TB Tvoroyri,Premier League,Profissional
+Europa,Gibraltar,Lincoln Red Imps,Premier Division,Profissional
+Europa,Gibraltar,Europa FC,Premier Division,Profissional
+Europa,Gibraltar,St Joseph's,Premier Division,Profissional
+Europa,Gibraltar,Mons Calpe,Premier Division,Profissional
+Europa,Gibraltar,Lions Gibraltar,Premier Division,Profissional
+Europa,Gibraltar,Manchester 62,Premier Division,Profissional
+Europa,Gibraltar,Glacis United,Premier Division,Profissional
+Europa,Gibraltar,College 1975,Premier Division,Profissional
+Europa,Gibraltar,Bruno's Magpies,Premier Division,Profissional
+Europa,Gibraltar,Europa Point,Premier Division,Profissional
+Europa,San Marino,La Fiorita,Campionato Sammarinese,Profissional
+Europa,San Marino,Tre Penne,Campionato Sammarinese,Profissional
+Europa,San Marino,Folgore,Campionato Sammarinese,Profissional
+Europa,San Marino,Tre Fiori,Campionato Sammarinese,Profissional
+Europa,San Marino,Cosmos,Campionato Sammarinese,Profissional
+Europa,San Marino,Murata,Campionato Sammarinese,Profissional
+Europa,San Marino,Domagnano,Campionato Sammarinese,Profissional
+Europa,San Marino,Virtus,Campionato Sammarinese,Profissional
+Europa,San Marino,Cailungo,Campionato Sammarinese,Profissional
+Europa,San Marino,Faetano,Campionato Sammarinese,Profissional
+Europa,Andorra,FC Santa Coloma,Primera Divisio,Profissional
+Europa,Andorra,Inter Escaldes,Primera Divisio,Profissional
+Europa,Andorra,UE Santa Coloma,Primera Divisio,Profissional
+Europa,Andorra,FC Ordino,Primera Divisio,Profissional
+Europa,Andorra,Penya Encarnada,Primera Divisio,Profissional
+Europa,Andorra,Atletic Escaldes,Primera Divisio,Profissional
+Europa,Andorra,Encamp,Primera Divisio,Profissional
+Europa,Andorra,Carroi,Primera Divisio,Profissional
+Europa,Andorra,Jenlai,Primera Divisio,Profissional
+Europa,Andorra,La Massana,Primera Divisio,Profissional
+Europa,Inglaterra,Birmingham City,Championship,Segunda Divisao
+Europa,Inglaterra,Blackburn Rovers,Championship,Segunda Divisao
+Europa,Inglaterra,Bristol City,Championship,Segunda Divisao
+Europa,Inglaterra,Cardiff City,Championship,Segunda Divisao
+Europa,Inglaterra,Coventry City,Championship,Segunda Divisao
+Europa,Inglaterra,Huddersfield Town,Championship,Segunda Divisao
+Europa,Inglaterra,Hull City,Championship,Segunda Divisao
+Europa,Inglaterra,Ipswich Town,Championship,Segunda Divisao
+Europa,Inglaterra,Leeds United,Championship,Segunda Divisao
+Europa,Inglaterra,Leicester City,Championship,Segunda Divisao
+Europa,Inglaterra,Middlesbrough,Championship,Segunda Divisao
+Europa,Inglaterra,Millwall,Championship,Segunda Divisao
+Europa,Inglaterra,Norwich City,Championship,Segunda Divisao
+Europa,Inglaterra,Plymouth Argyle,Championship,Segunda Divisao
+Europa,Inglaterra,Preston North End,Championship,Segunda Divisao
+Europa,Inglaterra,Queens Park Rangers,Championship,Segunda Divisao
+Europa,Inglaterra,Rotherham United,Championship,Segunda Divisao
+Europa,Inglaterra,Sheffield Wednesday,Championship,Segunda Divisao
+Europa,Inglaterra,Southampton,Championship,Segunda Divisao
+Europa,Inglaterra,Stoke City,Championship,Segunda Divisao
+Europa,Inglaterra,Sunderland,Championship,Segunda Divisao
+Europa,Inglaterra,Swansea City,Championship,Segunda Divisao
+Europa,Inglaterra,Watford,Championship,Segunda Divisao
+Europa,Inglaterra,West Bromwich Albion,Championship,Segunda Divisao
+Europa,Espanha,Albacete,Segunda Division,Segunda Divisao
+Europa,Espanha,Alcorcon,Segunda Division,Segunda Divisao
+Europa,Espanha,Andorra,Segunda Division,Segunda Divisao
+Europa,Espanha,Burgos,Segunda Division,Segunda Divisao
+Europa,Espanha,Cartagena,Segunda Division,Segunda Divisao
+Europa,Espanha,Eibar,Segunda Division,Segunda Divisao
+Europa,Espanha,Eldense,Segunda Division,Segunda Divisao
+Europa,Espanha,Elche,Segunda Division,Segunda Divisao
+Europa,Espanha,Espanyol,Segunda Division,Segunda Divisao
+Europa,Espanha,Ferrol,Segunda Division,Segunda Divisao
+Europa,Espanha,Huesca,Segunda Division,Segunda Divisao
+Europa,Espanha,Leganes,Segunda Division,Segunda Divisao
+Europa,Espanha,Levante,Segunda Division,Segunda Divisao
+Europa,Espanha,Mirandes,Segunda Division,Segunda Divisao
+Europa,Espanha,Oviedo,Segunda Division,Segunda Divisao
+Europa,Espanha,Racing Santander,Segunda Division,Segunda Divisao
+Europa,Espanha,Racing Ferrol,Segunda Division,Segunda Divisao
+Europa,Espanha,Real Valladolid,Segunda Division,Segunda Divisao
+Europa,Espanha,Sporting Gijon,Segunda Division,Segunda Divisao
+Europa,Espanha,Tenerife,Segunda Division,Segunda Divisao
+Europa,Espanha,Villarreal B,Segunda Division,Segunda Divisao
+Europa,Espanha,Zaragoza,Segunda Division,Segunda Divisao
+Europa,Italia,Palermo,Serie B,Segunda Divisao
+Europa,Italia,Parma,Serie B,Segunda Divisao
+Europa,Italia,Venezia,Serie B,Segunda Divisao
+Europa,Italia,Cremonese,Serie B,Segunda Divisao
+Europa,Italia,Modena,Serie B,Segunda Divisao
+Europa,Italia,Brescia,Serie B,Segunda Divisao
+Europa,Italia,Cosenza,Serie B,Segunda Divisao
+Europa,Italia,Catanzaro,Serie B,Segunda Divisao
+Europa,Italia,Sampdoria,Serie B,Segunda Divisao
+Europa,Italia,Spezia,Serie B,Segunda Divisao
+Europa,Italia,Sudtirol,Serie B,Segunda Divisao
+Europa,Italia,Pisa,Serie B,Segunda Divisao
+Europa,Italia,Como,Serie B,Segunda Divisao
+Europa,Italia,Ascoli,Serie B,Segunda Divisao
+Europa,Italia,Feralpisalo,Serie B,Segunda Divisao
+Europa,Italia,Reggiana,Serie B,Segunda Divisao
+Europa,Italia,Lecco,Serie B,Segunda Divisao
+Europa,Italia,Ternana,Serie B,Segunda Divisao
+Europa,Italia,Cittadella,Serie B,Segunda Divisao
+Europa,Franca,Auxerre,Ligue 2,Segunda Divisao
+Europa,Franca,Saint-Étienne,Ligue 2,Segunda Divisao
+Europa,Franca,Bordeaux,Ligue 2,Segunda Divisao
+Europa,Franca,Angers,Ligue 2,Segunda Divisao
+Europa,Franca,Amiens,Ligue 2,Segunda Divisao
+Europa,Franca,Caen,Ligue 2,Segunda Divisao
+Europa,Franca,Paris FC,Ligue 2,Segunda Divisao
+Europa,Franca,Rodez,Ligue 2,Segunda Divisao
+Europa,Franca,Pau,Ligue 2,Segunda Divisao
+Europa,Franca,Valenciennes,Ligue 2,Segunda Divisao
+Europa,Franca,Bastia,Ligue 2,Segunda Divisao
+Europa,Franca,Annecy,Ligue 2,Segunda Divisao
+Europa,Franca,Laval,Ligue 2,Segunda Divisao
+Europa,Franca,Guingamp,Ligue 2,Segunda Divisao
+Europa,Franca,Grenoble,Ligue 2,Segunda Divisao
+Europa,Franca,Dunkerque,Ligue 2,Segunda Divisao
+Europa,Franca,Concarneau,Ligue 2,Segunda Divisao
+Europa,Franca,Quevilly-Rouen,Ligue 2,Segunda Divisao
+Europa,Franca,Ajaccio,Ligue 2,Segunda Divisao
+Europa,Franca,Troyes,Ligue 2,Segunda Divisao
+Europa,Alemanha,Hamburg,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Hertha Berlin,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,St Pauli,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Hannover 96,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Fortuna Dusseldorf,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Schalke 04,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Paderborn,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Kaiserslautern,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Nurnberg,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Karlsruher,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Magdeburg,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Greuther Furth,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Holstein Kiel,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Wehen Wiesbaden,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Osnabruck,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Eintracht Braunschweig,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Hansa Rostock,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Elversberg,2. Bundesliga,Segunda Divisao
+Europa,Portugal,Academico Viseu,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,AVS,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Belenenses,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,CD Feirense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,CD Mafra,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,FC Penafiel,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Leixoes SC,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Lank Vilaverdense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Nacional,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Oliveirense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Pacos de Ferreira,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,SC Covilha,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Tondela,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,UD Leiria,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Torreense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Portimonense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Vitoria B,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Academica,Liga Portugal 2,Segunda Divisao
+Europa,Holanda,ADO Den Haag,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Ajax II,Eerste Divisie,Segunda Divisao
+Europa,Holanda,AZ II,Eerste Divisie,Segunda Divisao
+Europa,Holanda,De Graafschap,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Den Bosch,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Dordrecht,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Eindhoven FC,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Emmen,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Helmond Sport,Eerste Divisie,Segunda Divisao
+Europa,Holanda,MVV Maastricht,Eerste Divisie,Segunda Divisao
+Europa,Holanda,NAC Breda,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Roda JC,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Telstar,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Top Oss,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Utrecht II,Eerste Divisie,Segunda Divisao
+Europa,Holanda,VVV Venlo,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Willem II,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Cambuur,Eerste Divisie,Segunda Divisao
+Europa,Holanda,Groningen,Eerste Divisie,Segunda Divisao
+Europa,Belgica,Zulte Waregem,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Lommel,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Deinze,Challenger Pro League,Segunda Divisao
+Europa,Belgica,RFC Liege,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Patro Eisden,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Club NXT,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Beerschot,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Dender,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Francs Borains,Challenger Pro League,Segunda Divisao
+Europa,Belgica,SL16 FC,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Oostende,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Seraing,Challenger Pro League,Segunda Divisao
+Europa,Turquia,Altay,TFF First League,Segunda Divisao
+Europa,Turquia,Bandirmaspor,TFF First League,Segunda Divisao
+Europa,Turquia,Boluspor,TFF First League,Segunda Divisao
+Europa,Turquia,Erzurumspor,TFF First League,Segunda Divisao
+Europa,Turquia,Genclerbirligi,TFF First League,Segunda Divisao
+Europa,Turquia,Giresunspor,TFF First League,Segunda Divisao
+Europa,Turquia,Goztepe,TFF First League,Segunda Divisao
+Europa,Turquia,Keciorengucu,TFF First League,Segunda Divisao
+Europa,Turquia,Kocaelispor,TFF First League,Segunda Divisao
+Europa,Turquia,Manisa FK,TFF First League,Segunda Divisao
+Europa,Turquia,Sakaryaspor,TFF First League,Segunda Divisao
+Europa,Turquia,Sanliurfaspor,TFF First League,Segunda Divisao
+Europa,Turquia,Tuzlaspor,TFF First League,Segunda Divisao
+Europa,Turquia,Umraniyespor,TFF First League,Segunda Divisao
+Europa,Turquia,Adanaspor,TFF First League,Segunda Divisao
+Europa,Turquia,Bodrum FK,TFF First League,Segunda Divisao
+Europa,Turquia,Corum FK,TFF First League,Segunda Divisao
+Europa,Turquia,Eyupspor,TFF First League,Segunda Divisao
+Europa,Grecia,AEK B,Super League 2,Segunda Divisao  
+Europa,Grecia,AEL Larissa,Super League 2,Segunda Divisao  
+Europa,Grecia,Anagennisi Karditsas,Super League 2,Segunda Divisao  
+Europa,Grecia,Athens Kallithea,Super League 2,Segunda Divisao  
+Europa,Grecia,Diagoras,Super League 2,Segunda Divisao  
+Europa,Grecia,Egaleo,Super League 2,Segunda Divisao  
+Europa,Grecia,Episkopi,Super League 2,Segunda Divisao  
+Europa,Grecia,Iraklis,Super League 2,Segunda Divisao  
+Europa,Grecia,Levadiakos,Super League 2,Segunda Divisao  
+Europa,Grecia,Makedonikos,Super League 2,Segunda Divisao  
+Europa,Grecia,PAOK B,Super League 2,Segunda Divisao  
+Europa,Grecia,Panathinaikos B,Super League 2,Segunda Divisao  
+Europa,Grecia,Panserraikos,Super League 2,Segunda Divisao  
+Europa,Grecia,Panachaiki,Super League 2,Segunda Divisao  
+Europa,Grecia,Chania,Super League 2,Segunda Divisao  
+Europa,Grecia,Kampaniakos,Super League 2,Segunda Divisao  
+Europa,Grecia,Trikala,Super League 2,Segunda Divisao  
+Europa,Grecia,Thesprotos,Super League 2,Segunda Divisao  
+Europa,Grecia,Apollon Larissa,Super League 2,Segunda Divisao  
+Europa,Inglaterra,Norwich City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Hull City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Coventry City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Middlesbrough,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Preston North End,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Bristol City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Cardiff City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Millwall,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Swansea City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Watford,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Stoke City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Plymouth Argyle,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Birmingham City,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Blackburn Rovers,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Queens Park Rangers,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Huddersfield Town,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Sheffield Wednesday,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Rotherham United,EFL Championship,Segunda Divisao
+Europa,Inglaterra,Reading,EFL Championship,Segunda Divisao
+Europa,Espanha,Espanyol,Segunda Division,Segunda Divisao
+Europa,Espanha,Real Valladolid,Segunda Division,Segunda Divisao
+Europa,Espanha,Eibar,Segunda Division,Segunda Divisao
+Europa,Espanha,Levante,Segunda Division,Segunda Divisao
+Europa,Espanha,Elche,Segunda Division,Segunda Divisao
+Europa,Espanha,Racing Santander,Segunda Division,Segunda Divisao
+Europa,Espanha,Real Oviedo,Segunda Division,Segunda Divisao
+Europa,Espanha,Burgos,Segunda Division,Segunda Divisao
+Europa,Espanha,Zaragoza,Segunda Division,Segunda Divisao
+Europa,Espanha,Tenerife,Segunda Division,Segunda Divisao
+Europa,Espanha,Albacete,Segunda Division,Segunda Divisao
+Europa,Espanha,Mirandes,Segunda Division,Segunda Divisao
+Europa,Espanha,Huesca,Segunda Division,Segunda Divisao
+Europa,Espanha,Andorra,Segunda Division,Segunda Divisao
+Europa,Espanha,Villarreal B,Segunda Division,Segunda Divisao
+Europa,Espanha,Amorebieta,Segunda Division,Segunda Divisao
+Europa,Espanha,Ferrol,Segunda Division,Segunda Divisao
+Europa,Espanha,Eldense,Segunda Division,Segunda Divisao
+Europa,Espanha,Alcorcon,Segunda Division,Segunda Divisao
+Europa,Espanha,Cartagena,Segunda Division,Segunda Divisao
+Europa,Espanha,Leganes,Segunda Division,Segunda Divisao
+Europa,Espanha,Sporting Gijon,Segunda Division,Segunda Divisao
+Europa,Italia,Palermo,Serie B,Segunda Divisao
+Europa,Italia,Parma,Serie B,Segunda Divisao
+Europa,Italia,Venezia,Serie B,Segunda Divisao
+Europa,Italia,Cremonese,Serie B,Segunda Divisao
+Europa,Italia,Modena,Serie B,Segunda Divisao
+Europa,Italia,Brescia,Serie B,Segunda Divisao
+Europa,Italia,Cosenza,Serie B,Segunda Divisao
+Europa,Italia,Catanzaro,Serie B,Segunda Divisao
+Europa,Italia,Sampdoria,Serie B,Segunda Divisao
+Europa,Italia,Spezia,Serie B,Segunda Divisao
+Europa,Italia,Sudtirol,Serie B,Segunda Divisao
+Europa,Italia,Pisa,Serie B,Segunda Divisao
+Europa,Italia,Como,Serie B,Segunda Divisao
+Europa,Italia,Ascoli,Serie B,Segunda Divisao
+Europa,Italia,Feralpisalo,Serie B,Segunda Divisao
+Europa,Italia,Reggiana,Serie B,Segunda Divisao
+Europa,Italia,Lecco,Serie B,Segunda Divisao
+Europa,Italia,Ternana,Serie B,Segunda Divisao
+Europa,Italia,Cittadella,Serie B,Segunda Divisao
+Europa,Italia,Bari,Serie B,Segunda Divisao
+Europa,Alemanha,Hamburg,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Hertha Berlin,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,St Pauli,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Hannover 96,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Fortuna Dusseldorf,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Schalke 04,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Paderborn,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Kaiserslautern,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Nurnberg,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Karlsruher,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Magdeburg,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Greuther Furth,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Holstein Kiel,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Wehen Wiesbaden,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Osnabruck,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Eintracht Braunschweig,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Hansa Rostock,2. Bundesliga,Segunda Divisao
+Europa,Alemanha,Elversberg,2. Bundesliga,Segunda Divisao
+Europa,Franca,Auxerre,Ligue 2,Segunda Divisao
+Europa,Franca,Saint-Etienne,Ligue 2,Segunda Divisao
+Europa,Franca,Bordeaux,Ligue 2,Segunda Divisao
+Europa,Franca,Angers,Ligue 2,Segunda Divisao
+Europa,Franca,Amiens,Ligue 2,Segunda Divisao
+Europa,Franca,Caen,Ligue 2,Segunda Divisao
+Europa,Franca,Paris FC,Ligue 2,Segunda Divisao
+Europa,Franca,Rodez,Ligue 2,Segunda Divisao
+Europa,Franca,Pau FC,Ligue 2,Segunda Divisao
+Europa,Franca,Valenciennes,Ligue 2,Segunda Divisao
+Europa,Franca,Bastia,Ligue 2,Segunda Divisao
+Europa,Franca,Annecy,Ligue 2,Segunda Divisao
+Europa,Franca,Laval,Ligue 2,Segunda Divisao
+Europa,Franca,Guingamp,Ligue 2,Segunda Divisao
+Europa,Franca,Grenoble,Ligue 2,Segunda Divisao
+Europa,Franca,Dunkerque,Ligue 2,Segunda Divisao
+Europa,Franca,Concarneau,Ligue 2,Segunda Divisao
+Europa,Franca,Quevilly Rouen,Ligue 2,Segunda Divisao
+Europa,Franca,Ajaccio,Ligue 2,Segunda Divisao
+Europa,Franca,Troyes,Ligue 2,Segunda Divisao
+Europa,Portugal,Santa Clara,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Maritimo,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Academico Viseu,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,AVS,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Nacional,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Leixoes,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Torreense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Oliveirense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Penafiel,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,FC Porto B,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Benfica B,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Feirense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Tondela,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Pacos Ferreira,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Vilaverdense,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Academica,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Uniao de Leiria,Liga Portugal 2,Segunda Divisao
+Europa,Portugal,Lank Vilaverdense,Liga Portugal 2,Segunda Divisao
+Europa,Paises Baixos,ADO Den Haag,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Ajax II,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,AZ II,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Cambuur,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,De Graafschap,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Den Bosch,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Dordrecht,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Eindhoven FC,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Emmen,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Excelsior,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Helmond Sport,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,MVV Maastricht,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,NAC Breda,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Roda JC,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Telstar,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,TOP Oss,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Utrecht II,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Vitesse,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,VVV Venlo,Eerste Divisie,Segunda Divisao
+Europa,Paises Baixos,Willem II,Eerste Divisie,Segunda Divisao
+Europa,Belgica,Zulte Waregem,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Lommel,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Seraing,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Club NXT,Challenger Pro League,Segunda Divisao
+Europa,Belgica,SL16 FC,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Deinze,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Beerschot,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Dender,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Francs Borains,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Jong Genk,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Jong Anderlecht,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Patro Eisden,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Lierse Kempenzonen,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Virton,Challenger Pro League,Segunda Divisao
+Europa,Belgica,RFC Liege,Challenger Pro League,Segunda Divisao
+Europa,Belgica,Oostende,Challenger Pro League,Segunda Divisao
+Europa,Turquia,Sakaryaspor,1. Lig,Segunda Divisao
+Europa,Turquia,Eyupspor,1. Lig,Segunda Divisao
+Europa,Turquia,Kocaelispor,1. Lig,Segunda Divisao
+Europa,Turquia,Genclerbirligi,1. Lig,Segunda Divisao
+Europa,Turquia,Boluspor,1. Lig,Segunda Divisao
+Europa,Turquia,Bandirmaspor,1. Lig,Segunda Divisao
+Europa,Turquia,Manisa FK,1. Lig,Segunda Divisao
+Europa,Turquia,Tuzlaspor,1. Lig,Segunda Divisao
+Europa,Turquia,Giresunspor,1. Lig,Segunda Divisao
+Europa,Turquia,Adanaspor,1. Lig,Segunda Divisao
+Europa,Turquia,Altay,1. Lig,Segunda Divisao
+Europa,Turquia,Erzurumspor,1. Lig,Segunda Divisao
+Europa,Turquia,Sanliurfaspor,1. Lig,Segunda Divisao
+Europa,Turquia,Umraniyespor,1. Lig,Segunda Divisao
+Europa,Turquia,Keciorengucu,1. Lig,Segunda Divisao
+Europa,Turquia,Altinordu,1. Lig,Segunda Divisao
+Europa,Turquia,Pendikspor,1. Lig,Segunda Divisao
+Europa,Turquia,Bucaspor,1. Lig,Segunda Divisao
+Europa,Grecia,AEK B,Super League 2,Segunda Divisao
+Europa,Grecia,PAOK B,Super League 2,Segunda Divisao
+Europa,Grecia,Olympiacos B,Super League 2,Segunda Divisao
+Europa,Grecia,Apollon Larissa,Super League 2,Segunda Divisao
+Europa,Grecia,Diagoras,Super League 2,Segunda Divisao
+Europa,Grecia,Panserraikos,Super League 2,Segunda Divisao
+Europa,Grecia,Kallithea,Super League 2,Segunda Divisao
+Europa,Grecia,Ionikos,Super League 2,Segunda Divisao
+Europa,Grecia,Chania,Super League 2,Segunda Divisao
+Europa,Grecia,Niki Volos,Super League 2,Segunda Divisao
+Europa,Romenia,CSA Steaua Bucuresti,Liga II,Segunda Divisao
+Europa,Romenia,CSM Slatina,Liga II,Segunda Divisao
+Europa,Romenia,Concordia Chiajna,Liga II,Segunda Divisao
+Europa,Romenia,CSC Dumbravita,Liga II,Segunda Divisao
+Europa,Romenia,Metaloglobus,Liga II,Segunda Divisao
+Europa,Romenia,Gloria Buzau,Liga II,Segunda Divisao
+Europa,Romenia,Unirea Slobozia,Liga II,Segunda Divisao
+Europa,Romenia,Viitorul Pandurii,Liga II,Segunda Divisao
+Europa,Romenia,Campionii FC Arges,Liga II,Segunda Divisao
+Europa,Romenia,Corvinul Hunedoara,Liga II,Segunda Divisao
+Europa,Polonia,Wisla Krakow,I Liga,Segunda Divisao
+Europa,Polonia,Arka Gdynia,I Liga,Segunda Divisao
+Europa,Polonia,Miedz Legnica,I Liga,Segunda Divisao
+Europa,Polonia,Zaglebie Sosnowiec,I Liga,Segunda Divisao
+Europa,Polonia,GKS Katowice,I Liga,Segunda Divisao
+Europa,Polonia,Odra Opole,I Liga,Segunda Divisao
+Europa,Polonia,Gornik Leczna,I Liga,Segunda Divisao
+Europa,Polonia,Stal Rzeszow,I Liga,Segunda Divisao
+Europa,Polonia,Znicz Pruszkow,I Liga,Segunda Divisao
+Europa,Polonia,Podbeskidzie,I Liga,Segunda Divisao
+America do Sul,Brasil,Atletico Mineiro,Serie A,Profissional
+America do Sul,Brasil,Bahia,Serie A,Profissional
+America do Sul,Brasil,Botafogo,Serie A,Profissional
+America do Sul,Brasil,Bragantino,Serie A,Profissional
+America do Sul,Brasil,Corinthians,Serie A,Profissional
+America do Sul,Brasil,Coritiba,Serie A,Profissional
+America do Sul,Brasil,Cruzeiro,Serie A,Profissional
+America do Sul,Brasil,Cuiaba,Serie A,Profissional
+America do Sul,Brasil,Flamengo,Serie A,Profissional
+America do Sul,Brasil,Fluminense,Serie A,Profissional
+America do Sul,Brasil,Fortaleza,Serie A,Profissional
+America do Sul,Brasil,Goias,Serie A,Profissional
+America do Sul,Brasil,Gremio,Serie A,Profissional
+America do Sul,Brasil,Internacional,Serie A,Profissional
+America do Sul,Brasil,Palmeiras,Serie A,Profissional
+America do Sul,Brasil,Santos,Serie A,Profissional
+America do Sul,Brasil,Sao Paulo,Serie A,Profissional
+America do Sul,Brasil,Vasco,Serie A,Profissional
+America do Sul,Brasil,Atletico Paranaense,Serie A,Profissional
+America do Sul,Brasil,America Mineiro,Serie A,Profissional
+America do Sul,Argentina,River Plate,Liga Profesional,Profissional
+America do Sul,Argentina,Boca Juniors,Liga Profesional,Profissional
+America do Sul,Argentina,Racing Club,Liga Profesional,Profissional
+America do Sul,Argentina,Independiente,Liga Profesional,Profissional
+America do Sul,Argentina,San Lorenzo,Liga Profesional,Profissional
+America do Sul,Argentina,Huracan,Liga Profesional,Profissional
+America do Sul,Argentina,Estudiantes,Liga Profesional,Profissional
+America do Sul,Argentina,Gimnasia,Liga Profesional,Profissional
+America do Sul,Argentina,Lanus,Liga Profesional,Profissional
+America do Sul,Argentina,Velez Sarsfield,Liga Profesional,Profissional
+America do Sul,Argentina,Newells Old Boys,Liga Profesional,Profissional
+America do Sul,Argentina,Rosario Central,Liga Profesional,Profissional
+America do Sul,Argentina,Argentinos Juniors,Liga Profesional,Profissional
+America do Sul,Argentina,Banfield,Liga Profesional,Profissional
+America do Sul,Argentina,Tigre,Liga Profesional,Profissional
+America do Sul,Argentina,Defensa y Justicia,Liga Profesional,Profissional
+America do Sul,Argentina,Arsenal,Liga Profesional,Profissional
+America do Sul,Argentina,Platense,Liga Profesional,Profissional
+America do Sul,Argentina,Sarmiento,Liga Profesional,Profissional
+America do Sul,Argentina,Barracas Central,Liga Profesional,Profissional
+America do Sul,Argentina,Central Cordoba,Liga Profesional,Profissional
+America do Sul,Argentina,Union,Liga Profesional,Profissional
+America do Sul,Argentina,Colon,Liga Profesional,Profissional
+America do Sul,Argentina,Godoy Cruz,Liga Profesional,Profissional
+America do Sul,Argentina,Instituto,Liga Profesional,Profissional
+America do Sul,Argentina,Talleres,Liga Profesional,Profissional
+America do Sul,Argentina,Belgrano,Liga Profesional,Profissional
+America do Sul,Argentina,Atletico Tucuman,Liga Profesional,Profissional
+America do Sul,Colombia,Atletico Nacional,Primera A,Profissional
+America do Sul,Colombia,Millonarios,Primera A,Profissional
+America do Sul,Colombia,Independiente Santa Fe,Primera A,Profissional
+America do Sul,Colombia,America de Cali,Primera A,Profissional
+America do Sul,Colombia,Junior,Primera A,Profissional
+America do Sul,Colombia,Deportivo Cali,Primera A,Profissional
+America do Sul,Colombia,Once Caldas,Primera A,Profissional
+America do Sul,Colombia,Deportes Tolima,Primera A,Profissional
+America do Sul,Colombia,Atletico Bucaramanga,Primera A,Profissional
+America do Sul,Colombia,Rionegro Aguilas,Primera A,Profissional
+America do Sul,Colombia,La Equidad,Primera A,Profissional
+America do Sul,Colombia,Envigado,Primera A,Profissional
+America do Sul,Colombia,Alianza Petrolera,Primera A,Profissional
+America do Sul,Colombia,Deportivo Pasto,Primera A,Profissional
+America do Sul,Colombia,Jaguares de Cordoba,Primera A,Profissional
+America do Sul,Colombia,Union Magdalena,Primera A,Profissional
+America do Sul,Colombia,Boyaca Chico,Primera A,Profissional
+America do Sul,Colombia,Deportivo Pereira,Primera A,Profissional
+America do Sul,Colombia,Fortaleza CEIF,Primera A,Profissional
+America do Sul,Colombia,Atletico Huila,Primera A,Profissional
+America do Sul,Venezuela,Caracas FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Deportivo Tachira,Liga FUTVE,Profissional
+America do Sul,Venezuela,Monagas SC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Zamora FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Estudiantes de Merida,Liga FUTVE,Profissional
+America do Sul,Venezuela,Metropolitanos,Liga FUTVE,Profissional
+America do Sul,Venezuela,Mineros de Guayana,Liga FUTVE,Profissional
+America do Sul,Venezuela,Academia Puerto Cabello,Liga FUTVE,Profissional
+America do Sul,Venezuela,Aragua FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Deportivo La Guaira,Liga FUTVE,Profissional
+America do Sul,Venezuela,Portuguesa FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Llaneros de Guanare,Liga FUTVE,Profissional
+America do Sul,Venezuela,Angostura FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Rayo Zuliano,Liga FUTVE,Profissional
+America do Sul,Venezuela,Hermanos Colmenarez,Liga FUTVE,Profissional
+America do Sul,Venezuela,UCV FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Zulia FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Trujillanos FC,Liga FUTVE,Profissional
+America do Sul,Venezuela,Gran Valencia,Liga FUTVE,Profissional
+America do Sul,Venezuela,Atletico Venezuela,Liga FUTVE,Profissional
+America do Sul,Equador,Barcelona SC,LigaPro,Profissional
+America do Sul,Equador,Emelec,LigaPro,Profissional
+America do Sul,Equador,LDU Quito,LigaPro,Profissional
+America do Sul,Equador,Independiente del Valle,LigaPro,Profissional
+America do Sul,Equador,Universidad Catolica,LigaPro,Profissional
+America do Sul,Equador,Aucas,LigaPro,Profissional
+America do Sul,Equador,Deportivo Cuenca,LigaPro,Profissional
+America do Sul,Equador,Mushuc Runa,LigaPro,Profissional
+America do Sul,Equador,Orense,LigaPro,Profissional
+America do Sul,Equador,Cumbaya FC,LigaPro,Profissional
+America do Sul,Equador,Guayaquil City,LigaPro,Profissional
+America do Sul,Equador,Libertad FC,LigaPro,Profissional
+America do Sul,Paraguai,Cerro Porteno,Primera Division,Profissional
+America do Sul,Paraguai,Olimpia,Primera Division,Profissional
+America do Sul,Paraguai,Libertad,Primera Division,Profissional
+America do Sul,Paraguai,Nacional Asuncion,Primera Division,Profissional
+America do Sul,Paraguai,Guarani,Primera Division,Profissional
+America do Sul,Paraguai,Sol de America,Primera Division,Profissional
+America do Sul,Paraguai,Sportivo Luqueno,Primera Division,Profissional
+America do Sul,Paraguai,General Caballero,Primera Division,Profissional
+America do Sul,Paraguai,Resistencia SC,Primera Division,Profissional
+America do Sul,Paraguai,Guairena FC,Primera Division,Profissional
+America do Sul,Bolivia,The Strongest,Division Profesional,Profissional
+America do Sul,Bolivia,Bolivar,Division Profesional,Profissional
+America do Sul,Bolivia,Always Ready,Division Profesional,Profissional
+America do Sul,Bolivia,Blooming,Division Profesional,Profissional
+America do Sul,Bolivia,Oriente Petrolero,Division Profesional,Profissional
+America do Sul,Bolivia,Guabira,Division Profesional,Profissional
+America do Sul,Bolivia,Aurora,Division Profesional,Profissional
+America do Sul,Bolivia,Real Santa Cruz,Division Profesional,Profissional
+America do Sul,Bolivia,Universitario de Vinto,Division Profesional,Profissional
+America do Sul,Bolivia,Libertad Gran Mamore,Division Profesional,Profissional
+America do Sul,Uruguai,Nacional,Primera Division,Profissional
+America do Sul,Uruguai,Penarol,Primera Division,Profissional
+America do Sul,Uruguai,Defensor Sporting,Primera Division,Profissional
+America do Sul,Uruguai,Danubio,Primera Division,Profissional
+America do Sul,Uruguai,Liverpool Montevideo,Primera Division,Profissional
+America do Sul,Uruguai,River Plate Montevideo,Primera Division,Profissional
+America do Sul,Uruguai,Fenix,Primera Division,Profissional
+America do Sul,Uruguai,Boston River,Primera Division,Profissional
+America do Sul,Uruguai,Wanderers,Primera Division,Profissional
+America do Sul,Uruguai,Cerro Largo,Primera Division,Profissional
+America do Sul,Peru,Alianza Lima,Liga 1,Profissional
+America do Sul,Peru,Universitario,Liga 1,Profissional
+America do Sul,Peru,Sporting Cristal,Liga 1,Profissional
+America do Sul,Peru,Cienciano,Liga 1,Profissional
+America do Sul,Peru,UTC,Liga 1,Profissional
+America do Sul,Peru,ADT Tarma,Liga 1,Profissional
+America do Sul,Peru,Melgar,Liga 1,Profissional
+America do Sul,Peru,Sport Boys,Liga 1,Profissional
+America do Sul,Peru,Deportivo Garcilaso,Liga 1,Profissional
+America do Sul,Peru,Binacional,Liga 1,Profissional
+America do Sul,Chile,Colo-Colo,Campeonato Nacional,Profissional
+America do Sul,Chile,Universidad de Chile,Campeonato Nacional,Profissional
+America do Sul,Chile,Universidad Catolica,Campeonato Nacional,Profissional
+America do Sul,Chile,Union Espanola,Campeonato Nacional,Profissional
+America do Sul,Chile,Audax Italiano,Campeonato Nacional,Profissional
+America do Sul,Chile,Palestino,Campeonato Nacional,Profissional
+America do Sul,Chile,O'Higgins,Campeonato Nacional,Profissional
+America do Sul,Chile,Cobresal,Campeonato Nacional,Profissional
+America do Sul,Chile,Huachipato,Campeonato Nacional,Profissional
+America do Sul,Chile,Curico Unido,Campeonato Nacional,Profissional
+America do Sul,Chile,Coquimbo Unido,Campeonato Nacional,Profissional
+America do Sul,Chile,Everton,Campeonato Nacional,Profissional
+America do Sul,Chile,Nublense,Campeonato Nacional,Profissional
+America do Sul,Chile,Magallanes,Campeonato Nacional,Profissional
+America do Sul,Chile,Union La Calera,Campeonato Nacional,Profissional
+America do Sul,Chile,Deportes Copiapo,Campeonato Nacional,Profissional
+America do Sul,Guiana,Fruta Conquerors,GFF Elite League,Profissional
+America do Sul,Guiana,Western Tigers,GFF Elite League,Profissional
+America do Sul,Guiana,Guyana Defence Force,GFF Elite League,Profissional
+America do Sul,Guiana,Alpha United,GFF Elite League,Profissional
+America do Sul,Guiana,Pele FC,GFF Elite League,Profissional
+America do Sul,Suriname,Robinhood,SVB Eerste Divisie,Profissional
+America do Sul,Suriname,Inter Moengotapoe,SVB Eerste Divisie,Profissional
+America do Sul,Suriname,Leo Victor,SVB Eerste Divisie,Profissional
+America do Sul,Suriname,Transvaal,SVB Eerste Divisie,Profissional
+America do Sul,Suriname,Notch,SVB Eerste Divisie,Profissional
+America do Sul,Brasil,Amazonas FC,Serie B,Segunda Divisao
+America do Sul,Brasil,America-MG,Serie B,Segunda Divisao
+America do Sul,Brasil,Avai,Serie B,Segunda Divisao
+America do Sul,Brasil,Botafogo-SP,Serie B,Segunda Divisao
+America do Sul,Brasil,Brusque,Serie B,Segunda Divisao
+America do Sul,Brasil,Ceara,Serie B,Segunda Divisao
+America do Sul,Brasil,Chapecoense,Serie B,Segunda Divisao
+America do Sul,Brasil,CRB,Serie B,Segunda Divisao
+America do Sul,Brasil,Goias,Serie B,Segunda Divisao
+America do Sul,Brasil,Guarani,Serie B,Segunda Divisao
+America do Sul,Brasil,Ituano,Serie B,Segunda Divisao
+America do Sul,Brasil,Mirassol,Serie B,Segunda Divisao
+America do Sul,Brasil,Novorizontino,Serie B,Segunda Divisao
+America do Sul,Brasil,Operario Ferroviario,Serie B,Segunda Divisao
+America do Sul,Brasil,Paysandu,Serie B,Segunda Divisao
+America do Sul,Brasil,Ponte Preta,Serie B,Segunda Divisao
+America do Sul,Brasil,Santos,Serie B,Segunda Divisao
+America do Sul,Brasil,Sport Recife,Serie B,Segunda Divisao
+America do Sul,Brasil,Vila Nova,Serie B,Segunda Divisao
+America do Sul,Brasil,Coritiba,Serie B,Segunda Divisao
+America do Sul,Argentina,San Martin de Tucuman,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,Atletico de Rafaela,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,Chacarita Juniors,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,Gimnasia y Esgrima de Mendoza,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,Temperley,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,Almagro,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,San Telmo,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,All Boys,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,Agropecuario,Primera Nacional,Segunda Divisao
+America do Sul,Argentina,Estudiantes de Buenos Aires,Primera Nacional,Segunda Divisao
+America do Sul,Peru,Juan Aurich,Liga 2,Segunda Divisao
+America do Sul,Peru,Santos FC (Nazca),Liga 2,Segunda Divisao
+America do Sul,Peru,Comerciantes Unidos,Liga 2,Segunda Divisao
+America do Sul,Peru,Alianza Universidad,Liga 2,Segunda Divisao
+America do Sul,Peru,Los Chankas,Liga 2,Segunda Divisao
+America do Sul,Chile,Santiago Morning,Primera B,Segunda Divisao
+America do Sul,Chile,Deportes Temuco,Primera B,Segunda Divisao
+America do Sul,Chile,San Luis,Primera B,Segunda Divisao
+America do Sul,Chile,Barnechea,Primera B,Segunda Divisao
+America do Sul,Chile,Cobreloa,Primera B,Segunda Divisao
+America do Sul,Colombia,Real Cartagena,Primera B,Segunda Divisao
+America do Sul,Colombia,Bogota FC,Primera B,Segunda Divisao
+America do Sul,Colombia,Llaneros FC,Primera B,Segunda Divisao
+America do Sul,Colombia,Valledupar FC,Primera B,Segunda Divisao
+America do Sul,Colombia,Barranquilla FC,Primera B,Segunda Divisao
+America do Sul,Colombia,Tigres FC,Primera B,Segunda Divisao
+America do Sul,Colombia,Orsomarso SC,Primera B,Segunda Divisao
+America do Sul,Colombia,Cortulua,Primera B,Segunda Divisao
+America do Sul,Colombia,Fortaleza CEIF,Primera B,Segunda Divisao
+America do Sul,Colombia,Leones FC,Primera B,Segunda Divisao
+America do Sul,Venezuela,Urena SC,Segunda Division,Segunda Divisao
+America do Sul,Venezuela,Yaracuyanos FC,Segunda Division,Segunda Divisao
+America do Sul,Venezuela,Petroleros de Anzoategui,Segunda Division,Segunda Divisao
+America do Sul,Venezuela,Deportivo Petare,Segunda Division,Segunda Divisao
+America do Sul,Venezuela,Gran Valencia,Segunda Division,Segunda Divisao
+America do Sul,Equador,Macara,Serie B,Segunda Divisao
+America do Sul,Equador,Independiente Juniors,Serie B,Segunda Divisao
+America do Sul,Equador,Imbabura SC,Serie B,Segunda Divisao
+America do Sul,Equador,Chacaritas FC,Serie B,Segunda Divisao
+America do Sul,Equador,Buhos ULVR FC,Serie B,Segunda Divisao
+America do Sul,Bolivia,Fancesa,Copa Simon Bolivar,Segunda Divisao
+America do Sul,Bolivia,Sur-Car,Copa Simon Bolivar,Segunda Divisao
+America do Sul,Bolivia,EM Huanuni,Copa Simon Bolivar,Segunda Divisao
+America do Sul,Bolivia,Real Mizque,Copa Simon Bolivar,Segunda Divisao
+America do Sul,Bolivia,Municipal Tiquipaya,Copa Simon Bolivar,Segunda Divisao
+America do Sul,Uruguai,Cerro,Segunda Division,Segunda Divisao
+America do Sul,Uruguai,Rampla Juniors,Segunda Division,Segunda Divisao
+America do Sul,Uruguai,Central Espanol,Segunda Division,Segunda Divisao
+America do Sul,Uruguai,Villa Teresa,Segunda Division,Segunda Divisao
+America do Sul,Uruguai,Tacuarembo,Segunda Division,Segunda Divisao
+America Central,Mexico,Club America,Liga MX,Profissional
+America Central,Mexico,Chivas Guadalajara,Liga MX,Profissional
+America Central,Mexico,Monterrey,Liga MX,Profissional
+America Central,Mexico,Tigres UANL,Liga MX,Profissional
+America Central,Mexico,Cruz Azul,Liga MX,Profissional
+America Central,Mexico,Pumas UNAM,Liga MX,Profissional
+America Central,Mexico,Toluca,Liga MX,Profissional
+America Central,Mexico,Pachuca,Liga MX,Profissional
+America Central,Mexico,Leon,Liga MX,Profissional
+America Central,Mexico,Santos Laguna,Liga MX,Profissional
+America Central,Mexico,Tijuana,Liga MX,Profissional
+America Central,Mexico,Queretaro,Liga MX,Profissional
+America Central,Mexico,Atletico San Luis,Liga MX,Profissional
+America Central,Mexico,Mazatlan FC,Liga MX,Profissional
+America Central,Mexico,Necaxa,Liga MX,Profissional
+America Central,Mexico,Juarez FC,Liga MX,Profissional
+America Central,Mexico,Lobos BUAP,Liga MX,Profissional
+America Central,Mexico,Zacatepec,Liga MX,Profissional
+America Central,Costa Rica,Deportivo Saprissa,Liga FPD,Profissional
+America Central,Costa Rica,LD Alajuelense,Liga FPD,Profissional
+America Central,Costa Rica,Herediano,Liga FPD,Profissional
+America Central,Costa Rica,San Carlos,Liga FPD,Profissional
+America Central,Costa Rica,Cartagines,Liga FPD,Profissional
+America Central,Costa Rica,Municipal Grecia,Liga FPD,Profissional
+America Central,Costa Rica,Guadalupe FC,Liga FPD,Profissional
+America Central,Costa Rica,Jicaral,Liga FPD,Profissional
+America Central,Costa Rica,Perez Zeledon,Liga FPD,Profissional
+America Central,Costa Rica,Limon FC,Liga FPD,Profissional
+America Central,Costa Rica,Santos de Guapiles,Liga FPD,Profissional
+America Central,Costa Rica,Sporting San Jose,Liga FPD,Profissional
+America Central,El Salvador,Alianza FC,Primera Division,Profissional
+America Central,El Salvador,CD FAS,Primera Division,Profissional
+America Central,El Salvador,CD Aguila,Primera Division,Profissional
+America Central,El Salvador,Isidro Metapan,Primera Division,Profissional
+America Central,El Salvador,Santa Tecla FC,Primera Division,Profissional
+America Central,El Salvador,Jocoro FC,Primera Division,Profissional
+America Central,El Salvador,Once Deportivo,Primera Division,Profissional
+America Central,El Salvador,Limeno,Primera Division,Profissional
+America Central,El Salvador,Fuerte San Francisco,Primera Division,Profissional
+America Central,El Salvador,Dragon,Primera Division,Profissional
+America Central,El Salvador,Platense,Primera Division,Profissional
+America Central,El Salvador,Municipal Limeno,Primera Division,Profissional
+America Central,Guatemala,Municipal,Liga Nacional,Profissional
+America Central,Guatemala,Comunicaciones,Liga Nacional,Profissional
+America Central,Guatemala,Xelaju,Liga Nacional,Profissional
+America Central,Guatemala,Coban Imperial,Liga Nacional,Profissional
+America Central,Guatemala,Antigua GFC,Liga Nacional,Profissional
+America Central,Guatemala,Malacateco,Liga Nacional,Profissional
+America Central,Guatemala,Guastatoya,Liga Nacional,Profissional
+America Central,Guatemala,Achuapa,Liga Nacional,Profissional
+America Central,Guatemala,Iztapa,Liga Nacional,Profissional
+America Central,Guatemala,Mixco,Liga Nacional,Profissional
+America Central,Guatemala,Santa Lucia Cotzumalguapa,Liga Nacional,Profissional
+America Central,Guatemala,Xinabajul,Liga Nacional,Profissional
+America Central,Honduras,Olimpia,Liga Nacional,Profissional
+America Central,Honduras,Motagua,Liga Nacional,Profissional
+America Central,Honduras,Real Espana,Liga Nacional,Profissional
+America Central,Honduras,Marathon,Liga Nacional,Profissional
+America Central,Honduras,Vida,Liga Nacional,Profissional
+America Central,Honduras,Victoria,Liga Nacional,Profissional
+America Central,Honduras,Lobos UPNFM,Liga Nacional,Profissional
+America Central,Honduras,Real Sociedad,Liga Nacional,Profissional
+America Central,Honduras,Genesis,Liga Nacional,Profissional
+America Central,Honduras,Olancho FC,Liga Nacional,Profissional
+America Central,Nicaragua,Real Esteli,Liga Primera,Profissional
+America Central,Nicaragua,Diriangen,Liga Primera,Profissional
+America Central,Nicaragua,Walter Ferretti,Liga Primera,Profissional
+America Central,Nicaragua,Managua FC,Liga Primera,Profissional
+America Central,Nicaragua,UNAN Managua,Liga Primera,Profissional
+America Central,Nicaragua,Deportivo Ocotal,Liga Primera,Profissional
+America Central,Nicaragua,Juventus Managua,Liga Primera,Profissional
+America Central,Nicaragua,ART Jalapa,Liga Primera,Profissional
+America Central,Nicaragua,Matagalpa FC,Liga Primera,Profissional
+America Central,Nicaragua,Masachapa,Liga Primera,Profissional
+America Central,Panama,Tauro FC,Liga Panamena,Profissional
+America Central,Panama,Plaza Amador,Liga Panamena,Profissional
+America Central,Panama,Arabe Unido,Liga Panamena,Profissional
+America Central,Panama,Alianza FC,Liga Panamena,Profissional
+America Central,Panama,San Francisco FC,Liga Panamena,Profissional
+America Central,Panama,CAI La Chorrera,Liga Panamena,Profissional
+America Central,Panama,Sporting San Miguelito,Liga Panamena,Profissional
+America Central,Panama,Universitario,Liga Panamena,Profissional
+America Central,Panama,Veraguas United,Liga Panamena,Profissional
+America Central,Panama,Herrera FC,Liga Panamena,Profissional
+America Central,Belize,Verdes FC,Premier League,Profissional
+America Central,Belize,Belmopan Bandits,Premier League,Profissional
+America Central,Belize,San Pedro Pirates,Premier League,Profissional
+America Central,Belize,Altitude FC,Premier League,Profissional
+America Central,Belize,Wagiya SC,Premier League,Profissional
+America Central,Belize,Police United,Premier League,Profissional
+America Central,Belize,Progresso FC,Premier League,Profissional
+America Central,Belize,Port Layola FC,Premier League,Profissional
+America Central,Mexico,Atlante,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Celaya FC,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Leones Negros,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Venados FC,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Tapatio,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Cancun FC,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Correcaminos UAT,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Mineros de Zacatecas,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Alebrijes de Oaxaca,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Tlaxcala FC,Liga de Expansion MX,Segunda Divisao
+America Central,Costa Rica,Escorpiones de Belen,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Puerto Golfito FC,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Carmelita,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Marineros FC,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Cariari Pococi,Segunda Division,Segunda Divisao
+America Central,El Salvador,El Roble,Segunda Division,Segunda Divisao
+America Central,El Salvador,AD Juayua,Segunda Division,Segunda Divisao
+America Central,El Salvador,Turin FC,Segunda Division,Segunda Divisao
+America Central,El Salvador,CD UDET,Segunda Division,Segunda Divisao
+America Central,El Salvador,CD Platense,Segunda Division,Segunda Divisao
+America Central,Guatemala,Solola FC,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,Aurora FC,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,CSD Sayaxche,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,San Pedro FC,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,Puerto San Jose,Primera Division de Ascenso,Segunda Divisao
+America Central,Honduras,Parrillas One,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,Atletico Choloma,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,CD Broncos,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,Independiente FC,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,CD Arsenal,Liga de Ascenso,Segunda Divisao
+America Central,Panama,SD Panama Oeste,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,CD Centenario,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,New York FC (Panama),Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,Panama Viejo FC,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,San Martin FC,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Mexico,Tepatitlan FC,Liga de Expansion MX,Segunda Divisao
+America Central,Mexico,Durango,Liga de Expansao MX,Segunda Divisao
+America Central,Mexico,Raya2 Expansion,Liga de Expansao MX,Segunda Divisao
+America Central,Mexico,Pumas Tabasco,Liga de Expansao MX,Segunda Divisao
+America Central,Mexico,Morelia,Liga de Expansao MX,Segunda Divisao
+America Central,Costa Rica,Liberia,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Sarchi FC,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Santa Ana FC,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Turrialba FC,Segunda Division,Segunda Divisao
+America Central,Costa Rica,Aserri FC,Segunda Division,Segunda Divisao
+America Central,El Salvador,Topiltzin,Segunda Division,Segunda Divisao
+America Central,El Salvador,El Vencedor,Segunda Division,Segunda Divisao
+America Central,El Salvador,Cacahuatique,Segunda Division,Segunda Divisao
+America Central,El Salvador,CD Liberal,Segunda Division,Segunda Divisao
+America Central,El Salvador,Racing Junior,Segunda Divisao,Segunda Divisao
+America Central,Guatemala,Chiantla,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,Barillas,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,Coatepeque,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,Chimaltenango FC,Primera Division de Ascenso,Segunda Divisao
+America Central,Guatemala,Jalapa,Primera Division de Ascenso,Segunda Divisao
+America Central,Honduras,Social Sol,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,Valle FC,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,Lepaera FC,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,Atletico Pinares,Liga de Ascenso,Segunda Divisao
+America Central,Honduras,Trujillo FC,Liga de Ascenso,Segunda Divisao
+America Central,Panama,Panama City FC,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,Chepo FC,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,Atletico Nacional,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,Costa del Este B,Liga Nacional de Ascenso,Segunda Divisao
+America Central,Panama,Don Bosco FC,Liga Nacional de Ascenso,Segunda Divisao
+America do Norte,EUA,Atlanta United,MLS,Profissional
+America do Norte,EUA,Austin FC,MLS,Profissional
+America do Norte,EUA,Charlotte FC,MLS,Profissional
+America do Norte,EUA,Chicago Fire,MLS,Profissional
+America do Norte,EUA,FC Cincinnati,MLS,Profissional
+America do Norte,EUA,Colorado Rapids,MLS,Profissional
+America do Norte,EUA,Columbus Crew,MLS,Profissional
+America do Norte,EUA,DC United,MLS,Profissional
+America do Norte,EUA,FC Dallas,MLS,Profissional
+America do Norte,EUA,Houston Dynamo,MLS,Profissional
+America do Norte,EUA,Inter Miami,MLS,Profissional
+America do Norte,EUA,LA Galaxy,MLS,Profissional
+America do Norte,EUA,Los Angeles FC,MLS,Profissional
+America do Norte,EUA,Minnesota United,MLS,Profissional
+America do Norte,EUA,CF Montreal,MLS,Profissional
+America do Norte,EUA,Nashville SC,MLS,Profissional
+America do Norte,EUA,New England Revolution,MLS,Profissional
+America do Norte,EUA,New York City FC,MLS,Profissional
+America do Norte,EUA,New York Red Bulls,MLS,Profissional
+America do Norte,EUA,Orlando City,MLS,Profissional
+America do Norte,EUA,Philadelphia Union,MLS,Profissional
+America do Norte,EUA,Portland Timbers,MLS,Profissional
+America do Norte,EUA,Real Salt Lake,MLS,Profissional
+America do Norte,EUA,San Jose Earthquakes,MLS,Profissional
+America do Norte,EUA,Seattle Sounders,MLS,Profissional
+America do Norte,EUA,Sporting Kansas City,MLS,Profissional
+America do Norte,EUA,St. Louis City SC,MLS,Profissional
+America do Norte,EUA,Toronto FC,MLS,Profissional
+America do Norte,EUA,Vancouver Whitecaps,MLS,Profissional
+America do Norte,Canada,Forge FC,CPL,Profissional
+America do Norte,Canada,Pacific FC,CPL,Profissional
+America do Norte,Canada,Cavalry FC,CPL,Profissional
+America do Norte,Canada,York United FC,CPL,Profissional
+America do Norte,Canada,Valour FC,CPL,Profissional
+America do Norte,Canada,HFX Wanderers,CPL,Profissional
+America do Norte,Canada,Atletico Ottawa,CPL,Profissional
+America do Norte,Canada,Vancouver FC,CPL,Profissional
+America do Norte,EUA,Birmingham Legion FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Charleston Battery,USL Championship,Segunda Divisao
+America do Norte,EUA,Detroit City FC,USL Championship,Segunda Divisao
+America do Norte,EUA,El Paso Locomotive FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Hartford Athletic,USL Championship,Segunda Divisao
+America do Norte,EUA,Indy Eleven,USL Championship,Segunda Divisao
+America do Norte,EUA,Las Vegas Lights FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Loudoun United FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Louisville City FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Memphis 901 FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Miami FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Monterey Bay FC,USL Championship,Segunda Divisao
+America do Norte,EUA,New Mexico United,USL Championship,Segunda Divisao
+America do Norte,EUA,Oakland Roots SC,USL Championship,Segunda Divisao
+America do Norte,EUA,Orange County SC,USL Championship,Segunda Divisao
+America do Norte,EUA,Phoenix Rising FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Pittsburgh Riverhounds SC,USL Championship,Segunda Divisao
+America do Norte,EUA,Rio Grande Valley FC,USL Championship,Segunda Divisao
+America do Norte,EUA,Sacramento Republic FC,USL Championship,Segunda Divisao
+America do Norte,EUA,San Antonio FC,USL Championship,Segunda Divisao
+America do Norte,EUA,San Diego Loyal SC,USL Championship,Segunda Divisao
+America do Norte,EUA,Tampa Bay Rowdies,USL Championship,Segunda Divisao
+America do Norte,EUA,Colorado Springs Switchbacks FC,USL Championship,Segunda Divisao
+America do Norte,EUA,FC Tulsa,USL Championship,Segunda Divisao
+America do Norte,Canada,Vaughan Azzurri,League1 Canada,Segunda Divisao
+America do Norte,Canada,Sigma FC,League1 Canada,Segunda Divisao
+America do Norte,Canada,AS Blainville,League1 Canada,Segunda Divisao
+America do Norte,Canada,Alliance United,League1 Canada,Segunda Divisao
+America do Norte,Canada,CS St-Hubert,League1 Canada,Segunda Divisao
+Africa,Egito,Al Ahly,Egyptian Premier League,Profissional
+Africa,Egito,Zamalek,Egyptian Premier League,Profissional
+Africa,Egito,Pyramids FC,Egyptian Premier League,Profissional
+Africa,Egito,Al Ittihad Alexandria,Egyptian Premier League,Profissional
+Africa,Egito,Smouha,Egyptian Premier League,Profissional
+Africa,Egito,Future FC,Egyptian Premier League,Profissional
+Africa,Egito,Ceramica Cleopatra,Egyptian Premier League,Profissional
+Africa,Egito,ENPPI,Egyptian Premier League,Profissional
+Africa,Egito,El Gaish,Egyptian Premier League,Profissional
+Africa,Egito,Ghazl El Mahalla,Egyptian Premier League,Profissional
+Africa,Egito,Ismaily,Egyptian Premier League,Profissional
+Africa,Egito,National Bank of Egypt,Egyptian Premier League,Profissional
+Africa,Egito,Pharco FC,Egyptian Premier League,Profissional
+Africa,Egito,Arab Contractors,Egyptian Premier League,Profissional
+Africa,Egito,Al Masry,Egyptian Premier League,Profissional
+Africa,Egito,El Dakhleya,Egyptian Premier League,Profissional
+Africa,Egito,El Gouna,Egyptian Premier League,Profissional
+Africa,Egito,ZED FC,Egyptian Premier League,Profissional
+Africa,Marrocos,Wydad Casablanca,Botola Pro,Profissional
+Africa,Marrocos,Raja Casablanca,Botola Pro,Profissional
+Africa,Marrocos,FAR Rabat,Botola Pro,Profissional
+Africa,Marrocos,FUS Rabat,Botola Pro,Profissional
+Africa,Marrocos,Moghreb Tetouan,Botola Pro,Profissional
+Africa,Marrocos,Olympique Safi,Botola Pro,Profissional
+Africa,Marrocos,Hassania Agadir,Botola Pro,Profissional
+Africa,Marrocos,Ittihad Tanger,Botola Pro,Profissional
+Africa,Marrocos,Rapide Oued Zem,Botola Pro,Profissional
+Africa,Marrocos,Difaa El Jadidi,Botola Pro,Profissional
+Africa,Marrocos,Olympique Khouribga,Botola Pro,Profissional
+Africa,Marrocos,Youssoufia Berrechid,Botola Pro,Profissional
+Africa,Marrocos,Chabab Mohammedia,Botola Pro,Profissional
+Africa,Marrocos,Union Touarga,Botola Pro,Profissional
+Africa,Marrocos,SCCM,Botola Pro,Profissional
+Africa,Marrocos,Jeunesse Soualem,Botola Pro,Profissional
+Africa,Tunisia,Esperance de Tunis,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,Club Africain,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,Etoile du Sahel,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,CS Sfaxien,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,US Monastir,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,AS Soliman,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,Stade Tunisien,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,ES Metlaoui,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,US Tataouine,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,Olympique Beja,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,EGS Gafsa,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,Stade Gabesien,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,AS Gabes,Ligue Professionnelle 1,Profissional
+Africa,Tunisia,CA Bizertin,Ligue Professionnelle 1,Profissional
+Africa,Africa do Sul,Mamelodi Sundowns,Premier Soccer League,Profissional
+Africa,Africa do Sul,Orlando Pirates,Premier Soccer League,Profissional
+Africa,Africa do Sul,Kaizer Chiefs,Premier Soccer League,Profissional
+Africa,Africa do Sul,Cape Town City,Premier Soccer League,Profissional
+Africa,Africa do Sul,SuperSport United,Premier Soccer League,Profissional
+Africa,Africa do Sul,Stellenbosch FC,Premier Soccer League,Profissional
+Africa,Africa do Sul,Sekhukhune United,Premier Soccer League,Profissional
+Africa,Africa do Sul,Golden Arrows,Premier Soccer League,Profissional
+Africa,Africa do Sul,TS Galaxy,Premier Soccer League,Profissional
+Africa,Africa do Sul,Chippa United,Premier Soccer League,Profissional
+Africa,Africa do Sul,Richards Bay,Premier Soccer League,Profissional
+Africa,Africa do Sul,Royal AM,Premier Soccer League,Profissional
+Africa,Africa do Sul,AmaZulu,Premier Soccer League,Profissional
+Africa,Africa do Sul,Polokwane City,Premier Soccer League,Profissional
+Africa,Africa do Sul,Moroka Swallows,Premier Soccer League,Profissional
+Africa,Africa do Sul,Baroka FC,Premier Soccer League,Profissional
+Africa,Nigeria,Enyimba,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Rangers International,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Rivers United,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Kano Pillars,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Plateau United,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Remo Stars,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Bendel Insurance,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Katsina United,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Akwa United,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Lobi Stars,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Abia Warriors,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Shooting Stars,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Sunshine Stars,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Bayelsa United,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Niger Tornadoes,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Gombe United,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Heartland FC,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Sporting Lagos,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Doma United,Nigeria Professional Football League,Profissional
+Africa,Nigeria,Enugu Rangers,Nigeria Professional Football League,Profissional
+Africa,Gana,Asante Kotoko,Ghana Premier League,Profissional
+Africa,Gana,Hearts of Oak,Ghana Premier League,Profissional
+Africa,Gana,Aduana Stars,Ghana Premier League,Profissional
+Africa,Gana,Bechem United,Ghana Premier League,Profissional
+Africa,Gana,Berekum Chelsea,Ghana Premier League,Profissional
+Africa,Gana,Dreams FC,Ghana Premier League,Profissional
+Africa,Gana,Great Olympics,Ghana Premier League,Profissional
+Africa,Gana,Karela United,Ghana Premier League,Profissional
+Africa,Gana,King Faisal Babes,Ghana Premier League,Profissional
+Africa,Gana,Legon Cities,Ghana Premier League,Profissional
+Africa,Gana,Medeama SC,Ghana Premier League,Profissional
+Africa,Gana,RTU,Ghana Premier League,Profissional
+Africa,Gana,Samartex,Ghana Premier League,Profissional
+Africa,Gana,Tamale City,Ghana Premier League,Profissional
+Africa,Gana,Bibiani Gold Stars,Ghana Premier League,Profissional
+Africa,Gana,Accra Lions,Ghana Premier League,Profissional
+Africa,Gana,Nsoatreman FC,Ghana Premier League,Profissional
+Africa,Gana,Kotoku Royals,Ghana Premier League,Profissional
+Africa,Camaroes,Coton Sport,Elite One,Profissional
+Africa,Camaroes,Canon Yaounde,Elite One,Profissional
+Africa,Camaroes,PWD Bamenda,Elite One,Profissional
+Africa,Camaroes,Union Douala,Elite One,Profissional
+Africa,Camaroes,Yong Sports Academy,Elite One,Profissional
+Africa,Camaroes,Eding Sport FC,Elite One,Profissional
+Africa,Camaroes,Fovu Club,Elite One,Profissional
+Africa,Camaroes,Bamboutos FC,Elite One,Profissional
+Africa,Camaroes,Dragon Club,Elite One,Profissional
+Africa,Camaroes,Renaissance FC,Elite One,Profissional
+Africa,Camaroes,APEJES Academy,Elite One,Profissional
+Africa,Camaroes,UMS de Loum,Elite One,Profissional
+Africa,Camaroes,Astres FC,Elite One,Profissional
+Africa,Camaroes,Colombe Sportive,Elite One,Profissional
+Africa,Camaroes,Tonnerre Yaounde,Elite One,Profissional
+Africa,Camaroes,Avion Academy,Elite One,Profissional
+Africa,Camaroes,New Star Douala,Elite One,Profissional
+Africa,Camaroes,Les Astres FC,Elite One,Profissional
+Africa,RD Congo,TP Mazembe,Linafoot,Profissional
+Africa,RD Congo,AS Vita Club,Linafoot,Profissional
+Africa,RD Congo,DC Motema Pembe,Linafoot,Profissional
+Africa,RD Congo,FC Saint Eloi Lupopo,Linafoot,Profissional
+Africa,RD Congo,AS Dauphins Noirs,Linafoot,Profissional
+Africa,RD Congo,CS Don Bosco,Linafoot,Profissional
+Africa,RD Congo,FC Renaissance,Linafoot,Profissional
+Africa,RD Congo,US Panda B52,Linafoot,Profissional
+Africa,RD Congo,SM Sanga Balende,Linafoot,Profissional
+Africa,RD Congo,JS Groupe Bazano,Linafoot,Profissional
+Africa,Senegal,Generation Foot,Ligue 1,Profissional
+Africa,Senegal,AS Douanes,Ligue 1,Profissional
+Africa,Senegal,Casa Sports,Ligue 1,Profissional
+Africa,Senegal,ASC Jaraaf,Ligue 1,Profissional
+Africa,Senegal,Teungueth FC,Ligue 1,Profissional
+Africa,Senegal,Diambars FC,Ligue 1,Profissional
+Africa,Senegal,Goree,Ligue 1,Profissional
+Africa,Senegal,Ndiambour,Ligue 1,Profissional
+Africa,Senegal,Stade de Mbour,Ligue 1,Profissional
+Africa,Senegal,Sonacos,Ligue 1,Profissional
+Africa,Zambia,ZESCO United,Super League,Profissional
+Africa,Zambia,Nkana FC,Super League,Profissional
+Africa,Zambia,Power Dynamos,Super League,Profissional
+Africa,Zambia,Red Arrows,Super League,Profissional
+Africa,Zambia,Green Buffaloes,Super League,Profissional
+Africa,Zambia,NAPSA Stars,Super League,Profissional
+Africa,Zambia,Kabwe Warriors,Super League,Profissional
+Africa,Zambia,Nkwazi FC,Super League,Profissional
+Africa,Zambia,Forest Rangers,Super League,Profissional
+Africa,Zambia,Lusaka Dynamos,Super League,Profissional
+Africa,Zambia,Buildcon FC,Super League,Profissional
+Africa,Zambia,Prison Leopards,Super League,Profissional
+Africa,Zambia,Chambishi FC,Super League,Profissional
+Africa,Zambia,Lumwana Radiants,Super League,Profissional
+Africa,Zambia,Indeni FC,Super League,Profissional
+Africa,Zambia,Green Eagles,Super League,Profissional
+Africa,Tanzania,Young Africans (Yanga SC),Premier League,Profissional
+Africa,Tanzania,Simba SC,Premier League,Profissional
+Africa,Tanzania,Azam FC,Premier League,Profissional
+Africa,Tanzania,Mtibwa Sugar,Premier League,Profissional
+Africa,Tanzania,Coastal Union,Premier League,Profissional
+Africa,Tanzania,Namungo FC,Premier League,Profissional
+Africa,Tanzania,Dodoma Jiji,Premier League,Profissional
+Africa,Tanzania,Mbeya City,Premier League,Profissional
+Africa,Tanzania,Kagera Sugar,Premier League,Profissional
+Africa,Tanzania,Ihefu SC,Premier League,Profissional
+Africa,Tanzania,KMC FC,Premier League,Profissional
+Africa,Tanzania,Geita Gold,Premier League,Profissional
+Africa,Tanzania,Biashara United,Premier League,Profissional
+Africa,Tanzania,Ruvu Shooting,Premier League,Profissional
+Africa,Tanzania,Polisi Tanzania,Premier League,Profissional
+Africa,Tanzania,JKT Tanzania,Premier League,Profissional
+Africa,Quenia,Gor Mahia,FKF Premier League,Profissional
+Africa,Quenia,AFC Leopards,FKF Premier League,Profissional
+Africa,Quenia,Tusker FC,FKF Premier League,Profissional
+Africa,Quenia,Nzoia Sugar,FKF Premier League,Profissional
+Africa,Quenia,Posta Rangers,FKF Premier League,Profissional
+Africa,Quenia,KCB FC,FKF Premier League,Profissional
+Africa,Quenia,Bandari FC,FKF Premier League,Profissional
+Africa,Quenia,Bidco United,FKF Premier League,Profissional
+Africa,Quenia,Sofapaka FC,FKF Premier League,Profissional
+Africa,Quenia,Mathare United,FKF Premier League,Profissional
+Africa,Quenia,Wazito FC,FKF Premier League,Profissional
+Africa,Quenia,Vihiga United,FKF Premier League,Profissional
+Africa,Quenia,Ulinzi Stars,FKF Premier League,Profissional
+Africa,Quenia,Kariobangi Sharks,FKF Premier League,Profissional
+Africa,Costa do Marfim,ASEC Mimosas,Ligue 1,Profissional
+Africa,Costa do Marfim,Africa Sports,Ligue 1,Profissional
+Africa,Costa do Marfim,AS Tanda,Ligue 1,Profissional
+Africa,Costa do Marfim,SOA,Ligue 1,Profissional
+Africa,Costa do Marfim,Stade dAbidjan,Ligue 1,Profissional
+Africa,Costa do Marfim,Williamsville AC,Ligue 1,Profissional
+Africa,Costa do Marfim,Racing Club Abidjan,Ligue 1,Profissional
+Africa,Costa do Marfim,Bouake FC,Ligue 1,Profissional
+Africa,Costa do Marfim,SC Gagnoa,Ligue 1,Profissional
+Africa,Costa do Marfim,FC San Pedro,Ligue 1,Profissional
+Africa,Etiopia,Saint George SC,Ethiopian Premier League,Profissional
+Africa,Etiopia,Fasil Kenema,Ethiopian Premier League,Profissional
+Africa,Etiopia,Bahir Dar Kenema,Ethiopian Premier League,Profissional
+Africa,Etiopia,Sidama Coffee,Ethiopian Premier League,Profissional
+Africa,Etiopia,Wolkite Ketema,Ethiopian Premier League,Profissional
+Africa,Etiopia,Defence Force SC,Ethiopian Premier League,Profissional
+Africa,Etiopia,Arba Minch City,Ethiopian Premier League,Profissional
+Africa,Etiopia,Ethiopia Bunna,Ethiopian Premier League,Profissional
+Africa,Etiopia,Adama City,Ethiopian Premier League,Profissional
+Africa,Etiopia,Hawassa City,Ethiopian Premier League,Profissional
+Africa,Uganda,KCCA FC,Uganda Premier League,Profissional
+Africa,Uganda,Vipers SC,Uganda Premier League,Profissional
+Africa,Uganda,Express FC,Uganda Premier League,Profissional
+Africa,Uganda,SC Villa,Uganda Premier League,Profissional
+Africa,Uganda,URA FC,Uganda Premier League,Profissional
+Africa,Uganda,Wakiso Giants,Uganda Premier League,Profissional
+Africa,Uganda,Gaddafi FC,Uganda Premier League,Profissional
+Africa,Uganda,BUL FC,Uganda Premier League,Profissional
+Africa,Uganda,Mbarara City,Uganda Premier League,Profissional
+Africa,Uganda,Busoga United,Uganda Premier League,Profissional
+Africa,Malawi,Nyasa Big Bullets,Super League,Profissional
+Africa,Malawi,Be Forward Wanderers,Super League,Profissional
+Africa,Malawi,Silver Strikers,Super League,Profissional
+Africa,Malawi,Civil Service United,Super League,Profissional
+Africa,Malawi,Blue Eagles,Super League,Profissional
+Africa,Malawi,Mighty Tigers,Super League,Profissional
+Africa,Malawi,Karonga United,Super League,Profissional
+Africa,Malawi,Red Lions,Super League,Profissional
+Africa,Malawi,Chitipa United,Super League,Profissional
+Africa,Malawi,Ekwendeni Hammers,Super League,Profissional
+Africa,Zimbabue,Dynamos FC,Premier Soccer League,Profissional
+Africa,Zimbabue,Highlanders FC,Premier Soccer League,Profissional
+Africa,Zimbabue,CAPS United,Premier Soccer League,Profissional
+Africa,Zimbabue,FC Platinum,Premier Soccer League,Profissional
+Africa,Zimbabue,Chicken Inn FC,Premier Soccer League,Profissional
+Africa,Zimbabue,Ngezi Platinum,Premier Soccer League,Profissional
+Africa,Zimbabue,Harare City,Premier Soccer League,Profissional
+Africa,Zimbabue,ZPC Kariba,Premier Soccer League,Profissional
+Africa,Zimbabue,Triangle United,Premier Soccer League,Profissional
+Africa,Zimbabue,Bulawayo Chiefs,Premier Soccer League,Profissional
+Africa,Burkina Faso,ASFA Yennenga,Ligue 1,Profissional
+Africa,Burkina Faso,RC Bobo Dioulasso,Ligue 1,Profissional
+Africa,Burkina Faso,Salitas FC,Ligue 1,Profissional
+Africa,Burkina Faso,AS Sonabel,Ligue 1,Profissional
+Africa,Burkina Faso,Majestic SC,Ligue 1,Profissional
+Africa,Burkina Faso,KOZAF,Ligue 1,Profissional
+Africa,Burkina Faso,AS Police,Ligue 1,Profissional
+Africa,Burkina Faso,USFA,Ligue 1,Profissional
+Africa,Burkina Faso,USCO Banfora,Ligue 1,Profissional
+Africa,Burkina Faso,Etoile Filante,Ligue 1,Profissional
+Africa,Benin,ASPAC FC,Championnat National,Profissional
+Africa,Benin,Ayema FC,Championnat National,Profissional
+Africa,Benin,Buffles du Borgou,Championnat National,Profissional
+Africa,Benin,Dragons de lOueme,Championnat National,Profissional
+Africa,Benin,Energie FC,Championnat National,Profissional
+Africa,Benin,JA Cotonou,Championnat National,Profissional
+Africa,Benin,Requins de lAtlantique,Championnat National,Profissional
+Africa,Benin,Tonnerre dAbomey FC,Championnat National,Profissional
+Africa,Benin,Upliners FC,Championnat National,Profissional
+Africa,Benin,Pantheres FC,Championnat National,Profissional
+Africa,Africa do Sul,Black Leopards,National First Division,Segunda Divisao
+Africa,Africa do Sul,Venda FC,National First Division,Segunda Divisao
+Africa,Africa do Sul,Hungry Lions,National First Division,Segunda Divisao
+Africa,Africa do Sul,Baroka FC,National First Division,Segunda Divisao
+Africa,Africa do Sul,Upington City,National First Division,Segunda Divisao
+Africa,Africa do Sul,Platinum City Rovers,National First Division,Segunda Divisao
+Africa,Africa do Sul,Orbit College,National First Division,Segunda Divisao
+Africa,Africa do Sul,Magesi FC,National First Division,Segunda Divisao
+Africa,Africa do Sul,JDR Stars,National First Division,Segunda Divisao
+Africa,Africa do Sul,Pretoria Callies,National First Division,Segunda Divisao
+Africa,Africa do Sul,Maritzburg United,National First Division,Segunda Divisao
+Africa,Africa do Sul,Casric Stars,National First Division,Segunda Divisao
+Africa,Africa do Sul,Milford FC,National First Division,Segunda Divisao
+Africa,Africa do Sul,University of Pretoria,National First Division,Segunda Divisao
+Africa,Africa do Sul,NB La Masia,National First Division,Segunda Divisao
+Africa,Tunisia,AS Marsa,Ligue Professionnelle 2,Segunda Divisao
+Africa,Tunisia,CS Korba,Ligue Professionnelle 2,Segunda Divisao
+Africa,Tunisia,ES Zarzis,Ligue Professionnelle 2,Segunda Divisao
+Africa,Tunisia,Stade Africain Menzel Bourguiba,Ligue Professionnelle 2,Segunda Divisao
+Africa,Tunisia,US Ben Guerdane,Ligue Professionnelle 2,Segunda Divisao
+Africa,Tunisia,US Tataouine,Ligue Professionnelle 2,Segunda Divisao
+Africa,Tunisia,Jendouba Sport,Ligue Professionnelle 2,Segunda Divisao
+Africa,Tunisia,Olympique Beja,Ligue Professionnelle 2,Segunda Divisao
+Africa,Egito,Al Nasr,Egyptian Second Division,Segunda Divisao
+Africa,Egito,Al Qanah,Egyptian Second Division,Segunda Divisao
+Africa,Egito,El Entag El Harby,Egyptian Second Division,Segunda Divisao
+Africa,Egito,Telephonat Beni Suef,Egyptian Second Division,Segunda Divisao
+Africa,Egito,Tersana SC,Egyptian Second Division,Segunda Divisao
+Africa,Egito,Suez SC,Egyptian Second Division,Segunda Divisao
+Africa,Egito,Port Fouad,Egyptian Second Division,Segunda Divisao
+Africa,Egito,Asyut Petroleum,Egyptian Second Division,Segunda Divisao
+Africa,Marrocos,Wydad Temara,Botola 2,Segunda Divisao
+Africa,Marrocos,Chabab Atlas Khenifra,Botola 2,Segunda Divisao
+Africa,Marrocos,Raja Beni Mellal,Botola 2,Segunda Divisao
+Africa,Marrocos,Youssoufia Berrechid,Botola 2,Segunda Divisao
+Africa,Marrocos,Racing Casablanca,Botola 2,Segunda Divisao
+Africa,Marrocos,KAC Kenitra,Botola 2,Segunda Divisao
+Africa,Marrocos,Olympique Dcheira,Botola 2,Segunda Divisao
+Africa,Marrocos,JS Soualem,Botola 2,Segunda Divisao
+Africa,Nigeria,Shooting Stars,Nigeria National League,Segunda Divisao
+Africa,Nigeria,Stationery Stores,Nigeria National League,Segunda Divisao
+Africa,Nigeria,Jigawa Golden Stars,Nigeria National League,Segunda Divisao
+Africa,Nigeria,Remo Stars,Nigeria National League,Segunda Divisao
+Africa,Nigeria,Go Round FC,Nigeria National League,Segunda Divisao
+Africa,Nigeria,Kogi United,Nigeria National League,Segunda Divisao
+Africa,Nigeria,EFCC FC,Nigeria National League,Segunda Divisao
+Africa,Nigeria,Mighty Jets,Nigeria National League,Segunda Divisao
+Africa,Gana,Bofoakwa Tano,Division One League,Segunda Divisao
+Africa,Gana,BA United,Division One League,Segunda Divisao
+Africa,Gana,Mighty Royals,Division One League,Segunda Divisao
+Africa,Gana,Tema Youth,Division One League,Segunda Divisao
+Africa,Gana,Okyeman Planners,Division One League,Segunda Divisao
+Africa,Gana,Bibiani Gold Stars,Division One League,Segunda Divisao
+Africa,Gana,Heart of Lions,Division One League,Segunda Divisao
+Africa,Camaroes,AS Lausanne,Elite Two,Segunda Divisao
+Africa,Camaroes,Unisport FC,Elite Two,Segunda Divisao
+Africa,Camaroes,Leopard Sportif,Elite Two,Segunda Divisao
+Africa,Camaroes,AS Fortuna,Elite Two,Segunda Divisao
+Africa,Camaroes,National Polytechnic,Elite Two,Segunda Divisao
+Africa,RD Congo,FC Renaissance,Ligue 2,Segunda Divisao
+Africa,RD Congo,AS Simba,Ligue 2,Segunda Divisao
+Africa,RD Congo,AS Kabasha,Ligue 2,Segunda Divisao
+Africa,RD Congo,AS Nika,Ligue 2,Segunda Divisao
+Africa,Quenia,Kibera Black Stars,FKF Division One,Segunda Divisao
+Africa,Quenia,Green Commandos,FKF Division One,Segunda Divisao
+Africa,Quenia,Naivas FC,FKF Division One,Segunda Divisao
+Africa,Quenia,Mombasa Elite,FKF Division One,Segunda Divisao
+Africa,Etiopia,Wolaita Dicha B,Higher League,Segunda Divisao
+Africa,Etiopia,Mekelakeya B,Higher League,Segunda Divisao
+Africa,Etiopia,Sebeta City,Higher League,Segunda Divisao
+Africa,Etiopia,Ethiopia Nigd Bank,Higher League,Segunda Divisao
+Africa,Uganda,Police FC,FUFA Big League,Segunda Divisao
+Africa,Uganda,Kitara FC,FUFA Big League,Segunda Divisao
+Africa,Uganda,Kyetume FC,FUFA Big League,Segunda Divisao
+Africa,Uganda,Mbarara City,FUFA Big League,Segunda Divisao
+Africa,Zimbabue,Tenax FC,ZIFA Division One,Segunda Divisao
+Africa,Zimbabue,Cranborne Bullets,ZIFA Division One,Segunda Divisao
+Africa,Zimbabue,Whawha FC,ZIFA Division One,Segunda Divisao
+Africa,Zimbabue,Herentals U20,ZIFA Division One,Segunda Divisao
+Africa,Senegal,AS Douanes B,Ligue 2,Segunda Divisao
+Africa,Senegal,ETICS,Ligue 2,Segunda Divisao
+Africa,Senegal,Port Autonome,Ligue 2,Segunda Divisao
+Africa,Senegal,Generation Foot B,Ligue 2,Segunda Divisao
+Africa,Zambia,City of Lusaka,National Division One,Segunda Divisao
+Africa,Zambia,Indeni FC,National Division One,Segunda Divisao
+Africa,Zambia,Mpulungu Harbour,National Division One,Segunda Divisao
+Africa,Zambia,Young Green Eagles,National Division One,Segunda Divisao
+Africa,Burkina Faso,USCO Bobo,Deuxieme Division,Segunda Divisao
+Africa,Burkina Faso,RCK B,Deuxieme Division,Segunda Divisao
+Africa,Burkina Faso,AS Maya,Deuxieme Division,Segunda Divisao
+Africa,Burkina Faso,AJEB,Deuxieme Division,Segunda Divisao
+Africa,Benin,Dragons B,Ligue 2,Segunda Divisao
+Africa,Benin,ASOS,Ligue 2,Segunda Divisao
+Africa,Benin,Aspi FC,Ligue 2,Segunda Divisao
+Africa,Benin,Zou FC,Ligue 2,Segunda Divisao
+Africa,Tanzania,Transit Camp FC,First Division League,Segunda Divisao
+Africa,Tanzania,Mbeya Kwanza,First Division League,Segunda Divisao
+Africa,Tanzania,Boma FC,First Division League,Segunda Divisao
+Africa,Tanzania,Green Warriors,First Division League,Segunda Divisao
+Africa,Mocambique,Ferroviario de Quelimane,Mocambola 2,Segunda Divisao
+Africa,Mocambique,Estrela Vermelha,Mocambola 2,Segunda Divisao
+Africa,Mocambique,Textafrica de Chimoio,Mocambola 2,Segunda Divisao
+Africa,Mocambique,Matchedje de Mocuba,Mocambola 2,Segunda Divisao
+Africa,Burundi,Flambeau de l'Est,Ligue B,Segunda Divisao
+Africa,Burundi,Delta Star,Ligue B,Segunda Divisao
+Africa,Burundi,Les Lierres,Ligue B,Segunda Divisao
+Africa,Burundi,Top Junior,Ligue B,Segunda Divisao
+Asia,Japao,Kawasaki Frontale,J1 League,Profissional
+Asia,Japao,Yokohama F. Marinos,J1 League,Profissional
+Asia,Japao,Urawa Red Diamonds,J1 League,Profissional
+Asia,Japao,Kashima Antlers,J1 League,Profissional
+Asia,Japao,FC Tokyo,J1 League,Profissional
+Asia,Japao,Gamba Osaka,J1 League,Profissional
+Asia,Japao,Cerezo Osaka,J1 League,Profissional
+Asia,Japao,Sanfrecce Hiroshima,J1 League,Profissional
+Asia,Japao,Nagoya Grampus,J1 League,Profissional
+Asia,Japao,Avispa Fukuoka,J1 League,Profissional
+Asia,Japao,Sagan Tosu,J1 League,Profissional
+Asia,Japao,Albirex Niigata,J1 League,Profissional
+Asia,Japao,Consadole Sapporo,J1 League,Profissional
+Asia,Japao,Shonan Bellmare,J1 League,Profissional
+Asia,Japao,Kyoto Sanga,J1 League,Profissional
+Asia,Japao,Tokyo Verdy,J1 League,Profissional
+Asia,Japao,Machida Zelvia,J1 League,Profissional
+Asia,Japao,Vissel Kobe,J1 League,Profissional
+Asia,Coreia do Sul,Ulsan HD FC,K League 1,Profissional
+Asia,Coreia do Sul,Jeonbuk Hyundai Motors,K League 1,Profissional
+Asia,Coreia do Sul,FC Seoul,K League 1,Profissional
+Asia,Coreia do Sul,Pohang Steelers,K League 1,Profissional
+Asia,Coreia do Sul,Daegu FC,K League 1,Profissional
+Asia,Coreia do Sul,Incheon United,K League 1,Profissional
+Asia,Coreia do Sul,Gwangju FC,K League 1,Profissional
+Asia,Coreia do Sul,Daejeon Hana Citizen,K League 1,Profissional
+Asia,Coreia do Sul,Suwon FC,K League 1,Profissional
+Asia,Coreia do Sul,Jeju United,K League 1,Profissional
+Asia,Coreia do Sul,Gangwon FC,K League 1,Profissional
+Asia,Coreia do Sul,Gimcheon Sangmu,K League 1,Profissional
+Asia,Arabia Saudita,Al Hilal,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Nassr,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Ittihad,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Ahli,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Taawoun,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Shabab,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Ettifaq,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Abha,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Damac,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Khaleej,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Raed,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Riyadh,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Fayha,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Okhdood,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Wehda,Saudi Pro League,Profissional
+Asia,Arabia Saudita,Al Hazem,Saudi Pro League,Profissional
+Asia,Ira,Persepolis,Persian Gulf Pro League,Profissional
+Asia,Ira,Esteghlal,Persian Gulf Pro League,Profissional
+Asia,Ira,Sepahan,Persian Gulf Pro League,Profissional
+Asia,Ira,Tractor,Persian Gulf Pro League,Profissional
+Asia,Ira,Zob Ahan,Persian Gulf Pro League,Profissional
+Asia,Ira,Aluminium Arak,Persian Gulf Pro League,Profissional
+Asia,Ira,Gol Gohar,Persian Gulf Pro League,Profissional
+Asia,Ira,Foolad,Persian Gulf Pro League,Profissional
+Asia,China,Shanghai Port,Chinese Super League,Profissional
+Asia,China,Beijing Guoan,Chinese Super League,Profissional
+Asia,China,Shandong Taishan,Chinese Super League,Profissional
+Asia,China,Chengdu Rongcheng,Chinese Super League,Profissional
+Asia,China,Tianjin Jinmen Tiger,Chinese Super League,Profissional
+Asia,China,Zhejiang FC,Chinese Super League,Profissional
+Asia,China,Henan FC,Chinese Super League,Profissional
+Asia,China,Wuhan Three Towns,Chinese Super League,Profissional
+Asia,China,Meizhou Hakka,Chinese Super League,Profissional
+Asia,China,Cangzhou Mighty Lions,Chinese Super League,Profissional
+Asia,China,Nantong Zhiyun,Chinese Super League,Profissional
+Asia,China,Qingdao Hainiu,Chinese Super League,Profissional
+Asia,China,Shenzhen Peng City,Chinese Super League,Profissional
+Asia,China,Changchun Yatai,Chinese Super League,Profissional
+Asia,China,Qingdao West Coast,Chinese Super League,Profissional
+Asia,China,Shijiazhuang Ever Bright,Chinese Super League,Profissional
+Asia,India,Mumbai City,Indian Super League,Profissional
+Asia,India,Mohun Bagan SG,Indian Super League,Profissional
+Asia,India,East Bengal,Indian Super League,Profissional
+Asia,India,Bengaluru FC,Indian Super League,Profissional
+Asia,India,Kerala Blasters,Indian Super League,Profissional
+Asia,India,Chennaiyin FC,Indian Super League,Profissional
+Asia,India,Hyderabad FC,Indian Super League,Profissional
+Asia,India,FC Goa,Indian Super League,Profissional
+Asia,India,Odisha FC,Indian Super League,Profissional
+Asia,India,Punjab FC,Indian Super League,Profissional
+Asia,India,NorthEast United,Indian Super League,Profissional
+Asia,Catar,Al Sadd,Qatar Stars League,Profissional
+Asia,Catar,Al Duhail,Qatar Stars League,Profissional
+Asia,Catar,Al Rayyan,Qatar Stars League,Profissional
+Asia,Catar,Al Arabi,Qatar Stars League,Profissional
+Asia,Catar,Al Gharafa,Qatar Stars League,Profissional
+Asia,Catar,Qatar SC,Qatar Stars League,Profissional
+Asia,Catar,Umm Salal,Qatar Stars League,Profissional
+Asia,Catar,Al Shamal,Qatar Stars League,Profissional
+Asia,Catar,Al Wakrah,Qatar Stars League,Profissional
+Asia,Catar,Muaither SC,Qatar Stars League,Profissional
+Asia,Catar,Al Markhiya,Qatar Stars League,Profissional
+Asia,Catar,Al Ahli Doha,Qatar Stars League,Profissional
+Asia,EAU,Al Ain,UAE Pro League,Profissional
+Asia,EAU,Shabab Al Ahli,UAE Pro League,Profissional
+Asia,EAU,Al Wasl,UAE Pro League,Profissional
+Asia,EAU,Al Wahda,UAE Pro League,Profissional
+Asia,EAU,Al Jazira,UAE Pro League,Profissional
+Asia,EAU,Baniyas,UAE Pro League,Profissional
+Asia,EAU,Sharjah,UAE Pro League,Profissional
+Asia,EAU,Ajman Club,UAE Pro League,Profissional
+Asia,EAU,Khor Fakkan,UAE Pro League,Profissional
+Asia,EAU,Ittihad Kalba,UAE Pro League,Profissional
+Asia,EAU,Al Bataeh,UAE Pro League,Profissional
+Asia,EAU,Emirates Club,UAE Pro League,Profissional
+Asia,Tailandia,Buriram United,Thai League 1,Profissional
+Asia,Tailandia,Bangkok United,Thai League 1,Profissional
+Asia,Tailandia,Port FC,Thai League 1,Profissional
+Asia,Tailandia,Muangthong United,Thai League 1,Profissional
+Asia,Tailandia,Ratchaburi FC,Thai League 1,Profissional
+Asia,Tailandia,Chiangrai United,Thai League 1,Profissional
+Asia,Tailandia,Chonburi FC,Thai League 1,Profissional
+Asia,Tailandia,PT Prachuap,Thai League 1,Profissional
+Asia,Tailandia,Police Tero,Thai League 1,Profissional
+Asia,Tailandia,Trat FC,Thai League 1,Profissional
+Asia,Tailandia,Uthai Thani,Thai League 1,Profissional
+Asia,Tailandia,Lamphun Warriors,Thai League 1,Profissional
+Asia,Tailandia,Khon Kaen United,Thai League 1,Profissional
+Asia,Tailandia,Nakhon Pathom United,Thai League 1,Profissional
+Asia,Indonesia,Persija Jakarta,Liga 1,Profissional
+Asia,Indonesia,Arema FC,Liga 1,Profissional
+Asia,Indonesia,Persib Bandung,Liga 1,Profissional
+Asia,Indonesia,Persebaya Surabaya,Liga 1,Profissional
+Asia,Indonesia,PSM Makassar,Liga 1,Profissional
+Asia,Indonesia,Bali United,Liga 1,Profissional
+Asia,Indonesia,PSS Sleman,Liga 1,Profissional
+Asia,Indonesia,PSIS Semarang,Liga 1,Profissional
+Asia,Uzbequistao,Pakhtakor Tashkent,Uzbekistan Super League,Profissional
+Asia,Uzbequistao,Nasaf,Uzbekistan Super League,Profissional
+Asia,Uzbequistao,Navbahor Namangan,Uzbekistan Super League,Profissional
+Asia,Uzbequistao,Bunyodkor,Uzbekistan Super League,Profissional
+Asia,Uzbequistao,Qizilqum Zarafshon,Uzbekistan Super League,Profissional
+Asia,Uzbequistao,Metallurg Bekabad,Uzbekistan Super League,Profissional
+Asia,Uzbequistao,Sogdiana,Uzbekistan Super League,Profissional
+Asia,Uzbequistao,Olympic Tashkent,Uzbekistan Super League,Profissional
+Asia,Vietna,Hanoi FC,V.League 1,Profissional
+Asia,Vietna,Ho Chi Minh City,V.League 1,Profissional
+Asia,Vietna,Viettel FC,V.League 1,Profissional
+Asia,Vietna,Song Lam Nghe An,V.League 1,Profissional
+Asia,Vietna,Thanh Hoa FC,V.League 1,Profissional
+Asia,Vietna,Hai Phong,V.League 1,Profissional
+Asia,Vietna,Becamex Binh Duong,V.League 1,Profissional
+Asia,Vietna,Nam Dinh,V.League 1,Profissional
+Asia,Malasia,Johor Darul Ta'zim,Malaysia Super League,Profissional
+Asia,Malasia,Selangor FC,Malaysia Super League,Profissional
+Asia,Malasia,Kuala Lumpur City,Malaysia Super League,Profissional
+Asia,Malasia,Terengganu FC,Malaysia Super League,Profissional
+Asia,Malasia,Penang FC,Malaysia Super League,Profissional
+Asia,Malasia,PDRM FC,Malaysia Super League,Profissional
+Asia,Malasia,Kelantan United,Malaysia Super League,Profissional
+Asia,Malasia,Negeri Sembilan,Malaysia Super League,Profissional
+Asia,Kuwait,Al Kuwait SC,Kuwait Premier League,Profissional
+Asia,Kuwait,Al Qadsia,Kuwait Premier League,Profissional
+Asia,Kuwait,Al Arabi SC,Kuwait Premier League,Profissional
+Asia,Kuwait,Kazma SC,Kuwait Premier League,Profissional
+Asia,Kuwait,Al Jahra,Kuwait Premier League,Profissional
+Asia,Bahrein,Al Riffa,Bahrain Premier League,Profissional
+Asia,Bahrein,Muharraq Club,Bahrain Premier League,Profissional
+Asia,Bahrein,Manama Club,Bahrain Premier League,Profissional
+Asia,Bahrein,Al Ahli Manama,Bahrain Premier League,Profissional
+Asia,Bahrein,East Riffa,Bahrain Premier League,Profissional
+Asia,Oma,Al Seeb,Oman Professional League,Profissional
+Asia,Oma,Dhofar Club,Oman Professional League,Profissional
+Asia,Oma,Suwaiq Club,Oman Professional League,Profissional
+Asia,Oma,Al-Nahda Club,Oman Professional League,Profissional
+Asia,Oma,Muscat Club,Oman Professional League,Profissional
+Asia,Jordania,Al Faisaly,Jordanian Pro League,Profissional
+Asia,Jordania,Al Wehdat,Jordanian Pro League,Profissional
+Asia,Jordania,Al Ramtha,Jordanian Pro League,Profissional
+Asia,Jordania,Shabab Al Ordon,Jordanian Pro League,Profissional
+Asia,Jordania,Sahab SC,Jordanian Pro League,Profissional
+Asia,Siria,Al Wahda Damascus,Syrian Premier League,Profissional
+Asia,Siria,Al Ittihad Aleppo,Syrian Premier League,Profissional
+Asia,Siria,Tishreen SC,Syrian Premier League,Profissional
+Asia,Siria,Al Karama,Syrian Premier League,Profissional
+Asia,Siria,Jableh SC,Syrian Premier League,Profissional
+Asia,Iraque,Al Shorta,Iraqi Premier League,Profissional
+Asia,Iraque,Al Zawraa,Iraqi Premier League,Profissional
+Asia,Iraque,Al Quwa Al Jawiya,Iraqi Premier League,Profissional
+Asia,Iraque,Naft Al Wasat,Iraqi Premier League,Profissional
+Asia,Iraque,Erbil SC,Iraqi Premier League,Profissional
+Asia,Palestina,Shabab Al-Khalil,West Bank Premier League,Profissional
+Asia,Palestina,Hilal Al-Quds,West Bank Premier League,Profissional
+Asia,Palestina,Markaz Balata,West Bank Premier League,Profissional
+Asia,Palestina,Thaqafi Tulkarem,West Bank Premier League,Profissional
+Asia,Palestina,Ahli Al-Khalil,West Bank Premier League,Profissional
+Asia,Laos,Young Elephants,Lao League 1,Profissional
+Asia,Laos,Lao Army FC,Lao League 1,Profissional
+Asia,Laos,Master 7 FC,Lao League 1,Profissional
+Asia,Laos,Ezra FC,Lao League 1,Profissional
+Asia,Laos,Luangprabang United,Lao League 1,Profissional
+Asia,Camboja,Phnom Penh Crown,Cambodian Premier League,Profissional
+Asia,Camboja,Visakha FC,Cambodian Premier League,Profissional
+Asia,Camboja,Nagaworld FC,Cambodian Premier League,Profissional
+Asia,Camboja,Preah Khan Reach,Cambodian Premier League,Profissional
+Asia,Camboja,Angkor Tiger,Cambodian Premier League,Profissional
+Asia,Butao,Transport United,Bhutan Premier League,Profissional
+Asia,Butao,Thimphu City,Bhutan Premier League,Profissional
+Asia,Butao,Druk Lhayul FC,Bhutan Premier League,Profissional
+Asia,Butao,BFF Academy,Bhutan Premier League,Profissional
+Asia,Butao,Paro FC,Bhutan Premier League,Profissional
+Asia,Afeganistao,Shaheen Asmayee,Afghan Premier League,Profissional
+Asia,Afeganistao,Toofan Harirod,Afghan Premier League,Profissional
+Asia,Afeganistao,Simorgh Alborz,Afghan Premier League,Profissional
+Asia,Afeganistao,De Spinghar Bazan,Afghan Premier League,Profissional
+Asia,Afeganistao,Mawjhai Amu,Afghan Premier League,Profissional
+Asia,Iemen,Al Shaab Hadramaut,Yemeni League,Profissional
+Asia,Iemen,Al-Ahli San'a,Yemeni League,Profissional
+Asia,Iemen,Al-Wehda Aden,Yemeni League,Profissional
+Asia,Iemen,Hassan Abyan,Yemeni League,Profissional
+Asia,Iemen,Al Tilal,Yemeni League,Profissional
+Asia,Sri Lanka,Blue Star SC,Sri Lanka Super League,Profissional
+Asia,Sri Lanka,Colombo FC,Sri Lanka Super League,Profissional
+Asia,Sri Lanka,Negombo Youth,Sri Lanka Super League,Profissional
+Asia,Sri Lanka,Ratnam SC,Sri Lanka Super League,Profissional
+Asia,Sri Lanka,Sea Hawks,Sri Lanka Super League,Profissional
+Asia,Japao,Vegalta Sendai,J2 League,Segunda Divisao
+Asia,Japao,Omiya Ardija,J2 League,Segunda Divisao
+Asia,Japao,Machida Zelvia,J2 League,Segunda Divisao
+Asia,Japao,V-Varen Nagasaki,J2 League,Segunda Divisao
+Asia,Japao,Fagiano Okayama,J2 League,Segunda Divisao
+Asia,Japao,Roasso Kumamoto,J2 League,Segunda Divisao
+Asia,Japao,Montedio Yamagata,J2 League,Segunda Divisao
+Asia,Japao,JEF United Chiba,J2 League,Segunda Divisao
+Asia,Coreia do Sul,Gyeongnam FC,K League 2,Segunda Divisao
+Asia,Coreia do Sul,Bucheon FC 1995,K League 2,Segunda Divisao
+Asia,Coreia do Sul,Seongnam FC,K League 2,Segunda Divisao
+Asia,Coreia do Sul,Chungnam Asan,K League 2,Segunda Divisao
+Asia,Coreia do Sul,Cheonan City,K League 2,Segunda Divisao
+Asia,Coreia do Sul,Gimpo FC,K League 2,Segunda Divisao
+Asia,China,Dalian Zhixing,China League One,Segunda Divisao
+Asia,China,Heilongjiang Ice City,China League One,Segunda Divisao
+Asia,China,Sichuan Jiuniu,China League One,Segunda Divisao
+Asia,China,Guangxi Pingguo Haliao,China League One,Segunda Divisao
+Asia,China,Suzhou Dongwu,China League One,Segunda Divisao
+Asia,Ira,Malavan Bandar Anzali,Azadegan League,Segunda Divisao
+Asia,Ira,Esteghlal Khuzestan,Azadegan League,Segunda Divisao
+Asia,Ira,Kheybar Khorramabad,Azadegan League,Segunda Divisao
+Asia,Ira,Mes Rafsanjan,Azadegan League,Segunda Divisao
+Asia,Ira,Navad Urmia,Azadegan League,Segunda Divisao
+Asia,India,Gokulam Kerala,I-League,Segunda Divisao
+Asia,India,Churchill Brothers,I-League,Segunda Divisao
+Asia,India,Mohammedan SC,I-League,Segunda Divisao
+Asia,India,Aizawl FC,I-League,Segunda Divisao
+Asia,India,Sreenidi Deccan,I-League,Segunda Divisao
+Asia,Arabia Saudita,Al-Ain FC,Saudi First Division,Segunda Divisao
+Asia,Arabia Saudita,Al Jabalain,Saudi First Division,Segunda Divisao
+Asia,Arabia Saudita,Al-Qaisumah,Saudi First Division,Segunda Divisao
+Asia,Arabia Saudita,Najran SC,Saudi First Division,Segunda Divisao
+Asia,Arabia Saudita,Al Bukayriyah,Saudi First Division,Segunda Divisao
+Asia,Emirados Arabes,Al Hamriyah,UAE First Division,Segunda Divisao
+Asia,Emirados Arabes,Al Arabi,UAE First Division,Segunda Divisao
+Asia,Emirados Arabes,Al Dhaid,UAE First Division,Segunda Divisao
+Asia,Emirados Arabes,Masafi Club,UAE First Division,Segunda Divisao
+Asia,Emirados Arabes,Dibba Al Hisn,UAE First Division,Segunda Divisao
+Asia,Catar,Muaither SC,Qatar Second Division,Segunda Divisao
+Asia,Catar,Al Bidda SC,Qatar Second Division,Segunda Divisao
+Asia,Catar,Lusail SC,Qatar Second Division,Segunda Divisao
+Asia,Catar,Mesaimeer SC,Qatar Second Division,Segunda Divisao
+Asia,Catar,Al Markhiya,Qatar Second Division,Segunda Divisao
+Asia,Indonesia,Persiba Balikpapan,Liga 2,Segunda Divisao
+Asia,Indonesia,PSCS Cilacap,Liga 2,Segunda Divisao
+Asia,Indonesia,Persekat Tegal,Liga 2,Segunda Divisao
+Asia,Indonesia,PSIM Yogyakarta,Liga 2,Segunda Divisao
+Asia,Indonesia,PSMS Medan,Liga 2,Segunda Divisao
+Asia,Vietna,Cong An Nhan Dan,V.League 2,Segunda Divisao
+Asia,Vietna,Binh Phuoc FC,V.League 2,Segunda Divisao
+Asia,Vietna,Dak Lak FC,V.League 2,Segunda Divisao
+Asia,Vietna,Phu Dong FC,V.League 2,Segunda Divisao
+Asia,Vietna,Long An FC,V.League 2,Segunda Divisao
+Asia,Malasia,Perlis FA,Liga Premier,Segunda Divisao
+Asia,Malasia,UiTM FC,Liga Premier,Segunda Divisao
+Asia,Malasia,Sabah FA,Liga Premier,Segunda Divisao
+Asia,Malasia,UKM FC,Liga Premier,Segunda Divisao
+Asia,Malasia,Johor Darul Ta'zim II,Liga Premier,Segunda Divisao
+Asia,Tailandia,Kasetsart FC,Thai League 2,Segunda Divisao
+Asia,Tailandia,Chiangmai FC,Thai League 2,Segunda Divisao
+Asia,Tailandia,Rajpracha FC,Thai League 2,Segunda Divisao
+Asia,Tailandia,Customs United,Thai League 2,Segunda Divisao
+Asia,Tailandia,Phrae United,Thai League 2,Segunda Divisao
+Asia,Uzbequistao,Neftchi Fergana,Uzbekistan Pro League,Segunda Divisao
+Asia,Uzbequistao,Turon Yaypan,Uzbekistan Pro League,Segunda Divisao
+Asia,Uzbequistao,Xorazm Urganch,Uzbekistan Pro League,Segunda Divisao
+Asia,Uzbequistao,Sherdor FC,Uzbekistan Pro League,Segunda Divisao
+Asia,Uzbequistao,Bunyodkor-2,Uzbekistan Pro League,Segunda Divisao
+Asia,Jordania,Al Jalil Irbid,Jordan League Division 1,Segunda Divisao
+Asia,Jordania,Kufrsoum SC,Jordan League Division 1,Segunda Divisao
+Asia,Jordania,Mansheyat Bani Hasan,Jordan League Division 1,Segunda Divisao
+Asia,Jordania,Sahab SC,Jordan League Division 1,Segunda Divisao
+Asia,Jordania,Al-Yarmouk,Jordan League Division 1,Segunda Divisao
+Asia,Siria,Al-Nidal,Syrian 1st Division,Segunda Divisao
+Asia,Siria,Al-Muhafaza,Syrian 1st Division,Segunda Divisao
+Asia,Siria,Ommal Hama,Syrian 1st Division,Segunda Divisao
+Asia,Siria,Afrin SC,Syrian 1st Division,Segunda Divisao
+Asia,Siria,Al-Hurriya,Syrian 1st Division,Segunda Divisao
+Asia,Oma,Al Taliya,Oman First Division League,Segunda Divisao
+Asia,Oma,Majees SC,Oman First Division League,Segunda Divisao
+Asia,Oma,Bahla Club,Oman First Division League,Segunda Divisao
+Asia,Oma,Bidiyah Club,Oman First Division League,Segunda Divisao
+Asia,Oma,Al Ittifaq Club,Oman First Division League,Segunda Divisao
+Asia,Iraque,Al-Diwaniya,Iraq Division One,Segunda Divisao
+Asia,Iraque,Baladiyat Al-Mosul,Iraq Division One,Segunda Divisao
+Asia,Iraque,Al-Junoob,Iraq Division One,Segunda Divisao
+Asia,Iraque,Al-Kahrabaa,Iraq Division One,Segunda Divisao
+Asia,Iraque,Masafi Al-Junoob,Iraq Division One,Segunda Divisao
+Asia,Bahrein,Busaiteen Club,Bahrain Second Division,Segunda Divisao
+Asia,Bahrein,Al-Ittihad Bahrain,Bahrain Second Division,Segunda Divisao
+Asia,Bahrein,Qalali Club,Bahrain Second Division,Segunda Divisao
+Asia,Bahrein,Al Tadamun,Bahrain Second Division,Segunda Divisao
+Asia,Bahrein,Al-Shabab,Bahrain Second Division,Segunda Divisao
+Asia,Kuwait,Al-Sahel SC,Kuwait Division One,Segunda Divisao
+Asia,Kuwait,Al-Shabab Kuwait,Kuwait Division One,Segunda Divisao
+Asia,Kuwait,Al-Yarmouk SC,Kuwait Division One,Segunda Divisao
+Asia,Kuwait,Al-Fahaheel,Kuwait Division One,Segunda Divisao
+Asia,Kuwait,Khaitan SC,Kuwait Division One,Segunda Divisao
+Asia,Laos,Luang Prabang United,Lao League 2,Segunda Divisao
+Asia,Laos,Vientiane FC,Lao League 2,Segunda Divisao
+Asia,Laos,Muanghat United,Lao League 2,Segunda Divisao
+Asia,Laos,Master 7 FC B,Lao League 2,Segunda Divisao
+Asia,Camboja,Angkor City,Cambodian League 2,Segunda Divisao
+Asia,Camboja,Bati Academy,Cambodian League 2,Segunda Divisao
+Asia,Camboja,Next Step FC,Cambodian League 2,Segunda Divisao
+Asia,Camboja,Kampong Speu Crown,Cambodian League 2,Segunda Divisao
+Asia,Bangladesh,Bashundhara Kings Youth,Championship League,Segunda Divisao
+Asia,Bangladesh,Wari Club,Championship League,Segunda Divisao
+Asia,Bangladesh,Farashganj SC,Championship League,Segunda Divisao
+Asia,Bangladesh,Victoria SC,Championship League,Segunda Divisao
+Asia,Palestina,Thaqafi Tulkarm,West Bank 1st Division,Segunda Divisao
+Asia,Palestina,Islami Qalqilya,West Bank 1st Division,Segunda Divisao
+Asia,Palestina,Shabab Al-Dhahiriya,West Bank 1st Division,Segunda Divisao
+Asia,Palestina,Beit Ummar,West Bank 1st Division,Segunda Divisao
+Asia,Libano,Al Rayyan,Lebanese Second Division,Segunda Divisao
+Asia,Libano,Shabab El Bourj,Lebanese Second Division,Segunda Divisao
+Asia,Libano,Al Khoyol,Lebanese Second Division,Segunda Divisao
+Asia,Libano,Homenetmen Beirut,Lebanese Second Division,Segunda Divisao
+Europa,Russia,Zenit St. Petersburg,Russian Premier League,Profissional
+Europa,Russia,CSKA Moscow,Russian Premier League,Profissional
+Europa,Russia,Spartak Moscow,Russian Premier League,Profissional
+Europa,Russia,Lokomotiv Moscow,Russian Premier League,Profissional
+Europa,Russia,Dynamo Moscow,Russian Premier League,Profissional
+Europa,Russia,FK Krasnodar,Russian Premier League,Profissional
+Europa,Russia,Rubin Kazan,Russian Premier League,Profissional
+Europa,Russia,Rostov,Russian Premier League,Profissional
+Europa,Russia,Ural Yekaterinburg,Russian Premier League,Profissional
+Europa,Russia,Fakel Voronezh,Russian Premier League,Profissional
+Europa,Russia,Baltika Kaliningrad,Russian Premier League,Profissional
+Europa,Russia,Orenburg,Russian Premier League,Profissional
+Europa,Russia,Krylia Sovetov,Russian Premier League,Profissional
+Europa,Russia,Akhmat Grozny,Russian Premier League,Profissional
+Europa,Russia,Pari NN,Russian Premier League,Profissional
+Europa,Russia,Sochi,Russian Premier League,Profissional
+Asia,Russia,Alania Vladikavkaz,Russian First League,Segunda Divisao
+Asia,Russia,Arsenal Tula,Russian First League,Segunda Divisao
+Asia,Russia,Dynamo Makhachkala,Russian First League,Segunda Divisao
+Asia,Russia,Enisey Krasnoyarsk,Russian First League,Segunda Divisao
+Asia,Russia,KAMAZ Naberezhnye Chelny,Russian First League,Segunda Divisao
+Asia,Russia,Khimki,Russian First League,Segunda Divisao
+Asia,Russia,Kuban Krasnodar,Russian First League,Segunda Divisao
+Asia,Russia,Leningradets,Russian First League,Segunda Divisao
+Asia,Russia,Neftekhimik Nizhnekamsk,Russian First League,Segunda Divisao
+Asia,Russia,Rodina Moscow,Russian First League,Segunda Divisao
+Asia,Russia,Rotor Volgograd,Russian First League,Segunda Divisao
+Asia,Russia,SKA-Khabarovsk,Russian First League,Segunda Divisao
+Asia,Russia,Sokol Saratov,Russian First League,Segunda Divisao
+Asia,Russia,Torpedo Moscow,Russian First League,Segunda Divisao
+Asia,Russia,Volgar Astrakhan,Russian First League,Segunda Divisao
+Europa,Russia,Alania Vladikavkaz,Russian First League,Segunda Divisao
+Europa,Russia,Arsenal Tula,Russian First League,Segunda Divisao
+Europa,Russia,Dynamo Makhachkala,Russian First League,Segunda Divisao
+Europa,Russia,Enisey Krasnoyarsk,Russian First League,Segunda Divisao
+Europa,Russia,KAMAZ Naberezhnye Chelny,Russian First League,Segunda Divisao
+Europa,Russia,Khimki,Russian First League,Segunda Divisao
+Europa,Russia,Kuban Krasnodar,Russian First League,Segunda Divisao
+Europa,Russia,Leningradets,Russian First League,Segunda Divisao
+Europa,Russia,Neftekhimik Nizhnekamsk,Russian First League,Segunda Divisao
+Europa,Russia,Rodina Moscow,Russian First League,Segunda Divisao
+Europa,Russia,Rotor Volgograd,Russian First League,Segunda Divisao
+Europa,Russia,SKA-Khabarovsk,Russian First League,Segunda Divisao
+Europa,Russia,Sokol Saratov,Russian First League,Segunda Divisao
+Europa,Russia,Torpedo Moscow,Russian First League,Segunda Divisao
+Europa,Russia,Volgar Astrakhan,Russian First League,Segunda Divisao
+Asia,Russia,Zenit St. Petersburg,Russian Premier League,Profissional
+Asia,Russia,CSKA Moscow,Russian Premier League,Profissional
+Asia,Russia,Spartak Moscow,Russian Premier League,Profissional
+Asia,Russia,Lokomotiv Moscow,Russian Premier League,Profissional
+Asia,Russia,Dynamo Moscow,Russian Premier League,Profissional
+Asia,Russia,FK Krasnodar,Russian Premier League,Profissional
+Asia,Russia,Rubin Kazan,Russian Premier League,Profissional
+Asia,Russia,Rostov,Russian Premier League,Profissional
+Asia,Russia,Ural Yekaterinburg,Russian Premier League,Profissional
+Asia,Russia,Fakel Voronezh,Russian Premier League,Profissional
+Asia,Russia,Baltika Kaliningrad,Russian Premier League,Profissional
+Asia,Russia,Orenburg,Russian Premier League,Profissional
+Asia,Russia,Krylia Sovetov,Russian Premier League,Profissional
+Asia,Russia,Akhmat Grozny,Russian Premier League,Profissional
+Asia,Russia,Pari NN,Russian Premier League,Profissional
+Asia,Russia,Sochi,Russian Premier League,Profissional
+Oceania,Australia,Adelaide United,A-League,Profissional
+Oceania,Australia,Brisbane Roar,A-League,Profissional
+Oceania,Australia,Central Coast Mariners,A-League,Profissional
+Oceania,Australia,Macarthur FC,A-League,Profissional
+Oceania,Australia,Melbourne City,A-League,Profissional
+Oceania,Australia,Melbourne Victory,A-League,Profissional
+Oceania,Australia,Newcastle Jets,A-League,Profissional
+Oceania,Australia,Perth Glory,A-League,Profissional
+Oceania,Australia,Sydney FC,A-League,Profissional
+Oceania,Australia,Wellington Phoenix,A-League,Profissional
+Oceania,Australia,Western Sydney Wanderers,A-League,Profissional
+Oceania,Australia,Western United,A-League,Profissional
+Oceania,New Zealand,Auckland City,New Zealand National League,Profissional
+Oceania,New Zealand,Eastern Suburbs,New Zealand National League,Profissional
+Oceania,New Zealand,Birkenhead United,New Zealand National League,Profissional
+Oceania,New Zealand,Cashmere Technical,New Zealand National League,Profissional
+Oceania,New Zealand,Christchurch United,New Zealand National League,Profissional
+Oceania,New Zealand,Manurewa AFC,New Zealand National League,Profissional
+Oceania,New Zealand,Napier City Rovers,New Zealand National League,Profissional
+Oceania,New Zealand,Petone FC,New Zealand National League,Profissional
+Oceania,New Zealand,Wellington Olympic,New Zealand National League,Profissional
+Oceania,New Zealand,Wellington Phoenix Reserves,New Zealand National League,Profissional
+Oceania,Fiji,Ba FC,Fiji Premier League,Profissional
+Oceania,Fiji,Labasa FC,Fiji Premier League,Profissional
+Oceania,Fiji,Lautoka FC,Fiji Premier League,Profissional
+Oceania,Fiji,Nadi FC,Fiji Premier League,Profissional
+Oceania,Fiji,Navua FC,Fiji Premier League,Profissional
+Oceania,Fiji,Nasinu FC,Fiji Premier League,Profissional
+Oceania,Fiji,Rewa FC,Fiji Premier League,Profissional
+Oceania,Fiji,Suva FC,Fiji Premier League,Profissional
+Oceania,Fiji,Tavua FC,Fiji Premier League,Profissional
+Oceania,Fiji,Dreketi FC,Fiji Premier League,Profissional
+Oceania,Papua New Guinea,Lae City FC,National Soccer League,Profissional
+Oceania,Papua New Guinea,Hekari United,National Soccer League,Profissional
+Oceania,Papua New Guinea,Gulf Komara,National Soccer League,Profissional
+Oceania,Papua New Guinea,Morobe United,National Soccer League,Profissional
+Oceania,Papua New Guinea,Bougainville,National Soccer League,Profissional
+Oceania,Papua New Guinea,Star Mountain,National Soccer League,Profissional
+Oceania,Papua New Guinea,Tusbab Stallions,National Soccer League,Profissional
+Oceania,Papua New Guinea,Enga Laima,National Soccer League,Profissional
+Oceania,Solomon Islands,Solomon Warriors,Telekom S-League,Profissional
+Oceania,Solomon Islands,Marist FC,Telekom S-League,Profissional
+Oceania,Solomon Islands,Henderson Eels,Telekom S-League,Profissional
+Oceania,Solomon Islands,Kossa FC,Telekom S-League,Profissional
+Oceania,Solomon Islands,Real Kakamora,Telekom S-League,Profissional
+Oceania,Solomon Islands,Isabel United,Telekom S-League,Profissional
+Oceania,Solomon Islands,Southern United,Telekom S-League,Profissional
+Oceania,Solomon Islands,Central Coast FC,Telekom S-League,Profissional
+Oceania,Fiji,Bua FC,Fiji Senior League,Semi-Profissional
+Oceania,Fiji,Seaqaqa FC,Fiji Senior League,Semi-Profissional
+Oceania,Fiji,Taveuni FC,Fiji Senior League,Semi-Profissional
+Oceania,Fiji,Nadroga FC,Fiji Senior League,Semi-Profissional
+Oceania,Fiji,Tailevu Naitasiri FC,Fiji Senior League,Semi-Profissional
+Oceania,New Zealand,Melville United,Northern League,Regional
+Oceania,New Zealand,Hamilton Wanderers,Northern League,Regional
+Oceania,New Zealand,Takapuna AFC,Northern League,Regional
+Oceania,New Zealand,Bay Olympic,Northern League,Regional
+Oceania,New Zealand,Manukau United,Northern League,Regional
+Oceania,Vanuatu,Tafea FC,Port Vila Football League,Regional
+Oceania,Vanuatu,Ifira Black Bird,Port Vila Football League,Regional
+Oceania,Vanuatu,Amicale FC,Port Vila Football League,Regional
+Oceania,Vanuatu,Galaxy FC,Port Vila Football League,Regional
+Oceania,Vanuatu,Yatel FC,Port Vila Football League,Regional

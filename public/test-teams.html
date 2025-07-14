@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Teams</title>
+</head>
+<body>
+    <h1>Test Teams Loading</h1>
+    <div id="output"></div>
+    
+    <script>
+        async function loadTeams() {
+            try {
+                const response = await fetch('/futebol.csv');
+                const csvText = await response.text();
+                
+                const lines = csvText.split('\n');
+                const teams = [];
+                const seenNames = new Set();
+                
+                // Pular o cabeçalho
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const columns = line.split(',');
+                    if (columns.length >= 5) {
+                        const [continente, pais, nome, liga, categoria] = columns;
+                        
+                        // Filtrar times "fake"
+                        if (nome.includes('B FC') || nome.includes(' FC ')) {
+                            continue;
+                        }
+                        
+                        // Evitar duplicatas
+                        if (seenNames.has(nome)) {
+                            continue;
+                        }
+                        seenNames.add(nome);
+                        
+                        teams.push({
+                            name: nome,
+                            continente,
+                            pais,
+                            liga,
+                            categoria
+                        });
+                    }
+                }
+                
+                // Adicionar seleções nacionais
+                const paises = [...new Set(teams.map(t => t.pais))];
+                paises.forEach(pais => {
+                    const existingTeam = teams.find(t => t.name === pais);
+                    if (!existingTeam) {
+                        teams.push({
+                            name: pais,
+                            continente: teams.find(t => t.pais === pais)?.continente || 'Internacional',
+                            pais: pais,
+                            liga: 'Seleção Nacional',
+                            categoria: 'Seleção'
+                        });
+                    }
+                });
+                
+                const output = document.getElementById('output');
+                output.innerHTML = `
+                    <h2>Total de times: ${teams.length}</h2>
+                    <h3>Primeiros 20 times:</h3>
+                    <ul>
+                        ${teams.slice(0, 20).map(team => 
+                            `<li><strong>${team.name}</strong> - ${team.pais} (${team.liga})</li>`
+                        ).join('')}
+                    </ul>
+                    <h3>Seleções nacionais:</h3>
+                    <ul>
+                        ${teams.filter(t => t.liga === 'Seleção Nacional').map(team => 
+                            `<li><strong>${team.name}</strong> - ${team.continente}</li>`
+                        ).join('')}
+                    </ul>
+                `;
+                
+                console.log('Teams loaded:', teams);
+            } catch (error) {
+                console.error('Error loading teams:', error);
+                document.getElementById('output').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        loadTeams();
+    </script>
+</body>
+</html> 

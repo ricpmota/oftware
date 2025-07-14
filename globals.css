@@ -1,0 +1,427 @@
+/* Estilos específicos para a página oftalmológica */
+
+/* Reset de cores para garantir visibilidade */
+.oftalmo-page {
+  color: #1f2937 !important; /* Cor padrão do texto */
+}
+
+/* Forçar cores específicas para elementos importantes */
+.oftalmo-page .bg-white {
+  background-color: white !important;
+}
+
+.oftalmo-page .bg-blue-50 {
+  background-color: #eff6ff !important;
+}
+
+.oftalmo-page .bg-green-50 {
+  background-color: #f0fdf4 !important;
+}
+
+.oftalmo-page .bg-purple-50 {
+  background-color: #faf5ff !important;
+}
+
+/* Melhorias para mobile */
+@media (max-width: 768px) {
+  .oftalmo-container {
+    padding: 0;
+  }
+  
+  .oftalmo-card {
+    margin: 0.5rem 0;
+    border-radius: 0.5rem;
+  }
+  
+  .oftalmo-input {
+    font-size: 16px; /* Evita zoom no iOS */
+  }
+  
+  .oftalmo-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .oftalmo-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Estilos de impressão */
+@media print {
+  .oftalmo-no-print {
+    display: none !important;
+  }
+  
+  .oftalmo-print-only {
+    display: block !important;
+  }
+  
+  .oftalmo-page {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .oftalmo-card {
+    border: 1px solid #000 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+  
+  .oftalmo-header {
+    border-bottom: 2px solid #000 !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .oftalmo-prescription {
+    font-family: 'Courier New', monospace !important;
+    font-size: 14pt !important;
+  }
+  
+  .oftalmo-alert {
+    border: 1px solid #000 !important;
+    background: #f9f9f9 !important;
+  }
+}
+
+/* Animações suaves */
+.oftalmo-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Estilos específicos para campos de medição */
+.measurement-input {
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+.measurement-input:focus {
+  background-color: #f0f9ff;
+  border-color: #3b82f6;
+}
+
+/* Estilos para alertas */
+.alert-error {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-left: 4px solid #dc2626;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-left: 4px solid #d97706;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-left: 4px solid #2563eb;
+}
+
+/* Estilos para prescrição */
+.prescription-display {
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.prescription-positive {
+  color: #059669;
+}
+
+.prescription-negative {
+  color: #dc2626;
+}
+
+/* Estilos para progresso */
+.progress-step {
+  transition: all 0.3s ease;
+}
+
+.progress-step.active {
+  transform: scale(1.1);
+}
+
+/* Estilos para botões */
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Estilos para cards */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos para tabelas de medição */
+.measurement-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.measurement-table th,
+.measurement-table td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.measurement-table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.measurement-table td {
+  background-color: white;
+}
+
+.measurement-table tr:nth-child(even) td {
+  background-color: #f9fafb;
+}
+
+/* Estilos para sintomas */
+.symptom-checkbox {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.symptom-checkbox:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.symptom-checkbox input[type="checkbox"] {
+  margin-right: 0.75rem;
+  transform: scale(1.2);
+}
+
+.symptom-checkbox input[type="checkbox"]:checked + span {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+/* Estilos para diagnósticos */
+.diagnosis-tag {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  margin: 0.25rem;
+  background-color: #dbeafe;
+  color: #1e40af;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid #bfdbfe;
+}
+
+.diagnosis-tag.selected {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* Estilos para comparação */
+.comparison-highlight {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  font-weight: 500;
+}
+
+.comparison-difference {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.comparison-difference.positive {
+  color: #059669;
+}
+
+/* Estilos para observações */
+.observation-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.observation-item:last-child {
+  border-bottom: none;
+}
+
+.observation-bullet {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  margin-top: 0.5rem;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.observation-bullet.blue {
+  background-color: #3b82f6;
+}
+
+.observation-bullet.yellow {
+  background-color: #f59e0b;
+}
+
+.observation-bullet.red {
+  background-color: #dc2626;
+}
+
+/* Estilos para responsividade em telas muito pequenas */
+@media (max-width: 480px) {
+  .oftalmo-container {
+    padding: 0.5rem;
+  }
+  
+  .oftalmo-card {
+    padding: 1rem;
+  }
+  
+  .oftalmo-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  .prescription-display {
+    font-size: 1rem;
+  }
+  
+  .btn-primary,
+  .btn-success {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Garantir visibilidade do texto em todos os elementos */
+.oftalmo-page h1,
+.oftalmo-page h2,
+.oftalmo-page h3,
+.oftalmo-page h4,
+.oftalmo-page h5,
+.oftalmo-page h6 {
+  color: #1f2937 !important;
+}
+
+.oftalmo-page p,
+.oftalmo-page span,
+.oftalmo-page div,
+.oftalmo-page label {
+  color: #374151 !important;
+}
+
+/* Forçar cores específicas para elementos dentro de cards */
+.oftalmo-page .bg-white h1,
+.oftalmo-page .bg-white h2,
+.oftalmo-page .bg-white h3,
+.oftalmo-page .bg-white h4,
+.oftalmo-page .bg-white h5,
+.oftalmo-page .bg-white h6 {
+  color: #1f2937 !important;
+}
+
+.oftalmo-page .bg-white p,
+.oftalmo-page .bg-white span,
+.oftalmo-page .bg-white div,
+.oftalmo-page .bg-white label {
+  color: #374151 !important;
+}
+
+.oftalmo-page .bg-blue-50 h1,
+.oftalmo-page .bg-blue-50 h2,
+.oftalmo-page .bg-blue-50 h3,
+.oftalmo-page .bg-blue-50 h4,
+.oftalmo-page .bg-blue-50 h5,
+.oftalmo-page .bg-blue-50 h6 {
+  color: #1e40af !important;
+}
+
+.oftalmo-page .bg-blue-50 p,
+.oftalmo-page .bg-blue-50 span,
+.oftalmo-page .bg-blue-50 div,
+.oftalmo-page .bg-blue-50 label {
+  color: #1e40af !important;
+}
+
+.oftalmo-page input,
+.oftalmo-page select,
+.oftalmo-page textarea {
+  color: #1f2937 !important;
+  background-color: white !important;
+}
+
+.oftalmo-page button {
+  color: white !important;
+}
+
+.oftalmo-page .text-gray-600 {
+  color: #6b7280 !important;
+}
+
+.oftalmo-page .text-gray-700 {
+  color: #374151 !important;
+}
+
+.oftalmo-page .text-gray-800 {
+  color: #1f2937 !important;
+}
+
+/* Estilos para modo escuro (se necessário no futuro) */
+@media (prefers-color-scheme: dark) {
+  .oftalmo-dark {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+  
+  .oftalmo-dark .oftalmo-card {
+    background-color: #374151;
+    border-color: #4b5563;
+  }
+  
+  .oftalmo-dark .oftalmo-input {
+    background-color: #4b5563;
+    border-color: #6b7280;
+    color: #f9fafb;
+  }
+} 
