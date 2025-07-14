@@ -21,7 +21,7 @@ export default function LoginModal({ onLoginSuccess, onClose }: LoginModalProps)
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       onLoginSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro no login Google:', error);
       setError('Erro ao fazer login com Google. Tente novamente.');
     } finally {
@@ -37,7 +37,7 @@ export default function LoginModal({ onLoginSuccess, onClose }: LoginModalProps)
       const provider = new FacebookAuthProvider();
       await signInWithPopup(auth, provider);
       onLoginSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro no login Facebook:', error);
       setError('Erro ao fazer login com Facebook. Tente novamente.');
     } finally {

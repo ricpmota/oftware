@@ -43,7 +43,7 @@ export default function DataEntryForm({ patientData, onSubmit }: DataEntryFormPr
     });
   }
 
-  const handleInputChange = (field: keyof PatientData, value: any) => {
+  const handleInputChange = (field: keyof PatientData, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

@@ -50,7 +50,7 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
               name: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || ''
             }));
           }
-        } catch (error) {
+        } catch {
           console.log('Perfil não encontrado ou erro de permissão - continuando com configuração inicial');
           // Mesmo com erro, usar o nome do usuário logado
           setFormData(prev => ({
@@ -136,8 +136,8 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
       try {
         await DoctorService.saveDoctorProfile(auth.currentUser.uid, profileData);
         console.log('✅ Perfil salvo com sucesso via cliente');
-      } catch (clientError: any) {
-        console.log('⚠️ Erro via cliente, tentando via Admin SDK:', clientError.message);
+              } catch (clientError: unknown) {
+          console.log('⚠️ Erro via cliente, tentando via Admin SDK:', (clientError as Error).message);
         
         // Fallback para API Admin
         const response = await fetch('/api/admin/create-doctor-profile', {
@@ -155,9 +155,9 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
       }
 
       onComplete(profileData);
-    } catch (error: any) {
+            } catch (error: unknown) {
       console.error('❌ Erro ao salvar perfil:', error);
-      setError(error.message || 'Erro ao salvar perfil. Tente novamente.');
+      setError((error as Error).message || 'Erro ao salvar perfil. Tente novamente.');
     } finally {
       setLoading(false);
     }

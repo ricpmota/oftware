@@ -30,7 +30,7 @@ export default function SubjectiveAdjustmentGuide({ patientData, clinicalResult 
   const subjectivePath: SubjectivePathOutput = suggestSubjectivePath({
     age: patientData.age,
     averages: clinicalResult.averageMeasurements,
-    ametropiaType: clinicalResult.ametropiaType as any,
+    ametropiaType: clinicalResult.ametropiaType as { od: "Miopia" | "Hipermetropia" | "Astigmatismo" | "Neutro"; oe: "Miopia" | "Hipermetropia" | "Astigmatismo" | "Neutro" },
     stability: clinicalResult.stability,
     clinicalSuggestions: clinicalResult.clinicalSuggestions,
     usesGlasses: patientData.usesGlasses
