@@ -339,35 +339,33 @@ export default function FinalPrescription({
               <table className="w-full border-collapse border border-gray-300">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Olho</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Esférico</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Cilindro</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Eixo</th>
+                    <th className="border border-gray-300 px-3 py-2 text-center text-sm font-medium text-gray-700">Olho Direito</th>
+                    <th className="border border-gray-300 px-3 py-2 text-center text-sm font-medium text-gray-700">Olho Esquerdo</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-medium text-gray-900">OD</td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.finalPrescription.od.s > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.od.s.toFixed(2)}
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      S: {finalPrescriptionData.finalPrescription.od.s > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.od.s.toFixed(2)}
                     </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.finalPrescription.od.c > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.od.c.toFixed(2)}
-                    </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.finalPrescription.od.e}°
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      S: {finalPrescriptionData.finalPrescription.oe.s > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.oe.s.toFixed(2)}
                     </td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-medium text-gray-900">OE</td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.finalPrescription.oe.s > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.oe.s.toFixed(2)}
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      C: {finalPrescriptionData.finalPrescription.od.c > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.od.c.toFixed(2)}
                     </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.finalPrescription.oe.c > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.oe.c.toFixed(2)}
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      C: {finalPrescriptionData.finalPrescription.oe.c > 0 ? '+' : ''}{finalPrescriptionData.finalPrescription.oe.c.toFixed(2)}
                     </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.finalPrescription.oe.e}°
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      AV: {finalPrescriptionData.finalPrescription.od.av || '20/20'}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      AV: {finalPrescriptionData.finalPrescription.oe.av || '20/20'}
                     </td>
                   </tr>
                 </tbody>
@@ -384,35 +382,50 @@ export default function FinalPrescription({
               <table className="w-full border-collapse border border-gray-300">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Olho</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Esférico</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Cilindro</th>
-                    <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium text-gray-700">Eixo</th>
+                    <th className="border border-gray-300 px-3 py-2 text-center text-sm font-medium text-gray-700">Olho Direito</th>
+                    <th className="border border-gray-300 px-3 py-2 text-center text-sm font-medium text-gray-700">Olho Esquerdo</th>
+                    <th className="border border-gray-300 px-3 py-2 text-center text-sm font-medium text-gray-700">AC Perto</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-medium text-gray-900">OD</td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.nearPrescription.od.s > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.od.s.toFixed(2)}
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      S: {finalPrescriptionData.nearPrescription.od.s > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.od.s.toFixed(2)}
                     </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.nearPrescription.od.c > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.od.c.toFixed(2)}
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      S: {finalPrescriptionData.nearPrescription.oe.s > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.oe.s.toFixed(2)}
                     </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.nearPrescription.od.e}°
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      <select className="w-full text-center bg-transparent border-none focus:outline-none">
+                        <option value="J1">J1</option>
+                        <option value="J2">J2</option>
+                        <option value="J3">J3</option>
+                        <option value="J4">J4</option>
+                        <option value="J5">J5</option>
+                        <option value="J6">J6</option>
+                      </select>
                     </td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-medium text-gray-900">OE</td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.nearPrescription.oe.s > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.oe.s.toFixed(2)}
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      C: {finalPrescriptionData.nearPrescription.od.c > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.od.c.toFixed(2)}
                     </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.nearPrescription.oe.c > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.oe.c.toFixed(2)}
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      C: {finalPrescriptionData.nearPrescription.oe.c > 0 ? '+' : ''}{finalPrescriptionData.nearPrescription.oe.c.toFixed(2)}
                     </td>
-                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900">
-                      {finalPrescriptionData.nearPrescription.oe.e}°
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      {/* Espaço vazio para manter alinhamento */}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      AV: {finalPrescriptionData.nearPrescription.od.av || '20/20'}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      AV: {finalPrescriptionData.nearPrescription.oe.av || '20/20'}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 text-center">
+                      {/* Espaço vazio para manter alinhamento */}
                     </td>
                   </tr>
                 </tbody>
