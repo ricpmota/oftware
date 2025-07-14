@@ -11,7 +11,7 @@ const tabs = [
   { 
     id: 'home', 
     label: 'Home', 
-    icon: '/icones/Home.png', 
+    icon: '/icones/home.png', 
     color: '#22c55e'
   },
   { 
@@ -23,7 +23,7 @@ const tabs = [
   { 
     id: 'glaucoma', 
     label: 'Glaucoma', 
-    icon: '/icones/glaucoma.png', 
+    icon: '/icones/Glaucoma.png', 
     color: '#f59e0b'
   },
   { 
@@ -35,7 +35,7 @@ const tabs = [
   { 
     id: 'patients', 
     label: 'Pacientes', 
-    icon: '/icones/Config.png', 
+    icon: '/icones/config.png', 
     color: '#ef4444'
   }
 ];
