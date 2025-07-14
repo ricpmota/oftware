@@ -1,120 +1,116 @@
-# Oftalmo - Assistente Clínico Oftalmológico
+# Oftware - Sistema de Gestão Clínica
 
-O módulo **/oftalmo** é um assistente clínico para oftalmologistas e optometristas, desenvolvido para facilitar o fluxo de análise clínica, prescrição de lentes, assinatura digital de laudos e exportação de relatórios em PDF.
+Sistema completo de gestão clínica oftalmológica desenvolvido com Next.js, React e TypeScript.
 
-## ✨ Funcionalidades Principais
+## 🚀 Tecnologias
 
-- **Cadastro e Edição de Perfil do Médico**
-  - Nome, CRM, especialidade, sexo
-  - Assinatura digital (captura via canvas)
-- **Entrada de Dados do Paciente**
-  - Dados demográficos, sintomas, medições do auto-refrator
-- **Análise Clínica Automatizada**
-  - Cálculo de médias, variabilidade, estabilidade
-  - Sugestão de roteiro subjetivo
-- **Módulos Clínicos de Refração**
-  - **Fogging Assist**: Duplo borramento para hipermetropia latente
-  - **Cicloplegia Alert**: Alerta de cicloplegia obrigatória
-  - **Binocular Balance**: Equilíbrio binocular final
-- **Prescrição Final**
-  - Grau para longe e perto, adição automática
-  - Resumo em tabela
-- **Assinatura Digital**
-  - Captura, visualização e inclusão automática no PDF
-- **Exportação de Relatório em PDF**
-  - Laudo completo com dados do paciente, prescrição e assinatura do médico
-- **Fluxo de Edição e Cancelamento**
-  - Permite editar e cancelar alterações no perfil
+- **Next.js 15** - Framework React com App Router
+- **React 19** - Biblioteca para interfaces
+- **TypeScript** - Tipagem estática
+- **Tailwind CSS** - Framework CSS utilitário
+- **Firebase** - Backend e autenticação
+- **Vercel** - Deploy e hospedagem
 
-## 🛠️ Tecnologias Utilizadas
+## 📋 Funcionalidades
 
-- **Next.js** (App Router)
-- **React**
-- **Tailwind CSS**
-- **Firebase** (Auth, Firestore)
-- **jsPDF** e **jspdf-autotable** (geração de PDF)
+### Módulos Clínicos
+- **Refração** - Exame de refração completo
+- **Glaucoma** - Avaliação e monitoramento
+- **Retina** - Exames de retina
+- **Alerta Clínico** - Sistema de alertas médicos
+- **Assinatura Digital** - Prescrições digitais
+- **Perfil Médico** - Configuração de perfil profissional
 
-## 🚀 Como Usar
+### Gestão de Pacientes
+- Cadastro e histórico de pacientes
+- Formulários de entrada de dados
+- Análise clínica avançada
+- Guia de ajuste subjetivo
 
-1. **Acesse o módulo /oftalmo**
-2. Faça login e cadastre seu perfil profissional (com assinatura digital)
-3. Preencha os dados do paciente e medições
-4. Siga o roteiro clínico sugerido
-5. Gere e revise a prescrição final
-6. Exporte o laudo em PDF (com assinatura digital)
+## 🛠️ Instalação
 
-## 📋 Fluxo Principal
+```bash
+# Clone o repositório
+git clone https://github.com/seu-usuario/oftware.git
 
-1. **Login e Perfil**: O médico faz login e preenche/edita seu perfil, incluindo assinatura digital.
-2. **Entrada de Dados**: Preenche dados do paciente e medições do auto-refrator.
-3. **Análise Clínica**: O sistema calcula médias, sugere roteiro subjetivo e destaca alertas clínicos.
-4. **Prescrição**: O médico revisa e ajusta a prescrição final.
-5. **Exportação**: O laudo pode ser exportado em PDF, incluindo a assinatura digital do médico.
+# Entre na pasta
+cd oftware
 
-## 🖊️ Exemplo de Uso
+# Instale as dependências
+npm install
 
-### Assinatura Digital
-```jsx
-// Exemplo de inclusão da assinatura digital no PDF (jsPDF)
-import jsPDF from 'jspdf';
+# Configure as variáveis de ambiente
+cp .env.example .env.local
 
-const doc = new jsPDF();
-// ... outros conteúdos
-if (doctorProfile.digitalSignature) {
-  doc.addImage(doctorProfile.digitalSignature, 'JPEG', 20, 250, 60, 20);
-}
-doc.save('laudo-oftalmo.pdf');
+# Execute em desenvolvimento
+npm run dev
 ```
 
-### Módulos Clínicos de Refração
-```jsx
-// Exemplo de uso dos módulos clínicos
-import { runRefractionModules } from './utils/refractionModules';
+## 🔧 Configuração
 
-const input = {
-  age: 25,
-  hasHyperopia: true,
-  arRefraction: { od: { s: 2.0, c: -0.5, e: 90 }, oe: { s: 1.75, c: -0.25, e: 85 } },
-  finalRefraction: { od: { s: 1.5, c: -0.5, e: 90 }, oe: { s: 1.25, c: -0.25, e: 85 } },
-  // ... outros dados
-};
+### Variáveis de Ambiente
 
-const result = runRefractionModules(input);
-console.log('Pode prescrever:', result.finalRecommendation.canPrescribe);
-console.log('Próximos passos:', result.finalRecommendation.nextSteps);
+Crie um arquivo `.env.local` com as seguintes variáveis:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=sua_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=seu_projeto.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=seu_projeto_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=seu_projeto.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=seu_app_id
 ```
 
-## ⚙️ Customização
+## 📦 Scripts Disponíveis
 
-- **Adicionar campos**: Edite os componentes de formulário em `/components`.
-- **Alterar lógica clínica**: Ajuste os utilitários em `/utils`.
-- **Personalizar PDF**: Edite a função de exportação em `/components/FinalPrescription.tsx`.
+- `npm run dev` - Executa em modo desenvolvimento
+- `npm run build` - Gera build de produção
+- `npm run start` - Executa build de produção
+- `npm run lint` - Executa linter
 
-## ☁️ Deploy no Vercel
+## 🌐 Deploy
 
-1. Faça login no [Vercel](https://vercel.com/)
-2. Conecte o repositório do projeto
-3. Configure as variáveis de ambiente (Firebase, etc.)
-4. Deploy automático a cada push ou rode `vercel --prod`
+O projeto está configurado para deploy automático no Vercel conectado ao domínio [oftware.com.br](https://oftware.com.br).
 
-## 📂 Estrutura dos Principais Arquivos
+### Deploy Manual
 
-- `page.tsx` — fluxo principal e roteamento
-- `components/DoctorProfileSetup.tsx` — cadastro/edição do médico
-- `components/DigitalSignature.tsx` — captura da assinatura
-- `components/ClinicalAnalysis.tsx` — análise clínica
-- `components/FinalPrescription.tsx` — prescrição e exportação PDF
-- `utils/` — lógica de análise e sugestões
-  - `foggingAssist.ts` — duplo borramento para hipermetropia latente
-  - `cicloplegiaAlert.ts` — alerta de cicloplegia obrigatória
-  - `binocularBalance.ts` — equilíbrio binocular final
-  - `refractionModules.ts` — integração dos módulos clínicos
+```bash
+# Build do projeto
+npm run build
 
-## 👨‍⚕️ Público-Alvo
-- Oftalmologistas
-- Optometristas
-- Clínicas e consultórios
+# Deploy no Vercel
+vercel --prod
+```
+
+## 📁 Estrutura do Projeto
+
+```
+oftware/
+├── app/                    # App Router do Next.js
+├── components/             # Componentes React
+├── lib/                    # Configurações (Firebase, etc.)
+├── services/               # Serviços de API
+├── types/                  # Definições TypeScript
+├── utils/                  # Utilitários e helpers
+└── public/                 # Arquivos estáticos
+```
+
+## 🤝 Contribuição
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## 📞 Suporte
+
+Para suporte, entre em contato através do site [oftware.com.br](https://oftware.com.br)
 
 ---
 
-**Dúvidas ou sugestões?** Abra uma issue ou entre em contato com o time de desenvolvimento. 
+Desenvolvido com ❤️ para a comunidade oftalmológica 
