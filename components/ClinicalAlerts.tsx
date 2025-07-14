@@ -53,14 +53,14 @@ export default function ClinicalAlerts({
 
 
     // Alertas baseados nos sintomas
-    if (patientData.symptoms.eyePain) {
+    if (patientData.symptoms.includes('Dor nos olhos')) {
       alerts.push({
         type: 'error',
         message: 'Dor nos olhos relatada - avaliar urgência oftalmológica'
       });
     }
 
-    if (patientData.symptoms.photophobia) {
+    if (patientData.symptoms.includes('Fotofobia') || patientData.symptoms.includes('Sensibilidade à luz')) {
       alerts.push({
         type: 'warning',
         message: 'Fotofobia - considerar lentes fotocromáticas'
