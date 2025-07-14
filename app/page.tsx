@@ -83,7 +83,7 @@ export default function OftalmoPage() {
       await signInWithPopup(auth, provider);
     } catch (error: unknown) {
       console.error('Error signing in with Google:', error);
-      const errorCode = (error as any).code;
+      const errorCode = (error as { code?: string }).code;
       if (errorCode === 'auth/popup-closed-by-user') {
         setLoginError('Login cancelado pelo usuário.');
       } else if (errorCode === 'auth/popup-blocked') {
