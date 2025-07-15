@@ -133,12 +133,13 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     };
   };
 
+  // Scroll to top when step changes
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentStep]);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6" style={{ paddingBottom: 100 }}>
-      {/* Scroll to top when step changes */}
-      {React.useEffect(() => {
-        window.scrollTo(0, 0);
-      }, [currentStep])}
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex items-center justify-between">
