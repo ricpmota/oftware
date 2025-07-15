@@ -147,14 +147,6 @@ export default function FinalPrescription({
                   <span><strong>Idade:</strong></span>
                   <span>${patientData.age} anos</span>
                 </div>
-                <div class="info-item">
-                  <span><strong>Gênero:</strong></span>
-                  <span>${patientData.gender === 'male' ? 'Masculino' : patientData.gender === 'female' ? 'Feminino' : 'Não informado'}</span>
-                </div>
-                <div class="info-item">
-                  <span><strong>Usa óculos:</strong></span>
-                  <span>${patientData.usesGlasses ? 'Sim' : 'Não'}</span>
-                </div>
               </div>
             </div>
 
@@ -180,14 +172,14 @@ export default function FinalPrescription({
                     <td>${finalPrescriptionData.finalPrescription.od.s > 0 ? '+' : ''}${finalPrescriptionData.finalPrescription.od.s.toFixed(2)}</td>
                     <td>${finalPrescriptionData.finalPrescription.od.c > 0 ? '+' : ''}${finalPrescriptionData.finalPrescription.od.c.toFixed(2)}</td>
                     <td>${finalPrescriptionData.finalPrescription.od.e}°</td>
-                    <td>${finalPrescriptionData.nearAcuity?.od || 'J1'}</td>
+                    <td>${finalPrescriptionData.finalPrescription.od.av}</td>
                   </tr>
                   <tr>
                     <td>OE</td>
                     <td>${finalPrescriptionData.finalPrescription.oe.s > 0 ? '+' : ''}${finalPrescriptionData.finalPrescription.oe.s.toFixed(2)}</td>
                     <td>${finalPrescriptionData.finalPrescription.oe.c > 0 ? '+' : ''}${finalPrescriptionData.finalPrescription.oe.c.toFixed(2)}</td>
                     <td>${finalPrescriptionData.finalPrescription.oe.e}°</td>
-                    <td>${finalPrescriptionData.nearAcuity?.oe || 'J1'}</td>
+                    <td>${finalPrescriptionData.finalPrescription.oe.av}</td>
                   </tr>
                 </tbody>
               </table>
@@ -210,14 +202,14 @@ export default function FinalPrescription({
                     <td>${finalPrescriptionData.nearPrescription.od.s > 0 ? '+' : ''}${finalPrescriptionData.nearPrescription.od.s.toFixed(2)}</td>
                     <td>${finalPrescriptionData.nearPrescription.od.c > 0 ? '+' : ''}${finalPrescriptionData.nearPrescription.od.c.toFixed(2)}</td>
                     <td>${finalPrescriptionData.nearPrescription.od.e}°</td>
-                    <td>${finalPrescriptionData.nearPrescription.od.av}</td>
+                    <td>${finalPrescriptionData.nearAcuity?.od || 'J1'}</td>
                   </tr>
                   <tr>
                     <td>OE</td>
                     <td>${finalPrescriptionData.nearPrescription.oe.s > 0 ? '+' : ''}${finalPrescriptionData.nearPrescription.oe.s.toFixed(2)}</td>
                     <td>${finalPrescriptionData.nearPrescription.oe.c > 0 ? '+' : ''}${finalPrescriptionData.nearPrescription.oe.c.toFixed(2)}</td>
                     <td>${finalPrescriptionData.nearPrescription.oe.e}°</td>
-                    <td>${finalPrescriptionData.nearPrescription.oe.av}</td>
+                    <td>${finalPrescriptionData.nearAcuity?.oe || 'J1'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -237,7 +229,7 @@ export default function FinalPrescription({
             </div>
             
             <!-- Dados do Médico -->
-            <div style="text-align: center; margin-top: 10px;">
+            <div style="text-align: center; margin-top: 30px;">
               <p style="font-size: 12px; margin: 5px 0;"><strong>${doctorProfile?.name || 'Dr. Médico'}</strong></p>
               <p style="font-size: 11px; margin: 3px 0; color: #666;">CRM: ${doctorProfile?.crm || '00000'}</p>
               <p style="font-size: 11px; margin: 3px 0; color: #666;">Especialista em Oftalmologia</p>
