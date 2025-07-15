@@ -187,6 +187,11 @@ export default function Patients() {
                           Compartilhado
                         </span>
                       )}
+                      {patient.consultationCompleted && (
+                        <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                          ✅ Concluído
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-600">
                       {patient.age} anos • {patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Feminino' : 'Outro'}

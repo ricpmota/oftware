@@ -81,8 +81,29 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     setCurrentStep('analysis');
   };
 
-  const handleAnalysisComplete = (prescriptionData: FinalPrescriptionData) => {
-    setFinalPrescriptionData(prescriptionData);
+  const handleAnalysisComplete = async (prescriptionData: FinalPrescriptionData) => {
+    try {
+      // Salvar a prescrição final no paciente
+      const updatedPatient = {
+        ...patientData,
+        finalPrescription: prescriptionData,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Salvar no Firebase
+      await PatientService.savePatient(updatedPatient);
+      
+      // Atualizar estado local
+      setPatientData(updatedPatient);
+      setCurrentPatient(updatedPatient);
+      setFinalPrescriptionData(prescriptionData);
+      setHasUnsavedChanges(false);
+      
+      console.log('✅ Prescrição final salva com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao salvar prescrição final:', error);
+    }
+    
     setCurrentStep('prescription');
   };
 
@@ -176,6 +197,37 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     setClinicalResult(result);
   };
 
+  const handleFinishConsultation = async () => {
+    try {
+      // Marcar consulta como concluída
+      const completedPatient = {
+        ...patientData,
+        consultationCompleted: true,
+        consultationCompletedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Salvar no Firebase
+      await PatientService.savePatient(completedPatient);
+      
+      // Limpar estado de edição
+      setCurrentPatient(null);
+      setIsPatientInEdit(false);
+      setHasUnsavedChanges(false);
+      
+      console.log('✅ Consulta finalizada com sucesso');
+      
+      // Mostrar mensagem de sucesso
+      alert('Consulta finalizada com sucesso! O paciente está disponível no prontuário.');
+      
+      // Voltar para novo paciente
+      resetToNewPatient();
+    } catch (error) {
+      console.error('❌ Erro ao finalizar consulta:', error);
+      alert('Erro ao finalizar consulta. Tente novamente.');
+    }
+  };
+
   const performClinicalAnalysis = (data: PatientData): ClinicalResult => {
     const analysisResult = analyzeARData({
       od: data.arMeasurements.od,
@@ -253,6 +305,9 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
                   {hasUnsavedChanges && (
                     <span className="ml-2 text-orange-600">• Alterações não salvas</span>
                   )}
+                  {currentStep === 'prescription' && (
+                    <span className="ml-2 text-blue-600">• Prescrição finalizada</span>
+                  )}
                 </span>
               </div>
             )}
@@ -316,12 +371,20 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
           />
           
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <button
-              onClick={handleNewRefraction}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Nova Refração
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleFinishConsultation}
+                className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                ✅ Finalizar Consulta
+              </button>
+              <button
+                onClick={handleNewRefraction}
+                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Nova Refração
+              </button>
+            </div>
           </div>
         </div>
       )}

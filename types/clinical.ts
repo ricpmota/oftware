@@ -13,6 +13,9 @@ export interface PatientData {
   };
   symptoms: string[];
   knownDiagnoses: string[];
+  finalPrescription?: FinalPrescriptionData;
+  consultationCompleted?: boolean;
+  consultationCompletedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
