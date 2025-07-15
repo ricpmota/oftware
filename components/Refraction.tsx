@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DataEntryForm from './DataEntryForm';
 import ClinicalAnalysis from './ClinicalAnalysis';
 import FinalPrescription from './FinalPrescription';
@@ -24,7 +24,7 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [isUpdatingFromContext, setIsUpdatingFromContext] = useState(false);
+  const isUpdatingFromContextRef = useRef(false);
   
   const [patientData, setPatientData] = useState<PatientData>({
     id: generatePatientId(),
@@ -45,12 +45,21 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
 
   // Sincronizar com o paciente global quando disponível
   useEffect(() => {
-    if (currentPatient && isPatientInEdit && !isUpdatingFromContext) {
+    console.log('🔄 useEffect de sincronização executado:');
+    console.log('  - currentPatient:', currentPatient ? 'existe' : 'não existe');
+    console.log('  - isPatientInEdit:', isPatientInEdit);
+    console.log('  - currentStep atual:', currentStep);
+    
+    // Só sincronizar se não estivermos na etapa de prescrição
+    if (currentPatient && isPatientInEdit && currentStep !== 'prescription') {
+      console.log('⚠️ Sincronizando com contexto global');
       setPatientData(currentPatient);
       setCurrentStep('analysis');
       setHasUnsavedChanges(false);
+    } else {
+      console.log('✅ useEffect não sincronizou (já na prescrição ou condições não atendidas)');
     }
-  }, [currentPatient, isPatientInEdit, isUpdatingFromContext]);
+  }, [currentPatient, isPatientInEdit]);
 
   // Detectar mudanças não salvas
   useEffect(() => {
@@ -125,13 +134,8 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     console.log('📱 Mudando para etapa de prescrição...');
     setCurrentStep('prescription');
     
-    // Atualizar o contexto global APÓS definir o step
-    setIsUpdatingFromContext(true);
+    // Atualizar o contexto global
     setCurrentPatient(updatedPatient);
-    // Resetar a flag após um pequeno delay
-    setTimeout(() => {
-      setIsUpdatingFromContext(false);
-    }, 100);
     
     // Log adicional após a mudança de estado
     setTimeout(() => {
