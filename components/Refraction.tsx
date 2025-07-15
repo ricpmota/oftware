@@ -24,6 +24,7 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isUpdatingFromContext, setIsUpdatingFromContext] = useState(false);
   
   const [patientData, setPatientData] = useState<PatientData>({
     id: generatePatientId(),
@@ -44,12 +45,12 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
 
   // Sincronizar com o paciente global quando disponível
   useEffect(() => {
-    if (currentPatient && isPatientInEdit) {
+    if (currentPatient && isPatientInEdit && !isUpdatingFromContext) {
       setPatientData(currentPatient);
       setCurrentStep('analysis');
       setHasUnsavedChanges(false);
     }
-  }, [currentPatient, isPatientInEdit]);
+  }, [currentPatient, isPatientInEdit, isUpdatingFromContext]);
 
   // Detectar mudanças não salvas
   useEffect(() => {
@@ -87,9 +88,11 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     console.log('📋 Dados da prescrição:', prescriptionData);
     console.log('👤 Dados do paciente:', patientData);
     
+    let updatedPatient: PatientData;
+    
     try {
       // Salvar a prescrição final no paciente
-      const updatedPatient = {
+      updatedPatient = {
         ...patientData,
         finalPrescription: prescriptionData,
         updatedAt: new Date().toISOString()
@@ -102,7 +105,6 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
       
       // Atualizar estado local
       setPatientData(updatedPatient);
-      setCurrentPatient(updatedPatient);
       setFinalPrescriptionData(prescriptionData);
       setHasUnsavedChanges(false);
       
@@ -113,10 +115,23 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     } catch (error) {
       console.error('❌ Erro ao salvar prescrição final:', error);
       // Continuar mesmo com erro para não quebrar o fluxo
+      updatedPatient = {
+        ...patientData,
+        finalPrescription: prescriptionData,
+        updatedAt: new Date().toISOString()
+      };
     }
     
     console.log('📱 Mudando para etapa de prescrição...');
     setCurrentStep('prescription');
+    
+    // Atualizar o contexto global APÓS definir o step
+    setIsUpdatingFromContext(true);
+    setCurrentPatient(updatedPatient);
+    // Resetar a flag após um pequeno delay
+    setTimeout(() => {
+      setIsUpdatingFromContext(false);
+    }, 100);
     
     // Log adicional após a mudança de estado
     setTimeout(() => {
