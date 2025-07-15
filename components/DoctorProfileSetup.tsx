@@ -273,8 +273,6 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
             >
               <option value="">Selecione a especialidade</option>
               <option value="Oftalmologia">Oftalmologia</option>
-              <option value="Optometria">Optometria</option>
-              <option value="Ortoptia">Ortoptia</option>
               <option value="Oftalmopediatria">Oftalmopediatria</option>
               <option value="Retina">Retina</option>
               <option value="Glaucoma">Glaucoma</option>
