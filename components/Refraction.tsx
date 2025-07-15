@@ -17,7 +17,9 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const [currentStep, setCurrentStep] = useState<'data-entry' | 'analysis' | 'prescription'>('data-entry');
   
   const [patientData, setPatientData] = useState<PatientData>({
+    id: '',
     name: '',
+    birthDate: '',
     age: 0,
     gender: '',
     usesGlasses: false,
@@ -26,7 +28,9 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
       oe: [{ s: 0, c: 0, e: 0 }, { s: 0, c: 0, e: 0 }, { s: 0, c: 0, e: 0 }]
     },
     symptoms: [],
-    knownDiagnoses: []
+    knownDiagnoses: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   });
 
   const [clinicalResult, setClinicalResult] = useState<ClinicalResult | null>(null);
@@ -62,7 +66,9 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const handleNewRefraction = () => {
     setCurrentStep('data-entry');
     setPatientData({
+      id: '',
       name: '',
+      birthDate: '',
       age: 0,
       gender: '',
       usesGlasses: false,
@@ -71,7 +77,9 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
         oe: [{ s: 0, c: 0, e: 0 }, { s: 0, c: 0, e: 0 }, { s: 0, c: 0, e: 0 }]
       },
       symptoms: [],
-      knownDiagnoses: []
+      knownDiagnoses: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
     setClinicalResult(null);
     setFinalPrescriptionData(null);
