@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { PatientService, Patient, PendingShare } from '../services/patientService';
-import { usePatientContext } from '../contexts/PatientContext';
 
 export default function Patients() {
-  const { currentPatient, setCurrentPatient, isPatientInEdit, setIsPatientInEdit } = usePatientContext();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
