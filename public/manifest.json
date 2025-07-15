@@ -1,7 +1,7 @@
 {
-  "name": "UNAGI - Before betting, ask UNAGI",
-  "short_name": "UNAGI",
-  "description": "Before betting, ask UNAGI - qualquer jogo, qualquer confronto. Previsões inteligentes para suas apostas.",
+  "name": "Oftware - Oftalmo Assist",
+  "short_name": "Oftware",
+  "description": "Sistema completo de gestão clínica oftalmológica",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

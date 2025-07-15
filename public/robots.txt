@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://unagi.bet/sitemap.xml 
+Sitemap: https://oftware.com.br/sitemap.xml 
