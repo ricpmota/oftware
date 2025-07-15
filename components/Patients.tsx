@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PatientData } from '../types/clinical';
-import { formatBirthDate, formatPatientId } from '../utils/patientUtils';
 
 interface Patient extends PatientData {
   lastVisit: string;
@@ -12,7 +11,7 @@ interface Patient extends PatientData {
 }
 
 export default function Patients() {
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patients] = useState<Patient[]>([]);
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showAddPatient, setShowAddPatient] = useState(false);
@@ -20,7 +19,7 @@ export default function Patients() {
 
   const filteredPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.phone.includes(searchTerm)
+    (patient.phone && patient.phone.includes(searchTerm))
   );
 
   const handleAddPatient = () => {
