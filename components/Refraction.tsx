@@ -24,7 +24,6 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const isUpdatingFromContextRef = useRef(false);
   
   const [patientData, setPatientData] = useState<PatientData>({
     id: generatePatientId(),
@@ -60,7 +59,7 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     } else {
       console.log('✅ useEffect não sincronizou (já na prescrição ou condições não atendidas)');
     }
-  }, [currentPatient, isPatientInEdit]);
+  }, [currentPatient, isPatientInEdit, currentStep]);
 
   // Detectar mudanças não salvas
   useEffect(() => {
