@@ -432,6 +432,51 @@ export default function FinalPrescription({
         </div>
       </div>
 
+      {/* Acuidades Visuais Finais */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Acuidades Visuais Finais</h2>
+        
+        <div className="space-y-4">
+          {/* AV Para Perto */}
+          <div>
+            <h3 className="text-md font-medium text-gray-700 mb-3">AV Para Perto</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border border-gray-200 rounded p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">OD:</span>
+                  <span className="text-lg font-semibold text-gray-900">{finalPrescriptionData.nearAcuity?.od || 'J1'}</span>
+                </div>
+              </div>
+              <div className="border border-gray-200 rounded p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">OE:</span>
+                  <span className="text-lg font-semibold text-gray-900">{finalPrescriptionData.nearAcuity?.oe || 'J1'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* AV Para Longe */}
+          <div>
+            <h3 className="text-md font-medium text-gray-700 mb-3">AV Para Longe</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border border-gray-200 rounded p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">OD:</span>
+                  <span className="text-lg font-semibold text-gray-900">{finalPrescriptionData.finalPrescription.od.av}</span>
+                </div>
+              </div>
+              <div className="border border-gray-200 rounded p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">OE:</span>
+                  <span className="text-lg font-semibold text-gray-900">{finalPrescriptionData.finalPrescription.oe.av}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Observações Clínicas */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Observações Clínicas</h2>

@@ -20,6 +20,10 @@ export default function ClinicalAnalysis({ patientData, clinicalResult, onComple
       od: { s: 0, c: 0, e: 0, av: '20/20' },
       oe: { s: 0, c: 0, e: 0, av: '20/20' }
     },
+    nearAcuity: {
+      od: 'J1',
+      oe: 'J1'
+    },
     suggestedLensType: 'Monofocal',
     subjectiveImprovement: false,
     addition: 0,
@@ -97,6 +101,9 @@ export default function ClinicalAnalysis({ patientData, clinicalResult, onComple
     'Presença de Luz', 'Sem Presença de Luz'
   ];
 
+  // Opções de Acuidade Visual para Perto
+  const nearAcuityOptions = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'];
+
   const handlePrescriptionChange = (eye: 'od' | 'oe', field: 's' | 'c' | 'e' | 'av', value: number | string) => {
     setPrescriptionData(prev => ({
       ...prev,
@@ -111,6 +118,16 @@ export default function ClinicalAnalysis({ patientData, clinicalResult, onComple
     setPrescriptionData(prev => ({
       ...prev,
       addition
+    }));
+  };
+
+  const handleNearAcuityChange = (eye: 'od' | 'oe', value: string) => {
+    setPrescriptionData(prev => ({
+      ...prev,
+      nearAcuity: {
+        ...prev.nearAcuity,
+        [eye]: value
+      }
     }));
   };
 
@@ -563,6 +580,44 @@ export default function ClinicalAnalysis({ patientData, clinicalResult, onComple
               )}
             </div>
           )}
+
+          {/* Acuidade Visual para Perto */}
+          <div>
+            <h3 className="text-md font-medium text-gray-700 mb-3">Acuidade Visual para Perto</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {/* OD */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">OD - Olho Direito</label>
+                <select
+                  value={prescriptionData.nearAcuity.od}
+                  onChange={(e) => handleNearAcuityChange('od', e.target.value)}
+                  className="w-full px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                >
+                  {nearAcuityOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* OE */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">OE - Olho Esquerdo</label>
+                <select
+                  value={prescriptionData.nearAcuity.oe}
+                  onChange={(e) => handleNearAcuityChange('oe', e.target.value)}
+                  className="w-full px-3 py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                >
+                  {nearAcuityOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
 
           {/* Tipo de Lente */}
           <div>

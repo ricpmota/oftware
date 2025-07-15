@@ -60,6 +60,10 @@ export interface FinalPrescriptionData {
     od: { s: number; c: number; e: number; av: string };
     oe: { s: number; c: number; e: number; av: string };
   };
+  nearAcuity: {
+    od: string;
+    oe: string;
+  };
   suggestedLensType: string;
   subjectiveImprovement: boolean;
   addition: number;
