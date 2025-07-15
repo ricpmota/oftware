@@ -129,7 +129,7 @@ export default function Patients() {
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-xl font-semibold text-gray-800">👥 Prontuário de Pacientes</h1>
-            <p className="text-sm text-gray-600">Gerencie os dados dos seus pacientes</p>
+            <p className="text-sm text-gray-600">Visualize relatórios dos seus pacientes</p>
           </div>
           <div className="flex space-x-2">
             {pendingShares.length > 0 && (
@@ -156,44 +156,7 @@ export default function Patients() {
         </div>
       </div>
 
-      {/* Current Patient in Edit */}
-      {currentPatient && isPatientInEdit && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <div>
-                <h3 className="font-medium text-green-800">
-                  Paciente em Edição: {currentPatient.name}
-                </h3>
-                <p className="text-sm text-green-600">
-                  {currentPatient.age} anos • {currentPatient.gender === 'male' ? 'Masculino' : currentPatient.gender === 'female' ? 'Feminino' : 'Outro'}
-                </p>
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  // Navegar para a aba de refração
-                  window.location.href = '#refraction';
-                }}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-              >
-                Continuar Edição
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentPatient(null);
-                  setIsPatientInEdit(false);
-                }}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-              >
-                Finalizar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Patient List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
