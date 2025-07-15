@@ -23,6 +23,7 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const [currentStep, setCurrentStep] = useState<'data-entry' | 'analysis' | 'prescription'>('data-entry');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSelectModal, setShowSelectModal] = useState(false);
+  const [showFinishModal, setShowFinishModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [patientData, setPatientData] = useState<PatientData>({
@@ -255,11 +256,8 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
       
       console.log('✅ Consulta finalizada com sucesso');
       
-      // Mostrar mensagem de sucesso
-      alert('Consulta finalizada com sucesso! O paciente está disponível no prontuário.');
-      
-      // Voltar para novo paciente
-      resetToNewPatient();
+      // Mostrar modal de sucesso
+      setShowFinishModal(true);
     } catch (error) {
       console.error('❌ Erro ao finalizar consulta:', error);
       alert('Erro ao finalizar consulta. Tente novamente.');
@@ -361,12 +359,17 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
               <div className="mt-2 flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-sm text-green-600 font-medium">
-                  Paciente em edição: {currentPatient.name}
-                  {hasUnsavedChanges && (
-                    <span className="ml-2 text-orange-600">• Alterações não salvas</span>
-                  )}
-                  {currentStep === 'prescription' && (
-                    <span className="ml-2 text-blue-600">• Prescrição finalizada</span>
+                  {currentStep === 'prescription' ? (
+                    <>
+                      Paciente: {currentPatient.name} • Prescrição Finalizada
+                    </>
+                  ) : (
+                    <>
+                      Paciente em edição: {currentPatient.name}
+                      {hasUnsavedChanges && (
+                        <span className="ml-2 text-orange-600">• Alterações não salvas</span>
+                      )}
+                    </>
                   )}
                 </span>
               </div>
@@ -421,12 +424,6 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
 
       {currentStep === 'prescription' && (
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-blue-800 text-sm">
-              Debug: currentStep = {currentStep}, finalPrescriptionData = {finalPrescriptionData ? 'existe' : 'não existe'}, clinicalResult = {clinicalResult ? 'existe' : 'não existe'}
-            </p>
-          </div>
-          
           {finalPrescriptionData && clinicalResult ? (
             <>
               <FinalPrescription
@@ -493,6 +490,47 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
         onClose={() => setShowSelectModal(false)}
         onSelectPatient={handleSelectPatient}
       />
+
+      {/* Modal de Confirmação de Finalização */}
+      {showFinishModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Refração Finalizada!
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                A consulta foi concluída com sucesso. O paciente está disponível no prontuário.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowFinishModal(false);
+                    resetToNewPatient();
+                  }}
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Nova Refração
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFinishModal(false);
+                    resetToNewPatient();
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

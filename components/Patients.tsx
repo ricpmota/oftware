@@ -247,19 +247,19 @@ export default function Patients() {
       {/* Patient Detail Modal */}
       {selectedPatient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg w-full h-full max-w-4xl max-h-[95vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h2 className="text-xl font-semibold text-gray-800">{selectedPatient.name}</h2>
+                    <h2 className="text-xl font-semibold text-black">{selectedPatient.name}</h2>
                     {selectedPatient.isShared && (
                       <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                         Compartilhado
                       </span>
                     )}
                   </div>
-                  <p className="text-gray-600">
+                  <p className="text-black">
                     {selectedPatient.age} anos • {selectedPatient.gender === 'male' ? 'Masculino' : selectedPatient.gender === 'female' ? 'Feminino' : 'Outro'}
                   </p>
                 </div>
@@ -274,27 +274,27 @@ export default function Patients() {
               <div className="space-y-4">
                 {/* Contact Info */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800 mb-2">Informações de Contato</h3>
+                  <h3 className="font-medium text-black mb-2">Informações de Contato</h3>
                   <div className="space-y-1 text-sm">
-                    <p><span className="text-gray-600">Telefone:</span> {selectedPatient.phone || 'Não informado'}</p>
-                    <p><span className="text-gray-600">Email:</span> {selectedPatient.email || 'Não informado'}</p>
+                    <p><span className="text-black">Telefone:</span> {selectedPatient.phone || 'Não informado'}</p>
+                    <p><span className="text-black">Email:</span> {selectedPatient.email || 'Não informado'}</p>
                   </div>
                 </div>
 
                 {/* Visits */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800 mb-2">Visitas</h3>
+                  <h3 className="font-medium text-black mb-2">Visitas</h3>
                   <div className="space-y-1 text-sm">
-                    <p><span className="text-gray-600">Última visita:</span> {new Date(selectedPatient.lastVisit).toLocaleDateString('pt-BR')}</p>
+                    <p><span className="text-black">Última visita:</span> {new Date(selectedPatient.lastVisit).toLocaleDateString('pt-BR')}</p>
                     {selectedPatient.nextVisit && (
-                      <p><span className="text-gray-600">Próxima visita:</span> {new Date(selectedPatient.nextVisit).toLocaleDateString('pt-BR')}</p>
+                      <p><span className="text-black">Próxima visita:</span> {new Date(selectedPatient.nextVisit).toLocaleDateString('pt-BR')}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Diagnoses */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800 mb-2">Diagnósticos</h3>
+                  <h3 className="font-medium text-black mb-2">Diagnósticos</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedPatient.knownDiagnoses.map((diagnosis: string, index: number) => (
                       <span
@@ -309,11 +309,11 @@ export default function Patients() {
 
                 {/* Medications */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800 mb-2">Medicações</h3>
+                  <h3 className="font-medium text-black mb-2">Medicações</h3>
                   <div className="space-y-1">
                     {selectedPatient.medications.length > 0 ? (
                       selectedPatient.medications.map((medication, index) => (
-                        <p key={index} className="text-sm">• {medication}</p>
+                        <p key={index} className="text-sm text-black">• {medication}</p>
                       ))
                     ) : (
                       <p className="text-sm text-gray-500">Nenhuma medicação registrada</p>
@@ -323,8 +323,8 @@ export default function Patients() {
 
                 {/* Notes */}
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800 mb-2">Observações</h3>
-                  <p className="text-sm text-gray-700">{selectedPatient.notes || 'Nenhuma observação registrada'}</p>
+                  <h3 className="font-medium text-black mb-2">Observações</h3>
+                  <p className="text-sm text-black">{selectedPatient.notes || 'Nenhuma observação registrada'}</p>
                 </div>
               </div>
 
