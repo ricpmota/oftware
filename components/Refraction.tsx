@@ -8,6 +8,7 @@ import { analyzeARData, calculateNearAddition } from '../utils/analyzeARData';
 import { suggestSubjectivePath } from '../utils/suggestSubjectivePath';
 import { DoctorProfile } from '../types/doctor';
 import { PatientData, ClinicalResult, FinalPrescriptionData } from '../types/clinical';
+import { PatientService } from '../services/patientService';
 
 interface RefractionProps {
   doctorProfile: DoctorProfile | null;
@@ -36,7 +37,16 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const [clinicalResult, setClinicalResult] = useState<ClinicalResult | null>(null);
   const [finalPrescriptionData, setFinalPrescriptionData] = useState<FinalPrescriptionData | null>(null);
 
-  const handleDataSubmit = (data: PatientData) => {
+  const handleDataSubmit = async (data: PatientData) => {
+    try {
+      // Salvar paciente automaticamente no Firebase
+      await PatientService.savePatient(data);
+      console.log('✅ Paciente salvo automaticamente:', data.name);
+    } catch (error) {
+      console.error('❌ Erro ao salvar paciente:', error);
+      // Continuar mesmo se houver erro ao salvar
+    }
+    
     setPatientData(data);
     const result = performClinicalAnalysis(data);
     setClinicalResult(result);

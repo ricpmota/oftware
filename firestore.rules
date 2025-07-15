@@ -7,8 +7,11 @@ service cloud.firestore {
     }
     
     // Permite que médicos leiam e escrevam dados de pacientes
+    // Um médico pode acessar pacientes que ele criou OU que foram compartilhados com ele
     match /patients/{patientId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null && 
+        (resource.data.doctorId == request.auth.uid || 
+         request.auth.uid in resource.data.sharedWith);
     }
     
     // Permite que médicos leiam e escrevam prescrições
