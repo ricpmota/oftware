@@ -229,7 +229,7 @@ export default function FinalPrescription({
             </div>
             
             <!-- Dados do Médico -->
-            <div style="text-align: center; margin-top: 30px;">
+            <div style="text-align: center; margin-top: 50px;">
               <p style="font-size: 12px; margin: 5px 0;"><strong>${doctorProfile?.name || 'Dr. Médico'}</strong></p>
               <p style="font-size: 11px; margin: 3px 0; color: #666;">CRM: ${doctorProfile?.crm || '00000'}</p>
               <p style="font-size: 11px; margin: 3px 0; color: #666;">Especialista em Oftalmologia</p>
