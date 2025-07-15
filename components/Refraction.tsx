@@ -107,6 +107,9 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
       setHasUnsavedChanges(false);
       
       console.log('✅ Prescrição final salva com sucesso');
+      console.log('📱 Estado após salvar:');
+      console.log('  - finalPrescriptionData:', prescriptionData);
+      console.log('  - currentStep será definido como:', 'prescription');
     } catch (error) {
       console.error('❌ Erro ao salvar prescrição final:', error);
       // Continuar mesmo com erro para não quebrar o fluxo
@@ -114,6 +117,13 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     
     console.log('📱 Mudando para etapa de prescrição...');
     setCurrentStep('prescription');
+    
+    // Log adicional após a mudança de estado
+    setTimeout(() => {
+      console.log('🔍 Estado após mudança:');
+      console.log('  - currentStep atual:', currentStep);
+      console.log('  - finalPrescriptionData atual:', finalPrescriptionData);
+    }, 100);
   };
 
   const handleBackToDataEntry = () => {
@@ -298,6 +308,20 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     window.scrollTo(0, 0);
   }, [currentStep]);
 
+  // Debug: Monitorar mudanças no estado
+  React.useEffect(() => {
+    console.log('🔍 Estado atualizado:');
+    console.log('  - currentStep:', currentStep);
+    console.log('  - finalPrescriptionData:', finalPrescriptionData ? 'existe' : 'não existe');
+    console.log('  - clinicalResult:', clinicalResult ? 'existe' : 'não existe');
+    
+    if (currentStep === 'prescription') {
+      console.log('📋 Renderizando etapa de prescrição:');
+      console.log('  - finalPrescriptionData:', finalPrescriptionData);
+      console.log('  - clinicalResult:', clinicalResult);
+    }
+  }, [currentStep, finalPrescriptionData, clinicalResult]);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6" style={{ paddingBottom: 100 }}>
       {/* Header */}
@@ -368,38 +392,51 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
         />
       )}
 
-      {currentStep === 'prescription' && finalPrescriptionData && (
+      {currentStep === 'prescription' && (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <p className="text-blue-800 text-sm">
-              Debug: currentStep = {currentStep}, finalPrescriptionData = {finalPrescriptionData ? 'existe' : 'não existe'}
+              Debug: currentStep = {currentStep}, finalPrescriptionData = {finalPrescriptionData ? 'existe' : 'não existe'}, clinicalResult = {clinicalResult ? 'existe' : 'não existe'}
             </p>
           </div>
-          <FinalPrescription
-            patientData={patientData}
-            clinicalResult={clinicalResult!}
-            finalPrescriptionData={finalPrescriptionData}
-            doctorProfile={doctorProfile}
-            onBack={handleBackToAnalysis}
-            onEditPatient={handleEditPatient}
-          />
           
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex space-x-3">
-              <button
-                onClick={handleFinishConsultation}
-                className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              >
-                ✅ Finalizar Consulta
-              </button>
-              <button
-                onClick={handleNewRefraction}
-                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                Nova Refração
-              </button>
+          {finalPrescriptionData && clinicalResult ? (
+            <>
+              <FinalPrescription
+                patientData={patientData}
+                clinicalResult={clinicalResult}
+                finalPrescriptionData={finalPrescriptionData}
+                doctorProfile={doctorProfile}
+                onBack={handleBackToAnalysis}
+                onEditPatient={handleEditPatient}
+              />
+              
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleFinishConsultation}
+                    className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                  >
+                    ✅ Finalizar Consulta
+                  </button>
+                  <button
+                    onClick={handleNewRefraction}
+                    className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    Nova Refração
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-yellow-800 text-sm">
+                ⚠️ Aguardando dados da prescrição... 
+                {!finalPrescriptionData && ' finalPrescriptionData não disponível'}
+                {!clinicalResult && ' clinicalResult não disponível'}
+              </p>
             </div>
-          </div>
+          )}
         </div>
       )}
 

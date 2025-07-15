@@ -161,7 +161,11 @@ export default function ClinicalAnalysis({ patientData, clinicalResult, onComple
   };
 
   const handleComplete = () => {
+    console.log('🎯 Botão "Finalizar Prescrição" clicado');
+    console.log('📋 Dados da prescrição que serão enviados:', prescriptionData);
+    console.log('📞 Chamando onComplete...');
     onComplete(prescriptionData);
+    console.log('✅ onComplete chamado com sucesso');
   };
 
   const getVariabilityColor = (value: number) => {
