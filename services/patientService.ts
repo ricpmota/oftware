@@ -98,37 +98,27 @@ export class PatientService {
     try {
       const doctorId = this.checkAuth();
       
-      // Buscar pacientes onde o médico é o dono ou está na lista de compartilhamento
-      const q = query(
-        collection(db, this.COLLECTION),
-        where('doctorId', '==', doctorId),
-        orderBy('lastVisit', 'desc')
-      );
-      
+      // Buscar todos os pacientes e filtrar no cliente
+      const q = query(collection(db, this.COLLECTION));
       const querySnapshot = await getDocs(q);
       const patients: Patient[] = [];
       
       querySnapshot.forEach((doc) => {
-        patients.push(doc.data() as Patient);
-      });
-
-      // Buscar pacientes compartilhados com este médico
-      const sharedQ = query(
-        collection(db, this.COLLECTION),
-        where('sharedWith', 'array-contains', doctorId),
-        orderBy('lastVisit', 'desc')
-      );
-      
-      const sharedSnapshot = await getDocs(sharedQ);
-      
-      sharedSnapshot.forEach((doc) => {
         const patient = doc.data() as Patient;
-        // Marcar como compartilhado
-        patients.push({
-          ...patient,
-          isShared: true
-        });
+        
+        // Filtrar pacientes do médico atual ou compartilhados com ele
+        if (patient.doctorId === doctorId) {
+          patients.push(patient);
+        } else if (patient.sharedWith && patient.sharedWith.includes(doctorId)) {
+          patients.push({
+            ...patient,
+            isShared: true
+          });
+        }
       });
+      
+      // Ordenar por última visita (mais recente primeiro)
+      patients.sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime());
       
       return patients;
     } catch (error: any) {
@@ -144,20 +134,19 @@ export class PatientService {
     try {
       const doctorId = this.checkAuth();
       
-      const q = query(
-        collection(db, this.COLLECTION),
-        where('pendingShares', 'array-contains', { fromDoctorId: doctorId })
-      );
-      
+      // Buscar todos os pacientes e filtrar solicitações pendentes
+      const q = query(collection(db, this.COLLECTION));
       const querySnapshot = await getDocs(q);
       const pendingShares: PendingShare[] = [];
       
       querySnapshot.forEach((doc) => {
         const patient = doc.data() as Patient;
-        const pendingForThisDoctor = patient.pendingShares.filter(
-          share => share.fromDoctorId === doctorId && share.status === 'pending'
-        );
-        pendingShares.push(...pendingForThisDoctor);
+        if (patient.pendingShares) {
+          const pendingForThisDoctor = patient.pendingShares.filter(
+            share => share.fromDoctorId === doctorId && share.status === 'pending'
+          );
+          pendingShares.push(...pendingForThisDoctor);
+        }
       });
       
       return pendingShares;
