@@ -1,14 +1,20 @@
 export interface PatientData {
+  id: string;
   name: string;
+  birthDate: string;
   age: number;
   gender: 'male' | 'female' | 'other' | '';
   usesGlasses: boolean;
+  phone?: string;
+  email?: string;
   arMeasurements: {
     od: Array<{ s: number; c: number; e: number }>;
     oe: Array<{ s: number; c: number; e: number }>;
   };
   symptoms: string[];
   knownDiagnoses: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ClinicalResult {

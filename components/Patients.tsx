@@ -1,49 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { PatientData } from '../types/clinical';
+import { formatBirthDate, formatPatientId } from '../utils/patientUtils';
 
-interface Patient {
-  id: string;
-  name: string;
-  age: number;
-  gender: 'male' | 'female' | 'other';
-  phone: string;
-  email: string;
+interface Patient extends PatientData {
   lastVisit: string;
   nextVisit?: string;
-  diagnoses: string[];
   medications: string[];
   notes: string;
 }
 
 export default function Patients() {
-  const [patients] = useState<Patient[]>([
-    {
-      id: '1',
-      name: 'Maria Silva',
-      age: 45,
-      gender: 'female',
-      phone: '(11) 99999-9999',
-      email: 'maria@email.com',
-      lastVisit: '2024-01-15',
-      nextVisit: '2024-04-15',
-      diagnoses: ['Miopia', 'Astigmatismo'],
-      medications: ['Colírio lubrificante'],
-      notes: 'Paciente com queixa de cansaço visual. Prescrição de óculos atualizada.'
-    },
-    {
-      id: '2',
-      name: 'João Santos',
-      age: 62,
-      gender: 'male',
-      phone: '(11) 88888-8888',
-      email: 'joao@email.com',
-      lastVisit: '2024-02-20',
-      diagnoses: ['Catarata incipiente', 'Hipermetropia'],
-      medications: ['Colírio para catarata'],
-      notes: 'Monitoramento de catarata. Pressão intraocular normal.'
-    }
-  ]);
+  const [patients, setPatients] = useState<Patient[]>([]);
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showAddPatient, setShowAddPatient] = useState(false);
@@ -116,9 +85,9 @@ export default function Patients() {
                   <p className="text-sm text-gray-600">
                     {patient.age} anos • {patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Feminino' : 'Outro'}
                   </p>
-                  <p className="text-sm text-gray-600">{patient.phone}</p>
+                  <p className="text-sm text-gray-600">{patient.phone || 'Não informado'}</p>
                   <div className="flex flex-wrap gap-1 mt-2">
-                    {patient.diagnoses.map((diagnosis, index) => (
+                    {patient.knownDiagnoses.map((diagnosis: string, index: number) => (
                       <span
                         key={index}
                         className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
@@ -176,8 +145,8 @@ export default function Patients() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-medium text-gray-800 mb-2">Informações de Contato</h3>
                   <div className="space-y-1 text-sm">
-                    <p><span className="text-gray-600">Telefone:</span> {selectedPatient.phone}</p>
-                    <p><span className="text-gray-600">Email:</span> {selectedPatient.email}</p>
+                    <p><span className="text-gray-600">Telefone:</span> {selectedPatient.phone || 'Não informado'}</p>
+                    <p><span className="text-gray-600">Email:</span> {selectedPatient.email || 'Não informado'}</p>
                   </div>
                 </div>
 
@@ -196,7 +165,7 @@ export default function Patients() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-medium text-gray-800 mb-2">Diagnósticos</h3>
                   <div className="flex flex-wrap gap-2">
-                    {selectedPatient.diagnoses.map((diagnosis, index) => (
+                    {selectedPatient.knownDiagnoses.map((diagnosis: string, index: number) => (
                       <span
                         key={index}
                         className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full"

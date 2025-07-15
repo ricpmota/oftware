@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { PatientData } from '../types/clinical';
 import { SYMPTOM_OPTIONS, DIAGNOSIS_OPTIONS } from '../utils/clinicalOptions';
+import { generatePatientId, calculateAge } from '../utils/patientUtils';
 
 interface DataEntryFormProps {
   patientData: PatientData;
@@ -153,14 +154,38 @@ export default function DataEntryForm({ patientData, onSubmit }: DataEntryFormPr
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Idade *
+              Data de Nascimento *
             </label>
             <input
-              type="number"
-              value={formData.age || ''}
-              onChange={(e) => handleInputChange('age', parseInt(e.target.value) || 0)}
+              type="date"
+              value={formData.birthDate || ''}
+              onChange={(e) => {
+                const birthDate = e.target.value;
+                const age = calculateAge(birthDate);
+                handleInputChange('birthDate', birthDate);
+                handleInputChange('age', age);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               required
+            />
+            {formData.birthDate && (
+              <p className="text-sm text-gray-600 mt-1">
+                Idade calculada: {formData.age} anos
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Código do Prontuário
+            </label>
+            <input
+              type="text"
+              value={formData.id || generatePatientId()}
+              onChange={(e) => handleInputChange('id', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-gray-50"
+              placeholder="Código será gerado automaticamente"
+              readOnly
             />
           </div>
 
