@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { usePatientContext } from '../app/page';
 
 interface NavigationProps {
   activeTab: string;
@@ -41,6 +42,8 @@ const tabs = [
 ];
 
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
+  const { currentPatient, isPatientInEdit } = usePatientContext();
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 border-t border-gray-200 backdrop-blur-xl pb-safe">
       <div className="flex justify-around items-center py-2 md:py-4 max-w-md mx-auto">
@@ -62,7 +65,7 @@ export default function Navigation({ activeTab, onTabChange }: NavigationProps) 
               }
             `}
           >
-            <div className="flex items-center justify-center mb-1 md:mb-2">
+            <div className="flex items-center justify-center mb-1 md:mb-2 relative">
               <img 
                 src={tab.icon} 
                 alt={tab.label}
@@ -75,6 +78,10 @@ export default function Navigation({ activeTab, onTabChange }: NavigationProps) 
                   }
                 `}
               />
+              {/* Indicador de paciente em edição */}
+              {currentPatient && isPatientInEdit && tab.id === 'refraction' && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse border-2 border-white"></div>
+              )}
             </div>
             <div className={`
               text-xs md:text-sm font-medium

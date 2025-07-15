@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DataEntryForm from './DataEntryForm';
 import ClinicalAnalysis from './ClinicalAnalysis';
 import FinalPrescription from './FinalPrescription';
@@ -9,12 +9,14 @@ import { suggestSubjectivePath } from '../utils/suggestSubjectivePath';
 import { DoctorProfile } from '../types/doctor';
 import { PatientData, ClinicalResult, FinalPrescriptionData } from '../types/clinical';
 import { PatientService } from '../services/patientService';
+import { usePatientContext } from '../app/page';
 
 interface RefractionProps {
   doctorProfile: DoctorProfile | null;
 }
 
 export default function Refraction({ doctorProfile }: RefractionProps) {
+  const { currentPatient, setCurrentPatient, isPatientInEdit, setIsPatientInEdit } = usePatientContext();
   const [currentStep, setCurrentStep] = useState<'data-entry' | 'analysis' | 'prescription'>('data-entry');
   
   const [patientData, setPatientData] = useState<PatientData>({
@@ -34,6 +36,14 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     updatedAt: new Date().toISOString()
   });
 
+  // Sincronizar com o paciente global quando disponível
+  useEffect(() => {
+    if (currentPatient && isPatientInEdit) {
+      setPatientData(currentPatient);
+      setCurrentStep('analysis');
+    }
+  }, [currentPatient, isPatientInEdit]);
+
   const [clinicalResult, setClinicalResult] = useState<ClinicalResult | null>(null);
   const [finalPrescriptionData, setFinalPrescriptionData] = useState<FinalPrescriptionData | null>(null);
 
@@ -48,6 +58,10 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     }
     
     setPatientData(data);
+    // Definir como paciente atual global
+    setCurrentPatient(data);
+    setIsPatientInEdit(true);
+    
     const result = performClinicalAnalysis(data);
     setClinicalResult(result);
     setCurrentStep('analysis');
@@ -68,6 +82,8 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
 
   const handleEditPatient = (updatedPatient: PatientData) => {
     setPatientData(updatedPatient);
+    // Atualizar paciente global
+    setCurrentPatient(updatedPatient);
     // Recalcular análise clínica com dados atualizados
     const result = performClinicalAnalysis(updatedPatient);
     setClinicalResult(result);
@@ -91,6 +107,9 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
+    // Limpar paciente global
+    setCurrentPatient(null);
+    setIsPatientInEdit(false);
     setClinicalResult(null);
     setFinalPrescriptionData(null);
   };
@@ -164,6 +183,14 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
           <div>
             <h2 className="text-xl font-semibold text-gray-800">Refração Assistida</h2>
             <p className="text-sm text-gray-600">Análise clínica e prescrição oftálmica</p>
+            {currentPatient && isPatientInEdit && (
+              <div className="mt-2 flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-600 font-medium">
+                  Paciente em edição: {currentPatient.name}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex space-x-2">
             <div className={`w-3 h-3 rounded-full ${currentStep === 'data-entry' ? 'bg-blue-500' : 'bg-gray-300'}`}></div>

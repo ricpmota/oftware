@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { PatientService, Patient, PendingShare } from '../services/patientService';
+import { usePatientContext } from '../app/page';
 
 export default function Patients() {
+  const { currentPatient, setCurrentPatient, isPatientInEdit, setIsPatientInEdit } = usePatientContext();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -153,6 +155,45 @@ export default function Patients() {
           <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
         </div>
       </div>
+
+      {/* Current Patient in Edit */}
+      {currentPatient && isPatientInEdit && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <div>
+                <h3 className="font-medium text-green-800">
+                  Paciente em Edição: {currentPatient.name}
+                </h3>
+                <p className="text-sm text-green-600">
+                  {currentPatient.age} anos • {currentPatient.gender === 'male' ? 'Masculino' : currentPatient.gender === 'female' ? 'Feminino' : 'Outro'}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => {
+                  // Navegar para a aba de refração
+                  window.location.href = '#refraction';
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+              >
+                Continuar Edição
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentPatient(null);
+                  setIsPatientInEdit(false);
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+              >
+                Finalizar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Patient List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
