@@ -326,6 +326,147 @@ export default function Patients() {
                   <h3 className="font-medium text-black mb-2">Observações</h3>
                   <p className="text-sm text-black">{selectedPatient.notes || 'Nenhuma observação registrada'}</p>
                 </div>
+
+                {/* Sintomas */}
+                {selectedPatient.symptoms && selectedPatient.symptoms.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-medium text-black mb-2">Sintomas</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedPatient.symptoms.map((symptom, index) => (
+                        <span
+                          key={index}
+                          className="bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full"
+                        >
+                          {symptom}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Prescrição Final */}
+                {selectedPatient.finalPrescription && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-medium text-black mb-2">Prescrição Final</h3>
+                    
+                    {/* Para Longe */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-black mb-2">Para Longe</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-black font-medium">OD:</span>
+                          <span className="ml-2 text-black">
+                            {selectedPatient.finalPrescription.finalPrescription.od.s > 0 ? '+' : ''}{selectedPatient.finalPrescription.finalPrescription.od.s.toFixed(2)} 
+                            {selectedPatient.finalPrescription.finalPrescription.od.c > 0 ? '+' : ''}{selectedPatient.finalPrescription.finalPrescription.od.c.toFixed(2)} 
+                            {selectedPatient.finalPrescription.finalPrescription.od.e}° 
+                            AV: {selectedPatient.finalPrescription.finalPrescription.od.av}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-black font-medium">OE:</span>
+                          <span className="ml-2 text-black">
+                            {selectedPatient.finalPrescription.finalPrescription.oe.s > 0 ? '+' : ''}{selectedPatient.finalPrescription.finalPrescription.oe.s.toFixed(2)} 
+                            {selectedPatient.finalPrescription.finalPrescription.oe.c > 0 ? '+' : ''}{selectedPatient.finalPrescription.finalPrescription.oe.c.toFixed(2)} 
+                            {selectedPatient.finalPrescription.finalPrescription.oe.e}° 
+                            AV: {selectedPatient.finalPrescription.finalPrescription.oe.av}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Para Perto */}
+                    {selectedPatient.finalPrescription.addition > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-black mb-2">
+                          Para Perto (Adição: +{selectedPatient.finalPrescription.addition.toFixed(2)})
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-black font-medium">OD:</span>
+                            <span className="ml-2 text-black">
+                              {selectedPatient.finalPrescription.nearPrescription.od.s > 0 ? '+' : ''}{selectedPatient.finalPrescription.nearPrescription.od.s.toFixed(2)} 
+                              {selectedPatient.finalPrescription.nearPrescription.od.c > 0 ? '+' : ''}{selectedPatient.finalPrescription.nearPrescription.od.c.toFixed(2)} 
+                              {selectedPatient.finalPrescription.nearPrescription.od.e}° 
+                              AV: {selectedPatient.finalPrescription.nearAcuity?.od || 'J1'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-black font-medium">OE:</span>
+                            <span className="ml-2 text-black">
+                              {selectedPatient.finalPrescription.nearPrescription.oe.s > 0 ? '+' : ''}{selectedPatient.finalPrescription.nearPrescription.oe.s.toFixed(2)} 
+                              {selectedPatient.finalPrescription.nearPrescription.oe.c > 0 ? '+' : ''}{selectedPatient.finalPrescription.nearPrescription.oe.c.toFixed(2)} 
+                              {selectedPatient.finalPrescription.nearPrescription.oe.e}° 
+                              AV: {selectedPatient.finalPrescription.nearAcuity?.oe || 'J1'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tipo de Lente */}
+                    <div className="mb-4">
+                      <span className="text-black font-medium">Tipo de Lente:</span>
+                      <span className="ml-2 text-black">{selectedPatient.finalPrescription.suggestedLensType}</span>
+                    </div>
+
+                    {/* Melhora Subjetiva */}
+                    <div>
+                      <span className="text-black font-medium">Melhora Subjetiva:</span>
+                      <span className="ml-2 text-black">
+                        {selectedPatient.finalPrescription.subjectiveImprovement ? 'Sim' : 'Não'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Observações Clínicas */}
+                {selectedPatient.clinicalResult && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-medium text-black mb-2">Observações Clínicas</h3>
+                    
+                    {/* Variabilidade */}
+                    <div className="mb-3">
+                      <span className="text-black font-medium">Variabilidade AR:</span>
+                      <span className="ml-2 text-black">
+                        {selectedPatient.clinicalResult.variability.od.s <= 0.25 && selectedPatient.clinicalResult.variability.oe.s <= 0.25 
+                          ? 'Baixa variabilidade - medições confiáveis'
+                          : 'Alta variabilidade - considerar nova medição'}
+                      </span>
+                    </div>
+
+                    {/* Tipo de Ametropia */}
+                    <div className="mb-3">
+                      <span className="text-black font-medium">Tipo de Ametropia:</span>
+                      <span className="ml-2 text-black">
+                        {selectedPatient.clinicalResult.ametropiaType.od} no olho direito, {selectedPatient.clinicalResult.ametropiaType.oe} no olho esquerdo
+                      </span>
+                    </div>
+
+                    {/* Sugestões Clínicas */}
+                    {selectedPatient.clinicalResult.clinicalSuggestions.length > 0 && (
+                      <div className="mb-3">
+                        <span className="text-black font-medium">Sugestões Clínicas:</span>
+                        <div className="mt-1">
+                          {selectedPatient.clinicalResult.clinicalSuggestions.map((suggestion, index) => (
+                            <p key={index} className="text-sm text-black ml-4">• {suggestion}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Passos Clínicos */}
+                    {selectedPatient.clinicalResult.clinicalSteps.length > 0 && (
+                      <div>
+                        <span className="text-black font-medium">Passos Clínicos:</span>
+                        <div className="mt-1">
+                          {selectedPatient.clinicalResult.clinicalSteps.map((step, index) => (
+                            <p key={index} className="text-sm text-black ml-4">• {step}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
