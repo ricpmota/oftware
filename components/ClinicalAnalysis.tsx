@@ -369,7 +369,7 @@ export default function ClinicalAnalysis({ patientData, clinicalResult, onComple
           {/* Grau Final */}
           <div>
             <h3 className="text-md font-medium text-gray-700 mb-3">Grau Final Prescrito</h3>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Olho Direito */}
               <div className="border border-gray-200 rounded p-4">
                 <h4 className="text-md font-medium text-gray-700 mb-3">
