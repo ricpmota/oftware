@@ -9,7 +9,7 @@ import { suggestSubjectivePath } from '../utils/suggestSubjectivePath';
 import { DoctorProfile } from '../types/doctor';
 import { PatientData, ClinicalResult, FinalPrescriptionData } from '../types/clinical';
 import { PatientService } from '../services/patientService';
-import { usePatientContext } from '../app/page';
+import { usePatientContext } from '../contexts/PatientContext';
 
 interface RefractionProps {
   doctorProfile: DoctorProfile | null;

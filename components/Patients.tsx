@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PatientService, Patient, PendingShare } from '../services/patientService';
-import { usePatientContext } from '../app/page';
+import { usePatientContext } from '../contexts/PatientContext';
 
 export default function Patients() {
   const { currentPatient, setCurrentPatient, isPatientInEdit, setIsPatientInEdit } = usePatientContext();

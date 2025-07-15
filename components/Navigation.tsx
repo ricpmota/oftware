@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { usePatientContext } from '../app/page';
+import { usePatientContext } from '../contexts/PatientContext';
 
 interface NavigationProps {
   activeTab: string;
