@@ -12,6 +12,7 @@ import { PatientService, Patient } from '../services/patientService';
 import { usePatientContext } from '../contexts/PatientContext';
 import SaveConfirmationModal from './SaveConfirmationModal';
 import SelectPatientModal from './SelectPatientModal';
+import { generatePatientId } from '../utils/patientUtils';
 
 interface RefractionProps {
   doctorProfile: DoctorProfile | null;
@@ -25,7 +26,7 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [patientData, setPatientData] = useState<PatientData>({
-    id: '',
+    id: generatePatientId(),
     name: '',
     birthDate: '',
     age: 0,
@@ -153,7 +154,7 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   const resetToNewPatient = () => {
     setCurrentStep('data-entry');
     setPatientData({
-      id: '',
+      id: generatePatientId(),
       name: '',
       birthDate: '',
       age: 0,
@@ -369,6 +370,11 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
 
       {currentStep === 'prescription' && finalPrescriptionData && (
         <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-blue-800 text-sm">
+              Debug: currentStep = {currentStep}, finalPrescriptionData = {finalPrescriptionData ? 'existe' : 'não existe'}
+            </p>
+          </div>
           <FinalPrescription
             patientData={patientData}
             clinicalResult={clinicalResult!}
