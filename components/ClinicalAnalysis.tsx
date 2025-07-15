@@ -11,6 +11,8 @@ interface ClinicalAnalysisProps {
 }
 
 export default function ClinicalAnalysis({ patientData, clinicalResult, onComplete }: ClinicalAnalysisProps) {
+  console.log('🔄 ClinicalAnalysis renderizado');
+  
   const [prescriptionData, setPrescriptionData] = useState<FinalPrescriptionData>({
     finalPrescription: {
       od: { s: 0, c: 0, e: 0, av: '20/20' },

@@ -49,10 +49,11 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     console.log('  - currentPatient:', currentPatient ? 'existe' : 'não existe');
     console.log('  - isPatientInEdit:', isPatientInEdit);
     console.log('  - currentStep atual:', currentStep);
+    console.log('  - Stack trace:', new Error().stack?.split('\n').slice(1, 4).join('\n'));
     
     // Só sincronizar se não estivermos na etapa de prescrição
     if (currentPatient && isPatientInEdit && currentStep !== 'prescription') {
-      console.log('⚠️ Sincronizando com contexto global');
+      console.log('⚠️ Sincronizando com contexto global - MUDANDO PARA ANALYSIS');
       setPatientData(currentPatient);
       setCurrentStep('analysis');
       setHasUnsavedChanges(false);
@@ -327,12 +328,20 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
     window.scrollTo(0, 0);
   }, [currentStep]);
 
+  // Debug: Monitorar mudanças específicas no currentStep
+  React.useEffect(() => {
+    console.log('🎯 currentStep mudou para:', currentStep);
+    console.log('  - Timestamp:', new Date().toISOString());
+    console.log('  - Stack trace:', new Error().stack?.split('\n').slice(1, 6).join('\n'));
+  }, [currentStep]);
+
   // Debug: Monitorar mudanças no estado
   React.useEffect(() => {
     console.log('🔍 Estado atualizado:');
     console.log('  - currentStep:', currentStep);
     console.log('  - finalPrescriptionData:', finalPrescriptionData ? 'existe' : 'não existe');
     console.log('  - clinicalResult:', clinicalResult ? 'existe' : 'não existe');
+    console.log('  - Stack trace:', new Error().stack?.split('\n').slice(1, 4).join('\n'));
     
     if (currentStep === 'prescription') {
       console.log('📋 Renderizando etapa de prescrição:');
