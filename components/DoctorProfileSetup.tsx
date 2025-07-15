@@ -215,7 +215,7 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
             <select
               value={formData.gender}
               onChange={(e) => handleInputChange('gender', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               required
             >
               <option value="">Selecione o sexo</option>
@@ -234,7 +234,7 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
               type="text"
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               placeholder={formData.gender === 'female' ? 'Maria Silva' : formData.gender === 'male' ? 'João Silva' : 'Nome completo'}
               required
             />
@@ -254,7 +254,7 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
               type="text"
               value={formData.crm}
               onChange={(e) => handleInputChange('crm', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               placeholder="12345-SP"
               required
             />
@@ -268,7 +268,7 @@ export default function DoctorProfileSetup({ onComplete, onCancel, isEditing = f
             <select
               value={formData.specialty}
               onChange={(e) => handleInputChange('specialty', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               required
             >
               <option value="">Selecione a especialidade</option>
