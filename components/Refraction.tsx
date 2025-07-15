@@ -82,6 +82,10 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   };
 
   const handleAnalysisComplete = async (prescriptionData: FinalPrescriptionData) => {
+    console.log('🔄 Iniciando finalização da prescrição...');
+    console.log('📋 Dados da prescrição:', prescriptionData);
+    console.log('👤 Dados do paciente:', patientData);
+    
     try {
       // Salvar a prescrição final no paciente
       const updatedPatient = {
@@ -89,6 +93,8 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
         finalPrescription: prescriptionData,
         updatedAt: new Date().toISOString()
       };
+      
+      console.log('💾 Salvando paciente atualizado:', updatedPatient);
       
       // Salvar no Firebase
       await PatientService.savePatient(updatedPatient);
@@ -102,8 +108,10 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
       console.log('✅ Prescrição final salva com sucesso');
     } catch (error) {
       console.error('❌ Erro ao salvar prescrição final:', error);
+      // Continuar mesmo com erro para não quebrar o fluxo
     }
     
+    console.log('📱 Mudando para etapa de prescrição...');
     setCurrentStep('prescription');
   };
 

@@ -11,7 +11,10 @@ interface DataEntryFormProps {
 }
 
 export default function DataEntryForm({ patientData, onSubmit }: DataEntryFormProps) {
-  const [formData, setFormData] = useState<PatientData>(patientData);
+  const [formData, setFormData] = useState<PatientData>({
+    ...patientData,
+    id: patientData.id || generatePatientId()
+  });
   const [symptomSelections, setSymptomSelections] = useState<string[]>(['']);
   const [diagnosisSelections, setDiagnosisSelections] = useState<string[]>(['']);
 
