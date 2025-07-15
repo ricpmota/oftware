@@ -15,6 +15,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Oftware - Oftalmo Assist",
   description: "Sistema completo de gestão clínica oftalmológica",
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/logo-oftware.png', type: 'image/png' }
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/logo-oftware.png',
+  },
 };
 
 export default function RootLayout({
