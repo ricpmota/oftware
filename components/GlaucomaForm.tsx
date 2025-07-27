@@ -15,7 +15,8 @@ interface GlaucomaFormData {
   historicoFamiliar: boolean;
   ametropia: string;
   tipoAngulo: string;
-  curvaTensional: PIORecord[];
+  curvaTensionalOD: PIORecord[];
+  curvaTensionalOE: PIORecord[];
   escavacaoVertical: number;
   
   // Tratamento atual
@@ -36,6 +37,7 @@ const opcoes = {
   racas: ['Negra', 'Asiática', 'Branca', 'Outra'],
   ametropias: ['Miopia', 'Hipermetropia', 'Nenhuma'],
   angulos: ['Aberto', 'Estreito', 'Fechado'],
+  escavacao: ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'],
   colirios: [
     'Latanoprosta 0,005%',
     'Travoprosta 0,004%',
@@ -102,12 +104,12 @@ const classificacoesGlaucoma = {
   congenito: {
     nome: 'Glaucoma Congênito',
     caracteristicas: 'Buftalmo, lacrimejamento, fotofobia',
-    fatoresRisco: 'Aparece nos primeiros meses de vida'
+    fatoresRisco: 'Hereditário, <3 anos de idade'
   },
   normotensivo: {
     nome: 'Glaucoma Normotensivo',
-    caracteristicas: 'PIO normal, mas com escavação e perda de campo visual',
-    fatoresRisco: 'História familiar, hipotensão noturna'
+    caracteristicas: 'PIO normal, escavação e perda de campo visual',
+    fatoresRisco: 'Vasospasmo, hipotensão noturna, história familiar'
   }
 };
 
@@ -118,7 +120,8 @@ export default function GlaucomaForm() {
     historicoFamiliar: false,
     ametropia: '',
     tipoAngulo: '',
-    curvaTensional: [],
+    curvaTensionalOD: [],
+    curvaTensionalOE: [],
     escavacaoVertical: 0,
     usaColirio: false,
     coliriosAtuais: [],
@@ -131,6 +134,7 @@ export default function GlaucomaForm() {
     sugestaoMedicacao: ''
   });
 
+  const [olhoAtivo, setOlhoAtivo] = useState<'OD' | 'OE'>('OD');
   const [showModalColirios, setShowModalColirios] = useState(false);
   const [showModalClassificacoes, setShowModalClassificacoes] = useState(false);
   const [newPIO, setNewPIO] = useState({ time: '', pio: '' });
@@ -138,12 +142,15 @@ export default function GlaucomaForm() {
   // Adicionar novo valor de PIO
   const addPIO = () => {
     if (newPIO.time && newPIO.pio) {
+      const curvaAtual = olhoAtivo === 'OD' ? formData.curvaTensionalOD : formData.curvaTensionalOE;
+      const novaCurva = [...curvaAtual, {
+        time: newPIO.time,
+        pio: parseFloat(newPIO.pio)
+      }];
+      
       setFormData(prev => ({
         ...prev,
-        curvaTensional: [...prev.curvaTensional, {
-          time: newPIO.time,
-          pio: parseFloat(newPIO.pio)
-        }]
+        [olhoAtivo === 'OD' ? 'curvaTensionalOD' : 'curvaTensionalOE']: novaCurva
       }));
       setNewPIO({ time: '', pio: '' });
     }
@@ -151,9 +158,12 @@ export default function GlaucomaForm() {
 
   // Remover valor de PIO
   const removePIO = (index: number) => {
+    const curvaAtual = olhoAtivo === 'OD' ? formData.curvaTensionalOD : formData.curvaTensionalOE;
+    const novaCurva = curvaAtual.filter((_, i) => i !== index);
+    
     setFormData(prev => ({
       ...prev,
-      curvaTensional: prev.curvaTensional.filter((_, i) => i !== index)
+      [olhoAtivo === 'OD' ? 'curvaTensionalOD' : 'curvaTensionalOE']: novaCurva
     }));
   };
 
@@ -171,16 +181,19 @@ export default function GlaucomaForm() {
   const analisarDados = () => {
     // Validar campos obrigatórios
     if (!formData.idade || !formData.raca || formData.historicoFamiliar === undefined || 
-        !formData.ametropia || !formData.tipoAngulo || formData.curvaTensional.length === 0 || 
+        !formData.ametropia || !formData.tipoAngulo || 
+        (formData.curvaTensionalOD.length === 0 && formData.curvaTensionalOE.length === 0) || 
         !formData.escavacaoVertical) {
       alert('Por favor, preencha todos os campos obrigatórios antes de gerar o laudo.');
       return;
     }
 
-    // Análise do risco tensional
+    // Análise do risco tensional (considera ambos os olhos)
     let riscoTensional = '';
-    if (formData.curvaTensional.length > 0) {
-      const picos = formData.curvaTensional.map(r => r.pio);
+    const todasPIOs = [...formData.curvaTensionalOD, ...formData.curvaTensionalOE];
+    
+    if (todasPIOs.length > 0) {
+      const picos = todasPIOs.map(r => r.pio);
       const maxPIO = Math.max(...picos);
       const minPIO = Math.min(...picos);
       const variacao = maxPIO - minPIO;
@@ -222,7 +235,7 @@ export default function GlaucomaForm() {
       condutaTerapeutica = 'Iniciar monoterapia';
       sugestaoMedicacao = 'Latanoprosta 0,005% 1x/noite (prostaglandina)';
     } else if (formData.coliriosAtuais.length === 1) {
-      const maxPIO = Math.max(...formData.curvaTensional.map(r => r.pio));
+      const maxPIO = Math.max(...todasPIOs.map(r => r.pio));
       if (maxPIO > 18) {
         condutaTerapeutica = 'Associar segunda droga';
         sugestaoMedicacao = 'Adicionar Timolol 0,5% 2x/dia ou Dorzolamida 2% 2x/dia';
@@ -251,7 +264,9 @@ export default function GlaucomaForm() {
   };
 
   // Dados para o gráfico
-  const chartData = formData.curvaTensional.map((record, index) => ({
+  const getCurvaAtual = () => olhoAtivo === 'OD' ? formData.curvaTensionalOD : formData.curvaTensionalOE;
+  
+  const chartData = getCurvaAtual().map((record, index) => ({
     name: `T${index + 1}`,
     PIO: record.pio,
     'Limite Normal': 21
@@ -275,26 +290,26 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Idade *
               </label>
-                              <input
-                  type="number"
-                  value={formData.idade || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, idade: parseInt(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                  placeholder="Ex: 65"
-                  required
-                />
+              <input
+                type="number"
+                value={formData.idade || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, idade: parseInt(e.target.value) || 0 }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                placeholder="Ex: 65"
+                required
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Raça *
               </label>
-                              <select
-                  value={formData.raca}
-                  onChange={(e) => setFormData(prev => ({ ...prev, raca: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                  required
-                >
+              <select
+                value={formData.raca}
+                onChange={(e) => setFormData(prev => ({ ...prev, raca: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                required
+              >
                 <option value="">Selecione</option>
                 {opcoes.racas.map(raca => (
                   <option key={raca} value={raca}>{raca}</option>
@@ -307,7 +322,7 @@ export default function GlaucomaForm() {
                 Histórico Familiar *
               </label>
               <div className="flex gap-4">
-                <label className="flex items-center">
+                <label className="flex items-center text-black">
                   <input
                     type="radio"
                     checked={formData.historicoFamiliar === true}
@@ -317,7 +332,7 @@ export default function GlaucomaForm() {
                   />
                   Sim
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center text-black">
                   <input
                     type="radio"
                     checked={formData.historicoFamiliar === false}
@@ -334,12 +349,12 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Ametropia *
               </label>
-                              <select
-                  value={formData.ametropia}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ametropia: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                  required
-                >
+              <select
+                value={formData.ametropia}
+                onChange={(e) => setFormData(prev => ({ ...prev, ametropia: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                required
+              >
                 <option value="">Selecione</option>
                 {opcoes.ametropias.map(ametropia => (
                   <option key={ametropia} value={ametropia}>{ametropia}</option>
@@ -351,12 +366,12 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tipo de Ângulo *
               </label>
-                              <select
-                  value={formData.tipoAngulo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tipoAngulo: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                  required
-                >
+              <select
+                value={formData.tipoAngulo}
+                onChange={(e) => setFormData(prev => ({ ...prev, tipoAngulo: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                required
+              >
                 <option value="">Selecione</option>
                 {opcoes.angulos.map(angulo => (
                   <option key={angulo} value={angulo}>{angulo}</option>
@@ -368,17 +383,17 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Escavação Vertical *
               </label>
-                              <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="1"
-                  value={formData.escavacaoVertical || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, escavacaoVertical: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                  placeholder="Ex: 0.6"
-                  required
-                />
+              <select
+                value={formData.escavacaoVertical || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, escavacaoVertical: parseFloat(e.target.value) || 0 }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                required
+              >
+                <option value="">Selecione</option>
+                {opcoes.escavacao.map(escavacao => (
+                  <option key={escavacao} value={escavacao}>{escavacao}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -389,32 +404,58 @@ export default function GlaucomaForm() {
             Curva Tensional (PIO em mmHg)
           </h2>
           
+          {/* Seleção de Olho */}
+          <div className="flex justify-center mb-6">
+            <div className="bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+              <button
+                onClick={() => setOlhoAtivo('OD')}
+                className={`px-4 sm:px-8 py-3 rounded-md font-medium transition-colors duration-200 ${
+                  olhoAtivo === 'OD'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                OD
+              </button>
+              <button
+                onClick={() => setOlhoAtivo('OE')}
+                className={`px-4 sm:px-8 py-3 rounded-md font-medium transition-colors duration-200 ${
+                  olhoAtivo === 'OE'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                OE
+              </button>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Horário
               </label>
-                              <input
-                  type="text"
-                  value={newPIO.time}
-                  onChange={(e) => setNewPIO(prev => ({ ...prev, time: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
-                  placeholder="Ex: 8h, 14h, 20h"
-                />
+              <input
+                type="text"
+                value={newPIO.time}
+                onChange={(e) => setNewPIO(prev => ({ ...prev, time: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+                placeholder="Ex: 8h, 14h, 20h"
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 PIO (mmHg)
               </label>
-                              <input
-                  type="number"
-                  step="0.1"
-                  value={newPIO.pio}
-                  onChange={(e) => setNewPIO(prev => ({ ...prev, pio: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
-                  placeholder="Ex: 18.5"
-                />
+              <input
+                type="number"
+                step="0.1"
+                value={newPIO.pio}
+                onChange={(e) => setNewPIO(prev => ({ ...prev, pio: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+                placeholder="Ex: 18.5"
+              />
             </div>
 
             <div className="flex items-end">
@@ -428,9 +469,9 @@ export default function GlaucomaForm() {
           </div>
 
           {/* Gráfico da Curva Tensional */}
-          {formData.curvaTensional.length > 0 && (
+          {getCurvaAtual().length > 0 && (
             <div className="mt-6">
-              <h3 className="text-lg font-medium text-gray-800 mb-4">Gráfico da Curva Tensional</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-4">Gráfico da Curva Tensional - {olhoAtivo}</h3>
               <div className="h-64 bg-white rounded-lg p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
@@ -460,11 +501,11 @@ export default function GlaucomaForm() {
           )}
 
           {/* Lista de valores de PIO */}
-          {formData.curvaTensional.length > 0 && (
+          {getCurvaAtual().length > 0 && (
             <div className="mt-4">
-              <h3 className="text-lg font-medium text-gray-800 mb-2">Valores Registrados</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-2">Valores Registrados - {olhoAtivo}</h3>
               <div className="bg-white rounded-lg border">
-                {formData.curvaTensional.map((record, index) => (
+                {getCurvaAtual().map((record, index) => (
                   <div key={index} className="flex justify-between items-center p-3 border-b last:border-b-0">
                     <span className="text-gray-700 font-medium">
                       T{index + 1} ({record.time}): {record.pio} mmHg
@@ -493,7 +534,7 @@ export default function GlaucomaForm() {
               Paciente já usa colírio? *
             </label>
             <div className="flex gap-4">
-              <label className="flex items-center">
+              <label className="flex items-center text-black">
                 <input
                   type="radio"
                   checked={formData.usaColirio === true}
@@ -503,7 +544,7 @@ export default function GlaucomaForm() {
                 />
                 Sim
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-black">
                 <input
                   type="radio"
                   checked={formData.usaColirio === false}
@@ -519,27 +560,21 @@ export default function GlaucomaForm() {
           {formData.usaColirio && (
             <>
               <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Quais colírios utiliza atualmente:
-                  </label>
-                  <button
-                    onClick={() => setShowModalColirios(true)}
-                    className="text-blue-600 hover:text-blue-800 text-sm underline"
-                  >
-                    Ver classes de colírios
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quais colírios utiliza atualmente?
+                </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {opcoes.colirios.map(colirio => (
-                    <label key={colirio} className="flex items-center">
+                    <label key={colirio} className="flex items-center p-2 rounded-md transition-colors duration-200 hover:bg-gray-50">
                       <input
                         type="checkbox"
                         checked={formData.coliriosAtuais.includes(colirio)}
                         onChange={() => toggleColirio(colirio)}
                         className="mr-2"
                       />
-                      {colirio}
+                      <span className={`text-sm ${formData.coliriosAtuais.includes(colirio) ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
+                        {colirio}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -550,7 +585,7 @@ export default function GlaucomaForm() {
                   Teve efeitos adversos?
                 </label>
                 <div className="flex gap-4">
-                  <label className="flex items-center">
+                  <label className="flex items-center text-black">
                     <input
                       type="radio"
                       checked={formData.efeitosAdversos === true}
@@ -559,7 +594,7 @@ export default function GlaucomaForm() {
                     />
                     Sim
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center text-black">
                     <input
                       type="radio"
                       checked={formData.efeitosAdversos === false}
@@ -576,7 +611,7 @@ export default function GlaucomaForm() {
                   Deseja trocar o colírio?
                 </label>
                 <div className="flex gap-4">
-                  <label className="flex items-center">
+                  <label className="flex items-center text-black">
                     <input
                       type="radio"
                       checked={formData.desejaTrocar === true}
@@ -585,7 +620,7 @@ export default function GlaucomaForm() {
                     />
                     Sim
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center text-black">
                     <input
                       type="radio"
                       checked={formData.desejaTrocar === false}
@@ -600,13 +635,27 @@ export default function GlaucomaForm() {
           )}
         </div>
 
-        {/* Botão de Análise */}
-        <div className="text-center mb-6">
+        {/* Botões de Ação */}
+        <div className="flex justify-center gap-4 mb-6">
           <button
             onClick={analisarDados}
-            className="bg-purple-600 text-white px-8 py-3 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 text-lg font-medium"
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200"
           >
-            🧠 Analisar Dados e Gerar Diagnóstico
+            Gerar Análise
+          </button>
+          
+          <button
+            onClick={() => setShowModalColirios(true)}
+            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200"
+          >
+            Classes de Colírios
+          </button>
+          
+          <button
+            onClick={() => setShowModalClassificacoes(true)}
+            className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200"
+          >
+            Classificações de Glaucoma
           </button>
         </div>
 
@@ -617,49 +666,41 @@ export default function GlaucomaForm() {
               Resultados da Análise
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg border">
-                <h3 className="font-medium text-gray-800 mb-2">Tipo Provável de Glaucoma</h3>
-                <p className="text-gray-700">{formData.tipoGlaucomaProvavel}</p>
-                <button
-                  onClick={() => setShowModalClassificacoes(true)}
-                  className="text-blue-600 hover:text-blue-800 text-sm underline mt-2"
-                >
-                  Ver classificações
-                </button>
-              </div>
-
-              <div className="bg-white p-4 rounded-lg border">
+            <div className="space-y-4">
+              <div>
                 <h3 className="font-medium text-gray-800 mb-2">Risco Tensional</h3>
                 <p className="text-gray-700">{formData.riscoTensional}</p>
               </div>
 
-              <div className="bg-white p-4 rounded-lg border">
+              <div>
+                <h3 className="font-medium text-gray-800 mb-2">Tipo de Glaucoma Provável</h3>
+                <p className="text-gray-700">{formData.tipoGlaucomaProvavel}</p>
+              </div>
+
+              <div>
                 <h3 className="font-medium text-gray-800 mb-2">Avaliação da Escavação</h3>
                 <p className="text-gray-700">{formData.avaliacaoEscavacao}</p>
               </div>
 
-              <div className="bg-white p-4 rounded-lg border">
+              <div>
                 <h3 className="font-medium text-gray-800 mb-2">Conduta Terapêutica</h3>
                 <p className="text-gray-700">{formData.condutaTerapeutica}</p>
               </div>
-            </div>
 
-            <div className="mt-4 bg-gray-50 border border-gray-200 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-800 mb-2">Sugestão de Medicação</h3>
-              <p className="text-gray-700">{formData.sugestaoMedicacao}</p>
+              <div className="mt-4 bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-800 mb-2">Sugestão de Medicação</h3>
+                <p className="text-gray-700">{formData.sugestaoMedicacao}</p>
+              </div>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Modal: Classes de Colírios */}
-      {showModalColirios && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
+        {/* Modal Classes de Colírios */}
+        {showModalColirios && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">💧 Classes de Colírios</h2>
+                <h2 className="text-2xl font-bold text-gray-800">Classes de Colírios</h2>
                 <button
                   onClick={() => setShowModalColirios(false)}
                   className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -670,8 +711,8 @@ export default function GlaucomaForm() {
               
               <div className="space-y-6">
                 {Object.entries(classesColirios).map(([key, classe]) => (
-                  <div key={key} className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">{classe.nome}</h3>
+                  <div key={key} className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-2">{classe.nome}</h3>
                     <div className="space-y-2">
                       <p><strong>Exemplos:</strong> {classe.exemplos.join(', ')}</p>
                       <p><strong>Mecanismo:</strong> {classe.mecanismo}</p>
@@ -680,27 +721,16 @@ export default function GlaucomaForm() {
                   </div>
                 ))}
               </div>
-              
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => setShowModalColirios(false)}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
-                >
-                  Fechar
-                </button>
-              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Modal: Classificações de Glaucoma */}
-      {showModalClassificacoes && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
+        {/* Modal Classificações de Glaucoma */}
+        {showModalClassificacoes && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-4xl max-h-[80vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">📚 Classificações de Glaucoma</h2>
+                <h2 className="text-2xl font-bold text-gray-800">Classificações de Glaucoma</h2>
                 <button
                   onClick={() => setShowModalClassificacoes(false)}
                   className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -711,8 +741,8 @@ export default function GlaucomaForm() {
               
               <div className="space-y-6">
                 {Object.entries(classificacoesGlaucoma).map(([key, classificacao]) => (
-                  <div key={key} className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">{classificacao.nome}</h3>
+                  <div key={key} className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-purple-800 mb-2">{classificacao.nome}</h3>
                     <div className="space-y-2">
                       <p><strong>Características:</strong> {classificacao.caracteristicas}</p>
                       <p><strong>Fatores de Risco:</strong> {classificacao.fatoresRisco}</p>
@@ -720,19 +750,10 @@ export default function GlaucomaForm() {
                   </div>
                 ))}
               </div>
-              
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => setShowModalClassificacoes(false)}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
-                >
-                  Fechar
-                </button>
-              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
-} 
+}
