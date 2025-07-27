@@ -194,33 +194,64 @@ export default function OctLaudoForm() {
 
   const gerarLaudo = () => {
     const gerarLaudoOlho = (olho: 'OD' | 'OE', dados: OlhoData) => {
-      const foveal = dados.espessuraFoveal ? `Espessura foveal de ${dados.espessuraFoveal}µm.` : '';
-      const media = dados.espessuraMedia ? `Espessura média central de ${dados.espessuraMedia}µm (VN: 250-300µm).` : '';
+      let laudo = `${olho} - ${dados.regiao.toUpperCase()}:\n`;
+      
+      // Medidas
+      if (dados.espessuraFoveal) {
+        laudo += `Espessura foveal de ${dados.espessuraFoveal}µm. `;
+      }
+      if (dados.espessuraMedia) {
+        laudo += `Espessura média central de ${dados.espessuraMedia}µm (VN: 250-300µm). `;
+      }
 
-      const altMacula = dados.alteracoesMaculares.length ? `Alterações maculares: ${dados.alteracoesMaculares.join(', ')}.` : '';
-      const altVitreas = dados.alteracoesVitreas.length ? `Alterações vítreas: ${dados.alteracoesVitreas.join(', ')}.` : '';
+      // Alterações maculares
+      if (dados.alteracoesMaculares.length > 0) {
+        laudo += `Alterações maculares: ${dados.alteracoesMaculares.join(', ')}. `;
+      }
 
-      const epr = dados.integridadeEPR ? `Integridade do EPR: ${dados.integridadeEPR.toLowerCase()}.` : '';
-      const zel = dados.integridadeZEL ? `ZEL ${dados.integridadeZEL.toLowerCase()}.` : '';
+      // Alterações vítreas
+      if (dados.alteracoesVitreas.length > 0) {
+        laudo += `Alterações vítreas: ${dados.alteracoesVitreas.join(', ')}. `;
+      }
 
-      const sinais = dados.sinaisAdicionais.length ? `Sinais adicionais: ${dados.sinaisAdicionais.join(', ')}.` : '';
+      // Integridade
+      if (dados.integridadeEPR) {
+        laudo += `Integridade do EPR: ${dados.integridadeEPR.toLowerCase()}. `;
+      }
+      if (dados.integridadeZEL) {
+        laudo += `ZEL ${dados.integridadeZEL.toLowerCase()}. `;
+      }
 
-      const papila = dados.regiao.includes('papila') ? `Papila com escavação de ${dados.papila.escavacao} (VN: até 0.6), RNFL ${dados.papila.rNFL.toLowerCase()} e camada de células ganglionares ${dados.papila.camadaGanglionar.toLowerCase()}.${dados.papila.outros ? ' ' + dados.papila.outros : ''}` : '';
+      // Sinais adicionais
+      if (dados.sinaisAdicionais.length > 0) {
+        laudo += `Sinais adicionais: ${dados.sinaisAdicionais.join(', ')}. `;
+      }
 
-      return `${olho} - ${dados.regiao.toUpperCase()}:
-${foveal}
-${media}
-${altMacula}
-${altVitreas}
-${epr}
-${zel}
-${sinais}
-${papila}`;
+      // Papila (apenas se região incluir papila)
+      if (dados.regiao.includes('papila')) {
+        if (dados.papila.escavacao || dados.papila.rNFL || dados.papila.camadaGanglionar) {
+          laudo += `Papila com `;
+          if (dados.papila.escavacao) {
+            laudo += `escavação de ${dados.papila.escavacao} (VN: até 0.6), `;
+          }
+          if (dados.papila.rNFL) {
+            laudo += `RNFL ${dados.papila.rNFL.toLowerCase()}, `;
+          }
+          if (dados.papila.camadaGanglionar) {
+            laudo += `camada de células ganglionares ${dados.papila.camadaGanglionar.toLowerCase()}. `;
+          }
+          if (dados.papila.outros) {
+            laudo += dados.papila.outros;
+          }
+        }
+      }
+
+      return laudo.trim();
     };
 
     const laudoOD = gerarLaudoOlho('OD', form.olhoDireito);
     const laudoOE = gerarLaudoOlho('OE', form.olhoEsquerdo);
-    const laudoRecomendacoes = form.recomendacoes.length ? `\nConduta: ${form.recomendacoes.join(', ')}.` : '';
+    const laudoRecomendacoes = form.recomendacoes.length > 0 ? `\n\nConduta: ${form.recomendacoes.join(', ')}.` : '';
 
     const laudo = `Laudo de ${form.tipoExame}:
 
@@ -375,7 +406,7 @@ ${laudoOE}${laudoRecomendacoes}`;
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
         {/* Formulário */}
         <div className="space-y-4">
           <AccordionItem title="Tipo de Exame" section="tipoExame">

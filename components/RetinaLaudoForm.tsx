@@ -283,75 +283,103 @@ export default function RetinaLaudoForm() {
 
   const gerarLaudo = () => {
     const gerarLaudoOlho = (olho: 'OD' | 'OE', dados: OlhoData) => {
-      const laudoMacula = dados.macula.length ? `Mácula com ${dados.macula.join(', ')}.` : '';
+      let laudo = `${olho}:\n`;
       
-      // Lógica melhorada para vasos
-      let laudoVasos = '';
+      // Meios ópticos (apenas se selecionado)
+      if (dados.meiosOpticos) {
+        laudo += `Meios ópticos ${dados.meiosOpticos.toLowerCase()}.\n\n`;
+      }
+      
+      // Disco óptico (apenas se campos obrigatórios preenchidos)
+      if (dados.disco.cor || dados.disco.contornos || dados.disco.escavacao || dados.disco.tipoEscavacao || dados.disco.tamanhoEscavacao) {
+        laudo += 'Disco óptico ';
+        if (dados.disco.cor) laudo += `${dados.disco.cor.toLowerCase()}, `;
+        if (dados.disco.contornos) laudo += `de contornos ${dados.disco.contornos.toLowerCase()}, `;
+        if (dados.disco.tipoEscavacao && dados.disco.tamanhoEscavacao) {
+          laudo += `com escavação ${dados.disco.tipoEscavacao.toLowerCase()} de tamanho ${dados.disco.tamanhoEscavacao}, `;
+        }
+        if (dados.disco.escavacao) laudo += `relação escavação/disco ${dados.disco.escavacao.toLowerCase()}. `;
+        
+        // Características adicionais do disco
+        const caracteristicas = [];
+        if (dados.disco.atrofia) caracteristicas.push('Atrofia peripapilar presente');
+        if (dados.disco.crescente) caracteristicas.push('Crescente escleral presente');
+        if (dados.disco.palidez) caracteristicas.push(`Palidez ${dados.disco.palidez.toLowerCase()}`);
+        if (dados.disco.inclinacao) caracteristicas.push('Disco óptico inclinado');
+        
+        if (caracteristicas.length > 0) {
+          laudo += caracteristicas.join('. ') + '.\n\n';
+        } else {
+          laudo += '\n';
+        }
+      }
+      
+      // Mácula (apenas se selecionada)
+      if (dados.macula.length > 0) {
+        laudo += `Mácula com ${dados.macula.join(', ')}.\n`;
+      }
+      
+      // Vasos (apenas se selecionados)
       if (dados.vasos.length > 0) {
         if (dados.vasos.includes('Vasos normais')) {
-          laudoVasos = 'Vasos retinianos de trajeto e calibre preservados.';
+          laudo += 'Vasos retinianos de trajeto e calibre preservados.\n';
         } else {
-          laudoVasos = `Vasos com alterações: ${dados.vasos.filter(v => v !== 'Vasos normais').join(', ')}.`;
+          laudo += `Vasos com alterações: ${dados.vasos.filter(v => v !== 'Vasos normais').join(', ')}.\n`;
         }
       }
       
-      // Lógica melhorada para polo posterior
-      let laudoPolo = '';
+      // Polo posterior (apenas se selecionado)
       if (dados.poloPosterior.length > 0) {
         if (dados.poloPosterior.includes('Normal')) {
-          laudoPolo = 'Polo posterior sem alterações.';
+          laudo += 'Polo posterior sem alterações.\n';
         } else {
-          laudoPolo = `Polo posterior apresenta: ${dados.poloPosterior.filter(p => p !== 'Normal').join(', ')}.`;
+          laudo += `Polo posterior apresenta: ${dados.poloPosterior.filter(p => p !== 'Normal').join(', ')}.\n`;
         }
       }
       
-      // Lógica melhorada para periferia
-      let laudoPeriferia = '';
+      // Periferia (apenas se selecionada)
       if (dados.periferia.length > 0) {
         if (dados.periferia.includes('Sem alterações periféricas')) {
-          laudoPeriferia = 'Periferia sem sinais de degenerações, roturas ou desinserções.';
+          laudo += 'Periferia sem sinais de degenerações, roturas ou desinserções.\n';
         } else {
-          laudoPeriferia = `Periferia com: ${dados.periferia.filter(p => p !== 'Sem alterações periféricas').join(', ')}.`;
+          laudo += `Periferia com: ${dados.periferia.filter(p => p !== 'Sem alterações periféricas').join(', ')}.\n`;
         }
       }
 
-      let laudoRD = '';
-      switch (dados.retinopatiaDiabetica) {
-        case 'RDNP leve':
-          laudoRD = 'Presença de RD não proliferativa leve, com poucos microaneurismas e exsudatos.';
-          break;
-        case 'RDNP moderada':
-          laudoRD = 'RD não proliferativa moderada, com microaneurismas, hemorragias e exsudatos moderados.';
-          break;
-        case 'RDNP severa':
-          laudoRD = 'RD não proliferativa severa, com mais de 20 hemorragias em 4 quadrantes e sinais de isquemia.';
-          break;
-        case 'RD proliferativa':
-          laudoRD = 'RD proliferativa, com neovasos e possível hemorragia vítrea.';
-          break;
-        case 'Sem sinais de RD':
-          laudoRD = 'Sem sinais de retinopatia diabética.';
-          break;
+      // Retinopatia diabética (apenas se selecionada)
+      if (dados.retinopatiaDiabetica) {
+        let laudoRD = '';
+        switch (dados.retinopatiaDiabetica) {
+          case 'RDNP leve':
+            laudoRD = 'Presença de RD não proliferativa leve, com poucos microaneurismas e exsudatos.';
+            break;
+          case 'RDNP moderada':
+            laudoRD = 'RD não proliferativa moderada, com microaneurismas, hemorragias e exsudatos moderados.';
+            break;
+          case 'RDNP severa':
+            laudoRD = 'RD não proliferativa severa, com mais de 20 hemorragias em 4 quadrantes e sinais de isquemia.';
+            break;
+          case 'RD proliferativa':
+            laudoRD = 'RD proliferativa, com neovasos e possível hemorragia vítrea.';
+            break;
+          case 'Sem sinais de RD':
+            laudoRD = 'Sem sinais de retinopatia diabética.';
+            break;
+        }
+        laudo += laudoRD;
+        
+        if (dados.edemaMacular) {
+          laudo += ' Edema macular diabético presente.';
+        }
+        laudo += '\n';
       }
 
-      if (dados.edemaMacular) {
-        laudoRD += ' Edema macular diabético presente.';
+      // Achados adicionais (apenas se selecionados)
+      if (dados.adicionais.length > 0) {
+        laudo += `Outros achados: ${dados.adicionais.join(', ')}.`;
       }
 
-      const laudoOutros = dados.adicionais.length ? `Outros achados: ${dados.adicionais.join(', ')}.` : '';
-
-      return `${olho}:
-Meios ópticos ${dados.meiosOpticos.toLowerCase()}.
-
-Disco óptico ${dados.disco.cor.toLowerCase()}, de contornos ${dados.disco.contornos.toLowerCase()}, com escavação ${dados.disco.tipoEscavacao.toLowerCase()} de tamanho ${dados.disco.tamanhoEscavacao}, relação escavação/disco ${dados.disco.escavacao.toLowerCase()}.
-${dados.disco.atrofia ? 'Atrofia peripapilar presente. ' : ''}${dados.disco.crescente ? 'Crescente escleral presente. ' : ''}${dados.disco.palidez ? `Palidez ${dados.disco.palidez.toLowerCase()}. ` : ''}${dados.disco.inclinacao ? 'Disco óptico inclinado. ' : ''}
-
-${laudoMacula}
-${laudoVasos}
-${laudoPolo}
-${laudoPeriferia}
-${laudoRD}
-${laudoOutros}`;
+      return laudo.trim();
     };
 
     const laudoOD = gerarLaudoOlho('OD', form.olhoDireito);
