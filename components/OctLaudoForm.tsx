@@ -105,9 +105,8 @@ export default function OctLaudoForm() {
 
   const opcoes = {
     tipoExame: [
-      'OCT de Mácula',
-      'OCT de Papila',
-      'OCT Completo'
+      'Macular',
+      'Papilar'
     ],
     alteracoesMaculares: [
       'Edema intrarretiniano',
@@ -254,9 +253,9 @@ export default function OctLaudoForm() {
     const gerarLaudoOlho = (olho: 'OD' | 'OE', dados: OlhoData) => {
       let laudo = `${olho}:\n`;
       
-      // Determinar se inclui mácula e/ou papila baseado no tipo de exame
-      const incluiMacula = form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo';
-      const incluiPapila = form.tipoExame === 'OCT de Papila' || form.tipoExame === 'OCT Completo';
+      // Determinar se inclui mácula ou papila baseado no tipo de exame
+      const incluiMacula = form.tipoExame === 'Macular';
+      const incluiPapila = form.tipoExame === 'Papilar';
       
       if (incluiMacula) {
         laudo += 'MÁCULA:\n';
@@ -549,7 +548,7 @@ ${laudoOE}${laudoRecomendacoes}`;
             </div>
           </AccordionItem>
 
-          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+          {form.tipoExame === 'Macular' && (
             <AccordionItem title={`Medidas Maculares (${olhoAtivo})`} section="medidas">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -590,7 +589,7 @@ ${laudoOE}${laudoRecomendacoes}`;
             </AccordionItem>
           )}
 
-          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+          {form.tipoExame === 'Macular' && (
             <AccordionItem title={`Alterações Maculares (${olhoAtivo})`} section="alteracoesMaculares">
               <CheckboxGroup
                 title="Alterações Maculares"
@@ -601,7 +600,7 @@ ${laudoOE}${laudoRecomendacoes}`;
             </AccordionItem>
           )}
 
-          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+          {form.tipoExame === 'Macular' && (
             <AccordionItem title={`Alterações Vítreas (${olhoAtivo})`} section="alteracoesVitreas">
               <CheckboxGroup
                 title="Alterações Vítreas"
@@ -612,7 +611,7 @@ ${laudoOE}${laudoRecomendacoes}`;
             </AccordionItem>
           )}
 
-          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+          {form.tipoExame === 'Macular' && (
             <AccordionItem title={`Integridade (${olhoAtivo})`} section="integridade">
               <div className="space-y-4">
                 <div>
@@ -657,7 +656,7 @@ ${laudoOE}${laudoRecomendacoes}`;
             </AccordionItem>
           )}
 
-          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+          {form.tipoExame === 'Macular' && (
             <AccordionItem title={`Sinais Adicionais (${olhoAtivo})`} section="sinaisAdicionais">
               <CheckboxGroup
                 title="Sinais Adicionais"
@@ -668,7 +667,7 @@ ${laudoOE}${laudoRecomendacoes}`;
             </AccordionItem>
           )}
 
-          {(form.tipoExame === 'OCT de Papila' || form.tipoExame === 'OCT Completo') && (
+          {form.tipoExame === 'Papilar' && (
             <AccordionItem title={`Papila (${olhoAtivo})`} section="papila">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
