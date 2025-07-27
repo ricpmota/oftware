@@ -5,7 +5,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 interface PIORecord {
   time: string;
-  pio: number;
+  pioOD: number;
+  pioOE: number;
 }
 
 interface GlaucomaFormData {
@@ -15,8 +16,7 @@ interface GlaucomaFormData {
   historicoFamiliar: boolean;
   ametropia: string;
   tipoAngulo: string;
-  curvaTensionalOD: PIORecord[];
-  curvaTensionalOE: PIORecord[];
+  curvaTensional: PIORecord[];
   escavacaoVertical: number;
   
   // Tratamento atual
@@ -120,8 +120,7 @@ export default function GlaucomaForm() {
     historicoFamiliar: false,
     ametropia: '',
     tipoAngulo: '',
-    curvaTensionalOD: [],
-    curvaTensionalOE: [],
+    curvaTensional: [],
     escavacaoVertical: 0,
     usaColirio: false,
     coliriosAtuais: [],
@@ -134,36 +133,30 @@ export default function GlaucomaForm() {
     sugestaoMedicacao: ''
   });
 
-  const [olhoAtivo, setOlhoAtivo] = useState<'OD' | 'OE'>('OD');
   const [showModalColirios, setShowModalColirios] = useState(false);
   const [showModalClassificacoes, setShowModalClassificacoes] = useState(false);
-  const [newPIO, setNewPIO] = useState({ time: '', pio: '' });
+  const [newPIO, setNewPIO] = useState({ time: '', pioOD: '', pioOE: '' });
 
   // Adicionar novo valor de PIO
   const addPIO = () => {
-    if (newPIO.time && newPIO.pio) {
-      const curvaAtual = olhoAtivo === 'OD' ? formData.curvaTensionalOD : formData.curvaTensionalOE;
-      const novaCurva = [...curvaAtual, {
-        time: newPIO.time,
-        pio: parseFloat(newPIO.pio)
-      }];
-      
+    if (newPIO.time && newPIO.pioOD && newPIO.pioOE) {
       setFormData(prev => ({
         ...prev,
-        [olhoAtivo === 'OD' ? 'curvaTensionalOD' : 'curvaTensionalOE']: novaCurva
+        curvaTensional: [...prev.curvaTensional, {
+          time: newPIO.time,
+          pioOD: parseFloat(newPIO.pioOD),
+          pioOE: parseFloat(newPIO.pioOE)
+        }]
       }));
-      setNewPIO({ time: '', pio: '' });
+      setNewPIO({ time: '', pioOD: '', pioOE: '' });
     }
   };
 
   // Remover valor de PIO
   const removePIO = (index: number) => {
-    const curvaAtual = olhoAtivo === 'OD' ? formData.curvaTensionalOD : formData.curvaTensionalOE;
-    const novaCurva = curvaAtual.filter((_, i) => i !== index);
-    
     setFormData(prev => ({
       ...prev,
-      [olhoAtivo === 'OD' ? 'curvaTensionalOD' : 'curvaTensionalOE']: novaCurva
+      curvaTensional: prev.curvaTensional.filter((_, i) => i !== index)
     }));
   };
 
@@ -181,8 +174,7 @@ export default function GlaucomaForm() {
   const analisarDados = () => {
     // Validar campos obrigatórios
     if (!formData.idade || !formData.raca || formData.historicoFamiliar === undefined || 
-        !formData.ametropia || !formData.tipoAngulo || 
-        (formData.curvaTensionalOD.length === 0 && formData.curvaTensionalOE.length === 0) || 
+        !formData.ametropia || !formData.tipoAngulo || formData.curvaTensional.length === 0 || 
         !formData.escavacaoVertical) {
       alert('Por favor, preencha todos os campos obrigatórios antes de gerar o laudo.');
       return;
@@ -190,12 +182,11 @@ export default function GlaucomaForm() {
 
     // Análise do risco tensional (considera ambos os olhos)
     let riscoTensional = '';
-    const todasPIOs = [...formData.curvaTensionalOD, ...formData.curvaTensionalOE];
+    const todasPIOs = formData.curvaTensional.flatMap(record => [record.pioOD, record.pioOE]);
     
     if (todasPIOs.length > 0) {
-      const picos = todasPIOs.map(r => r.pio);
-      const maxPIO = Math.max(...picos);
-      const minPIO = Math.min(...picos);
+      const maxPIO = Math.max(...todasPIOs);
+      const minPIO = Math.min(...todasPIOs);
       const variacao = maxPIO - minPIO;
       
       if (maxPIO > 21 || variacao > 5) {
@@ -235,7 +226,7 @@ export default function GlaucomaForm() {
       condutaTerapeutica = 'Iniciar monoterapia';
       sugestaoMedicacao = 'Latanoprosta 0,005% 1x/noite (prostaglandina)';
     } else if (formData.coliriosAtuais.length === 1) {
-      const maxPIO = Math.max(...todasPIOs.map(r => r.pio));
+      const maxPIO = Math.max(...todasPIOs);
       if (maxPIO > 18) {
         condutaTerapeutica = 'Associar segunda droga';
         sugestaoMedicacao = 'Adicionar Timolol 0,5% 2x/dia ou Dorzolamida 2% 2x/dia';
@@ -264,11 +255,10 @@ export default function GlaucomaForm() {
   };
 
   // Dados para o gráfico
-  const getCurvaAtual = () => olhoAtivo === 'OD' ? formData.curvaTensionalOD : formData.curvaTensionalOE;
-  
-  const chartData = getCurvaAtual().map((record, index) => ({
+  const chartData = formData.curvaTensional.map((record, index) => ({
     name: `T${index + 1}`,
-    PIO: record.pio,
+    'OD': record.pioOD,
+    'OE': record.pioOE,
     'Limite Normal': 21
   }));
 
@@ -404,33 +394,7 @@ export default function GlaucomaForm() {
             Curva Tensional (PIO em mmHg)
           </h2>
           
-          {/* Seleção de Olho */}
-          <div className="flex justify-center mb-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-              <button
-                onClick={() => setOlhoAtivo('OD')}
-                className={`px-4 sm:px-8 py-3 rounded-md font-medium transition-colors duration-200 ${
-                  olhoAtivo === 'OD'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                OD
-              </button>
-              <button
-                onClick={() => setOlhoAtivo('OE')}
-                className={`px-4 sm:px-8 py-3 rounded-md font-medium transition-colors duration-200 ${
-                  olhoAtivo === 'OE'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                OE
-              </button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Horário
@@ -440,21 +404,35 @@ export default function GlaucomaForm() {
                 value={newPIO.time}
                 onChange={(e) => setNewPIO(prev => ({ ...prev, time: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
-                placeholder="Ex: 8h, 14h, 20h"
+                placeholder="Ex: 8:40"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                PIO (mmHg)
+                PIO OD (mmHg)
               </label>
               <input
                 type="number"
                 step="0.1"
-                value={newPIO.pio}
-                onChange={(e) => setNewPIO(prev => ({ ...prev, pio: e.target.value }))}
+                value={newPIO.pioOD}
+                onChange={(e) => setNewPIO(prev => ({ ...prev, pioOD: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
-                placeholder="Ex: 18.5"
+                placeholder="Ex: 15"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                PIO OE (mmHg)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={newPIO.pioOE}
+                onChange={(e) => setNewPIO(prev => ({ ...prev, pioOE: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+                placeholder="Ex: 15"
               />
             </div>
 
@@ -469,9 +447,9 @@ export default function GlaucomaForm() {
           </div>
 
           {/* Gráfico da Curva Tensional */}
-          {getCurvaAtual().length > 0 && (
+          {formData.curvaTensional.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-lg font-medium text-gray-800 mb-4">Gráfico da Curva Tensional - {olhoAtivo}</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-4">Gráfico da Curva Tensional</h3>
               <div className="h-64 bg-white rounded-lg p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
@@ -482,15 +460,22 @@ export default function GlaucomaForm() {
                     <Legend />
                     <Line 
                       type="monotone" 
-                      dataKey="PIO" 
+                      dataKey="OD" 
                       stroke="#2563eb" 
                       strokeWidth={3}
                       dot={{ fill: '#2563eb', strokeWidth: 2, r: 6 }}
                     />
                     <Line 
                       type="monotone" 
-                      dataKey="Limite Normal" 
+                      dataKey="OE" 
                       stroke="#dc2626" 
+                      strokeWidth={3}
+                      dot={{ fill: '#dc2626', strokeWidth: 2, r: 6 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Limite Normal" 
+                      stroke="#6b7280" 
                       strokeDasharray="5 5"
                       strokeWidth={2}
                     />
@@ -501,14 +486,14 @@ export default function GlaucomaForm() {
           )}
 
           {/* Lista de valores de PIO */}
-          {getCurvaAtual().length > 0 && (
+          {formData.curvaTensional.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-lg font-medium text-gray-800 mb-2">Valores Registrados - {olhoAtivo}</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-2">Valores Registrados</h3>
               <div className="bg-white rounded-lg border">
-                {getCurvaAtual().map((record, index) => (
+                {formData.curvaTensional.map((record, index) => (
                   <div key={index} className="flex justify-between items-center p-3 border-b last:border-b-0">
                     <span className="text-gray-700 font-medium">
-                      T{index + 1} ({record.time}): {record.pio} mmHg
+                      T{index + 1} ({record.time}): OD {record.pioOD} mmHg | OE {record.pioOE} mmHg
                     </span>
                     <button
                       onClick={() => removePIO(index)}

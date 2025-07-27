@@ -81,6 +81,23 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         
+        {/* Preload critical images for better performance */}
+        <link rel="preload" as="image" href="/icones/oftware.png" />
+        <link rel="preload" as="image" href="/icones/Retina.png" />
+        <link rel="preload" as="image" href="/icones/Glaucoma.png" />
+        <link rel="preload" as="image" href="/icones/catarata.png" />
+        <link rel="preload" as="image" href="/icones/cirurgia-refrativa.png" />
+        <link rel="preload" as="image" href="/icones/cornea.png" />
+        <link rel="preload" as="image" href="/icones/Estrabismo.png" />
+        <link rel="preload" as="image" href="/icones/Farmacologia.png" />
+        <link rel="preload" as="image" href="/icones/Genetica.png" />
+        <link rel="preload" as="image" href="/icones/Lentes.png" />
+        <link rel="preload" as="image" href="/icones/neurooftalmo.png" />
+        <link rel="preload" as="image" href="/icones/oncologia.png" />
+        <link rel="preload" as="image" href="/icones/plastica.png" />
+        <link rel="preload" as="image" href="/icones/Retina.png" />
+        <link rel="preload" as="image" href="/icones/uveite.png" />
+        
         {/* Apple Touch Icons */}
         <link rel="apple-touch-icon" href="/icones/oftware.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icones/oftware.png" />
