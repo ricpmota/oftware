@@ -169,6 +169,14 @@ export default function GlaucomaForm() {
 
   // Análise automática
   const analisarDados = () => {
+    // Validar campos obrigatórios
+    if (!formData.idade || !formData.raca || formData.historicoFamiliar === undefined || 
+        !formData.ametropia || !formData.tipoAngulo || formData.curvaTensional.length === 0 || 
+        !formData.escavacaoVertical) {
+      alert('Por favor, preencha todos os campos obrigatórios antes de gerar o laudo.');
+      return;
+    }
+
     // Análise do risco tensional
     let riscoTensional = '';
     if (formData.curvaTensional.length > 0) {
@@ -259,7 +267,7 @@ export default function GlaucomaForm() {
         {/* Campos Obrigatórios */}
         <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            🧾 Dados Clínicos Essenciais
+            Dados Clínicos Essenciais
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -378,7 +386,7 @@ export default function GlaucomaForm() {
         {/* Curva Tensional */}
         <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            📈 Curva Tensional (PIO em mmHg)
+            Curva Tensional (PIO em mmHg)
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -477,7 +485,7 @@ export default function GlaucomaForm() {
         {/* Tratamento Atual */}
         <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            💧 Tratamento Atual
+            Tratamento Atual
           </h2>
           
           <div className="mb-4">
@@ -606,7 +614,7 @@ export default function GlaucomaForm() {
         {(formData.riscoTensional || formData.tipoGlaucomaProvavel) && (
           <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              📊 Resultados da Análise
+              Resultados da Análise
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -638,7 +646,7 @@ export default function GlaucomaForm() {
             </div>
 
             <div className="mt-4 bg-gray-50 border border-gray-200 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-800 mb-2">💊 Sugestão de Medicação</h3>
+              <h3 className="font-medium text-gray-800 mb-2">Sugestão de Medicação</h3>
               <p className="text-gray-700">{formData.sugestaoMedicacao}</p>
             </div>
           </div>
