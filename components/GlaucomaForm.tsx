@@ -250,15 +250,15 @@ export default function GlaucomaForm() {
   }));
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
+    <div className="max-w-6xl mx-auto p-6 bg-white min-h-screen">
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
           Formulário de Avaliação de Glaucoma
         </h1>
 
         {/* Campos Obrigatórios */}
-        <div className="bg-blue-50 p-6 rounded-lg mb-6">
-          <h2 className="text-xl font-semibold text-blue-800 mb-4">
+        <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
             🧾 Dados Clínicos Essenciais
           </h2>
           
@@ -267,26 +267,26 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Idade *
               </label>
-              <input
-                type="number"
-                value={formData.idade || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, idade: parseInt(e.target.value) || 0 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ex: 65"
-                required
-              />
+                              <input
+                  type="number"
+                  value={formData.idade || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, idade: parseInt(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  placeholder="Ex: 65"
+                  required
+                />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Raça *
               </label>
-              <select
-                value={formData.raca}
-                onChange={(e) => setFormData(prev => ({ ...prev, raca: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
+                              <select
+                  value={formData.raca}
+                  onChange={(e) => setFormData(prev => ({ ...prev, raca: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  required
+                >
                 <option value="">Selecione</option>
                 {opcoes.racas.map(raca => (
                   <option key={raca} value={raca}>{raca}</option>
@@ -326,12 +326,12 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Ametropia *
               </label>
-              <select
-                value={formData.ametropia}
-                onChange={(e) => setFormData(prev => ({ ...prev, ametropia: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
+                              <select
+                  value={formData.ametropia}
+                  onChange={(e) => setFormData(prev => ({ ...prev, ametropia: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  required
+                >
                 <option value="">Selecione</option>
                 {opcoes.ametropias.map(ametropia => (
                   <option key={ametropia} value={ametropia}>{ametropia}</option>
@@ -343,12 +343,12 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tipo de Ângulo *
               </label>
-              <select
-                value={formData.tipoAngulo}
-                onChange={(e) => setFormData(prev => ({ ...prev, tipoAngulo: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
+                              <select
+                  value={formData.tipoAngulo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tipoAngulo: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  required
+                >
                 <option value="">Selecione</option>
                 {opcoes.angulos.map(angulo => (
                   <option key={angulo} value={angulo}>{angulo}</option>
@@ -360,24 +360,24 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Escavação Vertical *
               </label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="1"
-                value={formData.escavacaoVertical || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, escavacaoVertical: parseFloat(e.target.value) || 0 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ex: 0.6"
-                required
-              />
+                              <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  value={formData.escavacaoVertical || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, escavacaoVertical: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  placeholder="Ex: 0.6"
+                  required
+                />
             </div>
           </div>
         </div>
 
         {/* Curva Tensional */}
-        <div className="bg-green-50 p-6 rounded-lg mb-6">
-          <h2 className="text-xl font-semibold text-green-800 mb-4">
+        <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
             📈 Curva Tensional (PIO em mmHg)
           </h2>
           
@@ -386,27 +386,27 @@ export default function GlaucomaForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Horário
               </label>
-              <input
-                type="text"
-                value={newPIO.time}
-                onChange={(e) => setNewPIO(prev => ({ ...prev, time: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Ex: 8h, 14h, 20h"
-              />
+                              <input
+                  type="text"
+                  value={newPIO.time}
+                  onChange={(e) => setNewPIO(prev => ({ ...prev, time: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+                  placeholder="Ex: 8h, 14h, 20h"
+                />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 PIO (mmHg)
               </label>
-              <input
-                type="number"
-                step="0.1"
-                value={newPIO.pio}
-                onChange={(e) => setNewPIO(prev => ({ ...prev, pio: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Ex: 18.5"
-              />
+                              <input
+                  type="number"
+                  step="0.1"
+                  value={newPIO.pio}
+                  onChange={(e) => setNewPIO(prev => ({ ...prev, pio: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+                  placeholder="Ex: 18.5"
+                />
             </div>
 
             <div className="flex items-end">
@@ -475,8 +475,8 @@ export default function GlaucomaForm() {
         </div>
 
         {/* Tratamento Atual */}
-        <div className="bg-yellow-50 p-6 rounded-lg mb-6">
-          <h2 className="text-xl font-semibold text-yellow-800 mb-4">
+        <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
             💧 Tratamento Atual
           </h2>
           
@@ -604,8 +604,8 @@ export default function GlaucomaForm() {
 
         {/* Resultados da Análise */}
         {(formData.riscoTensional || formData.tipoGlaucomaProvavel) && (
-          <div className="bg-purple-50 p-6 rounded-lg mb-6">
-            <h2 className="text-xl font-semibold text-purple-800 mb-4">
+          <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
               📊 Resultados da Análise
             </h2>
             
@@ -637,9 +637,9 @@ export default function GlaucomaForm() {
               </div>
             </div>
 
-            <div className="mt-4 bg-blue-100 p-4 rounded-lg">
-              <h3 className="font-medium text-blue-800 mb-2">💊 Sugestão de Medicação</h3>
-              <p className="text-blue-700">{formData.sugestaoMedicacao}</p>
+            <div className="mt-4 bg-gray-50 border border-gray-200 p-4 rounded-lg">
+              <h3 className="font-medium text-gray-800 mb-2">💊 Sugestão de Medicação</h3>
+              <p className="text-gray-700">{formData.sugestaoMedicacao}</p>
             </div>
           </div>
         )}
