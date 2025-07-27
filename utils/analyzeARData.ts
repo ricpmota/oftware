@@ -8,6 +8,7 @@ export interface PatientInfo {
   age: number;
   usesGlasses?: boolean;
   knownConditions?: string[];
+  symptoms?: string[]; // Adicionado para sintomas
 }
 
 export interface ARData {
@@ -28,12 +29,22 @@ export interface AnalysisResult {
       od: { s: number; c: number; e: number };
       oe: { s: number; c: number; e: number };
     };
+    axisVariation: {
+      od: number;
+      oe: number;
+    };
   };
   ametropiaType: {
     od: 'Miopia' | 'Hipermetropia' | 'Astigmatismo' | 'Neutro';
     oe: 'Miopia' | 'Hipermetropia' | 'Astigmatismo' | 'Neutro';
   };
   clinicalSuggestions: string[];
+  clinicalAlerts: string[];
+  anisometropia: {
+    sphere: number;
+    cylinder: number;
+    significant: boolean;
+  };
 }
 
 /**
@@ -76,7 +87,7 @@ function calculateAverage(values: number[], isAxis: boolean = false): number {
 }
 
 /**
- * Calcula a média de medições do AR, excluindo valores de cilindro/eixo quando ambos são 0
+ * Calcula a média de medições do AR de forma independente para esfera, cilindro e eixo
  */
 function calculateARAverage(measurements: ARMeasurement[]): ARMeasurement {
   // Separar valores por tipo
@@ -109,6 +120,60 @@ function calculateVariability(values: number[]): number {
 }
 
 /**
+ * Calcula a variação do eixo considerando a natureza circular (0-180°)
+ */
+function calculateAxisVariation(axes: number[]): number {
+  const validAxes = axes.filter(a => a !== 0);
+  if (validAxes.length < 2) return 0;
+  
+  // Converter para radianos para calcular diferenças circulares
+  const radians = validAxes.map(axis => (axis * Math.PI) / 180);
+  
+  let maxDiff = 0;
+  for (let i = 0; i < radians.length; i++) {
+    for (let j = i + 1; j < radians.length; j++) {
+      let diff = Math.abs(radians[i] - radians[j]);
+      // Considerar a menor diferença circular
+      if (diff > Math.PI) {
+        diff = 2 * Math.PI - diff;
+      }
+      const diffDegrees = (diff * 180) / Math.PI;
+      maxDiff = Math.max(maxDiff, diffDegrees);
+    }
+  }
+  
+  return maxDiff;
+}
+
+/**
+ * Verifica estabilidade baseada nos novos critérios clínicos
+ */
+function checkStability(measurements: ARMeasurement[]): {
+  stable: boolean;
+  variability: { s: number; c: number; e: number };
+  axisVariation: number;
+} {
+  const spheres = measurements.map(m => m.s);
+  const cylinders = measurements.map(m => m.c);
+  const axes = measurements.map(m => m.e);
+  
+  const variability = {
+    s: calculateVariability(spheres),
+    c: calculateVariability(cylinders),
+    e: calculateVariability(axes)
+  };
+  
+  const axisVariation = calculateAxisVariation(axes);
+  
+  // Critérios de estabilidade atualizados:
+  // - Diferença > 0.75D para esfera ou cilindro = instável
+  // - Variação do eixo > 20° = instável
+  const stable = variability.s <= 0.75 && variability.c <= 0.75 && axisVariation <= 20;
+  
+  return { stable, variability, axisVariation };
+}
+
+/**
  * Classifica o tipo de ametropia baseado nos valores médios
  */
 function classifyAmetropia(average: ARMeasurement): 'Miopia' | 'Hipermetropia' | 'Astigmatismo' | 'Neutro' {
@@ -129,11 +194,32 @@ function classifyAmetropia(average: ARMeasurement): 'Miopia' | 'Hipermetropia' |
 }
 
 /**
+ * Calcula anisometropia entre os olhos
+ */
+function calculateAnisometropia(od: ARMeasurement, oe: ARMeasurement): {
+  sphere: number;
+  cylinder: number;
+  significant: boolean;
+} {
+  const sphereDiff = Math.abs(od.s - oe.s);
+  const cylinderDiff = Math.abs(od.c - oe.c);
+  
+  // Anisometropia significativa: > 2D de diferença
+  const significant = sphereDiff > 2.0 || cylinderDiff > 2.0;
+  
+  return {
+    sphere: sphereDiff,
+    cylinder: cylinderDiff,
+    significant
+  };
+}
+
+/**
  * Gera sugestões clínicas baseadas nos padrões detectados
  */
 function generateClinicalSuggestions(
   averages: { od: ARMeasurement; oe: ARMeasurement },
-  stability: { od: boolean; oe: boolean; details: any },
+  stability: { od: boolean; oe: boolean; details: any; axisVariation: any },
   patientInfo: PatientInfo
 ): string[] {
   const suggestions: string[] = [];
@@ -141,6 +227,11 @@ function generateClinicalSuggestions(
   // Verificar instabilidade
   if (!stability.od || !stability.oe) {
     suggestions.push('AR instável - repetir medição com lágrima artificial');
+  }
+
+  // Verificar variação do eixo > 20°
+  if (stability.axisVariation.od > 20 || stability.axisVariation.oe > 20) {
+    suggestions.push('Variação do eixo > 20° - suspeitar astigmatismo irregular');
   }
 
   // Verificar catarata em idosos
@@ -170,20 +261,58 @@ function generateClinicalSuggestions(
     suggestions.push('Ceratocone conhecido - indicar topografia');
   }
 
-  // Verificar diferença significativa entre olhos
-  const sphereDiff = Math.abs(averages.od.s - averages.oe.s);
-  const cylinderDiff = Math.abs(averages.od.c - averages.oe.c);
-  
-  if (sphereDiff > 1.0 || cylinderDiff > 1.0) {
-    suggestions.push('Diferença significativa entre olhos - investigar causa');
-  }
-
   // Verificar presbiopia
   if (patientInfo.age >= 40) {
     suggestions.push('Paciente presbíope - considerar adição para perto');
   }
 
   return suggestions;
+}
+
+/**
+ * Gera alertas clínicos específicos baseados na prática médica
+ */
+function generateClinicalAlerts(
+  averages: { od: ARMeasurement; oe: ARMeasurement },
+  stability: { od: boolean; oe: boolean },
+  patientInfo: PatientInfo,
+  anisometropia: { sphere: number; cylinder: number; significant: boolean }
+): string[] {
+  const alerts: string[] = [];
+
+  // Cicloplegia para hipermetropia + sintomas de astenopia OU idade < 40 anos
+  const hasAstenopia = patientInfo.symptoms?.some(s => 
+    s.toLowerCase().includes('astenopia') || 
+    s.toLowerCase().includes('cansaço') || 
+    s.toLowerCase().includes('dor de cabeça')
+  );
+  
+  const hasHyperopia = averages.od.s >= 1.0 || averages.oe.s >= 1.0;
+  
+  if ((hasHyperopia && hasAstenopia) || (hasHyperopia && patientInfo.age < 40)) {
+    alerts.push('Sugerir cicloplegia - hipermetropia + sintomas ou idade < 40 anos');
+  }
+
+  // Adaptação progressiva para ametropias altas
+  const highMyopia = averages.od.s <= -4.0 || averages.oe.s <= -4.0;
+  const highHyperopia = averages.od.s >= 3.0 || averages.oe.s >= 3.0;
+  
+  if (highMyopia || highHyperopia) {
+    alerts.push('Ametropia alta - sugerir adaptação progressiva');
+  }
+
+  // Anisometropia significativa
+  if (anisometropia.significant) {
+    alerts.push(`Anisometropia significativa (${anisometropia.sphere.toFixed(2)}D esfera, ${anisometropia.cylinder.toFixed(2)}D cilindro) - risco de diplopia`);
+  }
+
+  // Diferença entre olhos > 3D
+  const sphereDiff = Math.abs(averages.od.s - averages.oe.s);
+  if (sphereDiff > 3.0) {
+    alerts.push('Diferença entre olhos > 3D - alto risco de diplopia, considerar encaminhamento');
+  }
+
+  return alerts;
 }
 
 /**
@@ -198,47 +327,61 @@ export function analyzeARData(data: ARData): AnalysisResult {
   const odAverage = calculateARAverage(odMeasurements);
   const oeAverage = calculateARAverage(oeMeasurements);
 
-  // Calcular variabilidade
-  const odVariability = {
-    s: calculateVariability(odMeasurements.map(m => m.s)),
-    c: calculateVariability(odMeasurements.map(m => m.c)),
-    e: calculateVariability(odMeasurements.map(m => m.e))
-  };
-
-  const oeVariability = {
-    s: calculateVariability(oeMeasurements.map(m => m.s)),
-    c: calculateVariability(oeMeasurements.map(m => m.c)),
-    e: calculateVariability(oeMeasurements.map(m => m.e))
-  };
-
-  // Verificar estabilidade (≤ 0.50D de variação)
-  const odStable = odVariability.s <= 0.50 && odVariability.c <= 0.50;
-  const oeStable = oeVariability.s <= 0.50 && oeVariability.c <= 0.50;
+  // Verificar estabilidade com novos critérios
+  const odStability = checkStability(odMeasurements);
+  const oeStability = checkStability(oeMeasurements);
 
   // Classificar ametropia
   const odAmetropia = classifyAmetropia(odAverage);
   const oeAmetropia = classifyAmetropia(oeAverage);
 
+  // Calcular anisometropia
+  const anisometropia = calculateAnisometropia(odAverage, oeAverage);
+
   // Gerar sugestões clínicas
   const clinicalSuggestions = generateClinicalSuggestions(
     { od: odAverage, oe: oeAverage },
     { 
-      od: odStable, 
-      oe: oeStable, 
-      details: { od: odVariability, oe: oeVariability } 
+      od: odStability.stable, 
+      oe: oeStability.stable, 
+      details: { 
+        od: odStability.variability, 
+        oe: oeStability.variability 
+      },
+      axisVariation: {
+        od: odStability.axisVariation,
+        oe: oeStability.axisVariation
+      }
     },
     data.patientInfo
+  );
+
+  // Gerar alertas clínicos
+  const clinicalAlerts = generateClinicalAlerts(
+    { od: odAverage, oe: oeAverage },
+    { od: odStability.stable, oe: oeStability.stable },
+    data.patientInfo,
+    anisometropia
   );
 
   return {
     averages: { od: odAverage, oe: oeAverage },
     stability: {
-      od: odStable,
-      oe: oeStable,
-      details: { od: odVariability, oe: oeVariability }
+      od: odStability.stable,
+      oe: oeStability.stable,
+      details: { 
+        od: odStability.variability, 
+        oe: oeStability.variability 
+      },
+      axisVariation: {
+        od: odStability.axisVariation,
+        oe: oeStability.axisVariation
+      }
     },
     ametropiaType: { od: odAmetropia, oe: oeAmetropia },
-    clinicalSuggestions
+    clinicalSuggestions,
+    clinicalAlerts,
+    anisometropia
   };
 }
 

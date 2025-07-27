@@ -269,58 +269,103 @@ export default function Refraction({ doctorProfile }: RefractionProps) {
   };
 
   const performClinicalAnalysis = (data: PatientData): ClinicalResult => {
-    const analysisResult = analyzeARData({
+    // Análise dos dados do AR
+    const arAnalysis = analyzeARData({
       od: data.arMeasurements.od,
       oe: data.arMeasurements.oe,
       patientInfo: {
         age: data.age,
         usesGlasses: data.usesGlasses,
-        knownConditions: data.knownDiagnoses
+        knownConditions: data.knownDiagnoses,
+        symptoms: data.symptoms
       }
     });
 
+    // Calcular adição para perto baseada na idade
     const nearAddition = calculateNearAddition(data.age);
 
-    const subjectivePath = suggestSubjectivePath({
+    // Sugerir caminho subjetivo baseado na análise do AR
+    const subjectivePathInput = {
       age: data.age,
-      averages: analysisResult.averages,
-      ametropiaType: analysisResult.ametropiaType,
-      stability: analysisResult.stability,
-      clinicalSuggestions: analysisResult.clinicalSuggestions,
+      averages: arAnalysis.averages,
+      ametropiaType: arAnalysis.ametropiaType,
+      stability: {
+        od: arAnalysis.stability.od,
+        oe: arAnalysis.stability.oe
+      },
+      clinicalSuggestions: arAnalysis.clinicalSuggestions,
       usesGlasses: data.usesGlasses
-    });
+    };
+    
+    const subjectivePathOutput = suggestSubjectivePath(subjectivePathInput);
+
+    // Calcular valores iniciais para teste subjetivo
+    // NOVA LÓGICA: Iniciar 1D abaixo da média do AR para esfera
+    const subjectiveStart = {
+      od: {
+        s: arAnalysis.averages.od.s - 1.0, // 1D abaixo da média
+        c: arAnalysis.averages.od.c,
+        e: arAnalysis.averages.od.e
+      },
+      oe: {
+        s: arAnalysis.averages.oe.s - 1.0, // 1D abaixo da média
+        c: arAnalysis.averages.oe.c,
+        e: arAnalysis.averages.oe.e
+      }
+    };
+
+    // Arredondar valores para 0.25D
+    const roundToQuarter = (value: number) => Math.round(value * 4) / 4;
+    const roundAxis = (axis: number) => Math.round(axis / 5) * 5;
+
+    const roundedStart = {
+      od: {
+        s: roundToQuarter(subjectiveStart.od.s),
+        c: roundToQuarter(subjectiveStart.od.c),
+        e: roundAxis(subjectiveStart.od.e)
+      },
+      oe: {
+        s: roundToQuarter(subjectiveStart.oe.s),
+        c: roundToQuarter(subjectiveStart.oe.c),
+        e: roundAxis(subjectiveStart.oe.e)
+      }
+    };
+
+    // Adaptar o formato do subjectivePath para o formato esperado
+    const adaptedSubjectivePath = {
+      od: {
+        start: subjectivePathOutput.od.startEsferico,
+        path: subjectivePathOutput.od.etapas,
+        maxAdjustment: subjectivePathOutput.od.cilindro
+      },
+      oe: {
+        start: subjectivePathOutput.oe.startEsferico,
+        path: subjectivePathOutput.oe.etapas,
+        maxAdjustment: subjectivePathOutput.oe.cilindro
+      },
+      recommendations: subjectivePathOutput.observacoes,
+      specialConsiderations: subjectivePathOutput.alertasClinicos
+    };
 
     return {
-      averageMeasurements: analysisResult.averages,
-      variability: analysisResult.stability.details,
-      stability: {
-        od: analysisResult.stability.od,
-        oe: analysisResult.stability.oe
-      },
-      ametropiaType: analysisResult.ametropiaType,
-      pathologyPattern: analysisResult.clinicalSuggestions,
-      subjectiveTestStart: analysisResult.averages,
+      averageMeasurements: arAnalysis.averages,
+      variability: arAnalysis.stability.details,
+      stability: arAnalysis.stability,
+      ametropiaType: arAnalysis.ametropiaType,
+      clinicalSuggestions: arAnalysis.clinicalSuggestions,
+      clinicalAlerts: arAnalysis.clinicalAlerts,
+      anisometropia: arAnalysis.anisometropia,
+      subjectiveTestStart: roundedStart,
+      subjectivePath: adaptedSubjectivePath,
+      nearAddition,
+      axisVariation: arAnalysis.stability.axisVariation,
+      pathologyPattern: arAnalysis.clinicalSuggestions,
       clinicalSteps: [
-        `Inicie com ${analysisResult.averages.od.s > 0 ? '+' : ''}${analysisResult.averages.od.s.toFixed(2)}D esférico OD`,
-        `Se AV melhorar, subir para ${analysisResult.averages.od.s > 0 ? '+' : ''}${(analysisResult.averages.od.s + 0.25).toFixed(2)}D`,
-        `Ajustar cilindro se necessário: ${analysisResult.averages.od.c > 0 ? '+' : ''}${analysisResult.averages.od.c.toFixed(2)}D no eixo ${analysisResult.averages.od.e}°`,
+        `Inicie com ${roundedStart.od.s > 0 ? '+' : ''}${roundedStart.od.s.toFixed(2)}D esférico OD`,
+        `Se AV melhorar, subir para ${roundedStart.od.s > 0 ? '+' : ''}${(roundedStart.od.s + 0.25).toFixed(2)}D`,
+        `Ajustar cilindro se necessário: ${roundedStart.od.c > 0 ? '+' : ''}${roundedStart.od.c.toFixed(2)}D no eixo ${roundedStart.od.e}°`,
         ...(nearAddition > 0 ? [`Adição para perto: +${nearAddition.toFixed(2)}D`] : [])
-      ],
-      clinicalSuggestions: analysisResult.clinicalSuggestions,
-      subjectivePath: {
-        od: {
-          start: subjectivePath.od.startEsferico,
-          path: subjectivePath.od.etapas,
-          maxAdjustment: subjectivePath.od.cilindro
-        },
-        oe: {
-          start: subjectivePath.oe.startEsferico,
-          path: subjectivePath.oe.etapas,
-          maxAdjustment: subjectivePath.oe.cilindro
-        },
-        recommendations: subjectivePath.observacoes,
-        specialConsiderations: subjectivePath.alertasClinicos
-      }
+      ]
     };
   };
 

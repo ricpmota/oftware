@@ -1,24 +1,68 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import RetinaLaudoForm from './RetinaLaudoForm';
+import OctLaudoForm from './OctLaudoForm';
+import UltrassomLaudoForm from './UltrassomLaudoForm';
 
 export default function Retina() {
+  const [activeTab, setActiveTab] = useState<'retinografia' | 'oct' | 'ultrassom'>('retinografia');
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6" style={{ paddingBottom: 100 }}>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🔬</div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Módulo Retina</h2>
-          <p className="text-gray-600 mb-6">
-            Análise de imagens retinográficas e diagnóstico assistido.
-          </p>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-yellow-800 text-sm">
-              <strong>Em desenvolvimento:</strong> Este módulo será implementado em breve.
-            </p>
-          </div>
+    <div className="max-w-6xl mx-auto px-4 py-6" style={{ paddingBottom: 100 }}>
+
+
+      {/* Navigation Tabs */}
+      <div className="flex justify-center mb-8">
+        <div className="bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+          <button
+            onClick={() => setActiveTab('retinografia')}
+            className={`px-6 py-3 rounded-md font-medium transition-colors duration-200 ${
+              activeTab === 'retinografia'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            Retinografia
+          </button>
+                      <button
+              onClick={() => setActiveTab('oct')}
+              className={`px-6 py-3 rounded-md font-medium transition-colors duration-200 medical-term ${
+                activeTab === 'oct'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
+              translate="no"
+              lang="en"
+            >
+              OCT
+            </button>
+          <button
+            onClick={() => setActiveTab('ultrassom')}
+            className={`px-6 py-3 rounded-md font-medium transition-colors duration-200 ${
+              activeTab === 'ultrassom'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            Ultrassom
+          </button>
         </div>
       </div>
+
+
+
+      {activeTab === 'retinografia' && (
+        <RetinaLaudoForm />
+      )}
+
+      {activeTab === 'oct' && (
+        <OctLaudoForm />
+      )}
+
+      {activeTab === 'ultrassom' && (
+        <UltrassomLaudoForm />
+      )}
     </div>
   );
 } 

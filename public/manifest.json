@@ -1,21 +1,41 @@
 {
-  "name": "Oftware - Oftalmo Assist",
+  "name": "Oftware - Sistema de Gestão Clínica Oftalmológica",
   "short_name": "Oftware",
-  "description": "Sistema completo de gestão clínica oftalmológica",
+  "description": "Sistema completo de assistência oftalmológica para médicos",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
+  "orientation": "portrait",
+  "background_color": "#f9fafb",
   "theme_color": "#22c55e",
+  "scope": "/",
+  "lang": "pt-BR",
+  "categories": ["medical", "health", "productivity"],
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/icones/oftware.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo.png",
+      "src": "/icones/oftware.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icones/oftware.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "apple touch"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icones/oftware.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ]
 } 

@@ -79,7 +79,6 @@ export const DIAGNOSIS_OPTIONS = [
   // Diagnósticos expandidos
   'Retinopatia serosa central (CSC)',
   'Oclusão de veia central ou ramo',
-  'Oclusão de artéria retiniana',
   'Edema macular diabético',
   'Edema macular cistóide',
   'Buraco de mácula',

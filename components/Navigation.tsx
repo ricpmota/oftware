@@ -6,6 +6,7 @@ import { usePatientContext } from '../contexts/PatientContext';
 interface NavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  isHidden?: boolean;
 }
 
 const tabs = [
@@ -20,6 +21,12 @@ const tabs = [
     label: 'Refração', 
     icon: '/icones/greens.png', 
     color: '#3b82f6'
+  },
+  { 
+    id: 'cataract', 
+    label: 'Catarata', 
+    icon: '/icones/catarata.png', 
+    color: '#06b6d4'
   },
   { 
     id: 'glaucoma', 
@@ -41,11 +48,18 @@ const tabs = [
   }
 ];
 
-export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
+export default function Navigation({ activeTab, onTabChange, isHidden = false }: NavigationProps) {
   const { currentPatient, isPatientInEdit } = usePatientContext();
 
+  console.log('Navigation isHidden:', isHidden);
+
+  if (isHidden) {
+    console.log('Navigation is hidden!');
+    return null;
+  }
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 border-t border-gray-200 backdrop-blur-xl pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 border-t border-gray-200 backdrop-blur-xl pb-safe">
       <div className="flex justify-around items-center py-2 md:py-4 max-w-md mx-auto">
         {tabs.map((tab) => (
           <button

@@ -5,12 +5,7 @@ import { auth } from '../lib/firebase';
 import { onAuthStateChanged, User, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { DoctorProfile } from '../types/doctor';
-import Navigation from '../components/Navigation';
 import Home from '../components/Home';
-import Refraction from '../components/Refraction';
-import Glaucoma from '../components/Glaucoma';
-import Retina from '../components/Retina';
-import Patients from '../components/Patients';
 import DoctorProfileSetup from '../components/DoctorProfileSetup';
 import { PatientProvider } from '../contexts/PatientContext';
 
@@ -18,7 +13,7 @@ export default function OftalmoPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [activeTab, setActiveTab] = useState('home');
+
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -64,7 +59,6 @@ export default function OftalmoPage() {
       await signOut(auth);
       setUser(null);
       setDoctorProfile(null);
-      setActiveTab('home');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -97,9 +91,9 @@ export default function OftalmoPage() {
     }
   };
 
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-  };
+
+
+
 
   if (loading) {
     return (
@@ -183,39 +177,10 @@ export default function OftalmoPage() {
   return (
     <PatientProvider>
       <div className="min-h-screen bg-gray-50">
-        {/* Content Area */}
-        <div className="pb-20">
-          {activeTab === 'home' && (
-            <Home 
-              doctorProfile={doctorProfile}
-              onEditProfile={handleEditProfile}
-              onLogout={handleLogout}
-            />
-          )}
-          
-          {activeTab === 'refraction' && (
-            <Refraction 
-              doctorProfile={doctorProfile}
-            />
-          )}
-          
-          {activeTab === 'glaucoma' && (
-            <Glaucoma />
-          )}
-          
-          {activeTab === 'retina' && (
-            <Retina />
-          )}
-          
-          {activeTab === 'patients' && (
-            <Patients />
-          )}
-        </div>
-
-        {/* Bottom Navigation */}
-        <Navigation 
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
+        <Home 
+          doctorProfile={doctorProfile}
+          onEditProfile={handleEditProfile}
+          onLogout={handleLogout}
         />
       </div>
     </PatientProvider>

@@ -24,6 +24,7 @@ export default function FinalPrescription({
 }: FinalPrescriptionProps) {
   const [showEditPatientModal, setShowEditPatientModal] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientData>(patientData);
+  const [dominantEye, setDominantEye] = useState<'od' | 'oe' | 'ambos' | ''>('');
   
   // Gerar alertas clínicos
   const clinicalAlerts = generateClinicalAlerts({
@@ -42,6 +43,30 @@ export default function FinalPrescription({
     if (age < 40) return 'Adulto Jovem';
     if (age < 60) return 'Adulto';
     return 'Idoso';
+  };
+
+  // Verificar se a AV foi medida após ajuste subjetivo completo
+  const isAVAfterSubjective = (av: string) => {
+    // Se a AV for 20/20 ou melhor, provavelmente foi medida após ajuste
+    if (av === '20/20' || av === '20/15' || av === '20/10') {
+      return true;
+    }
+    // Se a AV for pior que 20/40, pode indicar que não foi ajustada adequadamente
+    if (av === '20/50' || av === '20/60' || av === '20/70' || av === '20/80' || 
+        av === '20/100' || av === '20/120' || av === '20/160' || av === '20/320' || 
+        av === '20/400' || av === '20/600' || av === 'Conta Dedos' || 
+        av === 'Movimento de Mãos' || av === 'Presença de Luz' || av === 'Sem Presença de Luz') {
+      return false;
+    }
+    return true; // Para AVs intermediárias, assumir que foi medida após ajuste
+  };
+
+  const getAVStatus = (av: string) => {
+    if (isAVAfterSubjective(av)) {
+      return { status: 'success', message: 'AV medida após ajuste subjetivo' };
+    } else {
+      return { status: 'warning', message: 'Verificar se AV foi medida após ajuste completo' };
+    }
   };
 
   const handleSavePatient = () => {
@@ -432,6 +457,57 @@ export default function FinalPrescription({
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Acuidades Visuais Finais</h2>
         
+        {/* Dominância Ocular */}
+        <div className="mb-4">
+          <h3 className="text-md font-medium text-gray-700 mb-2">Dominância Ocular</h3>
+          <div className="flex space-x-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="dominantEye"
+                value="od"
+                checked={dominantEye === 'od'}
+                onChange={(e) => setDominantEye(e.target.value as 'od')}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Olho Direito (OD)</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="dominantEye"
+                value="oe"
+                checked={dominantEye === 'oe'}
+                onChange={(e) => setDominantEye(e.target.value as 'oe')}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Olho Esquerdo (OE)</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="dominantEye"
+                value="ambos"
+                checked={dominantEye === 'ambos'}
+                onChange={(e) => setDominantEye(e.target.value as 'ambos')}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Ambos</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="dominantEye"
+                value=""
+                checked={dominantEye === ''}
+                onChange={(e) => setDominantEye(e.target.value as '')}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Não avaliado</span>
+            </label>
+          </div>
+        </div>
+        
         <div className="space-y-4">
           {/* AV Para Perto */}
           <div>
@@ -454,18 +530,32 @@ export default function FinalPrescription({
 
           {/* AV Para Longe */}
           <div>
-            <h3 className="text-md font-medium text-gray-700 mb-3">AV Para Longe</h3>
+            <h3 className="text-md font-medium text-gray-700 mb-3">AV Para Longe (Após Ajuste Subjetivo)</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="border border-gray-200 rounded p-3">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium text-gray-600">OD:</span>
                   <span className="text-lg font-semibold text-gray-900">{finalPrescriptionData.finalPrescription.od.av}</span>
                 </div>
+                <div className={`text-xs px-2 py-1 rounded ${
+                  getAVStatus(finalPrescriptionData.finalPrescription.od.av).status === 'success' 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {getAVStatus(finalPrescriptionData.finalPrescription.od.av).message}
+                </div>
               </div>
               <div className="border border-gray-200 rounded p-3">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium text-gray-600">OE:</span>
                   <span className="text-lg font-semibold text-gray-900">{finalPrescriptionData.finalPrescription.oe.av}</span>
+                </div>
+                <div className={`text-xs px-2 py-1 rounded ${
+                  getAVStatus(finalPrescriptionData.finalPrescription.oe.av).status === 'success' 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {getAVStatus(finalPrescriptionData.finalPrescription.oe.av).message}
                 </div>
               </div>
             </div>

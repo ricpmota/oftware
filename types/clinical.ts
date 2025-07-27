@@ -45,6 +45,17 @@ export interface ClinicalResult {
   };
   clinicalSteps: string[];
   clinicalSuggestions: string[];
+  clinicalAlerts: string[];
+  anisometropia: {
+    sphere: number;
+    cylinder: number;
+    significant: boolean;
+  };
+  nearAddition: number;
+  axisVariation: {
+    od: number;
+    oe: number;
+  };
   subjectivePath: {
     od: {
       start: string;
