@@ -742,10 +742,10 @@ export default function GlaucomaForm() {
               <div className="space-y-6">
                 {Object.entries(classificacoesGlaucoma).map(([key, classificacao]) => (
                   <div key={key} className="border border-gray-200 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-purple-800 mb-2">{classificacao.nome}</h3>
+                    <h3 className="text-lg font-semibold text-black mb-2">{classificacao.nome}</h3>
                     <div className="space-y-2">
-                      <p><strong>Características:</strong> {classificacao.caracteristicas}</p>
-                      <p><strong>Fatores de Risco:</strong> {classificacao.fatoresRisco}</p>
+                      <p className="text-black"><strong>Características:</strong> {classificacao.caracteristicas}</p>
+                      <p className="text-black"><strong>Fatores de Risco:</strong> {classificacao.fatoresRisco}</p>
                     </div>
                   </div>
                 ))}
