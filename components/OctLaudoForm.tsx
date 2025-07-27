@@ -3,14 +3,25 @@
 import React, { useState } from 'react';
 
 interface PapilaData {
-  escavacao: string;
-  rNFL: string;
+  escavacaoVertical: string;
+  escavacaoHorizontal: string;
+  assimetria: boolean;
+  rnfl: {
+    superior: string;
+    inferior: string;
+    nasal: string;
+    temporal: string;
+    mediaGlobal: string;
+  };
   camadaGanglionar: string;
+  curvaTSNI: string;
+  localizacaoPerda: string;
+  tamanhoDisco: string;
+  mapaCalor: string;
   outros: string;
 }
 
 interface OlhoData {
-  regiao: string;
   espessuraFoveal: string;
   espessuraMedia: string;
   alteracoesMaculares: string[];
@@ -32,7 +43,6 @@ export default function OctLaudoForm() {
   const [form, setForm] = useState<FormData>({
     tipoExame: '',
     olhoDireito: {
-      regiao: 'mácula',
       espessuraFoveal: '',
       espessuraMedia: '',
       alteracoesMaculares: [],
@@ -41,14 +51,25 @@ export default function OctLaudoForm() {
       integridadeZEL: '',
       sinaisAdicionais: [],
       papila: {
-        escavacao: '',
-        rNFL: '',
+        escavacaoVertical: '',
+        escavacaoHorizontal: '',
+        assimetria: false,
+        rnfl: {
+          superior: '',
+          inferior: '',
+          nasal: '',
+          temporal: '',
+          mediaGlobal: ''
+        },
         camadaGanglionar: '',
+        curvaTSNI: '',
+        localizacaoPerda: '',
+        tamanhoDisco: '',
+        mapaCalor: '',
         outros: ''
       }
     },
     olhoEsquerdo: {
-      regiao: 'mácula',
       espessuraFoveal: '',
       espessuraMedia: '',
       alteracoesMaculares: [],
@@ -57,9 +78,21 @@ export default function OctLaudoForm() {
       integridadeZEL: '',
       sinaisAdicionais: [],
       papila: {
-        escavacao: '',
-        rNFL: '',
+        escavacaoVertical: '',
+        escavacaoHorizontal: '',
+        assimetria: false,
+        rnfl: {
+          superior: '',
+          inferior: '',
+          nasal: '',
+          temporal: '',
+          mediaGlobal: ''
+        },
         camadaGanglionar: '',
+        curvaTSNI: '',
+        localizacaoPerda: '',
+        tamanhoDisco: '',
+        mapaCalor: '',
         outros: ''
       }
     },
@@ -74,15 +107,7 @@ export default function OctLaudoForm() {
     tipoExame: [
       'OCT de Mácula',
       'OCT de Papila',
-      'OCT de Mácula e Papila',
-      'OCT Macular',
-      'OCT Papilar',
       'OCT Completo'
-    ],
-    regiao: [
-      'mácula',
-      'papila',
-      'mácula e papila'
     ],
     alteracoesMaculares: [
       'Edema intrarretiniano',
@@ -146,6 +171,39 @@ export default function OctLaudoForm() {
       'Normal',
       'Atrofiada'
     ],
+    curvaTSNI: [
+      'Normal',
+      'Alterada',
+      'Aplanada',
+      'Invertida',
+      'Não avaliada'
+    ],
+    localizacaoPerda: [
+      'Superior',
+      'Inferior',
+      'Nasal',
+      'Temporal',
+      'Superior-temporal',
+      'Superior-nasal',
+      'Inferior-temporal',
+      'Inferior-nasal',
+      'Difusa',
+      'Não identificada'
+    ],
+    tamanhoDisco: [
+      'Pequeno (<1.5mm)',
+      'Normal (1.5-2.0mm)',
+      'Grande (>2.0mm)',
+      'Muito grande (>2.5mm)'
+    ],
+    mapaCalor: [
+      'Normal (verde)',
+      'Atenção (amarelo)',
+      'Alterado (vermelho)',
+      'Muito alterado (vermelho escuro)',
+      'Defeito localizado',
+      'Defeito difuso'
+    ],
     recomendacoes: [
       'Acompanhamento clínico',
       'Iniciar anti-VEGF',
@@ -194,51 +252,91 @@ export default function OctLaudoForm() {
 
   const gerarLaudo = () => {
     const gerarLaudoOlho = (olho: 'OD' | 'OE', dados: OlhoData) => {
-      let laudo = `${olho} - ${dados.regiao.toUpperCase()}:\n`;
+      let laudo = `${olho}:\n`;
       
-      // Medidas
-      if (dados.espessuraFoveal) {
-        laudo += `Espessura foveal de ${dados.espessuraFoveal}µm. `;
-      }
-      if (dados.espessuraMedia) {
-        laudo += `Espessura média central de ${dados.espessuraMedia}µm (VN: 250-300µm). `;
+      // Determinar se inclui mácula e/ou papila baseado no tipo de exame
+      const incluiMacula = form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo';
+      const incluiPapila = form.tipoExame === 'OCT de Papila' || form.tipoExame === 'OCT Completo';
+      
+      if (incluiMacula) {
+        laudo += 'MÁCULA:\n';
+        
+        // Medidas
+        if (dados.espessuraFoveal) {
+          laudo += `Espessura foveal de ${dados.espessuraFoveal}µm. `;
+        }
+        if (dados.espessuraMedia) {
+          laudo += `Espessura média central de ${dados.espessuraMedia}µm (VN: 250-300µm). `;
+        }
+
+        // Alterações maculares
+        if (dados.alteracoesMaculares.length > 0) {
+          laudo += `Alterações maculares: ${dados.alteracoesMaculares.join(', ')}. `;
+        }
+
+        // Alterações vítreas
+        if (dados.alteracoesVitreas.length > 0) {
+          laudo += `Alterações vítreas: ${dados.alteracoesVitreas.join(', ')}. `;
+        }
+
+        // Integridade
+        if (dados.integridadeEPR) {
+          laudo += `Integridade do EPR: ${dados.integridadeEPR.toLowerCase()}. `;
+        }
+        if (dados.integridadeZEL) {
+          laudo += `ZEL ${dados.integridadeZEL.toLowerCase()}. `;
+        }
+
+        // Sinais adicionais
+        if (dados.sinaisAdicionais.length > 0) {
+          laudo += `Sinais adicionais: ${dados.sinaisAdicionais.join(', ')}. `;
+        }
+        
+        laudo += '\n';
       }
 
-      // Alterações maculares
-      if (dados.alteracoesMaculares.length > 0) {
-        laudo += `Alterações maculares: ${dados.alteracoesMaculares.join(', ')}. `;
-      }
-
-      // Alterações vítreas
-      if (dados.alteracoesVitreas.length > 0) {
-        laudo += `Alterações vítreas: ${dados.alteracoesVitreas.join(', ')}. `;
-      }
-
-      // Integridade
-      if (dados.integridadeEPR) {
-        laudo += `Integridade do EPR: ${dados.integridadeEPR.toLowerCase()}. `;
-      }
-      if (dados.integridadeZEL) {
-        laudo += `ZEL ${dados.integridadeZEL.toLowerCase()}. `;
-      }
-
-      // Sinais adicionais
-      if (dados.sinaisAdicionais.length > 0) {
-        laudo += `Sinais adicionais: ${dados.sinaisAdicionais.join(', ')}. `;
-      }
-
-      // Papila (apenas se região incluir papila)
-      if (dados.regiao.includes('papila')) {
-        if (dados.papila.escavacao || dados.papila.rNFL || dados.papila.camadaGanglionar) {
-          laudo += `Papila com `;
-          if (dados.papila.escavacao) {
-            laudo += `escavação de ${dados.papila.escavacao} (VN: até 0.6), `;
+      // Papila (apenas se tipo de exame incluir papila)
+      if (incluiPapila) {
+        laudo += 'PAPILA:\n';
+        if (dados.papila.escavacaoVertical || dados.papila.escavacaoHorizontal || dados.papila.assimetria || dados.papila.rnfl.superior || dados.papila.rnfl.inferior || dados.papila.rnfl.nasal || dados.papila.rnfl.temporal || dados.papila.rnfl.mediaGlobal || dados.papila.camadaGanglionar || dados.papila.curvaTSNI || dados.papila.localizacaoPerda || dados.papila.tamanhoDisco || dados.papila.mapaCalor) {
+          if (dados.papila.escavacaoVertical) {
+            laudo += `Escavação vertical de ${dados.papila.escavacaoVertical} (VN: até 0.6). `;
           }
-          if (dados.papila.rNFL) {
-            laudo += `RNFL ${dados.papila.rNFL.toLowerCase()}, `;
+          if (dados.papila.escavacaoHorizontal) {
+            laudo += `Escavação horizontal de ${dados.papila.escavacaoHorizontal} (VN: até 0.6). `;
+          }
+          if (dados.papila.assimetria) {
+            laudo += `Assimetria na papila. `;
+          }
+          if (dados.papila.rnfl.superior) {
+            laudo += `RNFL superior ${dados.papila.rnfl.superior.toLowerCase()}. `;
+          }
+          if (dados.papila.rnfl.inferior) {
+            laudo += `RNFL inferior ${dados.papila.rnfl.inferior.toLowerCase()}. `;
+          }
+          if (dados.papila.rnfl.nasal) {
+            laudo += `RNFL nasal ${dados.papila.rnfl.nasal.toLowerCase()}. `;
+          }
+          if (dados.papila.rnfl.temporal) {
+            laudo += `RNFL temporal ${dados.papila.rnfl.temporal.toLowerCase()}. `;
+          }
+          if (dados.papila.rnfl.mediaGlobal) {
+            laudo += `RNFL média global ${dados.papila.rnfl.mediaGlobal.toLowerCase()}. `;
           }
           if (dados.papila.camadaGanglionar) {
-            laudo += `camada de células ganglionares ${dados.papila.camadaGanglionar.toLowerCase()}. `;
+            laudo += `Camada de células ganglionares ${dados.papila.camadaGanglionar.toLowerCase()}. `;
+          }
+          if (dados.papila.curvaTSNI) {
+            laudo += `Curva TSNI ${dados.papila.curvaTSNI.toLowerCase()}. `;
+          }
+          if (dados.papila.localizacaoPerda) {
+            laudo += `Localização da perda de fibras: ${dados.papila.localizacaoPerda}. `;
+          }
+          if (dados.papila.tamanhoDisco) {
+            laudo += `Tamanho do disco: ${dados.papila.tamanhoDisco}. `;
+          }
+          if (dados.papila.mapaCalor) {
+            laudo += `Mapa de calor: ${dados.papila.mapaCalor}. `;
           }
           if (dados.papila.outros) {
             laudo += dados.papila.outros;
@@ -267,7 +365,6 @@ ${laudoOE}${laudoRecomendacoes}`;
     setForm({
       tipoExame: '',
       olhoDireito: {
-        regiao: 'mácula',
         espessuraFoveal: '',
         espessuraMedia: '',
         alteracoesMaculares: [],
@@ -276,14 +373,25 @@ ${laudoOE}${laudoRecomendacoes}`;
         integridadeZEL: '',
         sinaisAdicionais: [],
         papila: {
-          escavacao: '',
-          rNFL: '',
+          escavacaoVertical: '',
+          escavacaoHorizontal: '',
+          assimetria: false,
+          rnfl: {
+            superior: '',
+            inferior: '',
+            nasal: '',
+            temporal: '',
+            mediaGlobal: ''
+          },
           camadaGanglionar: '',
+          curvaTSNI: '',
+          localizacaoPerda: '',
+          tamanhoDisco: '',
+          mapaCalor: '',
           outros: ''
         }
       },
       olhoEsquerdo: {
-        regiao: 'mácula',
         espessuraFoveal: '',
         espessuraMedia: '',
         alteracoesMaculares: [],
@@ -292,9 +400,21 @@ ${laudoOE}${laudoRecomendacoes}`;
         integridadeZEL: '',
         sinaisAdicionais: [],
         papila: {
-          escavacao: '',
-          rNFL: '',
+          escavacaoVertical: '',
+          escavacaoHorizontal: '',
+          assimetria: false,
+          rnfl: {
+            superior: '',
+            inferior: '',
+            nasal: '',
+            temporal: '',
+            mediaGlobal: ''
+          },
           camadaGanglionar: '',
+          curvaTSNI: '',
+          localizacaoPerda: '',
+          tamanhoDisco: '',
+          mapaCalor: '',
           outros: ''
         }
       },
@@ -429,154 +549,140 @@ ${laudoOE}${laudoRecomendacoes}`;
             </div>
           </AccordionItem>
 
-          <AccordionItem title={`Região (${olhoAtivo})`} section="regiao">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Região do Exame
-              </label>
-              <select
-                value={getOlhoData().regiao}
-                onChange={(e) => setForm({
-                  ...form,
-                  [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
-                    ...getOlhoData(),
-                    regiao: e.target.value
-                  }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              >
-                <option value="">Selecione a região</option>
-                {opcoes.regiao.map((op) => (
-                  <option key={op} value={op}>{op}</option>
-                ))}
-              </select>
-            </div>
-          </AccordionItem>
+          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+            <AccordionItem title={`Medidas Maculares (${olhoAtivo})`} section="medidas">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Espessura Foveal (µm)</label>
+                    <input
+                      type="text"
+                      value={getOlhoData().espessuraFoveal}
+                      onChange={(e) => setForm({
+                        ...form,
+                        [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                          ...getOlhoData(),
+                          espessuraFoveal: e.target.value
+                        }
+                      })}
+                      placeholder="Ex: 250"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Espessura Média (µm)</label>
+                    <input
+                      type="text"
+                      value={getOlhoData().espessuraMedia}
+                      onChange={(e) => setForm({
+                        ...form,
+                        [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                          ...getOlhoData(),
+                          espessuraMedia: e.target.value
+                        }
+                      })}
+                      placeholder="Ex: 275"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    />
+                  </div>
+                </div>
+              </div>
+            </AccordionItem>
+          )}
 
-          <AccordionItem title={`Medidas (${olhoAtivo})`} section="medidas">
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+            <AccordionItem title={`Alterações Maculares (${olhoAtivo})`} section="alteracoesMaculares">
+              <CheckboxGroup
+                title="Alterações Maculares"
+                options={opcoes.alteracoesMaculares}
+                selected={getOlhoData().alteracoesMaculares}
+                onChange={(value) => handleCheck('alteracoesMaculares', value, olhoAtivo)}
+              />
+            </AccordionItem>
+          )}
+
+          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+            <AccordionItem title={`Alterações Vítreas (${olhoAtivo})`} section="alteracoesVitreas">
+              <CheckboxGroup
+                title="Alterações Vítreas"
+                options={opcoes.alteracoesVitreas}
+                selected={getOlhoData().alteracoesVitreas}
+                onChange={(value) => handleCheck('alteracoesVitreas', value, olhoAtivo)}
+              />
+            </AccordionItem>
+          )}
+
+          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+            <AccordionItem title={`Integridade (${olhoAtivo})`} section="integridade">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Espessura Foveal (µm)</label>
-                  <input
-                    type="text"
-                    value={getOlhoData().espessuraFoveal}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Integridade do EPR</label>
+                  <select
+                    value={getOlhoData().integridadeEPR}
                     onChange={(e) => setForm({
                       ...form,
                       [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
                         ...getOlhoData(),
-                        espessuraFoveal: e.target.value
+                        integridadeEPR: e.target.value
                       }
                     })}
-                    placeholder="Ex: 250"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                  />
+                  >
+                    <option value="">Selecione a integridade</option>
+                    {opcoes.integridade.map((op) => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Espessura Média (µm)</label>
-                  <input
-                    type="text"
-                    value={getOlhoData().espessuraMedia}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Integridade da ZEL</label>
+                  <select
+                    value={getOlhoData().integridadeZEL}
                     onChange={(e) => setForm({
                       ...form,
                       [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
                         ...getOlhoData(),
-                        espessuraMedia: e.target.value
+                        integridadeZEL: e.target.value
                       }
                     })}
-                    placeholder="Ex: 275"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                  />
+                  >
+                    <option value="">Selecione a integridade</option>
+                    {opcoes.integridade.map((op) => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            </div>
-          </AccordionItem>
+            </AccordionItem>
+          )}
 
-          <AccordionItem title={`Alterações Maculares (${olhoAtivo})`} section="alteracoesMaculares">
-            <CheckboxGroup
-              title="Alterações Maculares"
-              options={opcoes.alteracoesMaculares}
-              selected={getOlhoData().alteracoesMaculares}
-              onChange={(value) => handleCheck('alteracoesMaculares', value, olhoAtivo)}
-            />
-          </AccordionItem>
+          {(form.tipoExame === 'OCT de Mácula' || form.tipoExame === 'OCT Completo') && (
+            <AccordionItem title={`Sinais Adicionais (${olhoAtivo})`} section="sinaisAdicionais">
+              <CheckboxGroup
+                title="Sinais Adicionais"
+                options={opcoes.sinaisAdicionais}
+                selected={getOlhoData().sinaisAdicionais}
+                onChange={(value) => handleCheck('sinaisAdicionais', value, olhoAtivo)}
+              />
+            </AccordionItem>
+          )}
 
-          <AccordionItem title={`Alterações Vítreas (${olhoAtivo})`} section="alteracoesVitreas">
-            <CheckboxGroup
-              title="Alterações Vítreas"
-              options={opcoes.alteracoesVitreas}
-              selected={getOlhoData().alteracoesVitreas}
-              onChange={(value) => handleCheck('alteracoesVitreas', value, olhoAtivo)}
-            />
-          </AccordionItem>
-
-          <AccordionItem title={`Integridade (${olhoAtivo})`} section="integridade">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Integridade do EPR</label>
-                <select
-                  value={getOlhoData().integridadeEPR}
-                  onChange={(e) => setForm({
-                    ...form,
-                    [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
-                      ...getOlhoData(),
-                      integridadeEPR: e.target.value
-                    }
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                >
-                  <option value="">Selecione a integridade</option>
-                  {opcoes.integridade.map((op) => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Integridade da ZEL</label>
-                <select
-                  value={getOlhoData().integridadeZEL}
-                  onChange={(e) => setForm({
-                    ...form,
-                    [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
-                      ...getOlhoData(),
-                      integridadeZEL: e.target.value
-                    }
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                >
-                  <option value="">Selecione a integridade</option>
-                  {opcoes.integridade.map((op) => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </AccordionItem>
-
-          <AccordionItem title={`Sinais Adicionais (${olhoAtivo})`} section="sinaisAdicionais">
-            <CheckboxGroup
-              title="Sinais Adicionais"
-              options={opcoes.sinaisAdicionais}
-              selected={getOlhoData().sinaisAdicionais}
-              onChange={(value) => handleCheck('sinaisAdicionais', value, olhoAtivo)}
-            />
-          </AccordionItem>
-
-          {getOlhoData().regiao.includes('papila') && (
+          {(form.tipoExame === 'OCT de Papila' || form.tipoExame === 'OCT Completo') && (
             <AccordionItem title={`Papila (${olhoAtivo})`} section="papila">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Escavação</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Escavação Vertical</label>
                     <select
-                      value={getOlhoData().papila.escavacao}
+                      value={getOlhoData().papila.escavacaoVertical}
                       onChange={(e) => setForm({
                         ...form,
                         [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
                           ...getOlhoData(),
                           papila: {
                             ...getOlhoData().papila,
-                            escavacao: e.target.value
+                            escavacaoVertical: e.target.value
                           }
                         }
                       })}
@@ -589,16 +695,63 @@ ${laudoOE}${laudoRecomendacoes}`;
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">RNFL</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Escavação Horizontal</label>
                     <select
-                      value={getOlhoData().papila.rNFL}
+                      value={getOlhoData().papila.escavacaoHorizontal}
                       onChange={(e) => setForm({
                         ...form,
                         [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
                           ...getOlhoData(),
                           papila: {
                             ...getOlhoData().papila,
-                            rNFL: e.target.value
+                            escavacaoHorizontal: e.target.value
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    >
+                      <option value="">Selecione</option>
+                      {opcoes.papilaEscavacao.map((op) => (
+                        <option key={op} value={op}>{op}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Assimetria</label>
+                    <select
+                      value={getOlhoData().papila.assimetria ? 'Sim' : 'Não'}
+                      onChange={(e) => setForm({
+                        ...form,
+                        [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                          ...getOlhoData(),
+                          papila: {
+                            ...getOlhoData().papila,
+                            assimetria: e.target.value === 'Sim'
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    >
+                      <option value="Não">Não</option>
+                      <option value="Sim">Sim</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">RNFL Superior</label>
+                    <select
+                      value={getOlhoData().papila.rnfl.superior}
+                      onChange={(e) => setForm({
+                        ...form,
+                        [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                          ...getOlhoData(),
+                          papila: {
+                            ...getOlhoData().papila,
+                            rnfl: {
+                              ...getOlhoData().papila.rnfl,
+                              superior: e.target.value
+                            }
                           }
                         }
                       })}
@@ -611,27 +764,217 @@ ${laudoOE}${laudoRecomendacoes}`;
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Camada Ganglionar</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">RNFL Inferior</label>
                     <select
-                      value={getOlhoData().papila.camadaGanglionar}
+                      value={getOlhoData().papila.rnfl.inferior}
                       onChange={(e) => setForm({
                         ...form,
                         [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
                           ...getOlhoData(),
                           papila: {
                             ...getOlhoData().papila,
-                            camadaGanglionar: e.target.value
+                            rnfl: {
+                              ...getOlhoData().papila.rnfl,
+                              inferior: e.target.value
+                            }
                           }
                         }
                       })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                     >
                       <option value="">Selecione</option>
-                      {opcoes.camadaGanglionar.map((op) => (
+                      {opcoes.rNFL.map((op) => (
                         <option key={op} value={op}>{op}</option>
                       ))}
                     </select>
                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">RNFL Nasal</label>
+                    <select
+                      value={getOlhoData().papila.rnfl.nasal}
+                      onChange={(e) => setForm({
+                        ...form,
+                        [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                          ...getOlhoData(),
+                          papila: {
+                            ...getOlhoData().papila,
+                            rnfl: {
+                              ...getOlhoData().papila.rnfl,
+                              nasal: e.target.value
+                            }
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    >
+                      <option value="">Selecione</option>
+                      {opcoes.rNFL.map((op) => (
+                        <option key={op} value={op}>{op}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">RNFL Temporal</label>
+                    <select
+                      value={getOlhoData().papila.rnfl.temporal}
+                      onChange={(e) => setForm({
+                        ...form,
+                        [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                          ...getOlhoData(),
+                          papila: {
+                            ...getOlhoData().papila,
+                            rnfl: {
+                              ...getOlhoData().papila.rnfl,
+                              temporal: e.target.value
+                            }
+                          }
+                        }
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                    >
+                      <option value="">Selecione</option>
+                      {opcoes.rNFL.map((op) => (
+                        <option key={op} value={op}>{op}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">RNFL Média Global</label>
+                  <select
+                    value={getOlhoData().papila.rnfl.mediaGlobal}
+                    onChange={(e) => setForm({
+                      ...form,
+                      [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                        ...getOlhoData(),
+                        papila: {
+                          ...getOlhoData().papila,
+                          rnfl: {
+                            ...getOlhoData().papila.rnfl,
+                            mediaGlobal: e.target.value
+                          }
+                        }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  >
+                    <option value="">Selecione</option>
+                    {opcoes.rNFL.map((op) => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Camada Ganglionar</label>
+                  <select
+                    value={getOlhoData().papila.camadaGanglionar}
+                    onChange={(e) => setForm({
+                      ...form,
+                      [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                        ...getOlhoData(),
+                        papila: {
+                          ...getOlhoData().papila,
+                          camadaGanglionar: e.target.value
+                        }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  >
+                    <option value="">Selecione</option>
+                    {opcoes.camadaGanglionar.map((op) => (
+                      <option key={op} value={op}>{op}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                                     <label className="block text-sm font-medium text-gray-700 mb-2">Curva TSNI</label>
+                   <select
+                     value={getOlhoData().papila.curvaTSNI}
+                     onChange={(e) => setForm({
+                       ...form,
+                       [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                         ...getOlhoData(),
+                         papila: {
+                           ...getOlhoData().papila,
+                           curvaTSNI: e.target.value
+                         }
+                       }
+                     })}
+                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                   >
+                     <option value="">Selecione</option>
+                     {opcoes.curvaTSNI.map((op) => (
+                       <option key={op} value={op}>{op}</option>
+                     ))}
+                   </select>
+                </div>
+                <div>
+                                     <label className="block text-sm font-medium text-gray-700 mb-2">Localização da Perda de Fibras</label>
+                   <select
+                     value={getOlhoData().papila.localizacaoPerda}
+                     onChange={(e) => setForm({
+                       ...form,
+                       [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                         ...getOlhoData(),
+                         papila: {
+                           ...getOlhoData().papila,
+                           localizacaoPerda: e.target.value
+                         }
+                       }
+                     })}
+                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                   >
+                     <option value="">Selecione</option>
+                     {opcoes.localizacaoPerda.map((op) => (
+                       <option key={op} value={op}>{op}</option>
+                     ))}
+                   </select>
+                </div>
+                <div>
+                                     <label className="block text-sm font-medium text-gray-700 mb-2">Tamanho do Disco</label>
+                   <select
+                     value={getOlhoData().papila.tamanhoDisco}
+                     onChange={(e) => setForm({
+                       ...form,
+                       [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                         ...getOlhoData(),
+                         papila: {
+                           ...getOlhoData().papila,
+                           tamanhoDisco: e.target.value
+                         }
+                       }
+                     })}
+                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                   >
+                     <option value="">Selecione</option>
+                     {opcoes.tamanhoDisco.map((op) => (
+                       <option key={op} value={op}>{op}</option>
+                     ))}
+                   </select>
+                </div>
+                <div>
+                                     <label className="block text-sm font-medium text-gray-700 mb-2">Mapa de Calor</label>
+                   <select
+                     value={getOlhoData().papila.mapaCalor}
+                     onChange={(e) => setForm({
+                       ...form,
+                       [olhoAtivo === 'OD' ? 'olhoDireito' : 'olhoEsquerdo']: {
+                         ...getOlhoData(),
+                         papila: {
+                           ...getOlhoData().papila,
+                           mapaCalor: e.target.value
+                         }
+                       }
+                     })}
+                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                   >
+                     <option value="">Selecione</option>
+                     {opcoes.mapaCalor.map((op) => (
+                       <option key={op} value={op}>{op}</option>
+                     ))}
+                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Outros achados na papila</label>
