@@ -284,9 +284,36 @@ export default function RetinaLaudoForm() {
   const gerarLaudo = () => {
     const gerarLaudoOlho = (olho: 'OD' | 'OE', dados: OlhoData) => {
       const laudoMacula = dados.macula.length ? `Mácula com ${dados.macula.join(', ')}.` : '';
-      const laudoVasos = dados.vasos.length ? `Vasos com alterações: ${dados.vasos.join(', ')}.` : '';
-      const laudoPolo = dados.poloPosterior.length ? `Polo posterior apresenta: ${dados.poloPosterior.join(', ')}.` : '';
-      const laudoPeriferia = dados.periferia.length ? `Periferia com: ${dados.periferia.join(', ')}.` : '';
+      
+      // Lógica melhorada para vasos
+      let laudoVasos = '';
+      if (dados.vasos.length > 0) {
+        if (dados.vasos.includes('Vasos normais')) {
+          laudoVasos = 'Vasos retinianos de trajeto e calibre preservados.';
+        } else {
+          laudoVasos = `Vasos com alterações: ${dados.vasos.filter(v => v !== 'Vasos normais').join(', ')}.`;
+        }
+      }
+      
+      // Lógica melhorada para polo posterior
+      let laudoPolo = '';
+      if (dados.poloPosterior.length > 0) {
+        if (dados.poloPosterior.includes('Normal')) {
+          laudoPolo = 'Polo posterior sem alterações.';
+        } else {
+          laudoPolo = `Polo posterior apresenta: ${dados.poloPosterior.filter(p => p !== 'Normal').join(', ')}.`;
+        }
+      }
+      
+      // Lógica melhorada para periferia
+      let laudoPeriferia = '';
+      if (dados.periferia.length > 0) {
+        if (dados.periferia.includes('Sem alterações periféricas')) {
+          laudoPeriferia = 'Periferia sem sinais de degenerações, roturas ou desinserções.';
+        } else {
+          laudoPeriferia = `Periferia com: ${dados.periferia.filter(p => p !== 'Sem alterações periféricas').join(', ')}.`;
+        }
+      }
 
       let laudoRD = '';
       switch (dados.retinopatiaDiabetica) {
