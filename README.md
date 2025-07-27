@@ -6,19 +6,40 @@ O **Oftware** é um sistema completo de gestão clínica oftalmológica desenvol
 
 **🌐 Site:** [oftware.com.br](https://oftware.com.br)
 
+### 🎯 Objetivos do Projeto
+- **Automatizar** o processo de refração subjetiva
+- **Padronizar** a prescrição oftálmica
+- **Integrar** dados clínicos em um único sistema
+- **Facilitar** o gerenciamento de pacientes
+- **Melhorar** a precisão diagnóstica através de IA
+
+### 📊 Status do Projeto
+- ✅ **Módulo de Refração** - Implementado e funcional
+- ✅ **Sistema de Autenticação** - Implementado
+- ✅ **Gestão de Pacientes** - Implementado
+- ✅ **Módulos Clínicos Avançados** - Implementados
+- ✅ **Módulo de Retina** - Implementado e funcional
+- 🔄 **Módulo de Catarata** - Em desenvolvimento
+- 🔄 **Módulo de Glaucoma** - Em desenvolvimento
+
 ## 🚀 Tecnologias Utilizadas
 
 ### Frontend
 - **Next.js 15** - Framework React com App Router
 - **React 19** - Biblioteca para interfaces de usuário
 - **TypeScript** - Tipagem estática para maior segurança
-- **Tailwind CSS** - Framework CSS utilitário para estilização
+- **Tailwind CSS 4** - Framework CSS utilitário para estilização
 - **Context API** - Gerenciamento de estado global
 
 ### Backend & Infraestrutura
 - **Firebase** - Backend como serviço (Firestore, Authentication)
 - **Vercel** - Deploy e hospedagem automática
 - **GitHub** - Controle de versão e CI/CD
+
+### Ferramentas de Desenvolvimento
+- **ESLint** - Linting de código
+- **Turbopack** - Bundler rápido para desenvolvimento
+- **PostCSS** - Processamento CSS
 
 ## 🏗️ Arquitetura do Sistema
 
@@ -35,6 +56,16 @@ oftware/
 │   ├── FinalPrescription.tsx # Prescrição final
 │   ├── Patients.tsx       # Gestão de pacientes
 │   ├── Navigation.tsx     # Navegação principal
+│   ├── Cataract.tsx       # Módulo de catarata (em dev)
+│   ├── Glaucoma.tsx       # Módulo de glaucoma (em dev)
+│   ├── Retina.tsx         # Módulo de retina (implementado)
+│   ├── RetinaLaudoForm.tsx # Formulário de retinografia
+│   ├── OctLaudoForm.tsx   # Formulário de OCT
+│   ├── UltrassomLaudoForm.tsx # Formulário de ultrassom
+│   ├── RetinopatiaDiabeticaModal.tsx # Modal explicativo RD
+│   ├── AchadosAdicionaisModal.tsx # Modal explicativo achados
+│   ├── PatologiasBinocularesModal.tsx # Modal explicativo patologias
+│   ├── CalculadoraRDModal.tsx # Calculadora de tratamento RD
 │   └── ...               # Outros componentes
 ├── contexts/              # Contextos React
 │   └── PatientContext.tsx # Contexto global de pacientes
@@ -47,9 +78,15 @@ oftware/
 ├── utils/                 # Utilitários e helpers
 │   ├── analyzeARData.ts   # Análise de dados AR
 │   ├── clinicalAlerts.ts  # Alertas clínicos
+│   ├── foggingAssist.ts   # Assistente de fogging
+│   ├── cicloplegiaAlert.ts # Alertas de cicloplegia
+│   ├── binocularBalance.ts # Balanço binocular
+│   ├── refractionModules.ts # Integração dos módulos
 │   └── ...               # Outros utilitários
-└── lib/                   # Configurações
-    └── firebase.ts        # Configuração Firebase
+├── lib/                   # Configurações
+│   └── firebase.ts        # Configuração Firebase
+└── public/                # Arquivos estáticos
+    └── icones/           # Ícones do sistema
 ```
 
 ## 🎯 Funcionalidades Principais
@@ -58,13 +95,14 @@ oftware/
 - **Login com Google** - Autenticação via Firebase Auth
 - **Perfil Médico** - Configuração de dados profissionais
 - **Assinatura Digital** - Upload e uso de assinatura digital
+- **Sessões Seguras** - Proteção de rotas para usuários autenticados
 
 ### 2. Módulo de Refração Assistida
 
 #### **Etapa 1: Dados do Paciente**
 - Cadastro completo de informações pessoais
 - Histórico médico (sintomas, diagnósticos)
-- Medições de AR (Auto Refratômetro)
+- Medições de AR (Auto Refratômetro) - 3 medições por olho
 - Salvamento automático no Firebase
 
 #### **Etapa 2: Análise Clínica**
@@ -90,7 +128,24 @@ oftware/
 - **Botão de Impressão** da prescrição
 - **Finalização da Consulta**
 
-### 3. Gestão de Pacientes
+### 3. Módulos Clínicos Avançados
+
+#### **Fogging Assist**
+- **Objetivo:** Relaxar acomodação em pacientes jovens com hipermetropia
+- **Ativação:** Idade < 35 anos + hipermetropia
+- **Funcionalidade:** Adição de +1,00D ao esférico inicial
+
+#### **Cicloplegia Alert**
+- **Objetivo:** Alertar sobre necessidade de refração sob cicloplegia
+- **Ativação:** Idade < 20 anos ou diferença AR-subjetivo > 1,00D
+- **Funcionalidade:** Bloqueia prescrição até reavaliação
+
+#### **Binocular Balance**
+- **Objetivo:** Equilibrar foco entre os olhos
+- **Ativação:** Diferença > 0,50D entre olhos
+- **Funcionalidade:** Ajusta equilíbrio esférico
+
+### 4. Gestão de Pacientes
 
 #### **Prontuário Completo**
 - Lista de todos os pacientes
@@ -106,11 +161,30 @@ oftware/
 - **Observações Clínicas:** Variabilidade, ametropia, sugestões
 - **Status da Consulta:** Concluída ou em andamento
 
-### 4. Módulos Adicionais
+### 5. Módulo de Retina (Implementado)
+
+#### **Modalidades de Exame Disponíveis:**
+- **Retinografia** - Fotografia digital do fundo de olho
+- **OCT** - Tomografia de Coerência Óptica (mácula e papila)
+- **Ultrassom** - Ultrassonografia Ocular (modo B)
+
+#### **Funcionalidades Principais:**
+- **Laudos Estruturados** - Geração automática de laudos profissionais
+- **Suporte Binocular** - Avaliação separada de OD e OS
+- **Modais Explicativos** - Classificações detalhadas e critérios diagnósticos
+- **Calculadora de Tratamento RD** - Conduta terapêutica para Retinopatia Diabética
+- **Interface Responsiva** - Otimizada para desktop e mobile
+- **Proteção contra Tradução** - Termos médicos preservados corretamente
+
+#### **Patologias Cobertas:**
+- **Patologias Vasculares:** RD, RH, oclusões vasculares
+- **Patologias Degenerativas:** DMRI, retinose pigmentar
+- **Patologias Inflamatórias:** Uveíte, coriorretinite
+- **Patologias Neoplásicas:** Melanoma, retinoblastoma
+
+### 6. Módulos em Desenvolvimento
+- **Catarata** - Avaliação clínica e planejamento cirúrgico
 - **Glaucoma** - Avaliação e monitoramento
-- **Retina** - Exames de retina
-- **Alerta Clínico** - Sistema de alertas médicos
-- **Assinatura Digital** - Prescrições digitais
 
 ## 🔄 Fluxo de Trabalho
 
@@ -265,10 +339,10 @@ interface ClinicalResult {
 ## 🔧 Configuração e Instalação
 
 ### Pré-requisitos
-- Node.js 18+ 
-- npm ou yarn
-- Conta Firebase
-- Conta Vercel (para deploy)
+- **Node.js 18+** 
+- **npm ou yarn**
+- **Conta Firebase**
+- **Conta Vercel** (para deploy)
 
 ### Instalação Local
 
@@ -363,6 +437,13 @@ vercel --prod
 - **Aprovação/Rejeição:** Controle de acesso
 - **Histórico de Compartilhamentos:** Rastreabilidade
 
+### Módulo de Retina Avançado
+- **Laudos Profissionais:** Estrutura médica completa com cabeçalho, achados, impressão diagnóstica e assinatura
+- **Calculadora de Tratamento RD:** Lógica clínica baseada em classificações ETDRS, EMD, OCT e comorbidades
+- **Modais Educacionais:** Explicações detalhadas de classificações, patologias e critérios diagnósticos
+- **Suporte Binocular Completo:** Avaliação independente de OD/OS com patologias binoculares
+- **Proteção Terminológica:** Prevenção de tradução automática de termos médicos (OCT, RD, etc.)
+
 ## 🔒 Segurança
 
 ### Autenticação
@@ -381,6 +462,45 @@ vercel --prod
 - **Compartilhamento controlado** entre médicos
 - **Logs de auditoria** para ações importantes
 
+## 🧪 Testes e Qualidade
+
+### Scripts Disponíveis
+```bash
+npm run dev      # Desenvolvimento com Turbopack
+npm run build    # Build de produção
+npm run start    # Servidor de produção
+npm run lint     # Verificação de código
+```
+
+### Padrões de Código
+- **TypeScript** para tipagem estática
+- **ESLint** para qualidade de código
+- **Prettier** para formatação (configurado via Tailwind)
+- **Componentes funcionais** com hooks
+
+## 🤝 Contribuição
+
+### Como Contribuir
+1. **Fork** o repositório
+2. **Crie** uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. **Commit** suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. **Push** para a branch (`git push origin feature/AmazingFeature`)
+5. **Abra** um Pull Request
+
+### Diretrizes de Contribuição
+- **Siga** os padrões de código existentes
+- **Teste** suas mudanças localmente
+- **Documente** novas funcionalidades
+- **Mantenha** a compatibilidade com TypeScript
+
+### Áreas para Contribuição
+- **Módulos Clínicos:** Catarata, Glaucoma (Retina já implementado)
+- **Melhorias de UI/UX**
+- **Otimizações de Performance**
+- **Novos Recursos de Análise**
+- **Testes Automatizados**
+- **Expansão do Módulo Retina:** Novas modalidades de exame, patologias adicionais
+
 ## 🛠️ Manutenção e Suporte
 
 ### Logs e Monitoramento
@@ -398,16 +518,47 @@ vercel --prod
 - **GitHub** como backup do código
 - **Vercel** com histórico de deploys
 
+## 📚 Documentação Adicional
+
+- **[Módulos Clínicos](CLINICAL_MODULES.md)** - Documentação detalhada dos módulos de refração
+- **[Configuração Firebase](FIREBASE_SETUP.md)** - Guia de configuração do Firebase
+- **[Regras do Firestore](firestore.rules)** - Regras de segurança do banco
+- **[Módulo Retina]** - Sistema completo de laudos retinográficos, OCT e ultrassom
+
 ## 📞 Suporte
 
 - **Site:** [oftware.com.br](https://oftware.com.br)
 - **Email:** suporte@oftware.com.br
 - **Documentação:** Este README
-- **Issues:** GitHub Issues
+- **Issues:** [GitHub Issues](https://github.com/ricpmota/oftware/issues)
 
 ## 📄 Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## 🙏 Agradecimentos
+
+- **Comunidade oftalmológica** pelo feedback e sugestões
+- **Firebase** pela infraestrutura robusta
+- **Vercel** pela hospedagem e deploy automático
+- **Next.js** pelo framework moderno e performático
+
+## 🆕 Atualizações Recentes
+
+### Módulo de Retina (Julho 2024)
+- ✅ **Implementação Completa** do sistema de laudos retinográficos
+- ✅ **Três Modalidades:** Retinografia, OCT e Ultrassom
+- ✅ **Calculadora de Tratamento RD** com lógica clínica avançada
+- ✅ **Modais Educacionais** com classificações detalhadas
+- ✅ **Interface Responsiva** otimizada para mobile
+- ✅ **Proteção Terminológica** contra tradução automática
+- ✅ **Laudos Profissionais** com estrutura médica completa
+
+### Melhorias Técnicas
+- ✅ **TypeScript** implementado em todos os componentes
+- ✅ **Tailwind CSS** para design responsivo
+- ✅ **Deploy Automático** via Vercel
+- ✅ **Firebase Integration** para dados persistentes
 
 ---
 
