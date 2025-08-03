@@ -114,6 +114,115 @@ const dadosFarmacologicos: GrupoFarmacologico[] = [
         observacoes: "Menor toxicidade epitelial que os ésteres. Mais confortável ao paciente."
       }
     ]
+  },
+  {
+    nome: "Corantes",
+    grupos: [
+      {
+        droga: "Fluoresceína sódica",
+        classe: "Corante hidrossolúvel",
+        via: "Colírio ou tira impregnada",
+        posologia: "1 gota ou uma tira na conjuntiva inferior. Exame imediato.",
+        mecanismo: "Emite fluorescência em presença de luz azul cobalto; revela lesões epiteliais e fluxo lacrimal.",
+        indicacoes: "Detecção de defeitos epiteliais, avaliação do filme lacrimal, tonometria de aplanação.",
+        efeitos: "Desconforto leve, coloração temporária da pele ou lentes.",
+        contraindicacoes: "Hipersensibilidade ao corante.",
+        observacoes: "Usar com lâmpada de fenda com filtro azul. Interfere com lentes de contato gelatinosas."
+      },
+      {
+        droga: "Azul de Tripano",
+        classe: "Corante vital",
+        via: "Uso intraoperatório (injeção intracameral ou aplicação tópica)",
+        posologia: "Pequena quantidade sob orientação cirúrgica.",
+        mecanismo: "Corante seletivo por células não viáveis; auxilia na visualização de estruturas como cápsula anterior.",
+        indicacoes: "Facilitar capsulorrexe em cirurgia de catarata, avaliação de membranas epirretinianas.",
+        efeitos: "Irritação ocular leve, toxicidade endotelial se mal utilizado.",
+        contraindicacoes: "Evitar contato direto prolongado com endotélio.",
+        observacoes: "Requer técnica precisa. Fundamental em cataratas brancas ou pseudoexfoliação."
+      },
+      {
+        droga: "Verde de Lisamina",
+        classe: "Corante vital",
+        via: "Tira oftálmica ou colírio",
+        posologia: "1 tira ou 1 gota no fundo de saco inferior.",
+        mecanismo: "Corante que marca células danificadas e mucina degenerada da superfície ocular.",
+        indicacoes: "Avaliação de olho seco, lesões da conjuntiva bulbar e palpebral.",
+        efeitos: "Irritação discreta. Pode causar leve ardência inicial.",
+        contraindicacoes: "Rara hipersensibilidade.",
+        observacoes: "Excelente marcador de dano epitelial crônico. Não interfere na visão como fluoresceína."
+      },
+      {
+        droga: "Azul de Metileno",
+        classe: "Corante vital com propriedades antimicrobianas",
+        via: "Tópico (uso laboratorial ou diagnóstico específico)",
+        posologia: "Aplicação controlada conforme objetivo diagnóstico.",
+        mecanismo: "Corante catiônico que penetra em células danificadas.",
+        indicacoes: "Histologia, testes laboratoriais e microbiológicos. Raramente usado clinicamente.",
+        efeitos: "Irritação ocular significativa. Coloração intensa de tecidos.",
+        contraindicacoes: "Uso clínico direto em estruturas delicadas.",
+        observacoes: "Uso limitado em oftalmologia moderna. Substituído por alternativas mais seguras."
+      }
+    ]
+  },
+  {
+    nome: "Anti-inflamatórios",
+    grupos: [
+      {
+        droga: "Prednisolona acetato 1%",
+        classe: "Corticosteroide tópico",
+        via: "Colírio",
+        posologia: "1 gota 4/4h a cada 6h, ajustado conforme gravidade",
+        mecanismo: "Inibe fosfolipase A2 e liberação de mediadores inflamatórios.",
+        indicacoes: "Uveítes anteriores, pós-operatório, ceratites não infecciosas.",
+        efeitos: "Aumento da PIO, risco de infecções oportunistas, catarata subcapsular posterior.",
+        contraindicacoes: "Infecções fúngicas, virais ou tuberculose ocular ativa sem tratamento.",
+        observacoes: "Potente e eficaz. Monitorar PIO em tratamentos prolongados."
+      },
+      {
+        droga: "Dexametasona 0,1%",
+        classe: "Corticosteroide tópico",
+        via: "Colírio ou pomada",
+        posologia: "1 gota 4x/dia ou conforme orientação",
+        mecanismo: "Mesma ação anti-inflamatória da prednisolona, porém menos potente topicamente.",
+        indicacoes: "Conjuntivites alérgicas graves, inflamações pós-operatórias leves.",
+        efeitos: "Aumento da PIO, opacificação do cristalino, supressão da cicatrização.",
+        contraindicacoes: "Ceratoepitelite herpética, micoses oculares.",
+        observacoes: "Frequentemente usado em colírios combinados com antibióticos."
+      },
+      {
+        droga: "Fluorometolona 0,1% (FML)",
+        classe: "Corticosteroide de baixa penetração intraocular",
+        via: "Colírio ou pomada",
+        posologia: "1 gota 2–4x/dia",
+        mecanismo: "Ação anti-inflamatória local com baixa absorção intraocular.",
+        indicacoes: "Conjuntivites alérgicas, blefarites crônicas, pós-operatório leve.",
+        efeitos: "Risco menor de aumento de PIO, desconforto leve.",
+        contraindicacoes: "Infecção ocular ativa.",
+        observacoes: "Preferido em pacientes com risco de resposta hipertensiva ocular."
+      },
+      {
+        droga: "Nepafenaco 0,1%",
+        classe: "AINE não seletivo",
+        via: "Colírio",
+        posologia: "1 gota 3x/dia",
+        mecanismo: "Inibe a COX-1 e COX-2, reduzindo prostaglandinas inflamatórias.",
+        indicacoes: "Controle de dor e inflamação pós-operatória, prevenção de edema macular cistoide.",
+        efeitos: "Ardência, atraso na cicatrização, possível toxicidade epitelial.",
+        contraindicacoes: "Ulceração corneana, hipersensibilidade a AINEs.",
+        observacoes: "Boa penetração intraocular. Pode ser usado junto a corticosteroides."
+      },
+      {
+        droga: "Cetorolaco trometamina 0,5%",
+        classe: "AINE não seletivo",
+        via: "Colírio",
+        posologia: "1 gota 4x/dia",
+        mecanismo: "Bloqueio da ciclooxigenase, reduzindo inflamação e dor.",
+        indicacoes: "Controle da dor pós-operatória, conjuntivite alérgica sazonal.",
+        efeitos: "Ardência, hiperemia, ceratite superficial pontuada.",
+        contraindicacoes: "Úlceras corneanas, olho seco grave.",
+        observacoes: "Uso comum no pré e pós-operatório de catarata."
+      }
+    ]
   }
 ];
 
@@ -213,10 +322,24 @@ const IconAnestesicos = () => (
   </svg>
 );
 
+const IconCorantes = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+  </svg>
+);
+
+const IconAntiInflamatorios = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+  </svg>
+);
+
 // Array com os grupos e seus ícones
 const gruposComIcones = [
   { ...dadosFarmacologicos[0], icone: <IconConservantes /> },
-  { ...dadosFarmacologicos[1], icone: <IconAnestesicos /> }
+  { ...dadosFarmacologicos[1], icone: <IconAnestesicos /> },
+  { ...dadosFarmacologicos[2], icone: <IconCorantes /> },
+  { ...dadosFarmacologicos[3], icone: <IconAntiInflamatorios /> }
 ];
 
 // Componente principal
