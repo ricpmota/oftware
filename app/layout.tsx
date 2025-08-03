@@ -37,13 +37,7 @@ export const metadata: Metadata = {
     'msapplication-tap-highlight': 'no',
     'format-detection': 'telephone=no',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: 'cover',
-  },
+
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -60,6 +54,14 @@ export const metadata: Metadata = {
     title: 'Oftware - Sistema de Gestão Clínica Oftalmológica',
     description: 'Sistema completo de assistência oftalmológica para médicos',
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
