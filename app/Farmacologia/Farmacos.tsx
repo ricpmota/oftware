@@ -223,6 +223,300 @@ const dadosFarmacologicos: GrupoFarmacologico[] = [
         observacoes: "Uso comum no pré e pós-operatório de catarata."
       }
     ]
+  },
+  {
+    nome: "Antialérgicos",
+    grupos: [
+      {
+        droga: "Olopatadina 0,1% e 0,2%",
+        classe: "Anti-histamínico H1 e estabilizador de mastócitos",
+        via: "Colírio",
+        posologia: "0,1%: 1 gota 2x/dia | 0,2%: 1 gota 1x/dia",
+        mecanismo: "Bloqueia receptores H1 e inibe liberação de histamina por mastócitos.",
+        indicacoes: "Conjuntivite alérgica sazonal ou perene.",
+        efeitos: "Ardência leve, gosto amargo, cefaleia ocasional.",
+        contraindicacoes: "Hipersensibilidade ao fármaco.",
+        observacoes: "Muito bem tolerada. Alívio rápido e ação prolongada."
+      },
+      {
+        droga: "Epinastina 0,05%",
+        classe: "Anti-histamínico e estabilizador de mastócitos",
+        via: "Colírio",
+        posologia: "1 gota 2x/dia",
+        mecanismo: "Bloqueia receptores H1 e previne degranulação mastocitária.",
+        indicacoes: "Conjuntivite alérgica leve a moderada.",
+        efeitos: "Desconforto ocular leve, gosto metálico.",
+        contraindicacoes: "Alergia ao componente.",
+        observacoes: "Boa eficácia clínica. Pode ser usada em longo prazo."
+      },
+      {
+        droga: "Ketotifeno 0,025%",
+        classe: "Anti-histamínico e estabilizador de mastócitos",
+        via: "Colírio",
+        posologia: "1 gota 2x/dia",
+        mecanismo: "Bloqueia receptores H1 e reduz inflamação mediada por mastócitos.",
+        indicacoes: "Conjuntivite alérgica com prurido ocular intenso.",
+        efeitos: "Hiperemia, ardência, secura ocular ocasional.",
+        contraindicacoes: "Hipersensibilidade.",
+        observacoes: "Boa resposta sintomática. Disponível sem prescrição em alguns países."
+      },
+      {
+        droga: "Alcaftadina 0,25%",
+        classe: "Anti-histamínico de segunda geração",
+        via: "Colírio",
+        posologia: "1 gota 1x/dia",
+        mecanismo: "Bloqueio seletivo dos receptores H1 e redução da ativação de mastócitos.",
+        indicacoes: "Conjuntivite alérgica com sintomas persistentes.",
+        efeitos: "Leve ardor, visão borrada temporária.",
+        contraindicacoes: "Rara hipersensibilidade.",
+        observacoes: "Alternativa moderna com boa tolerância e adesão."
+      }
+    ]
+  },
+  {
+    nome: "Lubrificantes e Superfície Ocular",
+    grupos: [
+      {
+        droga: "Carboximetilcelulose sódica (CMC)",
+        classe: "Polímero hidrofílico",
+        via: "Colírio",
+        posologia: "1 gota 4 a 6x/dia ou conforme necessidade",
+        mecanismo: "Aumenta o tempo de permanência da lágrima sobre a superfície ocular.",
+        indicacoes: "Olho seco leve a moderado, alívio de irritações oculares.",
+        efeitos: "Visão borrada transitória, ardência leve.",
+        contraindicacoes: "Hipersensibilidade ao componente.",
+        observacoes: "Uma das substâncias mais utilizadas em lágrimas artificiais. Pode ser usada com frequência."
+      },
+      {
+        droga: "Hidroxipropilmetilcelulose (HPMC)",
+        classe: "Polímero viscoso de celulose",
+        via: "Colírio ou gel",
+        posologia: "1 gota 3–6x/dia ou conforme necessidade",
+        mecanismo: "Lubrifica e protege a superfície ocular por formação de filme viscoelástico.",
+        indicacoes: "Olho seco, pós-operatórios, disfunções da película lacrimal.",
+        efeitos: "Borramento temporário da visão.",
+        contraindicacoes: "Rara hipersensibilidade.",
+        observacoes: "Boa alternativa em pós-operatórios. Usado também em lentes de contato rígidas."
+      },
+      {
+        droga: "Hialuronato de sódio (0,1% a 0,3%)",
+        classe: "Polissacarídeo natural – lubrificante biocompatível",
+        via: "Colírio",
+        posologia: "1 gota 3–6x/dia ou conforme gravidade",
+        mecanismo: "Forma filme protetor e promove cicatrização epitelial.",
+        indicacoes: "Síndrome do olho seco moderado a grave, ceratite seca, LASIK, erosões.",
+        efeitos: "Pouco frequentes; ardência leve.",
+        contraindicacoes: "Raramente necessário suspender.",
+        observacoes: "Excelente perfil de segurança. Formulações sem conservantes são preferidas."
+      },
+      {
+        droga: "Trehalose",
+        classe: "Dissacarídeo antioxidante e estabilizador de membranas",
+        via: "Colírio",
+        posologia: "1 gota 2–4x/dia",
+        mecanismo: "Protege e estabiliza estruturas celulares contra o estresse oxidativo.",
+        indicacoes: "Olho seco evaporativo, disfunções da superfície ocular com componente inflamatório.",
+        efeitos: "Raros; bem tolerado.",
+        contraindicacoes: "Não descritas.",
+        observacoes: "Frequentemente associada ao hialuronato. Ação citoprotetora."
+      },
+      {
+        droga: "Povidona",
+        classe: "Polímero solúvel em água",
+        via: "Colírio",
+        posologia: "1 gota 3–6x/dia",
+        mecanismo: "Aumenta a estabilidade do filme lacrimal por ação mucomimética.",
+        indicacoes: "Lubrificação ocular geral, sintomas de irritação.",
+        efeitos: "Visão embaçada transitória.",
+        contraindicacoes: "Alergia ao componente (rara).",
+        observacoes: "Componente comum em colírios multiuso de menor custo."
+      }
+    ]
+  },
+  {
+    nome: "Drogas Colinérgicas e Anticolinérgicas",
+    grupos: [
+      {
+        droga: "Pilocarpina 1-4%",
+        classe: "Agonista muscarínico",
+        via: "Colírio",
+        posologia: "1 gota 4x/dia",
+        mecanismo: "Contrai o músculo ciliar e constringe a pupila, aumentando o escoamento do humor aquoso.",
+        indicacoes: "Glaucoma de ângulo fechado, miose terapêutica.",
+        efeitos: "Miopia, cefaleia, visão borrada, espasmo de acomodação.",
+        contraindicacoes: "Irite aguda, glaucoma de ângulo fechado com pupila bloqueada.",
+        observacoes: "Pode causar miopia transitória. Monitorar PIO em uso crônico."
+      },
+      {
+        droga: "Atropina 0,5-1%",
+        classe: "Anticolinérgico muscarínico",
+        via: "Colírio ou pomada",
+        posologia: "1 gota 1-3x/dia conforme necessidade",
+        mecanismo: "Bloqueia receptores muscarínicos, causando midríase e paralisia de acomodação.",
+        indicacoes: "Midríase diagnóstica, cicloplegia, uveítes anteriores.",
+        efeitos: "Midríase prolongada, fotofobia, visão borrada para perto.",
+        contraindicacoes: "Glaucoma de ângulo fechado, hipersensibilidade.",
+        observacoes: "Efeito muito prolongado. Usar com cautela em crianças."
+      },
+      {
+        droga: "Ciclopentolato 0,5-1%",
+        classe: "Anticolinérgico de ação intermediária",
+        via: "Colírio",
+        posologia: "1 gota 2-3x/dia",
+        mecanismo: "Bloqueia receptores muscarínicos, causando midríase e cicloplegia.",
+        indicacoes: "Refratometria, exames de fundo de olho, uveítes.",
+        efeitos: "Midríase, cicloplegia, fotofobia, visão borrada.",
+        contraindicacoes: "Glaucoma de ângulo fechado, hipersensibilidade.",
+        observacoes: "Duração intermediária. Menos efeitos sistêmicos que atropina."
+      },
+      {
+        droga: "Tropicamida 0,5-1%",
+        classe: "Anticolinérgico de ação curta",
+        via: "Colírio",
+        posologia: "1 gota 15-20 min antes do exame",
+        mecanismo: "Bloqueia receptores muscarínicos, causando midríase rápida.",
+        indicacoes: "Exames de fundo de olho, tonometria.",
+        efeitos: "Midríase, fotofobia leve, visão borrada transitória.",
+        contraindicacoes: "Glaucoma de ângulo fechado.",
+        observacoes: "Ação rápida e curta. Ideal para exames de rotina."
+      }
+    ]
+  },
+  {
+    nome: "Antimicrobianos",
+    grupos: [
+      {
+        droga: "Ciprofloxacino 0,3%",
+        classe: "Antibiótico fluoroquinolona",
+        via: "Colírio ou pomada",
+        posologia: "1 gota 4-6x/dia",
+        mecanismo: "Inibe DNA girase bacteriana, impedindo replicação do DNA.",
+        indicacoes: "Conjuntivite bacteriana, úlceras corneanas, profilaxia pós-operatória.",
+        efeitos: "Ardência, hiperemia, ceratite superficial pontuada.",
+        contraindicacoes: "Hipersensibilidade a fluoroquinolonas.",
+        observacoes: "Amplo espectro. Resistência crescente em algumas regiões."
+      },
+      {
+        droga: "Moxifloxacino 0,5%",
+        classe: "Antibiótico fluoroquinolona de 4ª geração",
+        via: "Colírio",
+        posologia: "1 gota 3x/dia",
+        mecanismo: "Inibe DNA girase e topoisomerase IV bacterianas.",
+        indicacoes: "Conjuntivite bacteriana, úlceras corneanas, profilaxia cirúrgica.",
+        efeitos: "Ardência leve, hiperemia, visão borrada transitória.",
+        contraindicacoes: "Hipersensibilidade a fluoroquinolonas.",
+        observacoes: "Melhor penetração intraocular. Menor resistência bacteriana."
+      },
+      {
+        droga: "Gentamicina 0,3%",
+        classe: "Aminoglicosídeo",
+        via: "Colírio ou pomada",
+        posologia: "1 gota 4-6x/dia",
+        mecanismo: "Inibe síntese proteica bacteriana ligando-se ao ribossomo 30S.",
+        indicacoes: "Conjuntivite bacteriana, blefarite, profilaxia.",
+        efeitos: "Ardência, toxicidade epitelial com uso prolongado.",
+        contraindicacoes: "Hipersensibilidade a aminoglicosídeos.",
+        observacoes: "Eficaz contra Gram-negativos. Monitorar toxicidade epitelial."
+      },
+      {
+        droga: "Tobramicina 0,3%",
+        classe: "Aminoglicosídeo",
+        via: "Colírio",
+        posologia: "1 gota 4-6x/dia",
+        mecanismo: "Inibe síntese proteica bacteriana.",
+        indicacoes: "Conjuntivite bacteriana, úlceras corneanas.",
+        efeitos: "Ardência, toxicidade epitelial.",
+        contraindicacoes: "Hipersensibilidade a aminoglicosídeos.",
+        observacoes: "Similar à gentamicina. Menor toxicidade epitelial."
+      }
+    ]
+  },
+  {
+    nome: "Outras Drogas Diversas",
+    grupos: [
+      {
+        droga: "Ciclosporina 0,05%",
+        classe: "Imunossupressor",
+        via: "Colírio",
+        posologia: "1 gota 2x/dia",
+        mecanismo: "Inibe calcineurina, reduzindo ativação de linfócitos T.",
+        indicacoes: "Olho seco moderado a grave, ceratite seca.",
+        efeitos: "Ardência inicial, hiperemia, gosto amargo.",
+        contraindicacoes: "Infecção ocular ativa, hipersensibilidade.",
+        observacoes: "Melhora produção lacrimal. Pode levar semanas para efeito."
+      },
+      {
+        droga: "Vitamina A (Retinol)",
+        classe: "Vitamina lipossolúvel",
+        via: "Pomada oftálmica",
+        posologia: "Aplicar 3-4x/dia",
+        mecanismo: "Essencial para diferenciação epitelial e função visual.",
+        indicacoes: "Deficiência de vitamina A, xeroftalmia, ceratomalácia.",
+        efeitos: "Irritação leve, visão borrada.",
+        contraindicacoes: "Hipersensibilidade.",
+        observacoes: "Tratamento de emergência em deficiência grave."
+      },
+      {
+        droga: "Ácido Hialurônico 0,1-0,3%",
+        classe: "Polissacarídeo natural",
+        via: "Colírio",
+        posologia: "1 gota 3-6x/dia",
+        mecanismo: "Forma filme protetor e promove cicatrização epitelial.",
+        indicacoes: "Olho seco, pós-operatório, erosões corneanas.",
+        efeitos: "Poucos efeitos adversos.",
+        contraindicacoes: "Rara hipersensibilidade.",
+        observacoes: "Excelente biocompatibilidade. Formulações sem conservantes."
+      }
+    ]
+  },
+  {
+    nome: "Glaucoma",
+    grupos: [
+      {
+        droga: "Timolol 0,25-0,5%",
+        classe: "Betabloqueador não seletivo",
+        via: "Colírio",
+        posologia: "1 gota 2x/dia",
+        mecanismo: "Reduz produção de humor aquoso por bloqueio de receptores β-adrenérgicos.",
+        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
+        efeitos: "Bradicardia, broncoespasmo, fadiga, depressão.",
+        contraindicacoes: "Asma, bradicardia, insuficiência cardíaca.",
+        observacoes: "Primeira linha de tratamento. Monitorar efeitos sistêmicos."
+      },
+      {
+        droga: "Brimonidina 0,1-0,2%",
+        classe: "Agonista α2-adrenérgico",
+        via: "Colírio",
+        posologia: "1 gota 2-3x/dia",
+        mecanismo: "Reduz produção e aumenta escoamento do humor aquoso.",
+        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
+        efeitos: "Alergia ocular, fadiga, boca seca, hipotensão.",
+        contraindicacoes: "Uso concomitante com IMAO, depressão.",
+        observacoes: "Boa eficácia. Pode causar alergia tardia."
+      },
+      {
+        droga: "Dorzolamida 2%",
+        classe: "Inibidor da anidrase carbônica",
+        via: "Colírio",
+        posologia: "1 gota 3x/dia",
+        mecanismo: "Inibe anidrase carbônica II, reduzindo produção de humor aquoso.",
+        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
+        efeitos: "Ardência, gosto amargo, ceratite superficial pontuada.",
+        contraindicacoes: "Hipersensibilidade a sulfonamidas.",
+        observacoes: "Efeito aditivo com outros antiglaucomatosos."
+      },
+      {
+        droga: "Latanoprosta 0,005%",
+        classe: "Análogo de prostaglandina",
+        via: "Colírio",
+        posologia: "1 gota 1x/dia (noite)",
+        mecanismo: "Aumenta escoamento uveoescleral do humor aquoso.",
+        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
+        efeitos: "Hiperpigmentação da íris, alongamento de cílios, hiperemia.",
+        contraindicacoes: "Uveíte ativa, hipersensibilidade.",
+        observacoes: "Muito eficaz. Aplicar à noite. Efeitos cosméticos reversíveis."
+      }
+    ]
   }
 ];
 
@@ -334,12 +628,56 @@ const IconAntiInflamatorios = () => (
   </svg>
 );
 
+const IconAntialergicos = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+  </svg>
+);
+
+const IconLubrificantes = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+  </svg>
+);
+
+const IconColinergicos = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+const IconAntimicrobianos = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const IconOutrasDrogas = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+  </svg>
+);
+
+const IconGlaucoma = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
 // Array com os grupos e seus ícones
 const gruposComIcones = [
   { ...dadosFarmacologicos[0], icone: <IconConservantes /> },
   { ...dadosFarmacologicos[1], icone: <IconAnestesicos /> },
   { ...dadosFarmacologicos[2], icone: <IconCorantes /> },
-  { ...dadosFarmacologicos[3], icone: <IconAntiInflamatorios /> }
+  { ...dadosFarmacologicos[3], icone: <IconAntiInflamatorios /> },
+  { ...dadosFarmacologicos[4], icone: <IconAntialergicos /> },
+  { ...dadosFarmacologicos[5], icone: <IconLubrificantes /> },
+  { ...dadosFarmacologicos[6], icone: <IconColinergicos /> },
+  { ...dadosFarmacologicos[7], icone: <IconAntimicrobianos /> },
+  { ...dadosFarmacologicos[8], icone: <IconOutrasDrogas /> },
+  { ...dadosFarmacologicos[9], icone: <IconGlaucoma /> }
 ];
 
 // Componente principal
