@@ -153,10 +153,6 @@ export default function EmergenciaMenu() {
     router.push(`/emergencia/${id}`);
   };
 
-  const handleBackClick = () => {
-    router.push('/');
-  };
-
   return (
     <div className="min-h-screen bg-white p-6">
       <div className="max-w-7xl mx-auto">
