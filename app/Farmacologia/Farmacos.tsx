@@ -76,6 +76,44 @@ const dadosFarmacologicos: GrupoFarmacologico[] = [
         observacoes: "Mais seguro para uso contínuo. Preferido em colírios lubrificantes."
       }
     ]
+  },
+  {
+    nome: "Anestésicos",
+    grupos: [
+      {
+        droga: "Proximetacaína (0,5%)",
+        classe: "Anestésico local tipo éster",
+        via: "Colírio",
+        posologia: "1–2 gotas antes de procedimentos. Não repetir frequentemente.",
+        mecanismo: "Bloqueia canais de sódio na membrana neuronal, impedindo o impulso nervoso.",
+        indicacoes: "Tonometrias, remoção de corpo estranho, testes diagnósticos, pequenas cirurgias.",
+        efeitos: "Queimação transitória, toxicidade epitelial com uso repetido.",
+        contraindicacoes: "Uso prolongado ou frequente. Alergia a anestésicos do tipo éster.",
+        observacoes: "Mais potente que tetracaína. Uso estritamente em consultório ou hospitalar."
+      },
+      {
+        droga: "Tetracaína (0,5% a 1%)",
+        classe: "Anestésico local tipo éster",
+        via: "Colírio",
+        posologia: "1 gota antes de procedimento. Reaplicar se necessário após 5 min.",
+        mecanismo: "Bloqueio reversível dos canais de sódio neuronais.",
+        indicacoes: "Procedimentos oftalmológicos de curta duração.",
+        efeitos: "Ardência, hiperemia, toxicidade corneana com uso repetido.",
+        contraindicacoes: "Uso domiciliar. Hipersensibilidade a anestésicos locais.",
+        observacoes: "Uso muito comum em triagens, exames e pequenas intervenções."
+      },
+      {
+        droga: "Lidocaína 2% gel",
+        classe: "Anestésico local tipo amida",
+        via: "Gel oftálmico",
+        posologia: "Aplicar pequena quantidade na conjuntiva antes de cirurgia.",
+        mecanismo: "Bloqueio dos canais de sódio nos nervos periféricos.",
+        indicacoes: "Anestesia em cirurgias como catarata, pterígio, etc.",
+        efeitos: "Desconforto inicial, visão embaçada transitória.",
+        contraindicacoes: "Alergia a amidas. Uso em procedimentos curtos.",
+        observacoes: "Menor toxicidade epitelial que os ésteres. Mais confortável ao paciente."
+      }
+    ]
   }
 ];
 
@@ -169,9 +207,16 @@ const IconConservantes = () => (
   </svg>
 );
 
+const IconAnestesicos = () => (
+  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+  </svg>
+);
+
 // Array com os grupos e seus ícones
 const gruposComIcones = [
-  { ...dadosFarmacologicos[0], icone: <IconConservantes /> }
+  { ...dadosFarmacologicos[0], icone: <IconConservantes /> },
+  { ...dadosFarmacologicos[1], icone: <IconAnestesicos /> }
 ];
 
 // Componente principal
