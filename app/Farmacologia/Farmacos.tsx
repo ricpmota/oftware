@@ -537,36 +537,36 @@ function FarmacoModal({ isOpen, onClose, grupo }: FarmacoModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
-          <h2 className="text-2xl font-bold text-gray-900">{grupo.nome}</h2>
+        <div className="flex justify-between items-center p-3 sm:p-6 border-b sticky top-0 bg-white z-10">
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900">{grupo.nome}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-3xl font-light"
+            className="text-gray-400 hover:text-gray-600 text-2xl sm:text-3xl font-light p-1"
           >
             ×
           </button>
         </div>
 
         {/* Conteúdo */}
-        <div className="p-6">
-          <div className="space-y-4">
+        <div className="p-3 sm:p-6">
+          <div className="space-y-3 sm:space-y-4">
             {grupo.grupos.map((droga, index) => (
               <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
                 {/* Cabeçalho do medicamento - sempre visível */}
                 <button
                   onClick={() => toggleDroga(index)}
-                  className="w-full p-4 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center text-left"
+                  className="w-full p-3 sm:p-4 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center text-left"
                 >
-                  <h3 className="text-lg font-semibold text-blue-600">{droga.droga}</h3>
-                  <div className="flex items-center">
-                    <span className="text-sm text-gray-500 mr-2">
+                  <h3 className="text-sm sm:text-lg font-semibold text-blue-600 pr-2">{droga.droga}</h3>
+                  <div className="flex items-center flex-shrink-0">
+                    <span className="text-xs sm:text-sm text-gray-500 mr-1 sm:mr-2 hidden sm:inline">
                       {expandedDrogas.has(index) ? 'Ocultar' : 'Ver detalhes'}
                     </span>
                     <svg 
-                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                      className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform duration-200 ${
                         expandedDrogas.has(index) ? 'rotate-180' : ''
                       }`}
                       fill="none" 
@@ -580,54 +580,54 @@ function FarmacoModal({ isOpen, onClose, grupo }: FarmacoModalProps) {
 
                 {/* Detalhes do medicamento - expandível */}
                 {expandedDrogas.has(index) && (
-                  <div className="p-4 bg-white border-t border-gray-200">
-                    <div className="grid md:grid-cols-2 gap-4">
+                  <div className="p-3 sm:p-4 bg-white border-t border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {droga.classe && (
                         <div>
-                          <h4 className="font-semibold text-gray-800 mb-2">Classe</h4>
-                          <p className="text-gray-700 text-sm leading-relaxed">{droga.classe}</p>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Classe</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.classe}</p>
                         </div>
                       )}
                       
                       {droga.via && (
                         <div>
-                          <h4 className="font-semibold text-gray-800 mb-2">Via</h4>
-                          <p className="text-gray-700 text-sm leading-relaxed">{droga.via}</p>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Via</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.via}</p>
                         </div>
                       )}
                       
                       {droga.posologia && (
                         <div>
-                          <h4 className="font-semibold text-gray-800 mb-2">Posologia</h4>
-                          <p className="text-gray-700 text-sm leading-relaxed">{droga.posologia}</p>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Posologia</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.posologia}</p>
                         </div>
                       )}
                       
                       <div>
-                        <h4 className="font-semibold text-gray-800 mb-2">Mecanismo de Ação</h4>
-                        <p className="text-gray-700 text-sm leading-relaxed">{droga.mecanismo}</p>
+                        <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Mecanismo de Ação</h4>
+                        <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.mecanismo}</p>
                       </div>
                       
                       <div>
-                        <h4 className="font-semibold text-gray-800 mb-2">Indicações</h4>
-                        <p className="text-gray-700 text-sm leading-relaxed">{droga.indicacoes}</p>
+                        <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Indicações</h4>
+                        <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.indicacoes}</p>
                       </div>
                       
                       <div>
-                        <h4 className="font-semibold text-gray-800 mb-2">Efeitos</h4>
-                        <p className="text-gray-700 text-sm leading-relaxed">{droga.efeitos}</p>
+                        <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Efeitos</h4>
+                        <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.efeitos}</p>
                       </div>
                       
                       {droga.contraindicacoes && (
                         <div>
-                          <h4 className="font-semibold text-gray-800 mb-2">Contraindicações</h4>
-                          <p className="text-gray-700 text-sm leading-relaxed">{droga.contraindicacoes}</p>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Contraindicações</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.contraindicacoes}</p>
                         </div>
                       )}
                       
                       <div>
-                        <h4 className="font-semibold text-gray-800 mb-2">Observações</h4>
-                        <p className="text-gray-700 text-sm leading-relaxed">{droga.observacoes}</p>
+                        <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Observações</h4>
+                        <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.observacoes}</p>
                       </div>
                     </div>
                   </div>
@@ -734,15 +734,15 @@ export default function Farmacos() {
   };
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen bg-white p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Botão Voltar */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <button
             onClick={() => window.history.back()}
-            className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+            className="flex items-center text-gray-600 hover:text-gray-800 transition-colors text-sm sm:text-base"
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Voltar ao Menu Principal
@@ -750,43 +750,43 @@ export default function Farmacos() {
         </div>
 
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">
             Farmacologia Oftalmológica
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto px-2">
             Selecione o grupo farmacológico para acessar informações detalhadas sobre mecanismos de ação, indicações e observações
           </p>
         </div>
 
         {/* Grid de Grupos Farmacológicos */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
           {gruposComIcones.map((grupo, index) => (
             <button
               key={index}
               onClick={() => handleGrupoClick(grupo)}
-              className="group relative bg-white border-2 border-gray-200 rounded-xl p-4 md:p-6 hover:border-blue-400 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2"
+              className="group relative bg-white border-2 border-gray-200 rounded-xl p-3 sm:p-4 md:p-6 hover:border-blue-400 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2"
               title={`Clique para ver detalhes sobre ${grupo.nome}`}
             >
               {/* Ícone */}
-              <div className="text-blue-600 mb-3 md:mb-4 text-center group-hover:text-blue-700 group-hover:scale-110 transition-all duration-300">
+              <div className="text-blue-600 mb-2 sm:mb-3 md:mb-4 text-center group-hover:text-blue-700 group-hover:scale-110 transition-all duration-300">
                 {grupo.icone}
               </div>
 
               {/* Título */}
-              <h3 className="text-sm md:text-lg font-semibold text-gray-900 mb-1 md:mb-2 text-center group-hover:text-gray-700 transition-colors">
+              <h3 className="text-xs sm:text-sm md:text-lg font-semibold text-gray-900 mb-1 md:mb-2 text-center group-hover:text-gray-700 transition-colors leading-tight">
                 {grupo.nome}
               </h3>
 
               {/* Contador de medicamentos */}
-              <p className="text-xs md:text-sm text-gray-500 text-center">
+              <p className="text-xs sm:text-sm text-gray-500 text-center">
                 {grupo.grupos.length} medicamento{grupo.grupos.length !== 1 ? 's' : ''}
               </p>
 
               {/* Indicador de clique */}
-              <div className="absolute top-2 md:top-4 right-2 md:right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="absolute top-1 sm:top-2 md:top-4 right-1 sm:right-2 md:right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <svg 
-                  className="w-4 h-4 md:w-5 md:h-5 text-blue-400" 
+                  className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-400" 
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -807,8 +807,8 @@ export default function Farmacos() {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 text-center">
-          <p className="text-sm text-gray-500">
+        <div className="mt-8 sm:mt-12 text-center">
+          <p className="text-xs sm:text-sm text-gray-500">
             Informações farmacológicas para uso clínico oftalmológico
           </p>
         </div>
