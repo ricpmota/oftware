@@ -736,18 +736,7 @@ export default function Farmacos() {
   return (
     <div className="min-h-screen bg-white p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Botão Voltar */}
-        <div className="mb-4 sm:mb-6">
-          <button
-            onClick={() => window.history.back()}
-            className="flex items-center text-gray-600 hover:text-gray-800 transition-colors text-sm sm:text-base"
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Voltar ao Menu Principal
-          </button>
-        </div>
+
 
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12">
@@ -760,7 +749,7 @@ export default function Farmacos() {
         </div>
 
         {/* Grid de Grupos Farmacológicos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
           {gruposComIcones.map((grupo, index) => (
             <button
               key={index}
