@@ -9,6 +9,8 @@ import Refraction from './Refraction';
 import Cataract from './Cataract';
 import Retina from './Retina';
 import Patients from './Patients';
+import EmergenciaMenu from './EmergenciaMenu';
+import Farmacos from '../app/Farmacologia/Farmacos';
 
 interface HomeProps {
   doctorProfile: DoctorProfile | null;
@@ -234,12 +236,7 @@ export default function Home({ doctorProfile, onEditProfile }: HomeProps) {
         )}
 
         {activeSubTab === 'emergencia' && (
-          <div className="max-w-4xl mx-auto py-8 px-4">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-800 mb-4">Emergência</h1>
-              <p className="text-lg text-gray-600">Módulo em desenvolvimento</p>
-        </div>
-      </div>
+          <EmergenciaMenu />
         )}
 
         {activeSubTab === 'estrabismo' && (
@@ -252,12 +249,7 @@ export default function Home({ doctorProfile, onEditProfile }: HomeProps) {
         )}
 
         {activeSubTab === 'farmacologia' && (
-          <div className="max-w-4xl mx-auto py-8 px-4">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-800 mb-4">Farmacologia</h1>
-              <p className="text-lg text-gray-600">Módulo em desenvolvimento</p>
-            </div>
-          </div>
+          <Farmacos />
         )}
 
         {activeSubTab === 'genetica' && (

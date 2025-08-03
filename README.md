@@ -19,6 +19,7 @@ O **Oftware** é um sistema completo de gestão clínica oftalmológica desenvol
 - ✅ **Gestão de Pacientes** - Implementado
 - ✅ **Módulos Clínicos Avançados** - Implementados
 - ✅ **Módulo de Retina** - Implementado e funcional
+- ✅ **Módulo de Emergência Oftalmológica** - Implementado e funcional
 - 🔄 **Módulo de Catarata** - Em desenvolvimento
 - 🔄 **Módulo de Glaucoma** - Em desenvolvimento
 
@@ -49,13 +50,29 @@ oftware/
 ├── app/                    # App Router do Next.js
 │   ├── layout.tsx         # Layout principal
 │   ├── page.tsx           # Página inicial
-│   └── globals.css        # Estilos globais
+│   ├── globals.css        # Estilos globais
+│   └── emergencia/        # Módulo de emergências oftalmológicas
+│       ├── page.tsx       # Página principal de emergências
+│       ├── layout.tsx     # Layout do módulo emergências
+│       ├── [id]/page.tsx  # Páginas dinâmicas de emergências
+│       ├── trauma-ocular/ # Trauma Ocular
+│       ├── hifema-microhifema/ # Hifema e Microhifema
+│       ├── queimaduras-oculares/ # Queimaduras Oculares
+│       ├── cornea-conjuntiva/ # Córnea e Conjuntiva
+│       ├── glaucoma-agudo-hipertensao-ocular/ # Glaucoma Agudo
+│       ├── uveite-anterior-aguda/ # Uveíte Anterior Aguda
+│       ├── retina-vitreo/ # Retina e Vítreo
+│       ├── neuroftalmologia/ # Neuroftalmologia
+│       ├── orbita-plastica-ocular/ # Órbita e Plástica Ocular
+│       ├── emergencias-sistemicas/ # Emergências Sistêmicas
+│       └── corpo-estranho/ # Corpo Estranho
 ├── components/            # Componentes React
 │   ├── Refraction.tsx     # Módulo principal de refração
 │   ├── ClinicalAnalysis.tsx # Análise clínica
 │   ├── FinalPrescription.tsx # Prescrição final
 │   ├── Patients.tsx       # Gestão de pacientes
 │   ├── Navigation.tsx     # Navegação principal
+│   ├── EmergenciaMenu.tsx # Menu principal de emergências
 │   ├── Cataract.tsx       # Módulo de catarata (em dev)
 │   ├── Glaucoma.tsx       # Módulo de glaucoma (em dev)
 │   ├── Retina.tsx         # Módulo de retina (implementado)
@@ -182,7 +199,69 @@ oftware/
 - **Patologias Inflamatórias:** Uveíte, coriorretinite
 - **Patologias Neoplásicas:** Melanoma, retinoblastoma
 
-### 6. Módulos em Desenvolvimento
+### 6. Módulo de Emergência Oftalmológica (Implementado)
+
+#### **Funcionalidades Principais:**
+- **11 Grupos de Emergência** com interface intuitiva
+- **Calculadoras Especializadas** para cada tipo de emergência
+- **Condutas Clínicas Detalhadas** com prescrições específicas
+- **Interface Responsiva** otimizada para mobile e desktop
+- **Navegação Intuitiva** com botões de retorno
+
+#### **Grupos de Emergência Disponíveis:**
+
+1. **Trauma Ocular** - Abrasões, perfurações, CEIO e trauma contuso
+   - Calculadora ETO (Ocular Trauma Score)
+   - Condutas específicas por tipo de trauma
+
+2. **Hifema e Microhifema** - Sangramento na câmara anterior
+   - Calculadora de Washout de Hifema
+   - Critérios de indicação cirúrgica
+
+3. **Queimaduras Oculares** - Queimaduras químicas e térmicas
+   - Calculadora Dua Score
+   - Classificação de gravidade
+
+4. **Córnea e Conjuntiva** - Ceratites, úlceras e conjuntivites agudas
+   - Calculadora de Úlcera Corneana
+   - Condutas por tipo de infecção
+
+5. **Glaucoma Agudo / Hipertensão Ocular** - Crises de glaucoma de ângulo fechado
+   - Calculadora de Suspeita de Glaucoma Agudo
+   - Condutas medicamentosas imediatas
+
+6. **Uveíte Anterior Aguda** - Inflamação aguda da úvea anterior
+   - Calculadora de Uveíte Anterior Aguda
+   - Prescrições específicas
+
+7. **Retina e Vítreo** - Descolamento de retina, hemorragias
+   - Calculadora DRR (Descolamento de Retina Regmatogênico)
+   - Critérios de urgência
+
+8. **Neuroftalmologia** - Neuropatias ópticas, paralisias
+   - Calculadora de Neurite Óptica
+   - Condutas por tipo de neuropatia
+
+9. **Órbita e Plástica Ocular** - Celulite orbitária, fraturas orbitárias
+   - Calculadora de Celulite Orbitária
+   - Critérios de internação
+
+10. **Emergências Sistêmicas** - Complicações sistêmicas oculares
+    - Arterite temporal, hipertensão intracraniana
+    - Manifestações oculares de doenças sistêmicas
+
+11. **Corpo Estranho** - Avaliação e condutas para corpo estranho
+    - Calculadora de Suspeita de CE Intraocular
+    - 5 tipos de corpo estranho com condutas específicas
+
+#### **Características Técnicas:**
+- **Interface Accordion** para melhor organização
+- **Modais Interativos** para calculadoras
+- **Dados Estruturados** em arquivos TypeScript
+- **Design Responsivo** com TailwindCSS
+- **Navegação Intuitiva** com breadcrumbs
+
+### 7. Módulos em Desenvolvimento
 - **Catarata** - Avaliação clínica e planejamento cirúrgico
 - **Glaucoma** - Avaliação e monitoramento
 
@@ -494,12 +573,13 @@ npm run lint     # Verificação de código
 - **Mantenha** a compatibilidade com TypeScript
 
 ### Áreas para Contribuição
-- **Módulos Clínicos:** Catarata, Glaucoma (Retina já implementado)
+- **Módulos Clínicos:** Catarata, Glaucoma (Retina e Emergências já implementados)
 - **Melhorias de UI/UX**
 - **Otimizações de Performance**
 - **Novos Recursos de Análise**
 - **Testes Automatizados**
 - **Expansão do Módulo Retina:** Novas modalidades de exame, patologias adicionais
+- **Expansão do Módulo Emergências:** Novos tipos de emergência, calculadoras adicionais
 
 ## 🛠️ Manutenção e Suporte
 
@@ -544,6 +624,29 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 - **Next.js** pelo framework moderno e performático
 
 ## 🆕 Atualizações Recentes
+
+### Módulo de Emergência Oftalmológica (Agosto 2024)
+- ✅ **Implementação Completa** do sistema de emergências oftalmológicas
+- ✅ **11 Grupos de Emergência** com interface intuitiva e responsiva
+- ✅ **10 Calculadoras Especializadas** com lógica clínica avançada
+- ✅ **Condutas e Prescrições Detalhadas** para cada tipo de emergência
+- ✅ **Interface Accordion** para melhor organização do conteúdo
+- ✅ **Modais Interativos** para calculadoras com resultados estruturados
+- ✅ **Navegação Intuitiva** com botões de retorno e breadcrumbs
+- ✅ **Design Responsivo** otimizado para mobile e desktop
+- ✅ **Dados Estruturados** em arquivos TypeScript organizados
+
+#### **Calculadoras Implementadas:**
+- **ETO (Ocular Trauma Score)** - Trauma Ocular
+- **Washout de Hifema** - Hifema e Microhifema
+- **Dua Score** - Queimaduras Oculares
+- **Úlcera Corneana** - Córnea e Conjuntiva
+- **Glaucoma Agudo** - Glaucoma Agudo / Hipertensão Ocular
+- **Uveíte Anterior Aguda** - Uveíte Anterior Aguda
+- **DRR (Descolamento de Retina Regmatogênico)** - Retina e Vítreo
+- **Neurite Óptica** - Neuroftalmologia
+- **Celulite Orbitária** - Órbita e Plástica Ocular
+- **CE Intraocular** - Corpo Estranho
 
 ### Módulo de Retina (Julho 2024)
 - ✅ **Implementação Completa** do sistema de laudos retinográficos

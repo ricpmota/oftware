@@ -31,7 +31,6 @@ export const metadata: Metadata = {
     'apple-mobile-web-app-title': 'Oftware',
     'mobile-web-app-capable': 'yes',
     'msapplication-TileColor': '#22c55e',
-    'msapplication-config': '/browserconfig.xml',
     'theme-color': '#22c55e',
     'application-name': 'Oftware',
     'msapplication-tap-highlight': 'no',
@@ -83,47 +82,14 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         
-        {/* Preload critical images for better performance */}
+        {/* Preload only critical resources */}
         <link rel="preload" as="image" href="/icones/oftware.png" />
-        <link rel="preload" as="image" href="/icones/Retina.png" />
-        <link rel="preload" as="image" href="/icones/Glaucoma.png" />
-        <link rel="preload" as="image" href="/icones/catarata.png" />
-        <link rel="preload" as="image" href="/icones/cirurgia-refrativa.png" />
-        <link rel="preload" as="image" href="/icones/cornea.png" />
-        <link rel="preload" as="image" href="/icones/Estrabismo.png" />
-        <link rel="preload" as="image" href="/icones/Farmacologia.png" />
-        <link rel="preload" as="image" href="/icones/Genetica.png" />
-        <link rel="preload" as="image" href="/icones/Lentes.png" />
-        <link rel="preload" as="image" href="/icones/neurooftalmo.png" />
-        <link rel="preload" as="image" href="/icones/oncologia.png" />
-        <link rel="preload" as="image" href="/icones/plastica.png" />
-        <link rel="preload" as="image" href="/icones/Retina.png" />
-        <link rel="preload" as="image" href="/icones/uveite.png" />
         
         {/* Apple Touch Icons */}
         <link rel="apple-touch-icon" href="/icones/oftware.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icones/oftware.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icones/oftware.png" />
         <link rel="apple-touch-icon" sizes="167x167" href="/icones/oftware.png" />
-        
-        {/* Splash Screens for iPhone */}
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iPhone_14_Pro_Max_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iPhone_14_Pro_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iPhone_14_Plus__iPhone_13_Pro_Max__iPhone_12_Pro_Max_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iPhone_14__iPhone_13_Pro__iPhone_13__iPhone_12_Pro__iPhone_12_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iPhone_13_mini__iPhone_12_mini__iPhone_11_Pro__iPhone_XS__iPhone_X_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPhone_11_Pro_Max__iPhone_XS_Max_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" href="/splash/iPhone_11__iPhone_XR_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPhone_8__iPhone_7__iPhone_6s__iPhone_6_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPhone_SE_landscape.png" />
-        
-        {/* Splash Screens for iPad */}
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPad_Pro_12_9__iPad_5th_generation_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPad_Pro_11_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPad_Pro_10_5_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPad_Pro_9_7_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPad_landscape.png" />
-        <link rel="apple-touch-startup-image" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)" href="/splash/iPad_Mini_landscape.png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

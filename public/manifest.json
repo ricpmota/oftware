@@ -27,7 +27,7 @@
       "src": "/icones/oftware.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": "apple touch"
+      "purpose": "any"
     }
   ],
   "screenshots": [
