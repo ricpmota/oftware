@@ -522,7 +522,19 @@ const dadosFarmacologicos: GrupoFarmacologico[] = [
 
 // Componente do Modal
 function FarmacoModal({ isOpen, onClose, grupo }: FarmacoModalProps) {
+  const [expandedDrogas, setExpandedDrogas] = useState<Set<number>>(new Set());
+
   if (!isOpen || !grupo) return null;
+
+  const toggleDroga = (index: number) => {
+    const newExpanded = new Set(expandedDrogas);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedDrogas(newExpanded);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -540,60 +552,86 @@ function FarmacoModal({ isOpen, onClose, grupo }: FarmacoModalProps) {
 
         {/* Conteúdo */}
         <div className="p-6">
-          <div className="space-y-6">
+          <div className="space-y-4">
             {grupo.grupos.map((droga, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h3 className="text-xl font-semibold text-blue-600 mb-4">{droga.droga}</h3>
-                
-                <div className="grid md:grid-cols-2 gap-4">
-                  {droga.classe && (
-                    <div>
-                      <h4 className="font-semibold text-gray-800 mb-2">Classe</h4>
-                      <p className="text-gray-700 text-sm leading-relaxed">{droga.classe}</p>
-                    </div>
-                  )}
-                  
-                  {droga.via && (
-                    <div>
-                      <h4 className="font-semibold text-gray-800 mb-2">Via</h4>
-                      <p className="text-gray-700 text-sm leading-relaxed">{droga.via}</p>
-                    </div>
-                  )}
-                  
-                  {droga.posologia && (
-                    <div>
-                      <h4 className="font-semibold text-gray-800 mb-2">Posologia</h4>
-                      <p className="text-gray-700 text-sm leading-relaxed">{droga.posologia}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Mecanismo de Ação</h4>
-                    <p className="text-gray-700 text-sm leading-relaxed">{droga.mecanismo}</p>
+              <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                {/* Cabeçalho do medicamento - sempre visível */}
+                <button
+                  onClick={() => toggleDroga(index)}
+                  className="w-full p-4 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center text-left"
+                >
+                  <h3 className="text-lg font-semibold text-blue-600">{droga.droga}</h3>
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-500 mr-2">
+                      {expandedDrogas.has(index) ? 'Ocultar' : 'Ver detalhes'}
+                    </span>
+                    <svg 
+                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                        expandedDrogas.has(index) ? 'rotate-180' : ''
+                      }`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
-                  
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Indicações</h4>
-                    <p className="text-gray-700 text-sm leading-relaxed">{droga.indicacoes}</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Efeitos</h4>
-                    <p className="text-gray-700 text-sm leading-relaxed">{droga.efeitos}</p>
-                  </div>
-                  
-                  {droga.contraindicacoes && (
-                    <div>
-                      <h4 className="font-semibold text-gray-800 mb-2">Contraindicações</h4>
-                      <p className="text-gray-700 text-sm leading-relaxed">{droga.contraindicacoes}</p>
+                </button>
+
+                {/* Detalhes do medicamento - expandível */}
+                {expandedDrogas.has(index) && (
+                  <div className="p-4 bg-white border-t border-gray-200">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {droga.classe && (
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-2">Classe</h4>
+                          <p className="text-gray-700 text-sm leading-relaxed">{droga.classe}</p>
+                        </div>
+                      )}
+                      
+                      {droga.via && (
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-2">Via</h4>
+                          <p className="text-gray-700 text-sm leading-relaxed">{droga.via}</p>
+                        </div>
+                      )}
+                      
+                      {droga.posologia && (
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-2">Posologia</h4>
+                          <p className="text-gray-700 text-sm leading-relaxed">{droga.posologia}</p>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <h4 className="font-semibold text-gray-800 mb-2">Mecanismo de Ação</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed">{droga.mecanismo}</p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold text-gray-800 mb-2">Indicações</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed">{droga.indicacoes}</p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold text-gray-800 mb-2">Efeitos</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed">{droga.efeitos}</p>
+                      </div>
+                      
+                      {droga.contraindicacoes && (
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-2">Contraindicações</h4>
+                          <p className="text-gray-700 text-sm leading-relaxed">{droga.contraindicacoes}</p>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <h4 className="font-semibold text-gray-800 mb-2">Observações</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed">{droga.observacoes}</p>
+                      </div>
                     </div>
-                  )}
-                  
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Observações</h4>
-                    <p className="text-gray-700 text-sm leading-relaxed">{droga.observacoes}</p>
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
