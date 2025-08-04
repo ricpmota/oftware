@@ -233,6 +233,7 @@ interface CataractTypesModalProps {
 const CataractTypesModal: React.FC<CataractTypesModalProps> = ({ isOpen, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState('Por Localização');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const filteredCataracts = cataractTypes.filter(cataract => cataract.category === selectedCategory);
   const currentCataract = filteredCataracts[currentIndex];
@@ -257,14 +258,13 @@ const CataractTypesModal: React.FC<CataractTypesModalProps> = ({ isOpen, onClose
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full h-[90vh] flex flex-col border border-gray-200">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 text-white p-6 rounded-t-2xl relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
-          <div className="relative flex justify-between items-center">
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-2xl flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold mb-1">Tipos de Catarata</h2>
+              <h2 className="text-2xl font-bold">Tipos de Catarata</h2>
               <p className="text-blue-100 text-sm">Guia Clínico Completo</p>
             </div>
             <button 
@@ -274,192 +274,228 @@ const CataractTypesModal: React.FC<CataractTypesModalProps> = ({ isOpen, onClose
               ×
             </button>
           </div>
-        </div>
 
-        {/* Category Tabs */}
-        <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 border-b border-gray-200">
-          <div className="flex space-x-3">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => handleCategoryChange(category)}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 ${
-                  selectedCategory === category
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 hover:shadow-md border border-gray-200'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
+          {/* Category Tabs */}
+          <div className="bg-gray-50 p-4 border-b">
+            <div className="flex justify-center space-x-2 lg:space-x-3 overflow-x-auto">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => handleCategoryChange(category)}
+                  className={`px-2 py-1 lg:px-6 lg:py-3 rounded-lg lg:rounded-xl font-semibold transition-all duration-300 whitespace-nowrap text-xs lg:text-base ${
+                    selectedCategory === category
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-hidden">
+            {currentCataract ? (
+              <div className="h-full flex flex-col lg:flex-row">
+                {/* Left Side - Navigation and Image (Desktop) */}
+                <div className="hidden lg:block lg:w-1/3 bg-gray-50 p-6 border-r">
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between mb-6">
+                    <button 
+                      onClick={prevCataract} 
+                      className="p-2 bg-white rounded-full shadow hover:shadow-md transition-all"
+                    >
+                      ‹
+                    </button>
+                    <div className="text-center">
+                      <h3 className="text-xl font-bold text-gray-800">{currentCataract.name}</h3>
+                      <p className="text-sm text-gray-600">{selectedCategory}</p>
+                    </div>
+                    <button 
+                      onClick={nextCataract} 
+                      className="p-2 bg-white rounded-full shadow hover:shadow-md transition-all"
+                    >
+                      ›
+                    </button>
+                  </div>
+                  
+                  {/* Image */}
+                  <div className="text-center mb-6">
+                    <div className="bg-white rounded-xl p-4 shadow">
+                      <img
+                        src={`/icones/${currentCataract.id}.png`}
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/icones/catarata.png'; }}
+                        alt={currentCataract.name}
+                        className="w-32 h-32 mx-auto rounded-lg object-cover"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Carousel Dots */}
+                  <div className="flex justify-center space-x-2">
+                    {filteredCataracts.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => goToCataract(index)}
+                        className={`w-3 h-3 rounded-full transition-all ${
+                          index === currentIndex 
+                            ? 'bg-blue-600' 
+                            : 'bg-gray-300 hover:bg-gray-400'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mobile Header with Navigation and Image Button */}
+                <div className="lg:hidden bg-gray-50 p-4 border-b">
+                  <div className="flex items-center justify-between mb-4">
+                    <button 
+                      onClick={prevCataract} 
+                      className="p-2 bg-white rounded-full shadow hover:shadow-md transition-all"
+                    >
+                      ‹
+                    </button>
+                    <div className="text-center flex-1 mx-4">
+                      <h3 className="text-lg font-bold text-gray-800">{currentCataract.name}</h3>
+                      <p className="text-sm text-gray-600">{selectedCategory}</p>
+                    </div>
+                    <button 
+                      onClick={nextCataract} 
+                      className="p-2 bg-white rounded-full shadow hover:shadow-md transition-all"
+                    >
+                      ›
+                    </button>
+                  </div>
+                  
+                  {/* Image Button for Mobile */}
+                  <div className="text-center mb-4">
+                    <button
+                      onClick={() => setShowImageModal(true)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
+                    >
+                      Imagem
+                    </button>
+                  </div>
+
+                  {/* Carousel Dots for Mobile */}
+                  <div className="flex justify-center space-x-2">
+                    {filteredCataracts.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => goToCataract(index)}
+                        className={`w-3 h-3 rounded-full transition-all ${
+                          index === currentIndex 
+                            ? 'bg-blue-600' 
+                            : 'bg-gray-300 hover:bg-gray-400'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right Side - Clinical Information */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  <div className="space-y-6">
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h4 className="font-bold text-blue-800 mb-2">Definição</h4>
+                      <p className="text-gray-700">{currentCataract.definition}</p>
+                    </div>
+
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <h4 className="font-bold text-green-800 mb-2">Fisiopatologia</h4>
+                      <p className="text-gray-700">{currentCataract.pathophysiology}</p>
+                    </div>
+
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                      <h4 className="font-bold text-yellow-800 mb-2">Lâmpada de Fenda</h4>
+                      <p className="text-gray-700">{currentCataract.slitLamp}</p>
+                    </div>
+
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                      <h4 className="font-bold text-red-800 mb-2">Sintomas Principais</h4>
+                      <ul className="space-y-1">
+                        {currentCataract.symptoms.map((symptom, index) => (
+                          <li key={index} className="text-gray-700">• {symptom}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                      <h4 className="font-bold text-purple-800 mb-2">Achados ao Exame</h4>
+                      <ul className="space-y-1">
+                        {currentCataract.findings.map((finding, index) => (
+                          <li key={index} className="text-gray-700">• {finding}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                      <h4 className="font-bold text-orange-800 mb-2">Etiologia</h4>
+                      <ul className="space-y-1">
+                        {currentCataract.etiology.map((cause, index) => (
+                          <li key={index} className="text-gray-700">• {cause}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
+                      <h4 className="font-bold text-teal-800 mb-2">Conduta Clínica</h4>
+                      <ul className="space-y-1">
+                        {currentCataract.management.map((action, index) => (
+                          <li key={index} className="text-gray-700">• {action}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-6xl mb-4">🔍</div>
+                  <p className="text-gray-500 text-lg">Nenhuma catarata encontrada para esta categoria.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-          {currentCataract ? (
-            <>
-              {/* Navigation and Image */}
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
-                <div className="flex items-center justify-between mb-6">
-                  <button 
-                    onClick={prevCataract} 
-                    className="p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:bg-gray-50 transform hover:scale-110"
-                  >
-                    <span className="text-2xl text-gray-600 font-bold">‹</span>
-                  </button>
-                  <div className="text-center flex-1 mx-6">
-                    <h3 className="text-2xl font-bold text-gray-800 mb-2">{currentCataract.name}</h3>
-                    <p className="text-sm text-gray-600 bg-white/70 px-3 py-1 rounded-full inline-block">
-                      {selectedCategory}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={nextCataract} 
-                    className="p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:bg-gray-50 transform hover:scale-110"
-                  >
-                    <span className="text-2xl text-gray-600 font-bold">›</span>
-                  </button>
-                </div>
-                
-                {/* Image */}
-                <div className="text-center mb-6">
-                  <div className="bg-white rounded-2xl p-6 shadow-lg inline-block">
-                    <img
-                      src={`/icones/${currentCataract.id}.png`}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/icones/catarata.png'; }}
-                      alt={currentCataract.name}
-                      className="w-40 h-40 mx-auto rounded-xl shadow-md object-cover"
-                    />
-                  </div>
-                </div>
-
-                {/* Carousel Dots */}
-                <div className="flex justify-center space-x-3">
-                  {filteredCataracts.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => goToCataract(index)}
-                      className={`w-4 h-4 rounded-full transition-all duration-300 transform hover:scale-125 ${
-                        index === currentIndex 
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg scale-125' 
-                          : 'bg-gray-300 hover:bg-gray-400'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Clinical Information - Scrollable */}
-              <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-                <div className="space-y-6 max-w-4xl mx-auto">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-200 shadow-sm">
-                    <h4 className="font-bold text-blue-800 mb-3 flex items-center text-lg">
-                      <span className="w-3 h-3 bg-blue-500 rounded-full mr-3"></span>
-                      Definição
-                    </h4>
-                    <p className="text-gray-700 leading-relaxed">{currentCataract.definition}</p>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200 shadow-sm">
-                    <h4 className="font-bold text-green-800 mb-3 flex items-center text-lg">
-                      <span className="w-3 h-3 bg-green-500 rounded-full mr-3"></span>
-                      Fisiopatologia
-                    </h4>
-                    <p className="text-gray-700 leading-relaxed">{currentCataract.pathophysiology}</p>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-yellow-50 to-amber-50 p-6 rounded-2xl border border-yellow-200 shadow-sm">
-                    <h4 className="font-bold text-yellow-800 mb-3 flex items-center text-lg">
-                      <span className="w-3 h-3 bg-yellow-500 rounded-full mr-3"></span>
-                      Lâmpada de Fenda
-                    </h4>
-                    <p className="text-gray-700 leading-relaxed">{currentCataract.slitLamp}</p>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-red-50 to-pink-50 p-6 rounded-2xl border border-red-200 shadow-sm">
-                    <h4 className="font-bold text-red-800 mb-3 flex items-center text-lg">
-                      <span className="w-3 h-3 bg-red-500 rounded-full mr-3"></span>
-                      Sintomas Principais
-                    </h4>
-                    <ul className="space-y-2">
-                      {currentCataract.symptoms.map((symptom, index) => (
-                        <li key={index} className="flex items-start">
-                          <span className="text-red-500 mr-3 mt-1">•</span>
-                          <span className="text-gray-700">{symptom}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-purple-50 to-violet-50 p-6 rounded-2xl border border-purple-200 shadow-sm">
-                    <h4 className="font-bold text-purple-800 mb-3 flex items-center text-lg">
-                      <span className="w-3 h-3 bg-purple-500 rounded-full mr-3"></span>
-                      Achados ao Exame
-                    </h4>
-                    <ul className="space-y-2">
-                      {currentCataract.findings.map((finding, index) => (
-                        <li key={index} className="flex items-start">
-                          <span className="text-purple-500 mr-3 mt-1">•</span>
-                          <span className="text-gray-700">{finding}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-2xl border border-orange-200 shadow-sm">
-                    <h4 className="font-bold text-orange-800 mb-3 flex items-center text-lg">
-                      <span className="w-3 h-3 bg-orange-500 rounded-full mr-3"></span>
-                      Etiologia
-                    </h4>
-                    <ul className="space-y-2">
-                      {currentCataract.etiology.map((cause, index) => (
-                        <li key={index} className="flex items-start">
-                          <span className="text-orange-500 mr-3 mt-1">•</span>
-                          <span className="text-gray-700">{cause}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-6 rounded-2xl border border-teal-200 shadow-sm">
-                    <h4 className="font-bold text-teal-800 mb-3 flex items-center text-lg">
-                      <span className="w-3 h-3 bg-teal-500 rounded-full mr-3"></span>
-                      Conduta Clínica
-                    </h4>
-                    <ul className="space-y-2">
-                      {currentCataract.management.map((action, index) => (
-                        <li key={index} className="flex items-start">
-                          <span className="text-teal-500 mr-3 mt-1">•</span>
-                          <span className="text-gray-700">{action}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-50">
-              <div className="text-center">
-                <div className="text-6xl mb-4">🔍</div>
-                <p className="text-gray-500 text-lg">Nenhuma catarata encontrada para esta categoria.</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="bg-gradient-to-r from-gray-100 to-gray-200 p-6 rounded-b-2xl border-t border-gray-300">
-          <button
-            onClick={onClose}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
-          >
-            Fechar Modal
-          </button>
-        </div>
       </div>
-    </div>
+
+      {/* Image Modal for Mobile */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[10000] p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-800">{currentCataract?.name}</h3>
+              <button 
+                onClick={() => setShowImageModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="text-center">
+              <img
+                src={`/icones/${currentCataract?.id}.png`}
+                onError={(e) => { (e.target as HTMLImageElement).src = '/icones/catarata.png'; }}
+                alt={currentCataract?.name}
+                className="w-full max-w-xs mx-auto rounded-lg shadow-lg"
+              />
+            </div>
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowImageModal(false)}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

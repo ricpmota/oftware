@@ -1,0 +1,86 @@
+// Estrutura base para página "Cirurgia Refrativa" no Oftware
+// Inspirada no GlaucomaForm.tsx, com foco em análise de risco e sugestão de técnica
+
+'use client';
+
+import React, { useState } from 'react';
+
+interface TopografiaData {
+  ametropia: string;
+  idade: number;
+  estabilidadeRefrativa: boolean;
+  paquimetriaCentral: number;
+  espessuraFlap: number;
+  profundidadeAblacao: number;
+  elevacaoPosterior: number;
+  tipoPadraoTopografico: string;
+  aberrometria: boolean;
+  indiceBelinAmbrosio?: number;
+  historiaFamiliarEctasia: boolean;
+  tipoAberracaoAltaOrdem?: string;
+}
+
+export default function CirurgiaRefrativaForm() {
+  const [formData, setFormData] = useState<TopografiaData>({
+    ametropia: '',
+    idade: 0,
+    estabilidadeRefrativa: true,
+    paquimetriaCentral: 0,
+    espessuraFlap: 0,
+    profundidadeAblacao: 0,
+    elevacaoPosterior: 0,
+    tipoPadraoTopografico: '',
+    aberrometria: false,
+    historiaFamiliarEctasia: false
+  });
+
+  const calcularPTA = () => {
+    const { espessuraFlap, profundidadeAblacao, paquimetriaCentral } = formData;
+    if (paquimetriaCentral > 0) {
+      const pta = ((espessuraFlap + profundidadeAblacao) / paquimetriaCentral) * 100;
+      return pta.toFixed(1);
+    }
+    return '0.0';
+  };
+
+  const avaliarRiscoEctasia = () => {
+    const riscos = [];
+    const { idade, paquimetriaCentral, elevacaoPosterior, tipoPadraoTopografico, historiaFamiliarEctasia } = formData;
+    const pta = parseFloat(calcularPTA());
+
+    if (idade < 21) riscos.push('Idade < 21 anos');
+    if (paquimetriaCentral < 500) riscos.push('Córnea fina (< 500μm)');
+    if (pta > 40) riscos.push('PTA > 40%');
+    if (elevacaoPosterior > 15) riscos.push('Elevação posterior > 15μm');
+    if (tipoPadraoTopografico.includes('suspeito')) riscos.push('Padrão topográfico suspeito');
+    if (historiaFamiliarEctasia) riscos.push('Histórico familiar positivo');
+
+    if (riscos.length === 0) return 'Baixo';
+    if (riscos.length <= 2) return 'Intermediário';
+    return 'Alto';
+  };
+
+  const sugerirTecnica = () => {
+    const { paquimetriaCentral, tipoPadraoTopografico, aberrometria } = formData;
+    const risco = avaliarRiscoEctasia();
+
+    if (risco === 'Alto') return 'Contraindicado. Encaminhar para especialista em ectasias';
+    if (paquimetriaCentral < 520) return 'PRK';
+    if (tipoPadraoTopografico.includes('irregular')) return 'PTK';
+    if (aberrometria) return 'Cirurgia personalizada (customizada por aberrometria)';
+    return 'LASIK';
+  };
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Análise Pré-operatória - Cirurgia Refrativa</h1>
+      {/* Campos do formulário com inputs, selects, sliders e lógica de preenchimento */}
+      {/* Resultado da PTA e risco de ectasia */}
+      <div className="mt-4 p-4 border rounded bg-gray-100">
+        <p><strong>PTA estimado:</strong> {calcularPTA()}%</p>
+        <p><strong>Risco de ectasia:</strong> {avaliarRiscoEctasia()}</p>
+        <p><strong>Técnica sugerida:</strong> {sugerirTecnica()}</p>
+      </div>
+    </div>
+  );
+}
