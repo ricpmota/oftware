@@ -26,14 +26,7 @@ const contraindicacoesRelativas = [
   'Diabetes mellitus descompensado'
 ];
 
-const criteriosRiscoEctasia = [
-  'Paquimetria < 500μm',
-  'PTA > 40%',
-  'Elevação posterior > 15μm',
-  'Padrão topográfico suspeito',
-  'Idade < 21 anos',
-  'Histórico familiar de ceratocone'
-];
+// Removido: variável não utilizada
 
 const tecnicasRefrativas = [
   {
@@ -62,11 +55,7 @@ const tecnicasRefrativas = [
   }
 ];
 
-const tiposAberracaoAltaOrdem = [
-  'Esférica',
-  'Coma',
-  'Trifoil'
-];
+// Removido: variável não utilizada
 
 const complicacoesPorTecnica = {
   PRK: ['Haze', 'Regressão', 'Aberrações ópticas', 'Infiltrados', 'Defeito epitelial'],
