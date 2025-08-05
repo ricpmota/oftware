@@ -26,6 +26,11 @@ interface FarmacoModalProps {
   grupo: GrupoFarmacologico | null;
 }
 
+interface GlaucomaModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 // Dados farmacológicos organizados conforme especificado
 const dadosFarmacologicos: GrupoFarmacologico[] = [
   {
@@ -470,57 +475,452 @@ const dadosFarmacologicos: GrupoFarmacologico[] = [
     ]
   },
   {
-    nome: "Glaucoma",
+    nome: "🧠 Antiglaucomatosos",
     grupos: [
       {
-        droga: "Timolol 0,25-0,5%",
-        classe: "Betabloqueador não seletivo",
-        via: "Colírio",
-        posologia: "1 gota 2x/dia",
-        mecanismo: "Reduz produção de humor aquoso por bloqueio de receptores β-adrenérgicos.",
-        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
-        efeitos: "Bradicardia, broncoespasmo, fadiga, depressão.",
-        contraindicacoes: "Asma, bradicardia, insuficiência cardíaca.",
-        observacoes: "Primeira linha de tratamento. Monitorar efeitos sistêmicos."
-      },
-      {
-        droga: "Brimonidina 0,1-0,2%",
-        classe: "Agonista α2-adrenérgico",
-        via: "Colírio",
-        posologia: "1 gota 2-3x/dia",
-        mecanismo: "Reduz produção e aumenta escoamento do humor aquoso.",
-        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
-        efeitos: "Alergia ocular, fadiga, boca seca, hipotensão.",
-        contraindicacoes: "Uso concomitante com IMAO, depressão.",
-        observacoes: "Boa eficácia. Pode causar alergia tardia."
-      },
-      {
-        droga: "Dorzolamida 2%",
-        classe: "Inibidor da anidrase carbônica",
-        via: "Colírio",
-        posologia: "1 gota 3x/dia",
-        mecanismo: "Inibe anidrase carbônica II, reduzindo produção de humor aquoso.",
-        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
-        efeitos: "Ardência, gosto amargo, ceratite superficial pontuada.",
-        contraindicacoes: "Hipersensibilidade a sulfonamidas.",
-        observacoes: "Efeito aditivo com outros antiglaucomatosos."
-      },
-      {
-        droga: "Latanoprosta 0,005%",
-        classe: "Análogo de prostaglandina",
-        via: "Colírio",
-        posologia: "1 gota 1x/dia (noite)",
-        mecanismo: "Aumenta escoamento uveoescleral do humor aquoso.",
-        indicacoes: "Glaucoma de ângulo aberto, hipertensão ocular.",
-        efeitos: "Hiperpigmentação da íris, alongamento de cílios, hiperemia.",
-        contraindicacoes: "Uveíte ativa, hipersensibilidade.",
-        observacoes: "Muito eficaz. Aplicar à noite. Efeitos cosméticos reversíveis."
+        droga: "Clique para ver os tipos de antiglaucomatosos",
+        classe: "Modal especial com 4 categorias principais",
+        via: "Reduzir produção, Inibir anidrase, Aumentar drenagem, Dupla ação",
+        posologia: "Cada categoria contém medicamentos específicos",
+        mecanismo: "Diferentes mecanismos de ação para controle da pressão intraocular",
+        indicacoes: "Glaucoma primário e secundário, hipertensão ocular",
+        efeitos: "Varia conforme o tipo de medicamento",
+        contraindicacoes: "Específicas para cada classe medicamentosa",
+        observacoes: "Modal organizado por mecanismo de ação"
       }
     ]
   }
 ];
 
-// Componente do Modal
+// Dados específicos para cada tipo de antiglaucomatoso
+const dadosGlaucoma = {
+  reduzirProducao: [
+    {
+      droga: "Timolol 0,25% ou 0,5% (solução oftálmica)",
+      classe: "Betabloqueador não seletivo",
+      via: "Colírio",
+      posologia: "1 gota 2x/dia",
+      mecanismo: "Inibem receptores β-adrenérgicos nos processos ciliares, diminuindo a secreção de humor aquoso.",
+      indicacoes: "Glaucoma primário de ângulo aberto, hipertensão ocular.",
+      efeitos: "Bradicardia, hipotensão, broncoespasmo.",
+      contraindicacoes: "Asma, DPOC moderada/grave, bradicardia, bloqueios AV.",
+      observacoes: "Um dos colírios mais usados, sem efeito miótico."
+    },
+    {
+      droga: "Betaxolol 0,25% (solução oftálmica)",
+      classe: "Betabloqueador seletivo β1",
+      via: "Colírio",
+      posologia: "1 gota 2x/dia",
+      mecanismo: "Inibem receptores β-adrenérgicos nos processos ciliares, diminuindo a secreção de humor aquoso.",
+      indicacoes: "Glaucoma em pacientes asmáticos ou com DPOC leve.",
+      efeitos: "Menor risco de broncoespasmo, possível desconforto ocular.",
+      contraindicacoes: "Hipersensibilidade ao fármaco.",
+      observacoes: "É seletivo para β1, menos efeitos pulmonares."
+    },
+    {
+      droga: "📋 Marcas por Fabricante - Betabloqueadores:",
+      classe: "Genon: Timoptol (genérico), Betaxolol",
+      via: "Allergan: Betoptic S®",
+      posologia: "Ofta: Glausol®",
+      mecanismo: "Latinofarma: Timoftal®",
+      indicacoes: "Cristália: Maleato de Timolol, Betaxolol Cristália",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    }
+  ],
+  inibirAnidrase: [
+    {
+      droga: "Dorzolamida 2% (solução oftálmica)",
+      classe: "Inibidor da anidrase carbônica",
+      via: "Colírio",
+      posologia: "1 gota 3x/dia",
+      mecanismo: "Inibem a anidrase carbônica nos processos ciliares, reduzindo a produção de íons bicarbonato e, consequentemente, a produção de humor aquoso.",
+      indicacoes: "Glaucoma primário e secundário, hipertensão ocular.",
+      efeitos: "Disgeusia (sabor metálico), irritação ocular, cefaleia.",
+      contraindicacoes: "Insuficiência renal grave, hipersensibilidade a sulfas.",
+      observacoes: "Pode ser usada em associação com Timolol (Cosopt®)."
+    },
+    {
+      droga: "Brinzolamida 1% (solução oftálmica)",
+      classe: "Inibidor da anidrase carbônica",
+      via: "Colírio",
+      posologia: "1 gota 3x/dia",
+      mecanismo: "Inibem a anidrase carbônica nos processos ciliares, reduzindo a produção de íons bicarbonato e, consequentemente, a produção de humor aquoso.",
+      indicacoes: "Alternativa à dorzolamida em intolerância ou falha terapêutica.",
+      efeitos: "Visão borrada temporária, queimação ocular.",
+      contraindicacoes: "Hipersensibilidade a sulfas.",
+      observacoes: "Menor incidência de sabor metálico que a dorzolamida."
+    },
+    {
+      droga: "📋 Marcas por Fabricante - Inibidores da Anidrase Carbônica:",
+      classe: "Genon: Dorzolamida Genon",
+      via: "Allergan: Trusopt®",
+      posologia: "Latinofarma: Dorzolat®",
+      mecanismo: "Cristália: Dorzolamida Cristália",
+      indicacoes: "Obs: Brinzolamida é vendida apenas como Azopt® (Alcon)",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    }
+  ],
+  aumentarDrenagem: [
+    {
+      droga: "Latanoprosta 0,005% (1x/noite)",
+      classe: "Análogo de prostaglandina",
+      via: "Colírio",
+      posologia: "1 gota 1x/dia (noite)",
+      mecanismo: "Aumentam a saída de humor aquoso via via uveoescleral, relaxando o músculo ciliar.",
+      indicacoes: "Primeira linha no tratamento do glaucoma primário de ângulo aberto.",
+      efeitos: "Hiperemia conjuntival, escurecimento da íris, crescimento de cílios.",
+      contraindicacoes: "Uveíte ativa, histórico de edema macular.",
+      observacoes: "Efeito prolongado; boa adesão posológica."
+    },
+    {
+      droga: "Travoprosta 0,004% (1x/noite)",
+      classe: "Análogo de prostaglandina",
+      via: "Colírio",
+      posologia: "1 gota 1x/dia (noite)",
+      mecanismo: "Aumentam a saída de humor aquoso via via uveoescleral, relaxando o músculo ciliar.",
+      indicacoes: "Alternativa à Latanoprosta.",
+      efeitos: "Semelhantes à Latanoprosta, pode causar hiperpigmentação da pele periocular.",
+      contraindicacoes: "Uveíte ativa, histórico de edema macular.",
+      observacoes: "Pode ter ação mais potente em certos pacientes."
+    },
+    {
+      droga: "📋 Marcas por Fabricante - Análogos de Prostaglandinas:",
+      classe: "Genon: Latanoprosta, Travoprosta",
+      via: "Allergan: Xalatan®",
+      posologia: "Ofta: Optipress® Latanoprosta",
+      mecanismo: "Latinofarma: Latanoftal®",
+      indicacoes: "Cristália: Latanoprosta, Travoprosta Cristália",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    }
+  ],
+  reduzirEAumentar: [
+    {
+      droga: "Brimonidina 0,15% ou 0,2% (2x a 3x/dia)",
+      classe: "Agonista alfa-2 adrenérgico",
+      via: "Colírio",
+      posologia: "1 gota 2-3x/dia",
+      mecanismo: "Estimulam receptores alfa-2 nos processos ciliares, diminuindo a produção de humor aquoso e aumentando a drenagem uveoescleral.",
+      indicacoes: "Glaucoma, principalmente como terapia combinada ou alternativa.",
+      efeitos: "Sonolência, boca seca, hiperemia, hipotensão.",
+      contraindicacoes: "Crianças < 6 anos (risco de apneia), uso de antidepressivos tricíclicos.",
+      observacoes: "Útil em pacientes que não toleram prostaglandinas ou betabloqueadores."
+    },
+    {
+      droga: "📋 Marcas por Fabricante - Agonistas Alfa-2:",
+      classe: "Genon: Brimonidina Genon",
+      via: "Allergan: Alphagan P®",
+      posologia: "Ofta: Optipress® Brimonidina",
+      mecanismo: "Latinofarma: Brimonalat®",
+      indicacoes: "Cristália: Brimonidina Cristália",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    }
+  ],
+  combinacoesFixas: [
+    {
+      droga: "✅ Combinações Fixas Antiglaucomatosas (Colírios Associados)",
+      classe: "1. Dorzolamida + Timolol:",
+      via: "Combinação de inibidor da anidrase carbônica com betabloqueador.",
+      posologia: "Indicado para glaucoma primário e secundário.",
+      mecanismo: "Marcas: Cosopt® (Allergan), Dorzolamida + Timolol Genon, Cristália, Dorzolat-Timolol (Latinofarma)",
+      indicacoes: "",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    },
+    {
+      droga: "2. Brimonidina + Timolol:",
+      classe: "Combinação de agonista alfa-2 com betabloqueador.",
+      via: "Indicado para glaucoma não controlado com monoterapia.",
+      posologia: "Marcas: Combigan® (Allergan), Brimonidina + Timolol Genon, Cristália",
+      mecanismo: "",
+      indicacoes: "",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    },
+    {
+      droga: "3. Brinzolamida + Brimonidina:",
+      classe: "Combinação sem betabloqueador, útil em pacientes com contraindicações.",
+      via: "Marcas: Simbrinza® (Alcon)",
+      posologia: "",
+      mecanismo: "",
+      indicacoes: "",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    },
+    {
+      droga: "4. Travoprosta + Timolol:",
+      classe: "Análogo de prostaglandina associado a betabloqueador.",
+      via: "Potente ação hipotensora ocular.",
+      posologia: "Marcas: DuoTrav® (Alcon)",
+      mecanismo: "",
+      indicacoes: "",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    },
+    {
+      droga: "5. Latanoprosta + Timolol:",
+      classe: "Análogo de prostaglandina associado a betabloqueador.",
+      via: "Facilita adesão e aumenta eficácia com dose única diária.",
+      posologia: "Marcas: Xalacom® (Pfizer), Latanotimol (Cristália), Genérico (Genon)",
+      mecanismo: "",
+      indicacoes: "",
+      efeitos: "",
+      contraindicacoes: "",
+      observacoes: ""
+    }
+  ]
+};
+
+// Componente do Modal de Glaucoma
+function GlaucomaModal({ isOpen, onClose }: GlaucomaModalProps) {
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [expandedDrogas, setExpandedDrogas] = useState<Set<number>>(new Set());
+
+  if (!isOpen) return null;
+
+  const toggleDroga = (index: number) => {
+    const newExpanded = new Set(expandedDrogas);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedDrogas(newExpanded);
+  };
+
+  const handleClose = () => {
+    setSelectedType(null);
+    setExpandedDrogas(new Set());
+    onClose();
+  };
+
+  const getDadosByType = (type: string) => {
+    switch (type) {
+      case 'reduzirProducao':
+        return dadosGlaucoma.reduzirProducao;
+      case 'inibirAnidrase':
+        return dadosGlaucoma.inibirAnidrase;
+      case 'aumentarDrenagem':
+        return dadosGlaucoma.aumentarDrenagem;
+      case 'reduzirEAumentar':
+        return dadosGlaucoma.reduzirEAumentar;
+      case 'combinacoesFixas':
+        return dadosGlaucoma.combinacoesFixas;
+      default:
+        return [];
+    }
+  };
+
+  const getTypeTitle = (type: string) => {
+    switch (type) {
+      case 'reduzirProducao':
+        return '🔹 Reduzir a Produção do HA';
+      case 'inibirAnidrase':
+        return '🔹 Inibidor da Anidrase Carbônica';
+      case 'aumentarDrenagem':
+        return '🔹 Aumentar Drenagem Uveoescleral';
+      case 'reduzirEAumentar':
+        return '🔹 Reduzir Produção e Aumentar Drenagem Uveoescleral';
+      case 'combinacoesFixas':
+        return '✅ Combinações Fixas Antiglaucomatosas';
+      default:
+        return '';
+    }
+  };
+
+  // Se um tipo foi selecionado, mostrar os detalhes
+  if (selectedType) {
+    const dados = getDadosByType(selectedType);
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="flex justify-between items-center p-3 sm:p-6 border-b sticky top-0 bg-white z-10">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSelectedType(null)}
+                className="text-blue-600 hover:text-blue-800 text-lg font-semibold"
+              >
+                ← Voltar
+              </button>
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900">{getTypeTitle(selectedType)}</h2>
+            </div>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl sm:text-3xl font-light p-1"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Conteúdo */}
+          <div className="p-3 sm:p-6">
+            <div className="space-y-3 sm:space-y-4">
+              {dados.map((droga, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Cabeçalho do medicamento - sempre visível */}
+                  <button
+                    onClick={() => toggleDroga(index)}
+                    className="w-full p-3 sm:p-4 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center text-left"
+                  >
+                    <h3 className="text-sm sm:text-lg font-semibold text-blue-600 pr-2">{droga.droga}</h3>
+                    <div className="flex items-center flex-shrink-0">
+                      <span className="text-xs sm:text-sm text-gray-500 mr-1 sm:mr-2 hidden sm:inline">
+                        {expandedDrogas.has(index) ? 'Ocultar' : 'Ver detalhes'}
+                      </span>
+                      <svg 
+                        className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform duration-200 ${
+                          expandedDrogas.has(index) ? 'rotate-180' : ''
+                        }`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {/* Detalhes do medicamento - expandível */}
+                  {expandedDrogas.has(index) && (
+                    <div className="p-3 sm:p-4 bg-white border-t border-gray-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        {droga.classe && (
+                          <div>
+                            <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Classe</h4>
+                            <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.classe}</p>
+                          </div>
+                        )}
+                        
+                        {droga.via && (
+                          <div>
+                            <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Via</h4>
+                            <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.via}</p>
+                          </div>
+                        )}
+                        
+                        {droga.posologia && (
+                          <div>
+                            <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Posologia</h4>
+                            <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.posologia}</p>
+                          </div>
+                        )}
+                        
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Mecanismo de Ação</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.mecanismo}</p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Indicações</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.indicacoes}</p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Efeitos</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.efeitos}</p>
+                        </div>
+                        
+                        {droga.contraindicacoes && (
+                          <div>
+                            <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Contraindicações</h4>
+                            <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.contraindicacoes}</p>
+                          </div>
+                        )}
+                        
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-1 sm:mb-2 text-sm sm:text-base">Observações</h4>
+                          <p className="text-gray-700 text-xs sm:text-sm leading-relaxed">{droga.observacoes}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Modal principal com os 4 botões
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center p-3 sm:p-6 border-b sticky top-0 bg-white z-10">
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900">🧠 Antiglaucomatosos</h2>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl sm:text-3xl font-light p-1"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Conteúdo - 4 botões principais */}
+        <div className="p-3 sm:p-6">
+          <div className="grid grid-cols-1 gap-4">
+            <button
+              onClick={() => setSelectedType('reduzirProducao')}
+              className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-300 text-left"
+            >
+              <h3 className="text-lg font-semibold text-blue-800 mb-2">🔹 Reduzir a Produção do HA</h3>
+              <p className="text-sm text-blue-600">Betabloqueadores que inibem a produção de humor aquoso</p>
+            </button>
+
+            <button
+              onClick={() => setSelectedType('inibirAnidrase')}
+              className="p-4 bg-green-50 border-2 border-green-200 rounded-lg hover:bg-green-100 hover:border-green-300 transition-all duration-300 text-left"
+            >
+              <h3 className="text-lg font-semibold text-green-800 mb-2">🔹 Inibidor da Anidrase Carbônica</h3>
+              <p className="text-sm text-green-600">Inibidores da anidrase carbônica nos processos ciliares</p>
+            </button>
+
+            <button
+              onClick={() => setSelectedType('aumentarDrenagem')}
+              className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-all duration-300 text-left"
+            >
+              <h3 className="text-lg font-semibold text-purple-800 mb-2">🔹 Aumentar Drenagem Uveoescleral</h3>
+              <p className="text-sm text-purple-600">Análogos de prostaglandinas que aumentam a drenagem</p>
+            </button>
+
+            <button
+              onClick={() => setSelectedType('reduzirEAumentar')}
+              className="p-4 bg-orange-50 border-2 border-orange-200 rounded-lg hover:bg-orange-100 hover:border-orange-300 transition-all duration-300 text-left"
+            >
+              <h3 className="text-lg font-semibold text-orange-800 mb-2">🔹 Reduzir Produção e Aumentar Drenagem Uveoescleral</h3>
+              <p className="text-sm text-orange-600">Agonistas alfa-2 adrenérgicos com dupla ação</p>
+            </button>
+
+            <button
+              onClick={() => setSelectedType('combinacoesFixas')}
+              className="p-4 bg-red-50 border-2 border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-all duration-300 text-left"
+            >
+              <h3 className="text-lg font-semibold text-red-800 mb-2">✅ Combinações Fixas Antiglaucomatosas</h3>
+              <p className="text-sm text-red-600">Colírios associados para maior eficácia</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente do Modal original (para outros grupos)
 function FarmacoModal({ isOpen, onClose, grupo }: FarmacoModalProps) {
   const [expandedDrogas, setExpandedDrogas] = useState<Set<number>>(new Set());
 
@@ -721,16 +1121,26 @@ const gruposComIcones = [
 // Componente principal
 export default function Farmacos() {
   const [modalOpen, setModalOpen] = useState(false);
+  const [glaucomaModalOpen, setGlaucomaModalOpen] = useState(false);
   const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoFarmacologico | null>(null);
 
   const handleGrupoClick = (grupo: GrupoFarmacologico) => {
-    setGrupoSelecionado(grupo);
-    setModalOpen(true);
+    // Se for o grupo Glaucoma, abrir o modal específico
+    if (grupo.nome.includes("Antiglaucomatosos")) {
+      setGlaucomaModalOpen(true);
+    } else {
+      setGrupoSelecionado(grupo);
+      setModalOpen(true);
+    }
   };
 
   const handleCloseModal = () => {
     setModalOpen(false);
     setGrupoSelecionado(null);
+  };
+
+  const handleCloseGlaucomaModal = () => {
+    setGlaucomaModalOpen(false);
   };
 
   return (
@@ -808,6 +1218,12 @@ export default function Farmacos() {
         isOpen={modalOpen}
         onClose={handleCloseModal}
         grupo={grupoSelecionado}
+      />
+
+      {/* Modal do Glaucoma */}
+      <GlaucomaModal
+        isOpen={glaucomaModalOpen}
+        onClose={handleCloseGlaucomaModal}
       />
     </div>
   );
