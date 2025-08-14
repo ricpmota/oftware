@@ -25,13 +25,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Prevenir tradução automática de termos técnicos */
 .notranslate {
   -webkit-translate: no;
   translate: no;
 }
 
-/* Classe específica para termos médicos */
 .medical-term {
   translate: no;
   -webkit-translate: no;

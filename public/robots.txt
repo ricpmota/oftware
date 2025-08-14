@@ -1,4 +1,33 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://oftware.com.br/sitemap.xml 
+# Sitemap
+Sitemap: https://oftware.com/sitemap.xml
+
+# Otimizações de performance
+Disallow: /_next/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+
+# Permitir recursos estáticos
+Allow: /icones/
+Allow: /manifest.json
+Allow: /sw.js
+Allow: /favicon.ico
+
+# Crawl-delay para otimizar performance
+Crawl-delay: 1
+
+# Otimizações específicas para bots de busca
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0.5
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 2 

@@ -4,12 +4,13 @@
   "description": "Sistema completo de assistência oftalmológica para médicos",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#f9fafb",
+  "background_color": "#ffffff",
   "theme_color": "#22c55e",
+  "orientation": "portrait-primary",
   "scope": "/",
   "lang": "pt-BR",
-  "categories": ["medical", "health", "productivity"],
+  "dir": "ltr",
+  "categories": ["medical", "productivity", "health"],
   "icons": [
     {
       "src": "/icones/oftware.png",
@@ -27,7 +28,45 @@
       "src": "/icones/oftware.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "apple touch"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Refração",
+      "short_name": "Refração",
+      "description": "Abrir módulo de refração",
+      "url": "/?module=refraction",
+      "icons": [
+        {
+          "src": "/icones/greens.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Glaucoma",
+      "short_name": "Glaucoma",
+      "description": "Abrir módulo de glaucoma",
+      "url": "/?module=glaucoma",
+      "icons": [
+        {
+          "src": "/icones/Glaucoma.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Emergência",
+      "short_name": "Emergência",
+      "description": "Abrir módulo de emergência",
+      "url": "/?module=emergencia",
+      "icons": [
+        {
+          "src": "/icones/Emergência.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
   "screenshots": [
@@ -36,6 +75,26 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
+    },
+    {
+      "src": "/icones/oftware.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+oftware",
+      "url": "/?protocol=%s"
     }
   ]
 } 

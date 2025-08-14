@@ -1,24 +1,38 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { auth } from '../lib/firebase';
 import { onAuthStateChanged, User, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { DoctorProfile } from '../types/doctor';
-import Home from '../components/Home';
-import DoctorProfileSetup from '../components/DoctorProfileSetup';
 import { PatientProvider } from '../contexts/PatientContext';
+
+// Lazy loading dos componentes principais
+const Home = lazy(() => import('../components/Home'));
+const DoctorProfileSetup = lazy(() => import('../components/DoctorProfileSetup'));
+
+// Componente de loading otimizado
+const LoadingSpinner = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">Carregando...</p>
+    </div>
+  </div>
+);
 
 export default function OftalmoPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
+    // Debounce para evitar múltiplas chamadas
+    let timeoutId: NodeJS.Timeout;
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       
@@ -35,10 +49,16 @@ export default function OftalmoPage() {
         }
       }
       
-      setLoading(false);
+      // Debounce para suavizar transições
+      timeoutId = setTimeout(() => {
+        setLoading(false);
+      }, 100);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleProfileComplete = (profile: DoctorProfile) => {
@@ -96,14 +116,7 @@ export default function OftalmoPage() {
 
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!user) {
@@ -164,11 +177,13 @@ export default function OftalmoPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          <DoctorProfileSetup
-            onComplete={handleProfileComplete}
-            onCancel={handleCancelEdit}
-            isEditing={true}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <DoctorProfileSetup
+              onComplete={handleProfileComplete}
+              onCancel={handleCancelEdit}
+              isEditing={true}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -176,13 +191,15 @@ export default function OftalmoPage() {
 
   return (
     <PatientProvider>
-      <div className="min-h-screen bg-gray-50">
-        <Home 
-          doctorProfile={doctorProfile}
-          onEditProfile={handleEditProfile}
-          onLogout={handleLogout}
-        />
-      </div>
+      <Suspense fallback={<LoadingSpinner />}>
+        <div className="min-h-screen bg-gray-50">
+          <Home 
+            doctorProfile={doctorProfile}
+            onEditProfile={handleEditProfile}
+            onLogout={handleLogout}
+          />
+        </div>
+      </Suspense>
     </PatientProvider>
   );
 } 

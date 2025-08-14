@@ -24,35 +24,6 @@ export const metadata: Metadata = {
     shortcut: '/favicon.ico',
     apple: '/icones/oftware.png',
   },
-  other: {
-    'google': 'notranslate',
-    'apple-mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-status-bar-style': 'default',
-    'apple-mobile-web-app-title': 'Oftware',
-    'mobile-web-app-capable': 'yes',
-    'msapplication-TileColor': '#22c55e',
-    'theme-color': '#22c55e',
-    'application-name': 'Oftware',
-    'msapplication-tap-highlight': 'no',
-    'format-detection': 'telephone=no',
-  },
-
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Oftware',
-  },
-  openGraph: {
-    title: 'Oftware - Sistema de Gestão Clínica Oftalmológica',
-    description: 'Sistema completo de assistência oftalmológica para médicos',
-    type: 'website',
-    locale: 'pt_BR',
-  },
-  twitter: {
-    card: 'summary',
-    title: 'Oftware - Sistema de Gestão Clínica Oftalmológica',
-    description: 'Sistema completo de assistência oftalmológica para médicos',
-  },
 };
 
 export const viewport = {
@@ -82,10 +53,8 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         
-        {/* Preload only critical resources */}
         <link rel="preload" as="image" href="/icones/oftware.png" />
         
-        {/* Apple Touch Icons */}
         <link rel="apple-touch-icon" href="/icones/oftware.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icones/oftware.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icones/oftware.png" />
@@ -96,12 +65,11 @@ export default function RootLayout({
       >
         {children}
         
-        {/* Service Worker Registration */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
+                setTimeout(() => {
                   navigator.serviceWorker.register('/sw.js')
                     .then(function(registration) {
                       console.log('SW registered: ', registration);
@@ -109,7 +77,7 @@ export default function RootLayout({
                     .catch(function(registrationError) {
                       console.log('SW registration failed: ', registrationError);
                     });
-                });
+                }, 2000);
               }
             `,
           }}
