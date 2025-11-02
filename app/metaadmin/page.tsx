@@ -5018,7 +5018,7 @@ export default function MetaAdminPage() {
                     </div>
                     
                     {/* CEP */}
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">CEP</label>
                       <div className="flex gap-2">
                         <input
@@ -5171,7 +5171,7 @@ export default function MetaAdminPage() {
                     </div>
 
                     {/* Data de Cadastro e Médico Responsável */}
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Data de Cadastro</label>
                       <input
                         type="text"
@@ -5212,11 +5212,554 @@ export default function MetaAdminPage() {
               )}
 
               {pastaAtiva === 2 && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados Clínicos da Anamnese</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">
-                      Formulário completo será implementado em seguida. Por enquanto, esta pasta está em desenvolvimento.
+                  
+                  {/* 2.1 Medidas Iniciais */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.1 Medidas Iniciais</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Peso (kg)</label>
+                        <input
+                          type="number"
+                          min="20"
+                          max="400"
+                          value={pacienteEditando.dadosClinicos?.medidasIniciais?.peso || ''}
+                          onChange={(e) => {
+                            const peso = parseFloat(e.target.value) || 0;
+                            const altura = pacienteEditando.dadosClinicos?.medidasIniciais?.altura || 0;
+                            const imc = altura > 0 ? (peso / Math.pow(altura / 100, 2)).toFixed(2) : 0;
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                medidasIniciais: {
+                                  ...pacienteEditando.dadosClinicos?.medidasIniciais,
+                                  peso,
+                                  imc: parseFloat(imc.toString())
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Altura (cm)</label>
+                        <input
+                          type="number"
+                          min="120"
+                          max="230"
+                          value={pacienteEditando.dadosClinicos?.medidasIniciais?.altura || ''}
+                          onChange={(e) => {
+                            const altura = parseFloat(e.target.value) || 0;
+                            const peso = pacienteEditando.dadosClinicos?.medidasIniciais?.peso || 0;
+                            const imc = altura > 0 ? (peso / Math.pow(altura / 100, 2)).toFixed(2) : 0;
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                medidasIniciais: {
+                                  ...pacienteEditando.dadosClinicos?.medidasIniciais,
+                                  altura,
+                                  imc: parseFloat(imc.toString())
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">IMC (kg/m²)</label>
+                        <input
+                          type="text"
+                          value={pacienteEditando.dadosClinicos?.medidasIniciais?.imc?.toFixed(2) || ''}
+                          readOnly
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-600 bg-gray-50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Circunf. Abdominal (cm)</label>
+                        <input
+                          type="number"
+                          min="40"
+                          max="200"
+                          value={pacienteEditando.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                medidasIniciais: {
+                                  ...pacienteEditando.dadosClinicos?.medidasIniciais,
+                                  circunferenciaAbdominal: parseFloat(e.target.value) || 0
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2.2 Diagnóstico Principal */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.2 Diagnóstico Principal</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="dm2"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'dm2'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'dm2' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Diabetes mellitus tipo 2 (DM2)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="obesidade"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'obesidade'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'obesidade' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Obesidade (IMC ≥ 30)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="sobrepeso_comorbidade"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'sobrepeso_comorbidade'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'sobrepeso_comorbidade' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Sobrepeso com comorbidade (IMC 27-29,9 + comorbidade)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="pre_diabetes"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'pre_diabetes'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'pre_diabetes' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Pré-diabetes (IFG/ITG)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="resistencia_insulinica"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'resistencia_insulinica'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'resistencia_insulinica' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Resistência insulínica/Síndrome metabólica</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="sop_ri"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'sop_ri'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'sop_ri' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Síndrome dos ovários policísticos (SOP) com RI</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="ehna_sem_dm2"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'ehna_sem_dm2'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'ehna_sem_dm2' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Esteatose hepática não alcoólica (EHNA) sem DM2</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="diagnosticoPrincipal"
+                          value="outro"
+                          checked={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'outro'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                diagnosticoPrincipal: { tipo: 'outro' }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Outro (especificar)</span>
+                      </label>
+                      {pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'outro' && (
+                        <div className="ml-6">
+                          <input
+                            type="text"
+                            value={pacienteEditando.dadosClinicos?.diagnosticoPrincipal?.outro || ''}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  diagnosticoPrincipal: {
+                                    tipo: 'outro',
+                                    outro: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            placeholder="Especificar diagnóstico"
+                            className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                            required
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2.3 Comorbidades Associadas */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.3 Comorbidades Associadas</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.hipertensaoArterial || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  hipertensaoArterial: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Hipertensão arterial (HAS)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.dislipidemia || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  dislipidemia: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Dislipidemia (DLP)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.apneiaObstrutivaSono || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  apneiaObstrutivaSono: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Apneia obstrutiva do sono (AOS)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.esteatoseEHNA || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  esteatoseEHNA: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Esteatose/EHNA</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.doencaCardiovascular || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  doencaCardiovascular: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Doença cardiovascular (ex.: DAC, IC, AVE prévio)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.doencaRenalCronica || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  doencaRenalCronica: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Doença renal crônica (DRC)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.sop || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  sop: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">SOP</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.hipotireoidismo || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  hipotireoidismo: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Hipotireoidismo</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.asmaDPOC || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  asmaDPOC: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Asma/DPOC</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.transtornoAnsiedadeDepressao || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  transtornoAnsiedadeDepressao: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Transtorno de ansiedade/depressão</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.nenhuma || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  nenhuma: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Nenhuma</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.comorbidades?.outra || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                comorbidades: {
+                                  ...pacienteEditando.dadosClinicos?.comorbidades,
+                                  outra: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Outra (especificar)</span>
+                      </label>
+                      {pacienteEditando.dadosClinicos?.comorbidades?.outra && (
+                        <div className="ml-6">
+                          <input
+                            type="text"
+                            value={pacienteEditando.dadosClinicos?.comorbidades?.outraDescricao || ''}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  comorbidades: {
+                                    ...pacienteEditando.dadosClinicos?.comorbidades,
+                                    outraDescricao: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            placeholder="Especificar comorbidade"
+                            className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Placeholder para demais seções */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <p className="text-sm text-gray-600">
+                      Seções 2.4 a 2.11 serão implementadas em seguida.
                     </p>
                   </div>
                 </div>

@@ -58,38 +58,98 @@ export interface DadosIdentificacao {
 
 // Pasta 2: Dados Clínicos da Anamnese
 export interface DadosClinicos {
-  diagnosticoPrincipal?: string; // Diabetes tipo 2, Obesidade, Pré-diabetes, etc.
-  imcInicial?: {
-    peso: number; // kg
-    altura: number; // m
-    imc: number; // calculado
+  // 2.1 Medidas iniciais
+  medidasIniciais?: {
+    peso: number; // kg (20-400)
+    altura: number; // cm (120-230)
+    imc: number; // calculado automaticamente
+    circunferenciaAbdominal: number; // cm (40-200)
   };
-  circunferenciaAbdominal?: number; // cm
+  
+  // 2.2 Diagnóstico principal
+  diagnosticoPrincipal?: {
+    tipo: 'dm2' | 'obesidade' | 'sobrepeso_comorbidade' | 'pre_diabetes' | 'resistencia_insulinica' | 'sop_ri' | 'ehna_sem_dm2' | 'outro';
+    outro?: string; // obrigatório se tipo='outro'
+  };
+  
+  // 2.3 Comorbidades associadas
   comorbidades: {
     hipertensaoArterial?: boolean;
     dislipidemia?: boolean;
-    apneiaSono?: boolean;
-    esteatoseHepatica?: boolean;
-    sop?: boolean; // Síndrome dos ovários policísticos
-    outras?: string[];
+    apneiaObstrutivaSono?: boolean;
+    esteatoseEHNA?: boolean;
+    doencaCardiovascular?: boolean;
+    doencaRenalCronica?: boolean;
+    sop?: boolean;
+    hipotireoidismo?: boolean;
+    asmaDPOC?: boolean;
+    transtornoAnsiedadeDepressao?: boolean;
+    nenhuma?: boolean;
+    outra?: boolean;
+    outraDescricao?: string;
   };
-  medicacoesUsoAtual?: string[];
-  alergias?: string[];
-  historicoPancreatico?: {
-    pancreatitePrevia: boolean;
-    observacoes?: string;
+  
+  // 2.4 Medicações em uso atual
+  medicacoesUsoAtual?: Medicacao[];
+  
+  // 2.5 Alergias
+  alergias?: {
+    semAlergias?: boolean;
+    medicamentosa?: {
+      farmaco: string;
+      reacao: string;
+    };
+    alimento?: string;
+    latexAdesivo?: string;
   };
-  gastroparesia?: boolean;
-  historicoFamiliarCMT?: boolean; // Carcinoma medular de tireoide
-  historicoTireoide?: string;
-  doencaRenal?: {
-    tem: boolean;
-    estagio?: 'G1' | 'G2' | 'G3a' | 'G3b' | 'G4' | 'G5';
+  
+  // 2.6 Riscos e condições que impactam a tirzepatida
+  riscos?: {
+    pancreatitePrevia: 'sim' | 'nao';
+    gastroparesia: 'sim' | 'nao';
+    historicoCMT_MEN2: 'sim' | 'nao' | 'desconheco';
+    gestacao: 'sim' | 'nao' | 'desconheco';
+    lactacao: 'sim' | 'nao';
   };
-  gestacaoLactacao?: {
-    gestacao: boolean;
-    lactacao: boolean;
+  
+  // 2.7 História tireoidiana
+  historiaTireoidiana?: 'eutireoidismo' | 'hipotireoidismo_tratado' | 'nodulo_bocio' | 'tireoidite_previa' | 'cmt_confirmado' | 'outro';
+  historiaTireoidianaOutro?: string;
+  
+  // 2.8 Função renal
+  funcaoRenal?: {
+    egfr?: number; // ml/min/1,73m²
+    estagioDRC?: 'G1' | 'G2' | 'G3a' | 'G3b' | 'G4' | 'G5' | 'desconheco';
   };
+  
+  // 2.9 Estilo de vida (movido para Pasta 3)
+  
+  // 2.10 Sintomas basais relacionados ao trato GI
+  sintomasGI?: {
+    plenitudePosPrandial?: boolean;
+    nauseaLeve?: boolean;
+    constipacao?: boolean;
+    refluxoPirose?: boolean;
+    nenhum?: boolean;
+  };
+  
+  // 2.11 Objetivos do tratamento
+  objetivosTratamento?: {
+    perdaPeso10Porcento?: boolean;
+    hba1cMenor68?: boolean;
+    reducaoCircunferencia10cm?: boolean;
+    remissaoPreDiabetes?: boolean;
+    melhoraEHNA?: boolean;
+    outro?: boolean;
+    outroDescricao?: string;
+  };
+}
+
+export interface Medicacao {
+  categoria: 'metformina' | 'sglt2i' | 'insulina' | 'statina' | 'anti_hipertensivo' | 'antidepressivo' | 'outro';
+  nomeFarmaco: string;
+  dose: string;
+  frequencia: string;
 }
 
 // Pasta 3: Estilo de Vida
