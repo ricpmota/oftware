@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { DoctorProfile } from '@/types/doctor';
+import { PatientProvider } from '@/contexts/PatientContext';
 import Navigation from '@/components/Navigation';
 import Home from '@/components/Home';
 import Refraction from '@/components/Refraction';
@@ -179,42 +180,44 @@ export default function OftalmoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Content Area */}
-      <div className="pb-20">
-        {activeTab === 'home' && (
-          <Home 
-            doctorProfile={doctorProfile}
-            onEditProfile={handleEditProfile}
-            onLogout={handleLogout}
-          />
-        )}
-        
-        {activeTab === 'refraction' && (
-          <Refraction 
-            doctorProfile={doctorProfile}
-          />
-        )}
-        
-        {activeTab === 'glaucoma' && (
-          <Glaucoma />
-        )}
-        
-        {activeTab === 'retina' && (
-          <Retina />
-        )}
-        
-        {activeTab === 'patients' && (
-          <Patients />
-        )}
-      </div>
+    <PatientProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Content Area */}
+        <div className="pb-20">
+          {activeTab === 'home' && (
+            <Home 
+              doctorProfile={doctorProfile}
+              onEditProfile={handleEditProfile}
+              onLogout={handleLogout}
+            />
+          )}
+          
+          {activeTab === 'refraction' && (
+            <Refraction 
+              doctorProfile={doctorProfile}
+            />
+          )}
+          
+          {activeTab === 'glaucoma' && (
+            <Glaucoma />
+          )}
+          
+          {activeTab === 'retina' && (
+            <Retina />
+          )}
+          
+          {activeTab === 'patients' && (
+            <Patients />
+          )}
+        </div>
 
-      {/* Bottom Navigation */}
-      <Navigation 
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-      />
-    </div>
+        {/* Bottom Navigation */}
+        <Navigation 
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
+      </div>
+    </PatientProvider>
   );
 }
 
