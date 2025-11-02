@@ -126,6 +126,15 @@ export default function MetaAdminPage() {
   const [pastaAtiva, setPastaAtiva] = useState<number>(1);
   const [graficoAtivoPasta6, setGraficoAtivoPasta6] = useState<'peso' | 'circunferencia' | 'hba1c'>('peso');
   const [indicadorAtivoPasta9, setIndicadorAtivoPasta9] = useState<'paciente' | 'adesao'>('paciente');
+  // Estados para Pasta 4 (Exames Laboratoriais)
+  const [exameDataSelecionada, setExameDataSelecionada] = useState<string>('');
+  const [showAdicionarExameModal, setShowAdicionarExameModal] = useState(false);
+  const [novoExameData, setNovoExameData] = useState<{
+    dataColeta: string;
+    [key: string]: any;
+  }>({
+    dataColeta: new Date().toISOString().split('T')[0]
+  });
   const [showAdicionarSeguimentoModal, setShowAdicionarSeguimentoModal] = useState(false);
   const [showEditarSeguimentoModal, setShowEditarSeguimentoModal] = useState(false);
   const [seguimentoEditando, setSeguimentoEditando] = useState<any>(null);
@@ -7306,24 +7315,110 @@ export default function MetaAdminPage() {
 
               {pastaAtiva === 4 && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Exames Laboratoriais Basais</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Exames Laboratoriais</h3>
+                    <button
+                      onClick={() => {
+                        setShowAdicionarExameModal(true);
+                        // Inicializar novo exame com a estrutura vazia
+                        setNovoExameData({
+                          dataColeta: new Date().toISOString().split('T')[0]
+                        });
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                    >
+                      <Plus size={16} />
+                      Adicionar Exames
+                    </button>
+                  </div>
                   
                   {/* Mapeamento entre campos do paciente e chaves de labRanges */}
                   {(() => {
                     const pacienteSex = pacienteEditando?.dadosIdentificacao?.sexoBiologico as Sex;
                     const exames = pacienteEditando?.examesLaboratoriais || [];
-                    const primeiroExame = exames[0] || {};
+                    
+                    // Ordenar exames por data (mais recente primeiro)
+                    const examesOrdenados = [...exames].sort((a, b) => {
+                      const dateA = new Date(a.dataColeta).getTime();
+                      const dateB = new Date(b.dataColeta).getTime();
+                      return dateB - dateA;
+                    });
+                    
+                    // Inicializar data selecionada com o exame mais recente (se não estiver definida)
+                    const dataInicial = examesOrdenados.length > 0 
+                      ? new Date(examesOrdenados[0].dataColeta).toISOString().split('T')[0]
+                      : '';
+                    
+                    const dataSelecionada = exameDataSelecionada || dataInicial;
+                    
+                    // Encontrar exame da data selecionada
+                    const exameSelecionado = exames.find(e => {
+                      const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                      return dataExame === dataSelecionada;
+                    }) || examesOrdenados[0] || {};
+                    
+                    // Preparar dados para gráfico de linha (todos os exames ao longo do tempo)
+                    const dadosGrafico = examesOrdenados.map(exame => {
+                      const dataExame = new Date(exame.dataColeta).toISOString().split('T')[0];
+                      return {
+                        data: dataExame,
+                        glicemiaJejum: exame.glicemiaJejum || null,
+                        hemoglobinaGlicada: exame.hemoglobinaGlicada || null,
+                        ureia: exame.ureia || null,
+                        creatinina: exame.creatinina || null,
+                        taxaFiltracaoGlomerular: exame.taxaFiltracaoGlomerular || null,
+                        tgp: exame.tgp || null,
+                        tgo: exame.tgo || null,
+                        amilase: exame.amilase || null,
+                        lipase: exame.lipase || null,
+                        colesterolTotal: exame.colesterolTotal || null,
+                        ldl: exame.ldl || null,
+                        hdl: exame.hdl || null,
+                        triglicerides: exame.triglicerides || null,
+                        tsh: exame.tsh || null,
+                        calcitonina: exame.calcitonina || null
+                      };
+                    }).reverse(); // Mais antigo primeiro para o gráfico
                     
                     return (
-                      <div className="space-y-6">
-                        {/* Metabolismo Glicídico */}
-                        <div className="border border-gray-200 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-800 mb-4">Metabolismo Glicídico</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Coluna 1: Seleção de data e inputs */}
+                        <div className="space-y-6">
+                          {/* Seletor de Data */}
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Selecionar Exame por Data
+                            </label>
+                            <select
+                              value={dataSelecionada}
+                              onChange={(e) => {
+                                setExameDataSelecionada(e.target.value);
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                            >
+                              {examesOrdenados.map((exame, idx) => {
+                                const dataExame = new Date(exame.dataColeta).toISOString().split('T')[0];
+                                const dataFormatada = new Date(exame.dataColeta).toLocaleDateString('pt-BR');
+                                return (
+                                  <option key={idx} value={dataExame}>
+                                    {idx === 0 ? '🏥 Basal' : '📅'} {dataFormatada}
+                                  </option>
+                                );
+                              })}
+                              {examesOrdenados.length === 0 && (
+                                <option value="">Nenhum exame cadastrado</option>
+                              )}
+                            </select>
+                          </div>
+                          
+                          {/* Metabolismo Glicídico */}
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="font-semibold text-gray-800 mb-4">Metabolismo Glicídico</h4>
+                            <div className="space-y-4">
                             {(['fastingGlucose', 'hba1c'] as const).map((key) => {
                               const range = getLabRange(key, pacienteSex);
                               if (!range) return null;
-                              const value = key === 'fastingGlucose' ? primeiroExame.glicemiaJejum : primeiroExame.hemoglobinaGlicada;
+                              const value = key === 'fastingGlucose' ? exameSelecionado.glicemiaJejum : exameSelecionado.hemoglobinaGlicada;
                               return (
                                 <div key={key}>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -7365,14 +7460,14 @@ export default function MetaAdminPage() {
                         {/* Função Renal */}
                         <div className="border border-gray-200 rounded-lg p-4">
                           <h4 className="font-semibold text-gray-800 mb-4">Função Renal</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             {(['urea', 'creatinine', 'egfr'] as const).map((key) => {
                               const range = getLabRange(key, pacienteSex);
                               if (!range) return null;
                               let value: number | undefined;
-                              if (key === 'urea') value = primeiroExame.ureia;
-                              else if (key === 'creatinine') value = primeiroExame.creatinina;
-                              else if (key === 'egfr') value = primeiroExame.taxaFiltracaoGlomerular;
+                              if (key === 'urea') value = exameSelecionado.ureia;
+                              else if (key === 'creatinine') value = exameSelecionado.creatinina;
+                              else if (key === 'egfr') value = exameSelecionado.taxaFiltracaoGlomerular;
                               return (
                                 <div key={key}>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -7421,15 +7516,15 @@ export default function MetaAdminPage() {
                         {/* Função Hepática */}
                         <div className="border border-gray-200 rounded-lg p-4">
                           <h4 className="font-semibold text-gray-800 mb-4">Função Hepática e Biliar</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             {(['alt', 'ast', 'ggt', 'alp'] as const).map((key) => {
                               const range = getLabRange(key, pacienteSex);
                               if (!range) return null;
                               let value: number | undefined;
-                              if (key === 'alt') value = primeiroExame.tgp;
-                              else if (key === 'ast') value = primeiroExame.tgo;
-                              else if (key === 'ggt') value = primeiroExame.ggt;
-                              else if (key === 'alp') value = primeiroExame.fosfataseAlcalina;
+                              if (key === 'alt') value = exameSelecionado.tgp;
+                              else if (key === 'ast') value = exameSelecionado.tgo;
+                              else if (key === 'ggt') value = exameSelecionado.ggt;
+                              else if (key === 'alp') value = exameSelecionado.fosfataseAlcalina;
                               return (
                                 <div key={key}>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -7477,11 +7572,11 @@ export default function MetaAdminPage() {
                         {/* Pâncreas */}
                         <div className="border border-gray-200 rounded-lg p-4">
                           <h4 className="font-semibold text-gray-800 mb-4">Pâncreas</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             {(['amylase', 'lipase'] as const).map((key) => {
                               const range = getLabRange(key, pacienteSex);
                               if (!range) return null;
-                              const value = key === 'amylase' ? primeiroExame.amilase : primeiroExame.lipase;
+                              const value = key === 'amylase' ? exameSelecionado.amilase : exameSelecionado.lipase;
                               const rangeMax = getLabRange(key, pacienteSex);
                               return (
                                 <div key={key}>
@@ -7527,15 +7622,15 @@ export default function MetaAdminPage() {
                         {/* Perfil Lipídico */}
                         <div className="border border-gray-200 rounded-lg p-4">
                           <h4 className="font-semibold text-gray-800 mb-4">Perfil Lipídico</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             {(['cholTotal', 'ldl', 'hdl', 'tg'] as const).map((key) => {
                               const range = getLabRange(key, pacienteSex);
                               if (!range) return null;
                               let value: number | undefined;
-                              if (key === 'cholTotal') value = primeiroExame.colesterolTotal;
-                              else if (key === 'ldl') value = primeiroExame.ldl;
-                              else if (key === 'hdl') value = primeiroExame.hdl;
-                              else if (key === 'tg') value = primeiroExame.triglicerides;
+                              if (key === 'cholTotal') value = exameSelecionado.colesterolTotal;
+                              else if (key === 'ldl') value = exameSelecionado.ldl;
+                              else if (key === 'hdl') value = exameSelecionado.hdl;
+                              else if (key === 'tg') value = exameSelecionado.triglicerides;
                               return (
                                 <div key={key}>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -7583,11 +7678,11 @@ export default function MetaAdminPage() {
                         {/* Tireoide */}
                         <div className="border border-gray-200 rounded-lg p-4">
                           <h4 className="font-semibold text-gray-800 mb-4">Tireóide / Rastreio MEN2</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             {(['tsh', 'calcitonin'] as const).map((key) => {
                               const range = getLabRange(key, pacienteSex);
                               if (!range) return null;
-                              const value = key === 'tsh' ? primeiroExame.tsh : primeiroExame.calcitonina;
+                              const value = key === 'tsh' ? exameSelecionado.tsh : exameSelecionado.calcitonina;
                               return (
                                 <div key={key}>
                                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -7626,6 +7721,93 @@ export default function MetaAdminPage() {
                                 </div>
                               );
                             })}
+                          </div>
+                        </div>
+                        </div>
+                        
+                        {/* Coluna 2: Gráfico de Evolução */}
+                        <div className="space-y-6">
+                          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <h4 className="font-semibold text-gray-800 mb-4">📈 Evolução Temporal dos Exames</h4>
+                            {dadosGrafico.length > 0 ? (
+                              <div className="space-y-6">
+                                {/* Gráfico de HbA1c */}
+                                {dadosGrafico.some(d => d.hemoglobinaGlicada !== null) && (
+                                  <div>
+                                    <h5 className="text-sm font-medium text-gray-700 mb-2">HbA1c (%)</h5>
+                                    <TrendLine
+                                      data={dadosGrafico}
+                                      dataKeys={[
+                                        { key: 'hemoglobinaGlicada', name: 'HbA1c', stroke: '#8b5cf6', dot: true }
+                                      ]}
+                                      xKey="data"
+                                      height={200}
+                                      xAxisLabel="Data"
+                                      yAxisLabel="HbA1c (%)"
+                                      formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)}%` : 'N/A'}
+                                    />
+                                  </div>
+                                )}
+                                
+                                {/* Gráfico de Glicemia de Jejum */}
+                                {dadosGrafico.some(d => d.glicemiaJejum !== null) && (
+                                  <div>
+                                    <h5 className="text-sm font-medium text-gray-700 mb-2">Glicemia de Jejum (mg/dL)</h5>
+                                    <TrendLine
+                                      data={dadosGrafico}
+                                      dataKeys={[
+                                        { key: 'glicemiaJejum', name: 'Glicemia Jejum', stroke: '#10b981', dot: true }
+                                      ]}
+                                      xKey="data"
+                                      height={200}
+                                      xAxisLabel="Data"
+                                      yAxisLabel="Glicemia (mg/dL)"
+                                      formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(0)} mg/dL` : 'N/A'}
+                                    />
+                                  </div>
+                                )}
+                                
+                                {/* Gráfico de Creatinina */}
+                                {dadosGrafico.some(d => d.creatinina !== null) && (
+                                  <div>
+                                    <h5 className="text-sm font-medium text-gray-700 mb-2">Creatinina (mg/dL)</h5>
+                                    <TrendLine
+                                      data={dadosGrafico}
+                                      dataKeys={[
+                                        { key: 'creatinina', name: 'Creatinina', stroke: '#f59e0b', dot: true }
+                                      ]}
+                                      xKey="data"
+                                      height={200}
+                                      xAxisLabel="Data"
+                                      yAxisLabel="Creatinina (mg/dL)"
+                                      formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(2)} mg/dL` : 'N/A'}
+                                    />
+                                  </div>
+                                )}
+                                
+                                {/* Gráfico de eGFR */}
+                                {dadosGrafico.some(d => d.taxaFiltracaoGlomerular !== null) && (
+                                  <div>
+                                    <h5 className="text-sm font-medium text-gray-700 mb-2">Taxa de Filtração Glomerular (mL/min/1,73m²)</h5>
+                                    <TrendLine
+                                      data={dadosGrafico}
+                                      dataKeys={[
+                                        { key: 'taxaFiltracaoGlomerular', name: 'eGFR', stroke: '#3b82f6', dot: true }
+                                      ]}
+                                      xKey="data"
+                                      height={200}
+                                      xAxisLabel="Data"
+                                      yAxisLabel="eGFR (mL/min)"
+                                      formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)} mL/min` : 'N/A'}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-center text-gray-500 py-8">
+                                Adicione exames para visualizar a evolução temporal
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -9464,6 +9646,149 @@ export default function MetaAdminPage() {
                 className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
                 {loadingPacientes ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Adicionar Exame Laboratorial */}
+      {showAdicionarExameModal && pacienteEditando && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Adicionar Novo Exame Laboratorial</h2>
+              <button
+                onClick={() => {
+                  setShowAdicionarExameModal(false);
+                  setNovoExameData({ dataColeta: new Date().toISOString().split('T')[0] });
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Data de Coleta */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Data de Coleta *</label>
+                <input
+                  type="date"
+                  value={novoExameData.dataColeta}
+                  onChange={(e) => setNovoExameData({ ...novoExameData, dataColeta: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+
+              {/* Todos os campos de exame */}
+              {(() => {
+                const pacienteSex = pacienteEditando?.dadosIdentificacao?.sexoBiologico as Sex;
+                const camposExame = [
+                  // Metabolismo Glicídico
+                  { key: 'fastingGlucose', label: 'Glicemia de Jejum', field: 'glicemiaJejum', unit: 'mg/dL' },
+                  { key: 'hba1c', label: 'Hemoglobina Glicada (HbA1c)', field: 'hemoglobinaGlicada', unit: '%' },
+                  // Função Renal
+                  { key: 'urea', label: 'Uréia', field: 'ureia', unit: 'mg/dL' },
+                  { key: 'creatinine', label: 'Creatinina', field: 'creatinina', unit: 'mg/dL' },
+                  { key: 'egfr', label: 'Taxa de Filtração Glomerular (eGFR)', field: 'taxaFiltracaoGlomerular', unit: 'mL/min/1,73m²' },
+                  // Função Hepática
+                  { key: 'alt', label: 'TGP (ALT)', field: 'tgp', unit: 'U/L' },
+                  { key: 'ast', label: 'TGO (AST)', field: 'tgo', unit: 'U/L' },
+                  { key: 'ggt', label: 'GGT', field: 'ggt', unit: 'U/L' },
+                  { key: 'alp', label: 'Fosfatase Alcalina', field: 'fosfataseAlcalina', unit: 'U/L' },
+                  // Pâncreas
+                  { key: 'amylase', label: 'Amilase', field: 'amilase', unit: 'U/L' },
+                  { key: 'lipase', label: 'Lipase', field: 'lipase', unit: 'U/L' },
+                  // Perfil Lipídico
+                  { key: 'cholTotal', label: 'Colesterol Total', field: 'colesterolTotal', unit: 'mg/dL' },
+                  { key: 'ldl', label: 'LDL', field: 'ldl', unit: 'mg/dL' },
+                  { key: 'hdl', label: 'HDL', field: 'hdl', unit: 'mg/dL' },
+                  { key: 'tg', label: 'Triglicerídeos', field: 'triglicerides', unit: 'mg/dL' },
+                  // Tireoide
+                  { key: 'tsh', label: 'TSH', field: 'tsh', unit: 'mUI/L' },
+                  { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina', unit: 'pg/mL' }
+                ];
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {camposExame.map((campo) => {
+                      const range = getLabRange(campo.key as any, pacienteSex);
+                      if (!range) return null;
+                      return (
+                        <div key={campo.field}>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {range.label}
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={novoExameData[campo.field] || ''}
+                            onChange={(e) => {
+                              const numValue = parseFloat(e.target.value) || 0;
+                              setNovoExameData({
+                                ...novoExameData,
+                                [campo.field]: numValue > 0 ? numValue : undefined
+                              });
+                            }}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                            placeholder={`${range.min}-${range.max} ${range.unit}`}
+                          />
+                          {novoExameData[campo.field] && (
+                            <LabRangeBar range={range} value={novoExameData[campo.field]} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowAdicionarExameModal(false);
+                  setNovoExameData({ dataColeta: new Date().toISOString().split('T')[0] });
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (!pacienteEditando || !novoExameData.dataColeta) return;
+                  
+                  // Criar novo exame
+                  const novoExame = {
+                    id: 'temp-' + Date.now(),
+                    dataColeta: new Date(novoExameData.dataColeta),
+                    ...Object.fromEntries(
+                      Object.entries(novoExameData).filter(([key, value]) => key !== 'dataColeta' && value !== undefined && value !== '')
+                    )
+                  };
+                  
+                  // Adicionar ao array de exames
+                  const examesAtualizados = [...(pacienteEditando.examesLaboratoriais || []), novoExame];
+                  
+                  setPacienteEditando({
+                    ...pacienteEditando,
+                    examesLaboratoriais: examesAtualizados
+                  });
+                  
+                  // Atualizar data selecionada para o novo exame
+                  setExameDataSelecionada(novoExameData.dataColeta);
+                  
+                  // Fechar modal e limpar
+                  setShowAdicionarExameModal(false);
+                  setNovoExameData({ dataColeta: new Date().toISOString().split('T')[0] });
+                }}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Salvar Exame
               </button>
             </div>
           </div>
