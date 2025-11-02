@@ -26,7 +26,7 @@ import { LabRangeBar } from '@/components/LabRangeBar';
 import { labRanges, getLabRange, labOrderBySection, Sex } from '@/types/labRanges';
 import { AlertBadges } from '@/components/AlertBadges';
 import { ProgressPill } from '@/components/ProgressPill';
-import { buildExpectedCurve, varianceStatus, CarePlan } from '@/utils/expectedCurve';
+import { buildExpectedCurve, buildExpectedCurveDoseDriven, buildSuggestedDoseSchedule, varianceStatus, CarePlan } from '@/utils/expectedCurve';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function MetaAdminPage() {
@@ -8780,27 +8780,22 @@ export default function MetaAdminPage() {
                     // Construir care plan a partir dos dados existentes
                     const baselineWeight = medidasIniciais?.peso || 0;
                     const metaPeso = planoTerapeutico?.metas?.weightLossTargetType === 'PERCENTUAL' 
-                      ? planoTerapeutico?.metas?.weightLossTargetValue || 10
-                      : 0;
+                      ? planoTerapeutico?.metas?.weightLossTargetValue || 0
+                      : planoTerapeutico?.metas?.weightLossTargetValue || 0;
                     
-                    const carePlan: CarePlan = {
-                      startDate: planoTerapeutico?.startDate 
-                        ? new Date(planoTerapeutico.startDate).toISOString() 
-                        : new Date().toISOString(),
+                    // Usar modelo dose-driven: schedule sugerido de titulação
+                    const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
+                    
+                    const expectedCurve = buildExpectedCurveDoseDriven({
                       baselineWeightKg: baselineWeight,
-                      targetType: planoTerapeutico?.metas?.weightLossTargetType === 'PESO_ABSOLUTO' 
-                        ? 'PESO_ABSOLUTO' 
-                        : 'PERCENTUAL',
-                      targetValue: planoTerapeutico?.metas?.weightLossTargetValue || metaPeso,
-                      targetWeeks: 24,
-                      expectedModel: 'PIECEWISE',
-                      doseSchedule: []
-                    };
-                    
-                    const expectedCurve = buildExpectedCurve(carePlan);
+                      doseSchedule: suggestedSchedule,
+                      totalWeeks: 52,
+                      targetType: planoTerapeutico?.metas?.weightLossTargetType,
+                      targetValue: metaPeso
+                    });
                     
                     // Preparar dados para o gráfico
-                    const chartData = expectedCurve.slice(0, Math.min(24, evolucao.length + 12)).map((week, idx) => {
+                    const chartData = expectedCurve.slice(0, Math.min(52, evolucao.length + 12)).map((week, idx) => {
                       const registroSemana = evolucao.find(e => e.weekIndex === week.weekIndex);
                       return {
                         semana: week.weekIndex,
@@ -8878,10 +8873,12 @@ export default function MetaAdminPage() {
                               const expectedWeek = expectedCurve.find(e => e.weekIndex === registro.weekIndex);
                               const varianceKg = expectedWeek && registro.peso 
                                 ? registro.peso - expectedWeek.expectedWeightKg 
-                                : 0;
+                                : null;
                               const status = varianceStatus(varianceKg);
                               
-                              const startDate = new Date(carePlan.startDate);
+                              const planoTerapeutico = pacienteEditando?.planoTerapeutico;
+                              const startDateStr = planoTerapeutico?.startDate || new Date();
+                              const startDate = new Date(startDateStr);
                               const weekStart = new Date(startDate.getTime() + (registro.weekIndex - 1) * 7 * 24 * 60 * 60 * 1000);
                               const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
                               

@@ -1,9 +1,9 @@
 'use client';
 
-import { getVarianceColorClasses } from '@/utils/expectedCurve';
+import { varianceStatus, getVarianceColorClasses } from '@/utils/expectedCurve';
 
 interface ProgressPillProps {
-  varianceKg: number;
+  varianceKg: number | null;
   expectedWeight: number;
   actualWeight: number;
 }
@@ -12,7 +12,7 @@ interface ProgressPillProps {
  * Componente que renderiza o desvio de peso com indicação visual de cor
  */
 export function ProgressPill({ varianceKg, expectedWeight, actualWeight }: ProgressPillProps) {
-  const status = Math.abs(varianceKg) <= 0.3 ? 'GREEN' : Math.abs(varianceKg) <= 1.0 ? 'YELLOW' : 'RED';
+  const status = varianceStatus(varianceKg);
   const colorClasses = getVarianceColorClasses(status);
   
   const formatNumber = (num: number) => num.toFixed(1);
@@ -23,9 +23,13 @@ export function ProgressPill({ varianceKg, expectedWeight, actualWeight }: Progr
         Peso real: <span className="font-semibold">{formatNumber(actualWeight)} kg</span> • 
         Peso previsto: <span className="font-semibold">{formatNumber(expectedWeight)} kg</span>
       </div>
-      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${colorClasses}`}>
-        Δ = {varianceKg > 0 ? '+' : ''}{formatNumber(varianceKg)} kg
-      </div>
+      {varianceKg !== null ? (
+        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${colorClasses}`}>
+          Δ = {varianceKg > 0 ? '+' : ''}{varianceKg} kg
+        </div>
+      ) : (
+        <div className="text-xs text-gray-400">Sem comparação</div>
+      )}
     </div>
   );
 }
