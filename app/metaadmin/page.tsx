@@ -29,7 +29,8 @@ import { ProgressPill } from '@/components/ProgressPill';
 import { buildExpectedCurve, buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, varianceStatus, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 import { alertEngine, isDoseUpgradeBlocked, getSuggestedAction, getSeverityClasses } from '@/utils/alertEngine';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Info, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Info, AlertTriangle, AlertCircle, CheckCircle2, Send } from 'lucide-react';
+import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -138,6 +139,15 @@ export default function MetaAdminPage() {
     observacoesPaciente: '',
     comentarioMedico: ''
   });
+  
+  // Estados para mensagens aos pacientes (Pasta 8)
+  const [novaMensagemPaciente, setNovaMensagemPaciente] = useState({
+    titulo: '',
+    mensagem: '',
+    tipo: 'clinico' as 'clinico' | 'alerta' | 'orientacao' | 'revisao'
+  });
+  const [mensagensPaciente, setMensagensPaciente] = useState<PacienteMensagem[]>([]);
+  const [loadingMensagens, setLoadingMensagens] = useState(false);
   
   const router = useRouter();
 
@@ -629,6 +639,75 @@ export default function MetaAdminPage() {
     }
   };
 
+  // Função para carregar mensagens do paciente (Pasta 8)
+  const loadMensagensPaciente = useCallback(async () => {
+    if (!pacienteEditando?.email) return;
+    
+    setLoadingMensagens(true);
+    try {
+      const mensagensData = await PacienteMensagemService.getMensagensPaciente(pacienteEditando.email);
+      setMensagensPaciente(mensagensData.filter(m => !m.deletada));
+    } catch (error) {
+      console.error('Erro ao carregar mensagens do paciente:', error);
+      setMensagensPaciente([]);
+    } finally {
+      setLoadingMensagens(false);
+    }
+  }, [pacienteEditando?.email]);
+
+  // Função para enviar mensagem ao paciente
+  const handleEnviarMensagemPaciente = async () => {
+    if (!pacienteEditando || !user || !novaMensagemPaciente.titulo.trim() || !novaMensagemPaciente.mensagem.trim()) {
+      setMessage('Título e mensagem são obrigatórios');
+      return;
+    }
+
+    setLoadingMensagens(true);
+    
+    try {
+      await PacienteMensagemService.criarMensagem({
+        pacienteId: pacienteEditando.id,
+        pacienteEmail: pacienteEditando.email,
+        titulo: novaMensagemPaciente.titulo.trim(),
+        mensagem: novaMensagemPaciente.mensagem.trim(),
+        tipo: novaMensagemPaciente.tipo,
+        lida: false,
+        criadoPor: user.email
+      });
+      
+      setMessage('Mensagem enviada com sucesso!');
+      setNovaMensagemPaciente({ titulo: '', mensagem: '', tipo: 'clinico' });
+      await loadMensagensPaciente();
+      
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      setMessage('Erro ao enviar mensagem. Tente novamente.');
+    } finally {
+      setLoadingMensagens(false);
+    }
+  };
+
+  // Função para deletar mensagem do paciente
+  const handleDeletarMensagemPaciente = async (mensagemId: string) => {
+    if (!confirm('Tem certeza que deseja deletar esta mensagem?')) {
+      return;
+    }
+
+    setLoadingMensagens(true);
+    
+    try {
+      await PacienteMensagemService.deletarMensagem(mensagemId);
+      setMessage('Mensagem deletada com sucesso!');
+      await loadMensagensPaciente();
+      
+    } catch (error) {
+      console.error('Erro ao deletar mensagem:', error);
+      setMessage('Erro ao deletar mensagem.');
+    } finally {
+      setLoadingMensagens(false);
+    }
+  };
+
   // Função para marcar mensagem do residente como lida
   const handleMarcarMensagemResidenteComoLida = async (mensagemId: string) => {
     try {
@@ -803,6 +882,13 @@ export default function MetaAdminPage() {
       loadMensagensResidentes();
     }
   }, [user, activeMenu, loadMensagens, loadMensagensResidentes]);
+
+  // Carregar mensagens do paciente quando a Pasta 8 estiver ativa
+  useEffect(() => {
+    if (pacienteEditando && showEditarPacienteModal) {
+      loadMensagensPaciente();
+    }
+  }, [pacienteEditando, showEditarPacienteModal, loadMensagensPaciente]);
 
   const handleAprovarTroca = async (trocaId: string) => {
     try {
@@ -9480,9 +9566,117 @@ export default function MetaAdminPage() {
 
               {pastaAtiva === 8 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Comunicação e Registro</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Comunicação e Registro</h3>
+                    <button
+                      onClick={() => loadMensagensPaciente()}
+                      className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-2"
+                    >
+                      <RefreshCw size={16} />
+                      Atualizar
+                    </button>
+                  </div>
+
+                  {/* Formulário para enviar nova mensagem */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Enviar Mensagem ao Paciente</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                        <input
+                          type="text"
+                          value={novaMensagemPaciente.titulo}
+                          onChange={(e) => setNovaMensagemPaciente({ ...novaMensagemPaciente, titulo: e.target.value })}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          placeholder="Ex: Lembrete de consulta"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Mensagem</label>
+                        <select
+                          value={novaMensagemPaciente.tipo}
+                          onChange={(e) => setNovaMensagemPaciente({ ...novaMensagemPaciente, tipo: e.target.value as any })}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="clinico">Clínico</option>
+                          <option value="alerta">Alerta</option>
+                          <option value="orientacao">Orientação</option>
+                          <option value="revisao">Revisão</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem *</label>
+                        <textarea
+                          value={novaMensagemPaciente.mensagem}
+                          onChange={(e) => setNovaMensagemPaciente({ ...novaMensagemPaciente, mensagem: e.target.value })}
+                          rows={4}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          placeholder="Digite sua mensagem..."
+                        />
+                      </div>
+                      
+                      <button
+                        onClick={handleEnviarMensagemPaciente}
+                        disabled={loadingMensagens}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <Send size={16} />
+                        {loadingMensagens ? 'Enviando...' : 'Enviar Mensagem'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Histórico de mensagens */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-900">Histórico de Mensagens</h4>
+                    {loadingMensagens && mensagensPaciente.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                        <RefreshCw className="mx-auto animate-spin text-gray-400 mb-2" />
+                        <p className="text-gray-600">Carregando mensagens...</p>
+                      </div>
+                    ) : mensagensPaciente.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                        <MessageSquare size={48} className="mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-600">Nenhuma mensagem enviada ainda</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {mensagensPaciente.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`border rounded-lg p-3 ${msg.lida ? 'bg-gray-50' : 'bg-blue-50'}`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-semibold text-gray-900">{msg.titulo}</span>
+                                  <span className="px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300">
+                                    {msg.tipo}
+                                  </span>
+                                  {!msg.lida && (
+                                    <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
+                                      Não lida
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-700 mb-2">{msg.mensagem}</p>
+                                <p className="text-xs text-gray-500">
+                                  {new Date(msg.criadoEm).toLocaleDateString('pt-BR')}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleDeletarMensagemPaciente(msg.id)}
+                                className="ml-2 text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
