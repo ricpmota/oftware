@@ -8806,7 +8806,7 @@ export default function MetaAdminPage() {
                     
                     return (
                       <div className="space-y-6">
-                        {/* Painel superior com gráfico */}
+                        {/* Painel superior com gráficos */}
                         {baselineWeight > 0 ? (
                           <div className="border border-gray-200 rounded-lg p-6 bg-white">
                             <div className="mb-4">
@@ -8817,33 +8817,59 @@ export default function MetaAdminPage() {
                                 Peso inicial: {baselineWeight.toFixed(1)} kg
                               </p>
                             </div>
-                            <div className="h-64">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={chartData}>
-                                  <CartesianGrid strokeDasharray="3 3" />
-                                  <XAxis dataKey="semana" label={{ value: 'Semana', position: 'insideBottom', offset: -10 }} />
-                                  <YAxis label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }} />
-                                  <Tooltip />
-                                  <Legend />
-                                  <Line 
-                                    type="monotone" 
-                                    dataKey="previsto" 
-                                    stroke="#3b82f6" 
-                                    strokeWidth={2}
-                                    name="Peso previsto"
-                                    dot={{ fill: '#3b82f6', r: 4 }}
-                                  />
-                                  <Line 
-                                    type="monotone" 
-                                    dataKey="real" 
-                                    stroke="#10b981" 
-                                    strokeWidth={2}
-                                    name="Peso real"
-                                    dot={{ fill: '#10b981', r: 4 }}
-                                  />
-                                </LineChart>
-                              </ResponsiveContainer>
-                            </div>
+                            
+                            {(() => {
+                              // Calcular range dinâmico do eixo Y
+                              const realWeights = chartData.filter(d => d.real !== null).map(d => d.real as number);
+                              const previstoWeights = chartData.map(d => d.previsto);
+                              const allWeights = [...realWeights, ...previstoWeights];
+                              
+                              const minWeight = Math.min(...allWeights);
+                              const maxWeight = Math.max(...allWeights);
+                              const range = maxWeight - minWeight;
+                              
+                              const domainMin = Math.max(0, minWeight - range * 0.1);
+                              const domainMax = maxWeight + range * 0.1;
+                              
+                              return (
+                                <div className="h-64">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData}>
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis 
+                                        dataKey="semana" 
+                                        label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                                      />
+                                      <YAxis 
+                                        label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }}
+                                        domain={[domainMin, domainMax]}
+                                      />
+                                      <Tooltip 
+                                        formatter={(value: any) => `${parseFloat(value).toFixed(1)} kg`}
+                                        labelFormatter={(label) => `Semana ${label}`}
+                                      />
+                                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="previsto" 
+                                        stroke="#3b82f6" 
+                                        strokeWidth={2}
+                                        name="Peso previsto"
+                                        dot={{ fill: '#3b82f6', r: 3 }}
+                                      />
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="real" 
+                                        stroke="#10b981" 
+                                        strokeWidth={2}
+                                        name="Peso real"
+                                        dot={{ fill: '#10b981', r: 4 }}
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              );
+                            })()}
                           </div>
                         ) : (
                           <div className="border border-gray-200 rounded-lg p-6 bg-amber-50">
@@ -8871,9 +8897,12 @@ export default function MetaAdminPage() {
                           ) : (
                             evolucao.map((registro, idx) => {
                               const expectedWeek = expectedCurve.find(e => e.weekIndex === registro.weekIndex);
-                              const varianceKg = expectedWeek && registro.peso 
-                                ? registro.peso - expectedWeek.expectedWeightKg 
-                                : null;
+                              // No primeiro registro (weekIndex 1), delta é sempre 0
+                              const varianceKg = registro.weekIndex === 1 
+                                ? 0 
+                                : (expectedWeek && registro.peso 
+                                  ? registro.peso - expectedWeek.expectedWeightKg 
+                                  : null);
                               const status = varianceStatus(varianceKg);
                               
                               const planoTerapeutico = pacienteEditando?.planoTerapeutico;
@@ -8885,24 +8914,24 @@ export default function MetaAdminPage() {
                               return (
                                 <div 
                                   key={registro.id} 
-                                  className={`border-2 rounded-lg p-4 ${
+                                  className={`border-2 rounded-lg p-4 bg-white ${
                                     idx % 2 === 0 ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-green-500'
                                   }`}
                                 >
-                                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                    {/* Cabeçalho */}
+                                  {/* Cabeçalho */}
+                                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3 pb-3 border-b border-gray-200">
                                     <div>
                                       <div className="flex items-center gap-2 mb-2">
-                                        <span className="font-semibold text-gray-900">
+                                        <span className="font-bold text-gray-900">
                                           Semana {registro.weekIndex}
                                         </span>
                                         <span className="text-xs text-gray-500">
-                                          ({weekStart.toLocaleDateString('pt-BR')} a {weekEnd.toLocaleDateString('pt-BR')})
+                                          ({weekStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} a {weekEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })})
                                         </span>
                                       </div>
                                       {registro.doseAplicada && (
-                                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium mb-2">
-                                          Dose {registro.doseAplicada.quantidade} mg
+                                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                                          💉 Dose {registro.doseAplicada.quantidade} mg
                                         </span>
                                       )}
                                     </div>
@@ -8919,48 +8948,73 @@ export default function MetaAdminPage() {
                                     )}
                                   </div>
                                   
-                                  {/* Adesão e sintomas */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 text-sm">
-                                    <div>
-                                      <span className="text-gray-700">Adesão: </span>
-                                      <span className={`font-medium ${
+                                  {/* Adesão, Sintomas e Medidas */}
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                    <div className="col-span-2 md:col-span-1">
+                                      <span className="text-xs text-gray-500 block mb-1">Adesão</span>
+                                      <span className={`text-sm font-semibold ${
                                         registro.adherence === 'ON_TIME' || registro.adesao === 'pontual' 
-                                          ? 'text-green-700' 
+                                          ? 'text-green-600' 
                                           : registro.adherence === 'MISSED' || registro.adesao === 'esquecida'
-                                          ? 'text-red-700'
-                                          : 'text-yellow-700'
+                                          ? 'text-red-600'
+                                          : 'text-yellow-600'
                                       }`}>
-                                        {registro.adherence || registro.adesao || 'Não informado'}
+                                        {registro.adherence === 'ON_TIME' ? '⏰ Pontual' :
+                                         registro.adherence === 'LATE_<96H' ? '⚠️ Atrasada' :
+                                         registro.adherence === 'MISSED' ? '❌ Perdida' :
+                                         registro.adesao === 'pontual' ? '⏰ Pontual' :
+                                         registro.adesao === 'atrasada' ? '⚠️ Atrasada' :
+                                         registro.adesao === 'esquecida' ? '❌ Perdida' :
+                                         '❓ Não informado'}
                                       </span>
                                     </div>
+                                    
                                     {registro.giSeverity && (
-                                      <div>
-                                        <span className="text-gray-700">Efeitos GI: </span>
-                                        <span className={`font-medium ${
-                                          registro.giSeverity === 'LEVE' ? 'text-green-700' :
-                                          registro.giSeverity === 'MODERADO' ? 'text-yellow-700' :
-                                          'text-red-700'
+                                      <div className="col-span-2 md:col-span-1">
+                                        <span className="text-xs text-gray-500 block mb-1">Efeitos GI</span>
+                                        <span className={`text-sm font-semibold ${
+                                          registro.giSeverity === 'LEVE' ? 'text-green-600' :
+                                          registro.giSeverity === 'MODERADO' ? 'text-yellow-600' :
+                                          'text-red-600'
                                         }`}>
-                                          {registro.giSeverity}
+                                          {registro.giSeverity === 'LEVE' ? '✅ Leve' :
+                                           registro.giSeverity === 'MODERADO' ? '⚠️ Moderado' :
+                                           '❌ Grave'}
                                         </span>
                                       </div>
                                     )}
+                                    
                                     {registro.localAplicacao && (
-                                      <div>
-                                        <span className="text-gray-700">Local: </span>
-                                        <span className="text-gray-900 capitalize">{registro.localAplicacao}</span>
+                                      <div className="col-span-2 md:col-span-1">
+                                        <span className="text-xs text-gray-500 block mb-1">Local aplicação</span>
+                                        <span className="text-sm font-semibold text-gray-900 capitalize">
+                                          {registro.localAplicacao === 'abdome' ? '📍 Abdome' :
+                                           registro.localAplicacao === 'coxa' ? '📍 Coxa' :
+                                           '📍 Braço'}
+                                        </span>
+                                      </div>
+                                    )}
+                                    
+                                    {registro.circunferenciaAbdominal && (
+                                      <div className="col-span-2 md:col-span-1">
+                                        <span className="text-xs text-gray-500 block mb-1">Circunferência</span>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                          {registro.circunferenciaAbdominal.toFixed(1)} cm
+                                        </span>
                                       </div>
                                     )}
                                   </div>
                                   
                                   {/* Alertas */}
                                   {registro.alerts && registro.alerts.length > 0 && (
-                                    <AlertBadges alerts={registro.alerts} />
+                                    <div className="mb-3">
+                                      <AlertBadges alerts={registro.alerts} />
+                                    </div>
                                   )}
                                   
                                   {/* Observações */}
                                   {(registro.observacoesPaciente || registro.comentarioMedico) && (
-                                    <div className="mt-4 space-y-2">
+                                    <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
                                       {registro.observacoesPaciente && (
                                         <div className="text-sm">
                                           <span className="font-medium text-gray-700">Paciente: </span>

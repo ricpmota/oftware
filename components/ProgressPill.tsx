@@ -16,16 +16,17 @@ export function ProgressPill({ varianceKg, expectedWeight, actualWeight }: Progr
   const colorClasses = getVarianceColorClasses(status);
   
   const formatNumber = (num: number) => num.toFixed(1);
+  const formatVariance = (num: number) => num.toFixed(1); // 3 dígitos total (um após vírgula)
   
   return (
     <div className="space-y-1">
-      <div className="text-sm text-gray-700">
-        Peso real: <span className="font-semibold">{formatNumber(actualWeight)} kg</span> • 
-        Peso previsto: <span className="font-semibold">{formatNumber(expectedWeight)} kg</span>
+      <div className="text-xs text-gray-600">
+        Real: <span className="font-semibold text-gray-900">{formatNumber(actualWeight)} kg</span> • 
+        Previsto: <span className="font-semibold text-gray-900">{formatNumber(expectedWeight)} kg</span>
       </div>
       {varianceKg !== null ? (
-        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${colorClasses}`}>
-          Δ = {varianceKg > 0 ? '+' : ''}{varianceKg} kg
+        <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorClasses}`}>
+          Δ = {varianceKg > 0 ? '+' : ''}{formatVariance(varianceKg)} kg
         </div>
       ) : (
         <div className="text-xs text-gray-400">Sem comparação</div>
