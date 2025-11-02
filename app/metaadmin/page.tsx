@@ -31,6 +31,9 @@ import { alertEngine, isDoseUpgradeBlocked, getSuggestedAction, getSeverityClass
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Info, AlertTriangle, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
+import KpiCard from '@/components/KpiCard';
+import TrendLine from '@/components/TrendLine';
+import StackedBars from '@/components/StackedBars';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -122,6 +125,7 @@ export default function MetaAdminPage() {
   const [pacienteEditando, setPacienteEditando] = useState<PacienteCompleto | null>(null);
   const [pastaAtiva, setPastaAtiva] = useState<number>(1);
   const [graficoAtivoPasta6, setGraficoAtivoPasta6] = useState<'peso' | 'circunferencia' | 'hba1c'>('peso');
+  const [indicadorAtivoPasta9, setIndicadorAtivoPasta9] = useState<'paciente' | 'adesao'>('paciente');
   const [showAdicionarSeguimentoModal, setShowAdicionarSeguimentoModal] = useState(false);
   const [showEditarSeguimentoModal, setShowEditarSeguimentoModal] = useState(false);
   const [seguimentoEditando, setSeguimentoEditando] = useState<any>(null);
@@ -9332,6 +9336,91 @@ export default function MetaAdminPage() {
                                 <p className="text-xs text-gray-500 italic">Sem dados metabólicos disponíveis</p>
                               )}
                             </div>
+                          </div>
+                        </div>
+
+                        {/* Tabs para gráficos adicionais */}
+                        <div className="border border-gray-200 rounded-lg bg-white">
+                          <div className="flex border-b border-gray-200">
+                            <button
+                              onClick={() => setIndicadorAtivoPasta9('paciente')}
+                              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                                indicadorAtivoPasta9 === 'paciente'
+                                  ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                              }`}
+                            >
+                              📊 Adesão por Semana
+                            </button>
+                            <button
+                              onClick={() => setIndicadorAtivoPasta9('adesao')}
+                              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                                indicadorAtivoPasta9 === 'adesao'
+                                  ? 'bg-green-50 text-green-700 border-b-2 border-green-700'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                              }`}
+                            >
+                              📈 Evolução Peso
+                            </button>
+                          </div>
+
+                          <div className="p-6">
+                            {indicadorAtivoPasta9 === 'paciente' && (
+                              <div>
+                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Taxa de Adesão por Semana</h4>
+                                {evolucao.length > 0 ? (
+                                  <StackedBars
+                                    data={evolucao.map(r => ({
+                                      semana: r.weekIndex,
+                                      pontual: r.adherence === 'ON_TIME' || r.adesao === 'pontual' ? 1 : 0,
+                                      atrasado: r.adherence === 'LATE_<96H' || (r.adherence && r.adherence !== 'ON_TIME' && r.adherence !== 'MISSED' && r.adesao && r.adesao !== 'pontual' && r.adesao !== 'esquecida') ? 1 : 0,
+                                      esquecido: r.adherence === 'MISSED' || r.adesao === 'esquecida' ? 1 : 0
+                                    }))}
+                                    dataKeys={[
+                                      { key: 'pontual', name: 'Pontual', color: '#10b981' },
+                                      { key: 'atrasado', name: 'Atrasado', color: '#f59e0b' },
+                                      { key: 'esquecido', name: 'Esquecido', color: '#ef4444' }
+                                    ]}
+                                    xKey="semana"
+                                    height={300}
+                                    xAxisLabel="Semana"
+                                    yAxisLabel="Registros"
+                                  />
+                                ) : (
+                                  <p className="text-center text-gray-500 py-8">Sem dados de adesão disponíveis</p>
+                                )}
+                              </div>
+                            )}
+
+                            {indicadorAtivoPasta9 === 'adesao' && (
+                              <div>
+                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Evolução de Peso: Real vs. Previsto</h4>
+                                {evolucao.length > 0 && baselineWeight > 0 ? (
+                                  <TrendLine
+                                    data={evolucao.map(r => {
+                                      const expectedWeek = expectedCurve.find(e => e.weekIndex === r.weekIndex);
+                                      return {
+                                        semana: r.weekIndex,
+                                        real: r.peso,
+                                        previsto: expectedWeek?.expectedWeightKg
+                                      };
+                                    })}
+                                    dataKeys={[
+                                      { key: 'real', name: 'Peso Real', stroke: '#10b981', dot: true },
+                                      { key: 'previsto', name: 'Peso Previsto', stroke: '#3b82f6', strokeDasharray: '5 5', dot: false }
+                                    ]}
+                                    xKey="semana"
+                                    height={300}
+                                    xAxisLabel="Semana"
+                                    yAxisLabel="Peso (kg)"
+                                    domain={[baselineWeight - 20, baselineWeight + 20]}
+                                    formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)} kg` : 'N/A'}
+                                  />
+                                ) : (
+                                  <p className="text-center text-gray-500 py-8">Sem dados de peso disponíveis</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
