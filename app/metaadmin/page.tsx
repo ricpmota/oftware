@@ -108,6 +108,9 @@ export default function MetaAdminPage() {
     telefone: '',
     cpf: ''
   });
+  const [showEditarPacienteModal, setShowEditarPacienteModal] = useState(false);
+  const [pacienteEditando, setPacienteEditando] = useState<PacienteCompleto | null>(null);
+  const [pastaAtiva, setPastaAtiva] = useState<number>(1);
   
   const router = useRouter();
 
@@ -713,7 +716,8 @@ export default function MetaAdminPage() {
             leve: 0
           }
         },
-        status: 'ativo' as const
+        status: 'ativo' as const,
+        statusTratamento: 'pendente' as const
       };
 
       const pacienteId = await PacienteService.createOrUpdatePaciente(pacienteData);
@@ -1702,6 +1706,9 @@ export default function MetaAdminPage() {
                         Data de Cadastro
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
@@ -1725,9 +1732,32 @@ export default function MetaAdminPage() {
                             {paciente.dataCadastro?.toLocaleDateString('pt-BR') || '-'}
                           </div>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            (paciente.statusTratamento || 'pendente') === 'em_tratamento'
+                              ? 'bg-green-100 text-green-800'
+                              : (paciente.statusTratamento || 'pendente') === 'concluido'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {(paciente.statusTratamento || 'pendente') === 'em_tratamento'
+                              ? 'Em Tratamento'
+                              : (paciente.statusTratamento || 'pendente') === 'concluido'
+                              ? 'Concluído'
+                              : 'Pendente'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button className="text-green-600 hover:text-green-900 mr-4">
-                            Ver Detalhes
+                          <button
+                            onClick={() => {
+                              setPacienteEditando(paciente);
+                              setShowEditarPacienteModal(true);
+                              setPastaAtiva(1);
+                            }}
+                            className="text-green-600 hover:text-green-900 mr-4 flex items-center"
+                          >
+                            <Edit size={16} className="mr-1" />
+                            Editar
                           </button>
                         </td>
                       </tr>
@@ -4764,6 +4794,302 @@ export default function MetaAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Editar Paciente com 9 Pastas */}
+      {showEditarPacienteModal && pacienteEditando && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Editar Paciente</h2>
+                <p className="text-sm text-gray-500 mt-1">{pacienteEditando.nome}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <select
+                  value={pacienteEditando.statusTratamento || 'pendente'}
+                  onChange={(e) => {
+                    setPacienteEditando({
+                      ...pacienteEditando,
+                      statusTratamento: e.target.value as 'pendente' | 'em_tratamento' | 'concluido'
+                    });
+                  }}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="pendente">Pendente</option>
+                  <option value="em_tratamento">Em Tratamento</option>
+                  <option value="concluido">Concluído</option>
+                </select>
+                <button
+                  onClick={() => {
+                    setShowEditarPacienteModal(false);
+                    setPacienteEditando(null);
+                    setPastaAtiva(1);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs das 9 Pastas */}
+            <div className="flex border-b border-gray-200 overflow-x-auto">
+              {[
+                { id: 1, nome: 'Dados de Identificação' },
+                { id: 2, nome: 'Dados Clínicos' },
+                { id: 3, nome: 'Estilo de Vida' },
+                { id: 4, nome: 'Exames Laboratoriais' },
+                { id: 5, nome: 'Plano Terapêutico' },
+                { id: 6, nome: 'Evolução/Seguimento' },
+                { id: 7, nome: 'Alertas e Eventos' },
+                { id: 8, nome: 'Comunicação' },
+                { id: 9, nome: 'Indicadores' }
+              ].map((pasta) => (
+                <button
+                  key={pasta.id}
+                  onClick={() => setPastaAtiva(pasta.id)}
+                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    pastaAtiva === pasta.id
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Pasta {pasta.id}: {pasta.nome}
+                </button>
+              ))}
+            </div>
+
+            {/* Conteúdo da Pasta Ativa */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {pastaAtiva === 1 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados de Identificação</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
+                      <input
+                        type="text"
+                        value={pacienteEditando.dadosIdentificacao?.nomeCompleto || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              nomeCompleto: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={pacienteEditando.dadosIdentificacao?.email || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              email: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
+                      <input
+                        type="tel"
+                        value={pacienteEditando.dadosIdentificacao?.telefone || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              telefone: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
+                      <input
+                        type="text"
+                        value={pacienteEditando.dadosIdentificacao?.cpf || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              cpf: e.target.value
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Data de Nascimento</label>
+                      <input
+                        type="date"
+                        value={pacienteEditando.dadosIdentificacao?.dataNascimento ? new Date(pacienteEditando.dadosIdentificacao.dataNascimento).toISOString().split('T')[0] : ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              dataNascimento: e.target.value ? new Date(e.target.value) : undefined
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Sexo Biológico</label>
+                      <select
+                        value={pacienteEditando.dadosIdentificacao?.sexoBiologico || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              sexoBiologico: e.target.value as 'M' | 'F' | 'Outro' | undefined
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      >
+                        <option value="">Selecione</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Feminino</option>
+                        <option value="Outro">Outro</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 2 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados Clínicos da Anamnese</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      Formulário completo será implementado em seguida. Por enquanto, esta pasta está em desenvolvimento.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 3 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Estilo de Vida</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 4 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Exames Laboratoriais</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 5 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Plano Terapêutico</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 6 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Evolução / Seguimento Semanal</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 7 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Alertas e Eventos Importantes</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 8 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Comunicação e Registro</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  </div>
+                </div>
+              )}
+
+              {pastaAtiva === 9 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados Derivados / Indicadores</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer com botões */}
+            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowEditarPacienteModal(false);
+                  setPacienteEditando(null);
+                  setPastaAtiva(1);
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!pacienteEditando) return;
+                  setLoadingPacientes(true);
+                  try {
+                    await PacienteService.createOrUpdatePaciente(pacienteEditando);
+                    await loadPacientes();
+                    setShowEditarPacienteModal(false);
+                    setPacienteEditando(null);
+                    setPastaAtiva(1);
+                    setMessage('Paciente atualizado com sucesso!');
+                  } catch (error) {
+                    console.error('Erro ao atualizar paciente:', error);
+                    setMessage('Erro ao atualizar paciente');
+                  } finally {
+                    setLoadingPacientes(false);
+                  }
+                }}
+                disabled={loadingPacientes}
+                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {loadingPacientes ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
           </div>
         </div>
       )}

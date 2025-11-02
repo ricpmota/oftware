@@ -76,10 +76,15 @@ export default function AdminPage() {
   const [showMensagemEnviadaModal, setShowMensagemEnviadaModal] = useState(false);
   const [mensagemEnviadaSelecionada, setMensagemEnviadaSelecionada] = useState<Mensagem | null>(null);
   
+  // Estados para modais de cadastro
+  const [showCadastrarResidenteModal, setShowCadastrarResidenteModal] = useState(false);
+  const [showCadastrarLocalModal, setShowCadastrarLocalModal] = useState(false);
+  const [showCadastrarServicoModal, setShowCadastrarServicoModal] = useState(false);
+  
   const router = useRouter();
 
   // Form states
-  const [newResidente, setNewResidente] = useState({ nome: '', nivel: 'R1' as 'R1' | 'R2' | 'R3', email: '' });
+  const [newResidente, setNewResidente] = useState({ nome: '', nivel: 'R1' as 'R1' | 'R2' | 'R3', email: '', telefone: '' });
   const [newLocal, setNewLocal] = useState({ nome: '' });
   const [newServico, setNewServico] = useState({ nome: '', localId: '' });
   
@@ -665,7 +670,8 @@ export default function AdminPage() {
       await UserService.addResidente(newResidente);
       console.log('UserService.addResidente concluído com sucesso');
       
-      setNewResidente({ nome: '', nivel: 'R1', email: '' });
+      setNewResidente({ nome: '', nivel: 'R1', email: '', telefone: '' });
+      setShowCadastrarResidenteModal(false);
       await loadData();
       setMessage('Residente adicionado com sucesso!');
     } catch (error) {
@@ -682,6 +688,7 @@ export default function AdminPage() {
     try {
       await UserService.addLocal(newLocal);
       setNewLocal({ nome: '' });
+      setShowCadastrarLocalModal(false);
       loadData();
       setMessage('Local adicionado com sucesso!');
     } catch (error) {
@@ -695,6 +702,7 @@ export default function AdminPage() {
     try {
       await UserService.addServico(newServico);
       setNewServico({ nome: '', localId: '' });
+      setShowCadastrarServicoModal(false);
       loadData();
       setMessage('Serviço adicionado com sucesso!');
     } catch (error) {
@@ -1335,7 +1343,16 @@ export default function AdminPage() {
         
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Residentes</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Residentes</h2>
+              <button
+                onClick={() => setShowCadastrarResidenteModal(true)}
+                className="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <UserPlus size={16} className="mr-2" />
+                Adicionar Residente
+              </button>
+            </div>
             
             {/* Lista de Residentes por Nível */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1459,7 +1476,15 @@ export default function AdminPage() {
       case 'cadastrar-residente':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Cadastrar Residente</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Cadastrar Residente</h2>
+              <button
+                onClick={() => setActiveMenu('residentes')}
+                className="flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                ← Voltar para Residentes
+              </button>
+            </div>
             <form onSubmit={handleAddResidente} className="bg-white shadow rounded-lg p-6">
               <div className="grid grid-cols-1 gap-6">
                 <div>
@@ -1508,7 +1533,15 @@ export default function AdminPage() {
       case 'cadastrar-local':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Cadastrar Local</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Cadastrar Local</h2>
+              <button
+                onClick={() => setActiveMenu('locais')}
+                className="flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                ← Voltar para Locais
+              </button>
+            </div>
             <form onSubmit={handleAddLocal} className="bg-white shadow rounded-lg p-6">
               <div className="grid grid-cols-1 gap-6">
                 <div>
@@ -1535,7 +1568,16 @@ export default function AdminPage() {
               case 'locais':
                 return (
                   <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Locais</h2>
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-gray-900">Locais</h2>
+                      <button
+                        onClick={() => setShowCadastrarLocalModal(true)}
+                        className="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <MapPin size={16} className="mr-2" />
+                        Adicionar Local
+                      </button>
+                    </div>
                     <div className="bg-white shadow rounded-lg">
                       <div className="px-6 py-4 border-b border-gray-200">
                         <h3 className="text-lg font-medium text-gray-900">Lista de Locais ({locais.length})</h3>
@@ -1577,7 +1619,16 @@ export default function AdminPage() {
               case 'servicos':
                 return (
                   <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Serviços</h2>
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-gray-900">Serviços</h2>
+                      <button
+                        onClick={() => setShowCadastrarServicoModal(true)}
+                        className="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <Wrench size={16} className="mr-2" />
+                        Adicionar Serviço
+                      </button>
+                    </div>
                     <div className="bg-white shadow rounded-lg">
                       <div className="px-6 py-4 border-b border-gray-200">
                         <h3 className="text-lg font-medium text-gray-900">Lista de Serviços ({servicos.length})</h3>
@@ -1693,6 +1744,7 @@ export default function AdminPage() {
                   { key: 'domingo', nome: 'Domingo', data: datasDaSemana.domingo }
                 ];
 
+
                 return (
                   <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-900">Criar Escala Semanal</h2>
@@ -1780,7 +1832,9 @@ export default function AdminPage() {
                                             className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                                           >
                                             <option value="">Selecione um local</option>
-                                            {locais.map((local) => (
+                                            {locais
+                                              .sort((a, b) => a.nome.localeCompare(b.nome))
+                                              .map((local) => (
                                               <option key={local.id} value={local.id}>
                                                 {local.nome}
                                               </option>
@@ -1798,7 +1852,9 @@ export default function AdminPage() {
                                             disabled={!servico.localId}
                                           >
                                             <option value="">Selecione um serviço</option>
-                                            {getServicosDoLocal(servico.localId).map((serv) => (
+                                            {getServicosDoLocal(servico.localId)
+                                              .sort((a, b) => a.nome.localeCompare(b.nome))
+                                              .map((serv) => (
                                               <option key={serv.id} value={serv.id}>
                                                 {serv.nome}
                                               </option>
@@ -1809,14 +1865,30 @@ export default function AdminPage() {
                                         {/* Turno */}
                                         <div>
                                           <label className="block text-sm font-medium text-gray-700 mb-2">Turno</label>
-                                          <select
-                                            value={servico.turno}
-                                            onChange={(e) => handleServicoChange(key, servico.id, 'turno', e.target.value)}
-                                            className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                                          >
-                                            <option value="manha">Manhã</option>
-                                            <option value="tarde">Tarde</option>
-                                          </select>
+                                          <div className="space-y-2">
+                                            <label className="flex items-center">
+                                              <input
+                                                type="radio"
+                                                name={`turno-${servico.id}`}
+                                                value="manha"
+                                                checked={servico.turno === 'manha'}
+                                                onChange={(e) => handleServicoChange(key, servico.id, 'turno', e.target.value)}
+                                                className="mr-2 text-green-600 focus:ring-green-500"
+                                              />
+                                              <span className="text-sm text-gray-700">Manhã</span>
+                                            </label>
+                                            <label className="flex items-center">
+                                              <input
+                                                type="radio"
+                                                name={`turno-${servico.id}`}
+                                                value="tarde"
+                                                checked={servico.turno === 'tarde'}
+                                                onChange={(e) => handleServicoChange(key, servico.id, 'turno', e.target.value)}
+                                                className="mr-2 text-green-600 focus:ring-green-500"
+                                              />
+                                              <span className="text-sm text-gray-700">Tarde</span>
+                                            </label>
+                                          </div>
                                         </div>
                                       </div>
 
@@ -1962,6 +2034,7 @@ export default function AdminPage() {
                         ))}
                       </div>
 
+
                       <div className="mt-6">
                         <button
                           type="submit"
@@ -2014,7 +2087,9 @@ export default function AdminPage() {
                           <p className="text-gray-500 text-sm">Nenhuma escala cadastrada</p>
                         ) : (
                           <div className="space-y-4">
-                            {escalas.map((escala) => {
+                            {escalas
+                              .sort((a, b) => new Date(b.dataInicio).getTime() - new Date(a.dataInicio).getTime())
+                              .map((escala) => {
                               const isExpandida = escalasExpandidas.has(escala.id);
                               
                               return (
@@ -2973,12 +3048,12 @@ export default function AdminPage() {
                                   <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Duração:</span>
                                     <span className={`text-sm font-medium ${
-                                      Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) > 30 
+                                      Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1 > 30 
                                         ? 'text-amber-600' 
                                         : 'text-gray-900'
                                     }`}>
-                                      {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24))} dias
-                                      {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) > 30 && (
+                                      {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1} dias
+                                      {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1 > 30 && (
                                         <span className="text-xs ml-1">(Período longo)</span>
                                       )}
                                     </span>
@@ -3676,7 +3751,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
-        <div className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
+        <div className={`hidden lg:block fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
           <div className="flex flex-col h-full">
             {/* Logo e botão de toggle */}
             <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
@@ -3749,18 +3824,6 @@ export default function AdminPage() {
                 {!sidebarCollapsed && 'Residentes'}
               </button>
               <button
-                onClick={() => setActiveMenu('cadastrar-residente')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'cadastrar-residente'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Cadastrar Residente' : ''}
-              >
-                <UserPlus size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Cadastrar Residente'}
-              </button>
-              <button
                 onClick={() => setActiveMenu('locais')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'locais'
@@ -3783,30 +3846,6 @@ export default function AdminPage() {
               >
                 <Wrench size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Serviços'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('cadastrar-local')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'cadastrar-local'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Cadastrar Local' : ''}
-              >
-                <MapPin size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Cadastrar Local'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('cadastrar-servico')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'cadastrar-servico'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Cadastrar Serviço' : ''}
-              >
-                <Plus size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Cadastrar Serviço'}
               </button>
               <button
                 onClick={() => setActiveMenu('escalas')}
@@ -3897,7 +3936,27 @@ export default function AdminPage() {
           </div>
         </div>
         
-        <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+        <div className={`flex-1 transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'} overflow-x-hidden pb-20 lg:pb-0`}>
+          {/* Mobile Header - Only visible on mobile */}
+          <div className="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <img
+                  src="/icones/oftware.png"
+                  alt="Oftware Logo"
+                  className="h-8 w-8"
+                />
+                <span className="ml-2 text-lg font-semibold text-gray-900">Admin</span>
+              </div>
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+          
           <main className="p-6">
             {message && (
               <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
@@ -3914,6 +3973,7 @@ export default function AdminPage() {
         isOpen={editModal.isOpen}
         onClose={closeEditModal}
         title={`Editar ${editModal.type === 'residente' ? 'Residente' : editModal.type === 'local' ? 'Local' : editModal.type === 'servico' ? 'Serviço' : 'Escala'}`}
+        fullscreen={editModal.type === 'escala'}
       >
         {editModal.type === 'residente' && editModal.data && (
           <EditResidenteForm
@@ -3943,6 +4003,7 @@ export default function AdminPage() {
             locais={locais}
             servicos={servicos}
             residentes={residentes}
+            todasEscalas={escalas}
             onSave={handleUpdateEscala}
             onCancel={closeEditModal}
           />
@@ -4007,6 +4068,326 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de Cadastro de Residente */}
+      {showCadastrarResidenteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Cadastrar Residente</h3>
+            </div>
+            <form onSubmit={handleAddResidente} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nome</label>
+                  <input
+                    type="text"
+                    value={newResidente.nome}
+                    onChange={(e) => setNewResidente({ ...newResidente, nome: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nível</label>
+                  <select
+                    value={newResidente.nivel}
+                    onChange={(e) => setNewResidente({ ...newResidente, nivel: e.target.value as 'R1' | 'R2' | 'R3' })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="R1">R1</option>
+                    <option value="R2">R2</option>
+                    <option value="R3">R3</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={newResidente.email}
+                    onChange={(e) => setNewResidente({ ...newResidente, email: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Telefone (opcional)</label>
+                  <input
+                    type="tel"
+                    value={newResidente.telefone}
+                    onChange={(e) => setNewResidente({ ...newResidente, telefone: e.target.value })}
+                    placeholder="+5511999999999"
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCadastrarResidenteModal(false);
+                    setNewResidente({ nome: '', nivel: 'R1', email: '', telefone: '' });
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Salvando...' : 'Adicionar Residente'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cadastro de Local */}
+      {showCadastrarLocalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Cadastrar Local</h3>
+            </div>
+            <form onSubmit={handleAddLocal} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nome do Local</label>
+                  <input
+                    type="text"
+                    value={newLocal.nome}
+                    onChange={(e) => setNewLocal({ ...newLocal, nome: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCadastrarLocalModal(false);
+                    setNewLocal({ nome: '' });
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Salvando...' : 'Adicionar Local'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cadastro de Serviço */}
+      {showCadastrarServicoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Cadastrar Serviço</h3>
+            </div>
+            <form onSubmit={handleAddServico} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nome do Serviço</label>
+                  <input
+                    type="text"
+                    value={newServico.nome}
+                    onChange={(e) => setNewServico({ ...newServico, nome: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Local</label>
+                  <select
+                    value={newServico.localId}
+                    onChange={(e) => setNewServico({ ...newServico, localId: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  >
+                    <option value="">Selecione um local</option>
+                    {locais.map((local) => (
+                      <option key={local.id} value={local.id}>
+                        {local.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCadastrarServicoModal(false);
+                    setNewServico({ nome: '', localId: '' });
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Salvando...' : 'Adicionar Serviço'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Navigation - Fixed at bottom, no logout button */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
+        <div className="flex overflow-x-auto scrollbar-hide items-center py-2 px-2 space-x-1">
+          <button
+            onClick={() => setActiveMenu('estatisticas')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'estatisticas'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Estatísticas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('usuarios')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'usuarios'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Users className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Usuários</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('residentes')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'residentes'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <UserCheck className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Residentes</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('locais')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'locais'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <MapPin className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Locais</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('servicos')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'servicos'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Wrench className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Serviços</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('escalas')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'escalas'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Calendar className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Escalas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('criar-escala')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'criar-escala'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Plus className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Criar Escala</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('troca')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors relative whitespace-nowrap ${
+              activeMenu === 'troca'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <RefreshCw className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Trocas</span>
+            {notificacoesTroca > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {notificacoesTroca}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('ferias')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors relative whitespace-nowrap ${
+              activeMenu === 'ferias'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Calendar className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Férias</span>
+            {feriasPendentes.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {feriasPendentes.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('mensagens')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors relative whitespace-nowrap ${
+              activeMenu === 'mensagens'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Mensagens</span>
+            {mensagensNaoLidasResidentes > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {mensagensNaoLidasResidentes}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2 } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -60,6 +60,79 @@ export default function CenoftPage() {
     dataFim: '',
     motivo: ''
   });
+  const [showSolicitarFeriasModal, setShowSolicitarFeriasModal] = useState(false);
+  const [showEditarFeriasModal, setShowEditarFeriasModal] = useState(false);
+  const [feriasEditando, setFeriasEditando] = useState<Ferias | null>(null);
+  const [editarFerias, setEditarFerias] = useState({
+    dataInicio: '',
+    dataFim: '',
+    motivo: ''
+  });
+  const [isSubmittingFerias, setIsSubmittingFerias] = useState(false);
+  const [expandedFeriasCards, setExpandedFeriasCards] = useState<Set<string>>(new Set());
+
+  // Funções auxiliares para status das férias
+  const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    const inicio = new Date(dataInicio);
+    inicio.setHours(0, 0, 0, 0);
+    
+    const fim = new Date(dataFim);
+    fim.setHours(23, 59, 59, 999);
+    
+    if (hoje < inicio) {
+      const diasRestantes = Math.ceil((inicio.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+      return { status: 'futura', diasRestantes, cor: 'blue' };
+    } else if (hoje >= inicio && hoje <= fim) {
+      return { status: 'ativa', cor: 'green' };
+    } else {
+      return { status: 'finalizada', cor: 'gray' };
+    }
+  };
+
+  // Função auxiliar para obter escalas da semana atual
+  const getEscalasSemanaAtual = () => {
+    const hoje = new Date();
+    const inicioSemana = new Date(hoje);
+    inicioSemana.setDate(hoje.getDate() - hoje.getDay() + 1); // Segunda-feira
+    inicioSemana.setHours(0, 0, 0, 0);
+    
+    const fimSemana = new Date(inicioSemana);
+    fimSemana.setDate(inicioSemana.getDate() + 6); // Domingo
+    fimSemana.setHours(23, 59, 59, 999);
+
+    return userEscalas.filter(escala => {
+      const dataInicio = new Date(escala.dataInicio);
+      return dataInicio >= inicioSemana && dataInicio <= fimSemana;
+    });
+  };
+
+
+  // Função para abrir modal de edição de férias
+  const handleEditarFerias = (feriasItem: Ferias) => {
+    setFeriasEditando(feriasItem);
+    setEditarFerias({
+      dataInicio: feriasItem.dataInicio.toISOString().split('T')[0],
+      dataFim: feriasItem.dataFim.toISOString().split('T')[0],
+      motivo: feriasItem.motivo || ''
+    });
+    setShowEditarFeriasModal(true);
+  };
+
+  // Função para controlar expand/collapse dos cards de férias
+  const toggleFeriasCard = (feriasId: string) => {
+    setExpandedFeriasCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(feriasId)) {
+        newSet.delete(feriasId);
+      } else {
+        newSet.add(feriasId);
+      }
+      return newSet;
+    });
+  };
   
   const router = useRouter();
 
@@ -344,6 +417,17 @@ export default function CenoftPage() {
     }
   }, [user, loadData, loadTrocas, loadFerias, loadMensagens, loadMensagensEnviadas]);
 
+  // Debug: Log dos serviços carregados
+  useEffect(() => {
+    if (servicos.length > 0) {
+      console.log('=== SERVIÇOS CARREGADOS ===');
+      servicos.forEach(servico => {
+        console.log(`ID: ${servico.id}, Nome: ${servico.nome}, Local: ${servico.localId}`);
+      });
+      console.log('========================');
+    }
+  }, [servicos]);
+
   // Carregar férias quando entrar na seção de férias
   useEffect(() => {
     if (user && activeMenu === 'ferias') {
@@ -528,7 +612,9 @@ export default function CenoftPage() {
                     <tr className="border-b border-gray-100">
                       <td className="py-2 px-2 text-sm font-medium text-gray-900">Manhã</td>
                       {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((dia) => {
-                        const servicosDoDia = userEscalas.flatMap(escala => {
+                        const escalasSemanaAtual = getEscalasSemanaAtual();
+                        
+                        const servicosDoDia = escalasSemanaAtual.flatMap(escala => {
                           const diaData = escala.dias[dia as keyof typeof escala.dias];
                           if (Array.isArray(diaData)) {
                             return diaData.filter(servico => 
@@ -538,43 +624,21 @@ export default function CenoftPage() {
                           return [];
                         });
 
-                        // Verificar se o usuário tem folga neste dia/turno
-                        const temFolgaNoDia = userEscalas.some(escala => {
-                          const diaData = escala.dias[dia as keyof typeof escala.dias];
-                          if (Array.isArray(diaData)) {
-                            return diaData.some(servico => {
-                              const servicoEncontrado = servicos.find(s => s.id === servico.servicoId);
-                              const isFolga = servicoEncontrado?.nome?.toLowerCase().includes('folga');
-                              const isUserIncluded = servico.residentes.includes(user?.email || '');
-                              const isManha = servico.turno === 'manha';
-                              
-                              // Debug log mais detalhado
-                              console.log(`=== DEBUG FOLGA MANHÃ ===`);
-                              console.log(`Dia: ${dia}`);
-                              console.log(`Serviço encontrado:`, servicoEncontrado);
-                              console.log(`Nome do serviço: ${servicoEncontrado?.nome}`);
-                              console.log(`É folga: ${isFolga}`);
-                              console.log(`Usuário incluído: ${isUserIncluded}`);
-                              console.log(`É manhã: ${isManha}`);
-                              console.log(`Email do usuário: ${user?.email}`);
-                              console.log(`Residentes:`, servico.residentes);
-                              console.log(`========================`);
-                              
-                              return isUserIncluded && isManha && isFolga;
-                            });
-                          }
-                          return false;
+                        // Verificar se algum serviço é folga
+                        const servicoFolga = servicosDoDia.find(servico => {
+                          const servicoInfo = servicos.find(s => s.id === servico.servicoId);
+                          return servicoInfo?.nome?.toLowerCase().includes('folga');
                         });
 
                         return (
                           <td key={dia} className="text-center py-2 px-2">
-                            {servicosDoDia.length > 0 ? (
+                            {servicoFolga ? (
+                              <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full font-bold">
+                                F
+                              </span>
+                            ) : servicosDoDia.length > 0 ? (
                               <span className="inline-block px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                                 {servicosDoDia.length}
-                              </span>
-                            ) : temFolgaNoDia ? (
-                              <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                F
                               </span>
                             ) : (
                               <span className="text-xs text-gray-400">-</span>
@@ -586,7 +650,9 @@ export default function CenoftPage() {
                     <tr>
                       <td className="py-2 px-2 text-sm font-medium text-gray-900">Tarde</td>
                       {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((dia) => {
-                        const servicosDoDia = userEscalas.flatMap(escala => {
+                        const escalasSemanaAtual = getEscalasSemanaAtual();
+                        
+                        const servicosDoDia = escalasSemanaAtual.flatMap(escala => {
                           const diaData = escala.dias[dia as keyof typeof escala.dias];
                           if (Array.isArray(diaData)) {
                             return diaData.filter(servico => 
@@ -596,43 +662,21 @@ export default function CenoftPage() {
                           return [];
                         });
 
-                        // Verificar se o usuário tem folga neste dia/turno
-                        const temFolgaNoDia = userEscalas.some(escala => {
-                          const diaData = escala.dias[dia as keyof typeof escala.dias];
-                          if (Array.isArray(diaData)) {
-                            return diaData.some(servico => {
-                              const servicoEncontrado = servicos.find(s => s.id === servico.servicoId);
-                              const isFolga = servicoEncontrado?.nome?.toLowerCase().includes('folga');
-                              const isUserIncluded = servico.residentes.includes(user?.email || '');
-                              const isTarde = servico.turno === 'tarde';
-                              
-                              // Debug log mais detalhado
-                              console.log(`=== DEBUG FOLGA TARDE ===`);
-                              console.log(`Dia: ${dia}`);
-                              console.log(`Serviço encontrado:`, servicoEncontrado);
-                              console.log(`Nome do serviço: ${servicoEncontrado?.nome}`);
-                              console.log(`É folga: ${isFolga}`);
-                              console.log(`Usuário incluído: ${isUserIncluded}`);
-                              console.log(`É tarde: ${isTarde}`);
-                              console.log(`Email do usuário: ${user?.email}`);
-                              console.log(`Residentes:`, servico.residentes);
-                              console.log(`========================`);
-                              
-                              return isUserIncluded && isTarde && isFolga;
-                            });
-                          }
-                          return false;
+                        // Verificar se algum serviço é folga
+                        const servicoFolga = servicosDoDia.find(servico => {
+                          const servicoInfo = servicos.find(s => s.id === servico.servicoId);
+                          return servicoInfo?.nome?.toLowerCase().includes('folga');
                         });
 
                         return (
                           <td key={dia} className="text-center py-2 px-2">
-                            {servicosDoDia.length > 0 ? (
+                            {servicoFolga ? (
+                              <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full font-bold">
+                                F
+                              </span>
+                            ) : servicosDoDia.length > 0 ? (
                               <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                 {servicosDoDia.length}
-                              </span>
-                            ) : temFolgaNoDia ? (
-                              <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                F
                               </span>
                             ) : (
                               <span className="text-xs text-gray-400">-</span>
@@ -1056,8 +1100,9 @@ export default function CenoftPage() {
 
       case 'escalas': {
 
-        // Filtrar escalas baseado no toggle
-        const escalasParaExibir = showOnlyMyEscalas ? userEscalas : todasEscalas;
+        // Filtrar escalas baseado no toggle e ordenar por data de criação (decrescente)
+        const escalasParaExibir = (showOnlyMyEscalas ? userEscalas : todasEscalas)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         
         // Debug logs para verificar filtragem
         console.log('🔍 DEBUG MINHAS ESCALAS:');
@@ -1433,46 +1478,11 @@ export default function CenoftPage() {
               <h2 className="text-2xl font-bold text-gray-900">Férias</h2>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={async () => {
-                    console.log('🔄 Testando busca direta no Firebase...');
-                    try {
-                      const feriasData = await UserService.getFeriasDoUsuario(user?.email || '');
-                      console.log('📊 Resultado da busca direta:', feriasData);
-                    } catch (error) {
-                      console.error('❌ Erro na busca direta:', error);
-                    }
-                  }}
-                  className="px-3 py-2 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                  onClick={() => setShowSolicitarFeriasModal(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
                 >
-                  Testar Busca
-                </button>
-                <button
-                  onClick={async () => {
-                    console.log('🧪 Testando férias aprovadas...');
-                    try {
-                      await UserService.testarFeriasAprovadas(user?.email || '');
-                    } catch (error) {
-                      console.error('❌ Erro no teste:', error);
-                    }
-                  }}
-                  className="px-3 py-2 text-xs text-green-600 hover:text-green-800 transition-colors"
-                >
-                  Testar Aprovadas
-                </button>
-                <button
-                  onClick={async () => {
-                    console.log('🔄 Testando método alternativo...');
-                    try {
-                      const feriasData = await UserService.getFeriasDoUsuarioAlternativo(user?.email || '');
-                      console.log('📊 Resultado método alternativo:', feriasData);
-                      setFerias(feriasData);
-                    } catch (error) {
-                      console.error('❌ Erro no método alternativo:', error);
-                    }
-                  }}
-                  className="px-3 py-2 text-xs text-purple-600 hover:text-purple-800 transition-colors"
-                >
-                  Método Alt
+                  <Plus className="h-4 w-4" />
+                  <span>Solicitar Férias</span>
                 </button>
                 <button
                   onClick={() => loadFerias()}
@@ -1484,73 +1494,6 @@ export default function CenoftPage() {
               </div>
             </div>
 
-            {/* Formulário para solicitar férias */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Solicitar Férias</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Data de Início
-                  </label>
-                  <input
-                    type="date"
-                    value={novaFerias.dataInicio}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setNovaFerias({ ...novaFerias, dataInicio: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Data de Fim
-                  </label>
-                  <input
-                    type="date"
-                    value={novaFerias.dataFim}
-                    min={novaFerias.dataInicio || new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setNovaFerias({ ...novaFerias, dataFim: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
-                  />
-                </div>
-              </div>
-              
-              {/* Mostrar duração calculada */}
-              {novaFerias.dataInicio && novaFerias.dataFim && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-md">
-                  <div className="text-sm text-blue-800">
-                    <strong>Duração:</strong> {Math.ceil((new Date(novaFerias.dataFim).getTime() - new Date(novaFerias.dataInicio).getTime()) / (1000 * 60 * 60 * 24))} dias
-                    {Math.ceil((new Date(novaFerias.dataFim).getTime() - new Date(novaFerias.dataInicio).getTime()) / (1000 * 60 * 60 * 24)) > 30 && (
-                      <span className="ml-2 text-amber-600">(Período longo - será necessário confirmação)</span>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Motivo (opcional)
-                </label>
-                <textarea
-                  value={novaFerias.motivo}
-                  onChange={(e) => setNovaFerias({ ...novaFerias, motivo: e.target.value })}
-                  placeholder="Descreva o motivo das férias (ex: férias anuais, viagem, motivos pessoais...)..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <button
-                  onClick={handleSolicitarFerias}
-                  disabled={!novaFerias.dataInicio || !novaFerias.dataFim}
-                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  Solicitar Férias
-                </button>
-                <div className="text-xs text-gray-500">
-                  * As solicitações serão analisadas pela administração
-                </div>
-              </div>
-            </div>
 
             {/* Debug info - temporário */}
             {process.env.NODE_ENV === 'development' && (
@@ -1574,98 +1517,152 @@ export default function CenoftPage() {
               </div>
             )}
 
-            {/* Lista de férias */}
+            {/* Calendário de Férias */}
             {ferias.length > 0 ? (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Minhas Solicitações de Férias</h3>
-                {ferias.map((ferias) => (
-                  <div key={ferias.id} className="bg-white shadow rounded-lg border border-gray-200">
-                    <div className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-4 mb-4">
-                            <div className="flex-shrink-0">
-                              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                                <Calendar className="h-5 w-5 text-orange-600" />
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-gray-900">Minhas Férias</h3>
+                
+                {/* Cards de Férias em formato de calendário */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {ferias.map((feriasItem) => {
+                    const statusInfo = getFeriasStatus(feriasItem.dataInicio, feriasItem.dataFim);
+                    const duracao = Math.ceil((feriasItem.dataFim.getTime() - feriasItem.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    
+                    return (
+                      <div key={feriasItem.id} className="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
+                        {/* Header do card com status visual */}
+                        <div className={`h-2 bg-${statusInfo.cor}-500`}></div>
+                        
+                        <div className="p-6">
+                          {/* Cabeçalho compacto com seta de expansão */}
+                          <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleFeriasCard(feriasItem.id)}>
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-8 h-8 bg-${statusInfo.cor}-100 rounded-full flex items-center justify-center`}>
+                                <Calendar className={`h-4 w-4 text-${statusInfo.cor}-600`} />
+                              </div>
+                              <div>
+                                <h4 className="text-base font-medium text-gray-900">
+                                  {feriasItem.dataInicio.toLocaleDateString('pt-BR')} - {feriasItem.dataFim.toLocaleDateString('pt-BR')}
+                                </h4>
+                                <p className="text-sm text-gray-500">
+                                  {duracao} dias • {statusInfo.status === 'futura' && `Faltam ${statusInfo.diasRestantes} dias`}
+                                  {statusInfo.status === 'ativa' && 'De férias'}
+                                  {statusInfo.status === 'finalizada' && 'Finalizada'}
+                                </p>
                               </div>
                             </div>
-                            <div>
-                              <h4 className="text-lg font-medium text-gray-900">
-                                Férias #{ferias.id}
-                              </h4>
-                              <p className="text-sm text-gray-500">
-                                Solicitado em {ferias.createdAt.toLocaleDateString('pt-BR')}
-                              </p>
+                            
+                            {/* Status badge e controles */}
+                            <div className="flex items-center space-x-2">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                feriasItem.status === 'aprovada' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : feriasItem.status === 'rejeitada'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {feriasItem.status === 'aprovada' ? 'Aprovada' : 
+                                 feriasItem.status === 'rejeitada' ? 'Rejeitada' : 'Pendente'}
+                              </span>
+                              
+                              {/* Botão de editar - só aparece se não for férias finalizadas */}
+                              {statusInfo.status !== 'finalizada' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Previne o clique no card
+                                    handleEditarFerias(feriasItem);
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                  title="Editar férias"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                              
+                              {/* Seta de expansão */}
+                              <button
+                                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                title={expandedFeriasCards.has(feriasItem.id) ? 'Recolher' : 'Expandir'}
+                              >
+                                <svg 
+                                  className={`w-4 h-4 transform transition-transform ${expandedFeriasCards.has(feriasItem.id) ? 'rotate-180' : ''}`} 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <h5 className="text-sm font-medium text-gray-700 mb-3">Detalhes da Férias</h5>
-                              <div className="space-y-2">
-                                <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Data de Início:</span>
-                                  <span className="text-sm font-medium text-gray-900">{ferias.dataInicio.toLocaleDateString('pt-BR')}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Data de Fim:</span>
-                                  <span className="text-sm font-medium text-gray-900">{ferias.dataFim.toLocaleDateString('pt-BR')}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Duração:</span>
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24))} dias
-                                  </span>
-                                </div>
+                          {/* Conteúdo expandível */}
+                          {expandedFeriasCards.has(feriasItem.id) && (
+                            <>
+                              {/* Barra de progresso visual */}
+                              <div className="mb-4">
+                            <div className="flex justify-between text-sm text-gray-600 mb-2">
+                              <span>Período</span>
+                              <span>{duracao} dias</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div 
+                                className={`h-3 rounded-full bg-${statusInfo.cor}-500 transition-all duration-300`}
+                                style={{ width: '100%' }}
+                              ></div>
+                            </div>
+                          </div>
+
+                          {/* Informações de status */}
+                          <div className="space-y-3">
+                            {/* Status atual */}
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <span className="text-sm font-medium text-gray-700">Status Atual:</span>
+                              <div className="flex items-center space-x-2">
+                                <div className={`w-2 h-2 bg-${statusInfo.cor}-500 rounded-full`}></div>
+                                <span className={`text-sm font-medium text-${statusInfo.cor}-700`}>
+                                  {statusInfo.status === 'futura' && `Faltam ${statusInfo.diasRestantes} dias`}
+                                  {statusInfo.status === 'ativa' && 'De férias'}
+                                  {statusInfo.status === 'finalizada' && 'Acabou'}
+                                </span>
                               </div>
                             </div>
 
-                            <div>
-                              <h5 className="text-sm font-medium text-gray-700 mb-3">Status e Motivo</h5>
-                              <div className="space-y-2">
-                                <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Status:</span>
-                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                    ferias.status === 'aprovada' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : ferias.status === 'rejeitada'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {ferias.status === 'aprovada' ? 'Aprovada' : 
-                                     ferias.status === 'rejeitada' ? 'Rejeitada' : 'Pendente'}
-                                  </span>
-                                </div>
-                                {ferias.motivo && (
-                                  <div>
-                                    <span className="text-sm text-gray-500">Motivo:</span>
-                                    <p className="text-sm text-gray-700 mt-1">{ferias.motivo}</p>
-                                  </div>
-                                )}
-                                {ferias.observacoes && (
-                                  <div>
-                                    <span className="text-sm text-gray-500">Observações:</span>
-                                    <p className="text-sm text-gray-700 mt-1">{ferias.observacoes}</p>
-                                  </div>
-                                )}
-                                {(ferias.aprovadoPor || ferias.rejeitadoPor) && (
-                                  <div className="flex justify-between">
-                                    <span className="text-sm text-gray-500">
-                                      {ferias.aprovadoPor ? 'Aprovado por:' : 'Rejeitado por:'}
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {ferias.aprovadoPor || ferias.rejeitadoPor}
-                                    </span>
-                                  </div>
-                                )}
+                            {/* Motivo se houver */}
+                            {feriasItem.motivo && (
+                              <div className="p-3 bg-blue-50 rounded-lg">
+                                <span className="text-sm font-medium text-gray-700">Motivo:</span>
+                                <p className="text-sm text-gray-600 mt-1">{feriasItem.motivo}</p>
                               </div>
-                            </div>
+                            )}
+
+                            {/* Observações se houver */}
+                            {feriasItem.observacoes && (
+                              <div className="p-3 bg-amber-50 rounded-lg">
+                                <span className="text-sm font-medium text-gray-700">Observações:</span>
+                                <p className="text-sm text-gray-600 mt-1">{feriasItem.observacoes}</p>
+                              </div>
+                            )}
+
+                            {/* Aprovado/Rejeitado por */}
+                            {(feriasItem.aprovadoPor || feriasItem.rejeitadoPor) && (
+                              <div className="p-3 bg-green-50 rounded-lg">
+                                <span className="text-sm font-medium text-gray-700">
+                                  {feriasItem.aprovadoPor ? 'Aprovado por:' : 'Rejeitado por:'}
+                                </span>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {feriasItem.aprovadoPor || feriasItem.rejeitadoPor}
+                                </p>
+                              </div>
+                            )}
                           </div>
+                            </>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="bg-white shadow rounded-lg p-6">
@@ -1675,6 +1672,178 @@ export default function CenoftPage() {
                   <p className="text-gray-500">
                     Você ainda não fez nenhuma solicitação de férias.
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* Modal para solicitar férias */}
+            {showSolicitarFeriasModal && (
+              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Solicitar Férias</h3>
+                      <button
+                        onClick={() => setShowSolicitarFeriasModal(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-6 w-6" />
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Data de Início
+                        </label>
+                        <input
+                          type="date"
+                          value={novaFerias.dataInicio}
+                          min={new Date().toISOString().split('T')[0]}
+                          onChange={(e) => setNovaFerias({ ...novaFerias, dataInicio: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Data de Fim
+                        </label>
+                        <input
+                          type="date"
+                          value={novaFerias.dataFim}
+                          min={novaFerias.dataInicio || new Date().toISOString().split('T')[0]}
+                          onChange={(e) => setNovaFerias({ ...novaFerias, dataFim: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+                        />
+                      </div>
+                      
+                      {/* Mostrar duração calculada */}
+                      {novaFerias.dataInicio && novaFerias.dataFim && (
+                        <div className="p-3 bg-blue-50 rounded-md">
+                          <div className="text-sm text-blue-800">
+                            <strong>Duração:</strong> {Math.ceil((new Date(novaFerias.dataFim).getTime() - new Date(novaFerias.dataInicio).getTime()) / (1000 * 60 * 60 * 24)) + 1} dias
+                            {Math.ceil((new Date(novaFerias.dataFim).getTime() - new Date(novaFerias.dataInicio).getTime()) / (1000 * 60 * 60 * 24)) + 1 > 30 && (
+                              <span className="ml-2 text-amber-600">(Período longo - será necessário confirmação)</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Motivo (opcional)
+                        </label>
+                        <textarea
+                          value={novaFerias.motivo}
+                          onChange={(e) => setNovaFerias({ ...novaFerias, motivo: e.target.value })}
+                          placeholder="Descreva o motivo das férias (ex: férias anuais, viagem, motivos pessoais...)..."
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 flex items-center justify-between">
+                      <div className="text-xs text-gray-500">
+                        * As solicitações serão analisadas pela administração
+                      </div>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => setShowSolicitarFeriasModal(false)}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleSolicitarFerias}
+                          disabled={!novaFerias.dataInicio || !novaFerias.dataFim || isSubmittingFerias}
+                          className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {isSubmittingFerias ? 'Enviando...' : 'Solicitar Férias'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal para editar férias */}
+            {showEditarFeriasModal && feriasEditando && (
+              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 p-4">
+                <div className="relative top-10 mx-auto max-w-md w-full p-4 border shadow-lg rounded-md bg-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Editar Férias</h3>
+                    <button
+                      onClick={() => setShowEditarFeriasModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Data de Início
+                      </label>
+                      <input
+                        type="date"
+                        value={editarFerias.dataInicio}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setEditarFerias({ ...editarFerias, dataInicio: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Data de Fim
+                      </label>
+                      <input
+                        type="date"
+                        value={editarFerias.dataFim}
+                        min={editarFerias.dataInicio || new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setEditarFerias({ ...editarFerias, dataFim: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Motivo (opcional)
+                      </label>
+                      <textarea
+                        value={editarFerias.motivo}
+                        onChange={(e) => setEditarFerias({ ...editarFerias, motivo: e.target.value })}
+                        placeholder="Motivo das férias..."
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 flex flex-col space-y-3">
+                    <div className="text-xs text-gray-500 text-center">
+                      * Voltará para status "Pendente" para nova aprovação
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => setShowEditarFeriasModal(false)}
+                        className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSalvarEdicaoFerias}
+                        disabled={!editarFerias.dataInicio || !editarFerias.dataFim || isSubmittingFerias}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        {isSubmittingFerias ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1894,6 +2063,11 @@ export default function CenoftPage() {
   };
 
   const handleSolicitarFerias = async () => {
+    // Prevenir duplo clique
+    if (isSubmittingFerias) {
+      return;
+    }
+
     if (!user) {
       alert('Usuário não autenticado. Faça login novamente.');
       return;
@@ -1931,6 +2105,7 @@ export default function CenoftPage() {
       if (!confirmar) return;
     }
 
+    setIsSubmittingFerias(true);
     try {
       await UserService.solicitarFerias(
         novaFerias.dataInicio,
@@ -1941,7 +2116,8 @@ export default function CenoftPage() {
 
       alert(`Solicitação de férias enviada com sucesso! Duração: ${duracao} dias`);
       
-      // Limpar formulário
+      // Fechar modal e limpar formulário
+      setShowSolicitarFeriasModal(false);
       setNovaFerias({
         dataInicio: '',
         dataFim: '',
@@ -1961,6 +2137,90 @@ export default function CenoftPage() {
       } else {
         alert('Erro ao enviar solicitação de férias. Tente novamente.');
       }
+    } finally {
+      setIsSubmittingFerias(false);
+    }
+  };
+
+  const handleSalvarEdicaoFerias = async () => {
+    // Prevenir duplo clique
+    if (isSubmittingFerias) {
+      return;
+    }
+
+    if (!user || !feriasEditando) {
+      alert('Usuário não autenticado ou férias não encontrada.');
+      return;
+    }
+
+    // Validar campos obrigatórios
+    if (!editarFerias.dataInicio || !editarFerias.dataFim) {
+      alert('Por favor, preencha as datas de início e fim das férias.');
+      return;
+    }
+
+    // Validar se as datas fazem sentido
+    const inicio = new Date(editarFerias.dataInicio);
+    const fim = new Date(editarFerias.dataFim);
+    
+    if (fim <= inicio) {
+      alert('A data de fim deve ser posterior à data de início.');
+      return;
+    }
+
+    // Validar se as datas não são no passado
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    if (inicio < hoje) {
+      alert('Não é possível solicitar férias para datas passadas.');
+      return;
+    }
+
+    // Calcular duração das férias
+    const duracao = Math.ceil((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (duracao > 30) {
+      const confirmar = confirm(`Você está solicitando ${duracao} dias de férias. Deseja continuar?`);
+      if (!confirmar) return;
+    }
+
+    setIsSubmittingFerias(true);
+    try {
+      // Editar a férias existente
+      await UserService.editarFerias(
+        feriasEditando.id,
+        editarFerias.dataInicio,
+        editarFerias.dataFim,
+        editarFerias.motivo.trim()
+      );
+
+      alert(`Férias editada com sucesso! Duração: ${duracao} dias. A solicitação voltou para status "Pendente" para nova aprovação.`);
+      
+      // Fechar modal e limpar formulário
+      setShowEditarFeriasModal(false);
+      setFeriasEditando(null);
+      setEditarFerias({
+        dataInicio: '',
+        dataFim: '',
+        motivo: ''
+      });
+      
+      // Recarregar férias
+      await loadFerias();
+    } catch (error) {
+      console.error('Erro ao editar férias:', error);
+      const errorMessage = (error as Error).message;
+      
+      if (errorMessage.includes('Dados obrigatórios') || 
+          errorMessage.includes('data de fim') ||
+          errorMessage.includes('datas passadas')) {
+        alert(errorMessage);
+      } else {
+        alert('Erro ao editar férias. Tente novamente.');
+      }
+    } finally {
+      setIsSubmittingFerias(false);
     }
   };
 

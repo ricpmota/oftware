@@ -1,0 +1,62 @@
+================================================================================
+ARQUIVOS PARA COPIAR - SIMPLIFICADO
+================================================================================
+
+ARQUIVOS PRINCIPAIS QUE VOCÊ PRECISA COPIAR:
+
+1. app/cenoft/page.tsx  → para criar app/meta/page.tsx
+2. app/admin/page.tsx   → para criar app/metaadmin/page.tsx
+
+================================================================================
+
+VERIFICAR SE ESTES ARQUIVOS EXISTEM (caso contrário copiar):
+
+COMPONENTES:
+- components/FeriasCalendar.tsx
+- components/EditModal.tsx
+- components/EditResidenteForm.tsx
+- components/EditLocalForm.tsx
+- components/EditServicoForm.tsx
+- components/EditEscalaForm.tsx
+
+TIPOS:
+- types/auth.ts
+- types/troca.ts
+- types/ferias.ts
+- types/mensagem.ts
+
+SERVIÇOS:
+- services/userService.ts
+- services/mensagemService.ts
+
+FIREBASE:
+- lib/firebase.ts
+
+================================================================================
+
+PASSO A PASSO:
+
+1. Criar pastas:
+   mkdir app\meta
+   mkdir app\metaadmin
+
+2. Copiar arquivo cenoft:
+   copy app\cenoft\page.tsx app\meta\page.tsx
+
+3. Copiar arquivo admin:
+   copy app\admin\page.tsx app\metaadmin\page.tsx
+
+4. Verificar se os outros arquivos (components, types, services) já existem
+   no projeto - se não, copiar também.
+
+5. Acessar /meta e /metaadmin no navegador!
+
+================================================================================
+
+IMPORTANTE:
+- Verificar lib/firebase.ts está configurado
+- Verificar .env.local tem as variáveis do Firebase
+- Verificar package.json tem as dependências
+
+================================================================================
+

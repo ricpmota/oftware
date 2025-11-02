@@ -1370,7 +1370,7 @@ export class UserService {
   static async solicitarFerias(dataInicio: string, dataFim: string, motivo: string, residenteEmail: string): Promise<void> {
     try {
       console.log('=== DEBUG: Iniciando solicitação de férias ===');
-      console.log('Dados:', { dataInicio, dataFim, motivo, residenteEmail });
+      console.log('Dados recebidos:', { dataInicio, dataFim, motivo, residenteEmail });
       console.log('Firebase app configurado:', !!db);
       console.log('Auth state:', auth.currentUser?.email);
       
@@ -1380,8 +1380,18 @@ export class UserService {
       }
       
       // Validar se a data de fim é posterior à data de início
-      const inicio = new Date(dataInicio);
-      const fim = new Date(dataFim);
+      // Corrigir problema de fuso horário: usar horário local
+      const inicio = new Date(dataInicio + 'T00:00:00');
+      const fim = new Date(dataFim + 'T23:59:59');
+      
+      console.log('Datas convertidas:', {
+        dataInicioOriginal: dataInicio,
+        dataFimOriginal: dataFim,
+        inicio: inicio.toISOString(),
+        fim: fim.toISOString(),
+        inicioLocal: inicio.toLocaleDateString('pt-BR'),
+        fimLocal: fim.toLocaleDateString('pt-BR')
+      });
       
       if (fim <= inicio) {
         throw new Error('A data de fim deve ser posterior à data de início');
@@ -1662,6 +1672,89 @@ export class UserService {
 
     } catch (error) {
       console.error('❌ Erro detalhado ao rejeitar férias:', error);
+      throw error;
+    }
+  }
+
+  static async editarFerias(feriasId: string, dataInicio: string, dataFim: string, motivo: string): Promise<void> {
+    try {
+      console.log('=== DEBUG: Iniciando edição de férias ===');
+      console.log('Dados recebidos:', { feriasId, dataInicio, dataFim, motivo });
+      console.log('Firebase app configurado:', !!db);
+      console.log('Auth state:', auth.currentUser?.email);
+      
+      // Validações básicas
+      if (!feriasId || !dataInicio || !dataFim) {
+        throw new Error('Dados obrigatórios não fornecidos');
+      }
+      
+      // Validar se a data de fim é posterior à data de início
+      // Corrigir problema de fuso horário: usar horário local
+      const inicio = new Date(dataInicio + 'T00:00:00');
+      const fim = new Date(dataFim + 'T23:59:59');
+      
+      console.log('Datas convertidas:', {
+        dataInicioOriginal: dataInicio,
+        dataFimOriginal: dataFim,
+        inicio: inicio.toISOString(),
+        fim: fim.toISOString(),
+        inicioLocal: inicio.toLocaleDateString('pt-BR'),
+        fimLocal: fim.toLocaleDateString('pt-BR')
+      });
+      
+      if (fim <= inicio) {
+        throw new Error('A data de fim deve ser posterior à data de início');
+      }
+      
+      // Validar se as datas não são no passado
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      
+      if (inicio < hoje) {
+        throw new Error('Não é possível editar férias para datas passadas');
+      }
+      
+      const feriasDocRef = doc(db, 'ferias', feriasId);
+      
+      // Verificar se a férias existe
+      const feriasSnapshot = await getDoc(feriasDocRef);
+      if (!feriasSnapshot.exists()) {
+        throw new Error('Férias não encontrada');
+      }
+      
+      const updateData = {
+        dataInicio: inicio,
+        dataFim: fim,
+        motivo: motivo.trim() || null,
+        status: 'pendente', // Volta para pendente quando editada
+        updatedAt: new Date(),
+        observacoes: null, // Limpa observações anteriores
+        aprovadoPor: null,
+        rejeitadoPor: null
+      };
+      
+      console.log('Dados para atualização:', updateData);
+      
+      await updateDoc(feriasDocRef, updateData);
+      console.log('✅ Férias editada com sucesso!');
+      
+      // Criar notificação para o admin sobre a edição
+      try {
+        const feriasData = feriasSnapshot.data();
+        await addDoc(collection(db, 'notificacoes_ferias'), {
+          usuarioEmail: 'ricpmota.med@gmail.com', // Email do admin
+          tipo: 'ferias_editada',
+          feriasId,
+          lida: false,
+          createdAt: new Date()
+        });
+        console.log('✅ Notificação para admin criada');
+      } catch (notifError) {
+        console.warn('⚠️ Erro ao criar notificação (não crítico):', notifError);
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro detalhado ao editar férias:', error);
       throw error;
     }
   }
