@@ -342,22 +342,28 @@ export interface EfeitoColateral {
 // Pasta 7: Alertas e Eventos Importantes
 export interface Alerta {
   id: string;
-  tipo: AlertaTipo;
-  prioridade: 'baixa' | 'media' | 'alta' | 'critica';
-  data: Date;
-  mensagem: string;
-  lido: boolean;
-  resolvido: boolean;
+  type: AlertaType;
+  description: string;
+  severity: 'INFO' | 'MODERATE' | 'CRITICAL';
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
+  generatedAt: Date;
+  resolvedAt?: Date;
+  linkedWeek?: number;
+  followUpRequired: boolean;
 }
 
-export type AlertaTipo = 
-  | 'dose_nao_aplicada'
-  | 'nausea_grave'
-  | 'gestacao_detectada'
-  | 'drg_grave'
-  | 'historico_men2_cmt'
-  | 'pancreatite_suspeita'
-  | 'outro';
+export type AlertaType = 
+  | 'MISSED_DOSE'
+  | 'GI_MILD'
+  | 'GI_SEVERE'
+  | 'PREGNANCY_FLAG'
+  | 'MEN2_RISK'
+  | 'PANCREATITIS_SUSPECTED'
+  | 'RENAL_DECLINE'
+  | 'HYPOGLYCEMIA_RISK'
+  | 'LAB_ABNORMAL'
+  | 'EDEMA_SEVERE'
+  | 'TECHNICAL_EVENT';
 
 // Pasta 8: Comunicação e Registro
 export interface Comunicacao {

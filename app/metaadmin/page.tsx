@@ -27,7 +27,9 @@ import { labRanges, getLabRange, labOrderBySection, Sex } from '@/types/labRange
 import { AlertBadges } from '@/components/AlertBadges';
 import { ProgressPill } from '@/components/ProgressPill';
 import { buildExpectedCurve, buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, varianceStatus, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
+import { alertEngine, isDoseUpgradeBlocked, getSuggestedAction, getSeverityClasses } from '@/utils/alertEngine';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Info, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -9339,10 +9341,140 @@ export default function MetaAdminPage() {
 
               {pastaAtiva === 7 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Alertas e Eventos Importantes</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Alertas e Eventos Importantes</h3>
+                    {(() => {
+                      const alertas = pacienteEditando?.alertas || [];
+                      const alertasAtivos = alertas.filter(a => a.status === 'ACTIVE');
+                      const bloqueadoresAtivos = alertasAtivos.filter(a => a.severity === 'CRITICAL' || a.followUpRequired);
+                      
+                      return (
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">Ativos:</span>
+                            <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-semibold">{alertasAtivos.length}</span>
+                          </div>
+                          {isDoseUpgradeBlocked(alertasAtivos) && (
+                            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">
+                              <AlertCircle size={16} />
+                              Dose bloqueada
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
+
+                  {/* Filtros */}
+                  <div className="flex gap-2">
+                    <button className="px-3 py-1.5 text-sm rounded-md bg-blue-100 text-blue-700 font-medium">Todos</button>
+                    <button className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">Ativos</button>
+                    <button className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">Críticos</button>
+                    <button className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">Resolvidos</button>
+                  </div>
+
+                  {/* Lista de alertas */}
+                  {(() => {
+                    const alertas = pacienteEditando?.alertas || [];
+                    
+                    if (alertas.length === 0) {
+                      return (
+                        <div className="text-center py-12 bg-gray-50 border border-gray-200 rounded-lg">
+                          <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4" />
+                          <p className="text-gray-600">Nenhum alerta registrado</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        {alertas
+                          .sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime())
+                          .map((alerta) => {
+                            const IconComponent = 
+                              alerta.severity === 'INFO' ? Info :
+                              alerta.severity === 'MODERATE' ? AlertTriangle :
+                              AlertCircle;
+                            
+                            return (
+                              <div
+                                key={alerta.id}
+                                className={`border rounded-lg p-4 ${getSeverityClasses(alerta.severity)}`}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-3 flex-1">
+                                    <IconComponent size={20} className="mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-semibold">{alerta.type}</span>
+                                        <span className="px-2 py-0.5 text-xs rounded-full bg-white/50 font-medium">
+                                          {alerta.severity}
+                                        </span>
+                                        {alerta.linkedWeek && (
+                                          <span className="text-xs text-gray-600">Semana {alerta.linkedWeek}</span>
+                                        )}
+                                      </div>
+                                      <p className="text-sm mb-2">{alerta.description}</p>
+                                      <div className="text-xs text-gray-600 mb-2">
+                                        <span>Gerado: {new Date(alerta.generatedAt).toLocaleDateString('pt-BR')}</span>
+                                        {alerta.resolvedAt && (
+                                          <span className="ml-4">Resolvido: {new Date(alerta.resolvedAt).toLocaleDateString('pt-BR')}</span>
+                                        )}
+                                      </div>
+                                      {alerta.followUpRequired && (
+                                        <div className="text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded inline-block">
+                                          ⚠️ Acompanhamento necessário
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 ml-4">
+                                    {alerta.status === 'ACTIVE' && (
+                                      <>
+                                        <button
+                                          className="px-3 py-1.5 text-xs rounded-md bg-white/70 hover:bg-white font-medium border border-gray-300"
+                                          onClick={() => {
+                                            if (!pacienteEditando) return;
+                                            const alertasAtualizados = pacienteEditando.alertas.map(a => 
+                                              a.id === alerta.id ? { ...a, status: 'ACKNOWLEDGED' as const } : a
+                                            );
+                                            const pacienteAtualizado: PacienteCompleto = {
+                                              ...pacienteEditando,
+                                              alertas: alertasAtualizados
+                                            };
+                                            setPacienteEditando(pacienteAtualizado);
+                                            setMessage('Alerta reconhecido');
+                                          }}
+                                        >
+                                          Reconhecer
+                                        </button>
+                                        <button
+                                          className="px-3 py-1.5 text-xs rounded-md bg-white/70 hover:bg-white font-medium border border-gray-300"
+                                          onClick={() => {
+                                            if (!pacienteEditando) return;
+                                            const alertasAtualizados = pacienteEditando.alertas.map(a => 
+                                              a.id === alerta.id ? { ...a, status: 'RESOLVED' as const, resolvedAt: new Date() } : a
+                                            );
+                                            const pacienteAtualizado: PacienteCompleto = {
+                                              ...pacienteEditando,
+                                              alertas: alertasAtualizados
+                                            };
+                                            setPacienteEditando(pacienteAtualizado);
+                                            setMessage('Alerta resolvido');
+                                          }}
+                                        >
+                                          Resolver
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -9658,15 +9790,83 @@ export default function MetaAdminPage() {
                     alerts: []
                   };
                   
-                  // Gerar alertas automáticos
-                  if (novoSeguimento.adesao === 'MISSED') {
-                    novoRegistro.alerts.push('MISSED_DOSE');
-                  }
-                  if (novoSeguimento.giSeverity === 'GRAVE') {
-                    novoRegistro.alerts.push('GI_SEVERE');
+                  // Gerar alertas automáticos usando alertEngine
+                  const alertasGerados = alertEngine({
+                    adherence: novoSeguimento.adesao as any,
+                    giSeverity: novoSeguimento.giSeverity as any,
+                    weekIndex: weekIndex
+                  });
+                  
+                  // Adicionar alertas ao registro e ao paciente
+                  if (alertasGerados.length > 0) {
+                    novoRegistro.alerts = alertasGerados.map(a => a.type);
+                    
+                    // Adicionar alertas novos ao paciente (evitar duplicados)
+                    const alertasExistentes = pacienteEditando.alertas || [];
+                    const alertasNovos = alertasGerados.filter(
+                      novo => !alertasExistentes.some(existente => 
+                        existente.type === novo.type && existente.linkedWeek === novo.linkedWeek
+                      )
+                    );
+                    
+                    // Atualizar paciente com novo registro E novos alertas
+                    const pacienteAtualizado: PacienteCompleto = {
+                      ...pacienteEditando,
+                      evolucaoSeguimento: [...evolucao, novoRegistro],
+                      alertas: [...alertasExistentes, ...alertasNovos]
+                    };
+                    
+                    // Salvar no Firestore
+                    setLoadingPacientes(true);
+                    try {
+                      if (!pacienteAtualizado.id) {
+                        setMessage('Erro: Paciente não possui ID. Por favor, feche e reabra o modal.');
+                        setLoadingPacientes(false);
+                        return;
+                      }
+                      
+                      await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+                      
+                      // Recarregar paciente atualizado do Firestore
+                      const pacienteRecarregado = await PacienteService.getPacienteById(pacienteAtualizado.id);
+                      
+                      if (pacienteRecarregado) {
+                        setPacienteEditando(pacienteRecarregado);
+                        setMessage(`Registro semanal adicionado com sucesso! ${alertasNovos.length > 0 ? `${alertasNovos.length} alerta(s) gerado(s).` : ''}`);
+                      } else {
+                        setPacienteEditando(pacienteAtualizado);
+                        setMessage(`Registro semanal adicionado com sucesso! ${alertasNovos.length > 0 ? `${alertasNovos.length} alerta(s) gerado(s).` : ''}`);
+                      }
+                      
+                      // Recarregar lista de pacientes
+                      await loadPacientes();
+                    } catch (error) {
+                      console.error('Erro ao salvar registro:', error);
+                      setMessage('Erro ao salvar registro semanal: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+                    } finally {
+                      setLoadingPacientes(false);
+                    }
+                    
+                    setNovoSeguimento({
+                      peso: '',
+                      circunferenciaAbdominal: '',
+                      frequenciaCardiaca: '',
+                      paSistolica: '',
+                      paDiastolica: '',
+                      hba1c: '',
+                      doseAplicada: '',
+                      adesao: '',
+                      giSeverity: '',
+                      localAplicacao: '',
+                      observacoesPaciente: '',
+                      comentarioMedico: ''
+                    });
+                    
+                    setShowAdicionarSeguimentoModal(false);
+                    return;
                   }
                   
-                  // Atualizar paciente com novo registro
+                  // Atualizar paciente com novo registro (sem novos alertas)
                   const pacienteAtualizado: PacienteCompleto = {
                     ...pacienteEditando,
                     evolucaoSeguimento: [...evolucao, novoRegistro]
@@ -9709,11 +9909,11 @@ export default function MetaAdminPage() {
                     frequenciaCardiaca: '',
                     paSistolica: '',
                     paDiastolica: '',
+                    hba1c: '',
                     doseAplicada: '',
                     adesao: '',
                     giSeverity: '',
                     localAplicacao: '',
-                    hba1c: '',
                     observacoesPaciente: '',
                     comentarioMedico: ''
                   });
