@@ -645,8 +645,11 @@ export default function MetaAdminPage() {
     
     setLoadingMensagensPaciente(true);
     try {
+      console.log('Buscando mensagens para:', pacienteEditando.email);
       const mensagensData = await PacienteMensagemService.getMensagensPaciente(pacienteEditando.email);
+      console.log('Mensagens encontradas:', mensagensData.length);
       setMensagensPaciente(mensagensData.filter(m => !m.deletada));
+      console.log('Mensagens (não deletadas):', mensagensData.filter(m => !m.deletada).length);
     } catch (error) {
       console.error('Erro ao carregar mensagens do paciente:', error);
       setMensagensPaciente([]);
@@ -665,7 +668,8 @@ export default function MetaAdminPage() {
     setLoadingMensagensPaciente(true);
     
     try {
-      await PacienteMensagemService.criarMensagem({
+      console.log('Enviando mensagem para paciente:', pacienteEditando.email);
+      const mensagemId = await PacienteMensagemService.criarMensagem({
         pacienteId: pacienteEditando.id,
         pacienteEmail: pacienteEditando.email,
         titulo: novaMensagemPaciente.titulo.trim(),
@@ -674,10 +678,14 @@ export default function MetaAdminPage() {
         lida: false,
         criadoPor: user.email
       });
+      console.log('Mensagem criada com ID:', mensagemId);
       
       setMessage('Mensagem enviada com sucesso!');
       setNovaMensagemPaciente({ titulo: '', mensagem: '', tipo: 'clinico' });
+      
+      console.log('Carregando mensagens atualizadas...');
       await loadMensagensPaciente();
+      console.log('Mensagens carregadas');
       
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);

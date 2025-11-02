@@ -52,13 +52,12 @@ export class PacienteMensagemService {
     try {
       const q = query(
         collection(db, 'pacientes_mensagens'),
-        where('pacienteEmail', '==', pacienteEmail),
-        orderBy('criadoEm', 'desc')
+        where('pacienteEmail', '==', pacienteEmail)
       );
 
       const snapshot = await getDocs(q);
       
-      return snapshot.docs.map(doc => {
+      const mensagens = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -75,6 +74,9 @@ export class PacienteMensagemService {
           deletada: data.deletada || false
         } as PacienteMensagem;
       });
+
+      // Ordenar no cliente (mais recente primeiro)
+      return mensagens.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
     } catch (error) {
       console.error('Erro ao buscar mensagens:', error);
       return [];
