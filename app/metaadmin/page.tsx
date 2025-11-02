@@ -9461,6 +9461,20 @@ export default function MetaAdminPage() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">HbA1c (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="4"
+                  max="15"
+                  value={novoSeguimento.hba1c}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, hba1c: e.target.value })}
+                  placeholder="%"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Dose Aplicada (mg) *</label>
                 <select 
                   value={novoSeguimento.doseAplicada}
