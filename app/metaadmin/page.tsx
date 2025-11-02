@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -1233,6 +1233,17 @@ export default function MetaAdminPage() {
 
   const renderContent = () => {
     switch (activeMenu) {
+      case 'meu-perfil':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Meu Perfil Médico</h2>
+            </div>
+            <div className="bg-white shadow rounded-lg p-6">
+              <p className="text-gray-600">Formulário de cadastro do médico será adicionado aqui.</p>
+            </div>
+          </div>
+        );
       case 'usuarios':
         return (
           <div className="space-y-6">
@@ -3788,6 +3799,18 @@ export default function MetaAdminPage() {
             {/* Navigation */}
             <nav className="flex-1 px-4 py-4 space-y-2">
               <button
+                onClick={() => setActiveMenu('meu-perfil')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'meu-perfil'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+                title={sidebarCollapsed ? 'Meu Perfil' : ''}
+              >
+                <Stethoscope size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Meu Perfil Médico'}
+              </button>
+              <button
                 onClick={() => setActiveMenu('estatisticas')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'estatisticas'
@@ -4252,6 +4275,18 @@ export default function MetaAdminPage() {
       {/* Mobile Bottom Navigation - Fixed at bottom, no logout button */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
         <div className="flex overflow-x-auto scrollbar-hide items-center py-2 px-2 space-x-1">
+          <button
+            onClick={() => setActiveMenu('meu-perfil')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'meu-perfil'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Stethoscope className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Meu Perfil</span>
+          </button>
+          
           <button
             onClick={() => setActiveMenu('estatisticas')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
