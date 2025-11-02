@@ -128,6 +128,7 @@ export default function MetaAdminPage() {
     frequenciaCardiaca: '',
     paSistolica: '',
     paDiastolica: '',
+    hba1c: '',
     doseAplicada: '',
     adesao: '',
     giSeverity: '',
@@ -9066,18 +9067,19 @@ export default function MetaAdminPage() {
 
                         {/* Timeline de semanas */}
                         <div className="space-y-4">
-                          <h4 className="font-semibold text-gray-900">Timeline Semanal</h4>
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-semibold text-gray-900">Timeline Semanal</h4>
+                            <button
+                              onClick={() => setShowAdicionarSeguimentoModal(true)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center gap-2"
+                            >
+                              <Plus size={16} />
+                              {evolucao.length === 0 ? 'Adicionar Primeiro Registro' : 'Adicionar Novo Registro'}
+                            </button>
+                          </div>
                           {evolucao.length === 0 ? (
                             <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
                               <p className="text-gray-500">Nenhum seguimento registrado ainda.</p>
-                              <button
-                                onClick={() => {
-                                  setShowAdicionarSeguimentoModal(true);
-                                }}
-                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                              >
-                                Adicionar Primeiro Registro
-                              </button>
                             </div>
                           ) : (
                             evolucao.map((registro, idx) => {
@@ -9218,7 +9220,7 @@ export default function MetaAdminPage() {
                                   {/* Botões de ação */}
                                   <div className="mt-4 flex gap-2">
                                     <button
-                                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
+                                      className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
                                       onClick={() => {
                                         setSeguimentoEditando(registro);
                                         setNovoSeguimento({
@@ -9227,6 +9229,7 @@ export default function MetaAdminPage() {
                                           frequenciaCardiaca: registro.frequenciaCardiaca?.toString() || '',
                                           paSistolica: registro.pressaoArterial?.sistolica?.toString() || '',
                                           paDiastolica: registro.pressaoArterial?.diastolica?.toString() || '',
+                                          hba1c: (registro as any).hba1c?.toString() || '',
                                           doseAplicada: registro.doseAplicada?.quantidade?.toString() || '',
                                           adesao: registro.adherence || registro.adesao || '',
                                           giSeverity: registro.giSeverity || '',
@@ -9275,17 +9278,6 @@ export default function MetaAdminPage() {
                               );
                             })
                           )}
-                          
-                          {/* Botão adicionar novo registro - sempre visível quando há registros */}
-                          <div className="mt-4">
-                            <button
-                              onClick={() => setShowAdicionarSeguimentoModal(true)}
-                              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
-                            >
-                              <Plus size={16} />
-                              Adicionar Novo Registro
-                            </button>
-                          </div>
                         </div>
                       </div>
                     );
@@ -9586,6 +9578,7 @@ export default function MetaAdminPage() {
                       sistolica: parseInt(novoSeguimento.paSistolica),
                       diastolica: parseInt(novoSeguimento.paDiastolica)
                     } : undefined,
+                    hba1c: novoSeguimento.hba1c ? parseFloat(novoSeguimento.hba1c) : undefined,
                     doseAplicada: {
                       quantidade: parseFloat(novoSeguimento.doseAplicada),
                       data: dataRegistro,
@@ -9654,6 +9647,7 @@ export default function MetaAdminPage() {
                     adesao: '',
                     giSeverity: '',
                     localAplicacao: '',
+                    hba1c: '',
                     observacoesPaciente: '',
                     comentarioMedico: ''
                   });
@@ -9748,6 +9742,20 @@ export default function MetaAdminPage() {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">HbA1c (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="4"
+                  max="15"
+                  value={novoSeguimento.hba1c}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, hba1c: e.target.value })}
+                  placeholder="%"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
               </div>
 
               <div>
@@ -9865,6 +9873,7 @@ export default function MetaAdminPage() {
                       sistolica: parseInt(novoSeguimento.paSistolica),
                       diastolica: parseInt(novoSeguimento.paDiastolica)
                     } : undefined,
+                    hba1c: novoSeguimento.hba1c ? parseFloat(novoSeguimento.hba1c) : undefined,
                     doseAplicada: {
                       quantidade: parseFloat(novoSeguimento.doseAplicada),
                       data: dataRegistro,
@@ -9939,6 +9948,7 @@ export default function MetaAdminPage() {
                     adesao: '',
                     giSeverity: '',
                     localAplicacao: '',
+                    hba1c: '',
                     observacoesPaciente: '',
                     comentarioMedico: ''
                   });
