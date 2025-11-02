@@ -20,6 +20,8 @@ import { Mensagem, MensagemResidenteParaAdmin } from '@/types/mensagem';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { estadosCidades, estadosList } from '@/data/cidades-brasil';
+import { PacienteService } from '@/services/pacienteService';
+import { PacienteCompleto } from '@/types/obesidade';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -95,6 +97,17 @@ export default function MetaAdminPage() {
   const [showCadastrarResidenteModal, setShowCadastrarResidenteModal] = useState(false);
   const [showCadastrarLocalModal, setShowCadastrarLocalModal] = useState(false);
   const [showCadastrarServicoModal, setShowCadastrarServicoModal] = useState(false);
+  const [showCadastrarPacienteModal, setShowCadastrarPacienteModal] = useState(false);
+  
+  // Estados para paciente
+  const [pacientes, setPacientes] = useState<PacienteCompleto[]>([]);
+  const [loadingPacientes, setLoadingPacientes] = useState(false);
+  const [novoPaciente, setNovoPaciente] = useState({
+    nome: '',
+    email: '',
+    telefone: '',
+    cpf: ''
+  });
   
   const router = useRouter();
 
@@ -621,11 +634,105 @@ export default function MetaAdminPage() {
     setShowMensagemEnviadaModal(true);
   };
 
+  // Função para carregar pacientes do médico
+  const loadPacientes = useCallback(async () => {
+    if (!user || !medicoPerfil) return;
+    
+    setLoadingPacientes(true);
+    try {
+      const pacientesData = await PacienteService.getPacientesByMedico(medicoPerfil.id);
+      setPacientes(pacientesData);
+    } catch (error) {
+      console.error('Erro ao carregar pacientes:', error);
+    } finally {
+      setLoadingPacientes(false);
+    }
+  }, [user, medicoPerfil]);
+
+  // Função para criar novo paciente
+  const handleCriarPaciente = async () => {
+    if (!user || !medicoPerfil) {
+      alert('Por favor, complete seu perfil médico primeiro');
+      return;
+    }
+
+    if (!novoPaciente.nome || !novoPaciente.email) {
+      alert('Nome e email são obrigatórios');
+      return;
+    }
+
+    setLoadingPacientes(true);
+    try {
+      // Por enquanto, criar um paciente básico
+      // TODO: Implementar cadastro completo com as 9 pastas
+      const pacienteData = {
+        userId: user.uid + '_' + Date.now(), // ID temporário até implementar Firebase Auth para pacientes
+        email: novoPaciente.email,
+        nome: novoPaciente.nome,
+        medicoResponsavelId: medicoPerfil.id || '',
+        dadosIdentificacao: {
+          nomeCompleto: novoPaciente.nome,
+          email: novoPaciente.email,
+          telefone: novoPaciente.telefone,
+          cpf: novoPaciente.cpf,
+          dataCadastro: new Date()
+        },
+        dadosClinicos: {
+          comorbidades: {}
+        },
+        estiloVida: {},
+        examesLaboratoriais: [],
+        planoTerapeutico: {
+          metas: {}
+        },
+        evolucaoSeguimento: [],
+        alertas: [],
+        comunicacao: {
+          mensagens: [],
+          anexos: [],
+          logsAuditoria: []
+        },
+        indicadores: {
+          tempoEmTratamento: {
+            dias: 0,
+            semanas: 0
+          },
+          adesaoMedia: 0,
+          incidenciaEfeitosAdversos: {
+            total: 0,
+            grave: 0,
+            moderado: 0,
+            leve: 0
+          }
+        },
+        status: 'ativo' as const
+      };
+
+      const pacienteId = await PacienteService.createOrUpdatePaciente(pacienteData);
+      console.log('Paciente criado com ID:', pacienteId);
+      await loadPacientes();
+      setShowCadastrarPacienteModal(false);
+      setNovoPaciente({ nome: '', email: '', telefone: '', cpf: '' });
+      setMessage('Paciente cadastrado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar paciente:', error);
+      setMessage('Erro ao criar paciente');
+    } finally {
+      setLoadingPacientes(false);
+    }
+  };
+
   useEffect(() => {
     if (user && activeMenu === 'meu-perfil') {
       loadMedicoPerfil();
     }
   }, [user, activeMenu, loadMedicoPerfil]);
+
+  useEffect(() => {
+    if (user && medicoPerfil && activeMenu === 'pacientes') {
+      loadPacientes();
+    }
+  }, [user, medicoPerfil, activeMenu, loadPacientes]);
 
   useEffect(() => {
     if (user && activeMenu === 'troca') {
@@ -1538,7 +1645,7 @@ export default function MetaAdminPage() {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900">Meus Pacientes</h2>
               <button
-                onClick={() => {/* TODO: Abrir modal novo paciente */}}
+                onClick={() => setShowCadastrarPacienteModal(true)}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center"
               >
                 <Plus size={16} className="mr-2" />
@@ -1555,7 +1662,7 @@ export default function MetaAdminPage() {
                   Comece adicionando seus pacientes ou eles aparecerão aqui quando solicitarem atendimento.
                 </p>
                 <button
-                  onClick={() => {/* TODO: Abrir modal novo paciente */}}
+                  onClick={() => setShowCadastrarPacienteModal(true)}
                   className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center"
                 >
                   <Plus size={18} className="mr-2" />
@@ -4484,6 +4591,110 @@ export default function MetaAdminPage() {
                   className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
                 >
                   {loading ? 'Salvando...' : 'Adicionar Serviço'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cadastrar Paciente */}
+      {showCadastrarPacienteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Cadastrar Novo Paciente</h2>
+              <button
+                onClick={() => {
+                  setShowCadastrarPacienteModal(false);
+                  setNovoPaciente({ nome: '', email: '', telefone: '', cpf: '' });
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleCriarPaciente(); }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    value={novoPaciente.nome}
+                    onChange={(e) => setNovoPaciente({ ...novoPaciente, nome: e.target.value })}
+                    className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="Digite o nome completo"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    E-mail *
+                  </label>
+                  <input
+                    type="email"
+                    value={novoPaciente.email}
+                    onChange={(e) => setNovoPaciente({ ...novoPaciente, email: e.target.value })}
+                    className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="Digite o e-mail"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telefone
+                  </label>
+                  <input
+                    type="tel"
+                    value={novoPaciente.telefone}
+                    onChange={(e) => setNovoPaciente({ ...novoPaciente, telefone: e.target.value })}
+                    className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CPF
+                  </label>
+                  <input
+                    type="text"
+                    value={novoPaciente.cpf}
+                    onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: e.target.value })}
+                    className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="000.000.000-00"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>Importante:</strong> Após o cadastro, você poderá adicionar informações completas nas 9 pastas do paciente.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCadastrarPacienteModal(false);
+                    setNovoPaciente({ nome: '', email: '', telefone: '', cpf: '' });
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingPacientes}
+                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {loadingPacientes ? 'Salvando...' : 'Cadastrar Paciente'}
                 </button>
               </div>
             </form>
