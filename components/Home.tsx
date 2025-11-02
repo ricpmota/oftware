@@ -130,7 +130,7 @@ function GlaucomaTab() {
   );
 } 
 
-export default function Home({ doctorProfile, onEditProfile }: HomeProps) {
+export default function Home({ doctorProfile, onEditProfile, onLogout }: HomeProps) {
   const [activeSubTab, setActiveSubTab] = useState('');
   const [showLensModal, setShowLensModal] = useState(false);
   const [showCataractModal, setShowCataractModal] = useState(false);
@@ -343,6 +343,7 @@ export default function Home({ doctorProfile, onEditProfile }: HomeProps) {
         <img src="/icones/oftware.png" alt="Oftware" className="w-24 h-auto" />
       </div>
 
+
       {/* Grid de botões estilo app - Centralizado */}
       <div className="flex items-center justify-center min-h-screen">
         <div className="grid grid-cols-3 gap-4 md:gap-6 max-w-2xl">
@@ -511,7 +512,7 @@ export default function Home({ doctorProfile, onEditProfile }: HomeProps) {
             <h3 className="font-semibold text-gray-800 text-xs md:text-sm mt-2 text-center">Uveítes</h3>
           </div>
 
-          {/* Última linha - Pacientes e Perfil do Médico */}
+          {/* Última linha - Pacientes, Perfil do Médico e Sair */}
           <div className="col-span-3 flex justify-center items-center gap-8 mt-4">
             {/* Pacientes */}
             <div className="flex flex-col items-center">
@@ -544,6 +545,23 @@ export default function Home({ doctorProfile, onEditProfile }: HomeProps) {
                 </div>
               </div>
             )}
+
+            {/* Botão de Sair */}
+            <div className="flex flex-col items-center">
+              <button
+                onClick={() => {
+                  console.log('Botão de logout clicado!');
+                  onLogout();
+                }}
+                className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-red-200 flex items-center justify-center"
+                title="Sair"
+              >
+                <svg className="w-10 h-10 md:w-12 md:h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+              <h3 className="font-semibold text-gray-800 text-xs md:text-sm mt-2 text-center">Sair</h3>
+            </div>
           </div>
         </div>
       </div>

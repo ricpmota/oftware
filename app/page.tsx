@@ -111,10 +111,6 @@ export default function OftalmoPage() {
     }
   };
 
-
-
-
-
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -202,4 +198,4 @@ export default function OftalmoPage() {
       </Suspense>
     </PatientProvider>
   );
-} 
+}

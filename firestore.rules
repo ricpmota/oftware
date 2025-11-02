@@ -1,42 +1,77 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite que médicos leiam e escrevam seus próprios documentos
+    // Regras para sistema médico existente
     match /doctors/{doctorId} {
       allow read, write: if request.auth != null && request.auth.uid == doctorId;
     }
     
-    // Permite que médicos leiam e escrevam dados de pacientes
-    // Um médico pode acessar pacientes que ele criou OU que foram compartilhados com ele
     match /patients/{patientId} {
-      allow read, write: if request.auth != null && 
-        (resource.data.doctorId == request.auth.uid || 
-         request.auth.uid in resource.data.sharedWith);
-    }
-    
-    // Permite que médicos leiam e escrevam prescrições
-    match /prescriptions/{prescriptionId} {
       allow read, write: if request.auth != null;
     }
     
-    // Permite que médicos leiam e escrevam exames clínicos
-    match /clinical-exams/{examId} {
+    // Regras para sistema de escalas
+    match /users/{userId} {
       allow read, write: if request.auth != null;
     }
     
-    // Permite que médicos leiam e escrevam alertas clínicos
-    match /clinical-alerts/{alertId} {
+    match /residentes/{residenteId} {
       allow read, write: if request.auth != null;
     }
     
-    // Permite acesso às operações do médico
-    match /doctors/{doctorId}/operations/{operationId} {
-      allow read, write: if request.auth != null && request.auth.uid == doctorId;
+    match /locais/{localId} {
+      allow read, write: if request.auth != null;
     }
     
-    // Negar tudo por padrão
+    match /servicos/{servicoId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /escalas/{escalaId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Regras para sistema de trocas
+    match /trocas/{trocaId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /notificacoes_troca/{notificacaoId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Regras para férias
+    match /ferias/{feriasId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /notificacoes_ferias/{notificacaoId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // NOVA: Regras para notificações internas
+    match /notificacoes/{notificationId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Logs de notificações (caso ainda existam)
+    match /notification_logs/{logId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Regras para sistema de mensagens
+    match /mensagens/{mensagemId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /mensagens_residentes/{mensagemResidenteId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Fallback para outras collections
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null;
     }
   }
-} 
+}
