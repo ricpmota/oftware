@@ -22,6 +22,8 @@ import { Medico } from '@/types/medico';
 import { estadosCidades, estadosList } from '@/data/cidades-brasil';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
+import { LabRangeBar } from '@/components/LabRangeBar';
+import { labRanges, getLabRange, labOrderBySection, Sex } from '@/types/labRanges';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -7775,11 +7777,332 @@ export default function MetaAdminPage() {
               )}
 
               {pastaAtiva === 4 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Exames Laboratoriais</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
-                  </div>
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Exames Laboratoriais Basais</h3>
+                  
+                  {/* Mapeamento entre campos do paciente e chaves de labRanges */}
+                  {(() => {
+                    const pacienteSex = pacienteEditando?.dadosIdentificacao?.sexoBiologico as Sex;
+                    const exames = pacienteEditando?.examesLaboratoriais || [];
+                    const primeiroExame = exames[0] || {};
+                    
+                    return (
+                      <div className="space-y-6">
+                        {/* Metabolismo Glicídico */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-800 mb-4">Metabolismo Glicídico</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(['fastingGlucose', 'hba1c'] as const).map((key) => {
+                              const range = getLabRange(key, pacienteSex);
+                              if (!range) return null;
+                              const value = key === 'fastingGlucose' ? primeiroExame.glicemiaJejum : primeiroExame.hemoglobinaGlicada;
+                              return (
+                                <div key={key}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {range.label}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={value || ''}
+                                    onChange={(e) => {
+                                      const numValue = parseFloat(e.target.value) || 0;
+                                      const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
+                                      if (examesAtualizados.length === 0) {
+                                        examesAtualizados.push({
+                                          id: 'temp-' + Date.now(),
+                                          dataColeta: new Date(),
+                                          ...(key === 'fastingGlucose' ? { glicemiaJejum: numValue } : { hemoglobinaGlicada: numValue })
+                                        });
+                                      } else {
+                                        examesAtualizados[0] = {
+                                          ...examesAtualizados[0],
+                                          ...(key === 'fastingGlucose' ? { glicemiaJejum: numValue } : { hemoglobinaGlicada: numValue })
+                                        };
+                                      }
+                                      setPacienteEditando({
+                                        ...pacienteEditando!,
+                                        examesLaboratoriais: examesAtualizados
+                                      });
+                                    }}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2"
+                                  />
+                                  <LabRangeBar range={range} value={value || null} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Função Renal */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-800 mb-4">Função Renal</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(['urea', 'creatinine', 'egfr'] as const).map((key) => {
+                              const range = getLabRange(key, pacienteSex);
+                              if (!range) return null;
+                              let value: number | undefined;
+                              if (key === 'urea') value = primeiroExame.ureia;
+                              else if (key === 'creatinine') value = primeiroExame.creatinina;
+                              else if (key === 'egfr') value = primeiroExame.taxaFiltracaoGlomerular;
+                              return (
+                                <div key={key}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {range.label}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={value || ''}
+                                    onChange={(e) => {
+                                      const numValue = parseFloat(e.target.value) || 0;
+                                      const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
+                                      if (examesAtualizados.length === 0) {
+                                        examesAtualizados.push({
+                                          id: 'temp-' + Date.now(),
+                                          dataColeta: new Date(),
+                                          ...(key === 'urea' ? { ureia: numValue } : 
+                                             key === 'creatinine' ? { creatinina: numValue } : 
+                                             { taxaFiltracaoGlomerular: numValue })
+                                        });
+                                      } else {
+                                        examesAtualizados[0] = {
+                                          ...examesAtualizados[0],
+                                          ...(key === 'urea' ? { ureia: numValue } : 
+                                             key === 'creatinine' ? { creatinina: numValue } : 
+                                             { taxaFiltracaoGlomerular: numValue })
+                                        };
+                                      }
+                                      setPacienteEditando({
+                                        ...pacienteEditando!,
+                                        examesLaboratoriais: examesAtualizados
+                                      });
+                                    }}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2"
+                                  />
+                                  <LabRangeBar range={range} value={value || null} />
+                                  {key === 'egfr' && value && value < 15 && (
+                                    <p className="text-sm text-red-600 mt-1">⚠️ Alerta crítico: eGFR &lt; 15</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Função Hepática */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-800 mb-4">Função Hepática e Biliar</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(['alt', 'ast', 'ggt', 'alp'] as const).map((key) => {
+                              const range = getLabRange(key, pacienteSex);
+                              if (!range) return null;
+                              let value: number | undefined;
+                              if (key === 'alt') value = primeiroExame.tgp;
+                              else if (key === 'ast') value = primeiroExame.tgo;
+                              else if (key === 'ggt') value = primeiroExame.ggt;
+                              else if (key === 'alp') value = primeiroExame.fosfataseAlcalina;
+                              return (
+                                <div key={key}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {range.label}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={value || ''}
+                                    onChange={(e) => {
+                                      const numValue = parseFloat(e.target.value) || 0;
+                                      const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
+                                      if (examesAtualizados.length === 0) {
+                                        examesAtualizados.push({
+                                          id: 'temp-' + Date.now(),
+                                          dataColeta: new Date(),
+                                          ...(key === 'alt' ? { tgp: numValue } : 
+                                             key === 'ast' ? { tgo: numValue } : 
+                                             key === 'ggt' ? { ggt: numValue } : 
+                                             { fosfataseAlcalina: numValue })
+                                        });
+                                      } else {
+                                        examesAtualizados[0] = {
+                                          ...examesAtualizados[0],
+                                          ...(key === 'alt' ? { tgp: numValue } : 
+                                             key === 'ast' ? { tgo: numValue } : 
+                                             key === 'ggt' ? { ggt: numValue } : 
+                                             { fosfataseAlcalina: numValue })
+                                        };
+                                      }
+                                      setPacienteEditando({
+                                        ...pacienteEditando!,
+                                        examesLaboratoriais: examesAtualizados
+                                      });
+                                    }}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2"
+                                  />
+                                  <LabRangeBar range={range} value={value || null} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Pâncreas */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-800 mb-4">Pâncreas</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(['amylase', 'lipase'] as const).map((key) => {
+                              const range = getLabRange(key, pacienteSex);
+                              if (!range) return null;
+                              const value = key === 'amylase' ? primeiroExame.amilase : primeiroExame.lipase;
+                              const rangeMax = getLabRange(key, pacienteSex);
+                              return (
+                                <div key={key}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {range.label}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={value || ''}
+                                    onChange={(e) => {
+                                      const numValue = parseFloat(e.target.value) || 0;
+                                      const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
+                                      if (examesAtualizados.length === 0) {
+                                        examesAtualizados.push({
+                                          id: 'temp-' + Date.now(),
+                                          dataColeta: new Date(),
+                                          ...(key === 'amylase' ? { amilase: numValue } : { lipase: numValue })
+                                        });
+                                      } else {
+                                        examesAtualizados[0] = {
+                                          ...examesAtualizados[0],
+                                          ...(key === 'amylase' ? { amilase: numValue } : { lipase: numValue })
+                                        };
+                                      }
+                                      setPacienteEditando({
+                                        ...pacienteEditando!,
+                                        examesLaboratoriais: examesAtualizados
+                                      });
+                                    }}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2"
+                                  />
+                                  <LabRangeBar range={range} value={value || null} />
+                                  {rangeMax && value && value > rangeMax.max && (
+                                    <p className="text-sm text-red-600 mt-1">⚠️ Alerta: valor acima do máximo</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Perfil Lipídico */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-800 mb-4">Perfil Lipídico</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(['cholTotal', 'ldl', 'hdl', 'tg'] as const).map((key) => {
+                              const range = getLabRange(key, pacienteSex);
+                              if (!range) return null;
+                              let value: number | undefined;
+                              if (key === 'cholTotal') value = primeiroExame.colesterolTotal;
+                              else if (key === 'ldl') value = primeiroExame.ldl;
+                              else if (key === 'hdl') value = primeiroExame.hdl;
+                              else if (key === 'tg') value = primeiroExame.triglicerides;
+                              return (
+                                <div key={key}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {range.label}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={value || ''}
+                                    onChange={(e) => {
+                                      const numValue = parseFloat(e.target.value) || 0;
+                                      const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
+                                      if (examesAtualizados.length === 0) {
+                                        examesAtualizados.push({
+                                          id: 'temp-' + Date.now(),
+                                          dataColeta: new Date(),
+                                          ...(key === 'cholTotal' ? { colesterolTotal: numValue } : 
+                                             key === 'ldl' ? { ldl: numValue } : 
+                                             key === 'hdl' ? { hdl: numValue } : 
+                                             { triglicerides: numValue })
+                                        });
+                                      } else {
+                                        examesAtualizados[0] = {
+                                          ...examesAtualizados[0],
+                                          ...(key === 'cholTotal' ? { colesterolTotal: numValue } : 
+                                             key === 'ldl' ? { ldl: numValue } : 
+                                             key === 'hdl' ? { hdl: numValue } : 
+                                             { triglicerides: numValue })
+                                        };
+                                      }
+                                      setPacienteEditando({
+                                        ...pacienteEditando!,
+                                        examesLaboratoriais: examesAtualizados
+                                      });
+                                    }}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2"
+                                  />
+                                  <LabRangeBar range={range} value={value || null} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Tireoide */}
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-800 mb-4">Tireóide / Rastreio MEN2</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(['tsh', 'calcitonin'] as const).map((key) => {
+                              const range = getLabRange(key, pacienteSex);
+                              if (!range) return null;
+                              const value = key === 'tsh' ? primeiroExame.tsh : primeiroExame.calcitonina;
+                              return (
+                                <div key={key}>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    {range.label}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    value={value || ''}
+                                    onChange={(e) => {
+                                      const numValue = parseFloat(e.target.value) || 0;
+                                      const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
+                                      if (examesAtualizados.length === 0) {
+                                        examesAtualizados.push({
+                                          id: 'temp-' + Date.now(),
+                                          dataColeta: new Date(),
+                                          ...(key === 'tsh' ? { tsh: numValue } : { calcitonina: numValue })
+                                        });
+                                      } else {
+                                        examesAtualizados[0] = {
+                                          ...examesAtualizados[0],
+                                          ...(key === 'tsh' ? { tsh: numValue } : { calcitonina: numValue })
+                                        };
+                                      }
+                                      setPacienteEditando({
+                                        ...pacienteEditando!,
+                                        examesLaboratoriais: examesAtualizados
+                                      });
+                                    }}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2"
+                                  />
+                                  <LabRangeBar range={range} value={value || null} />
+                                  {key === 'calcitonin' && range && value && value > range.max && (
+                                    <p className="text-sm text-red-600 mt-1">⚠️ Alerta MEN2: calcitonina elevada</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
