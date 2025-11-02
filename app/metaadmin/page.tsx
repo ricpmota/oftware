@@ -118,6 +118,7 @@ export default function MetaAdminPage() {
   const [showEditarPacienteModal, setShowEditarPacienteModal] = useState(false);
   const [pacienteEditando, setPacienteEditando] = useState<PacienteCompleto | null>(null);
   const [pastaAtiva, setPastaAtiva] = useState<number>(1);
+  const [graficoAtivoPasta6, setGraficoAtivoPasta6] = useState<'peso' | 'circunferencia' | 'hba1c'>('peso');
   const [showAdicionarSeguimentoModal, setShowAdicionarSeguimentoModal] = useState(false);
   const [novoSeguimento, setNovoSeguimento] = useState({
     peso: '',
@@ -8794,8 +8795,8 @@ export default function MetaAdminPage() {
                       targetValue: metaPeso
                     });
                     
-                    // Preparar dados para o gráfico
-                    const chartData = expectedCurve.slice(0, Math.min(52, evolucao.length + 12)).map((week, idx) => {
+                    // Preparar dados para o gráfico de peso
+                    const pesoChartData = expectedCurve.slice(0, Math.min(52, evolucao.length + 12)).map((week, idx) => {
                       const registroSemana = evolucao.find(e => e.weekIndex === week.weekIndex);
                       return {
                         semana: week.weekIndex,
@@ -8804,199 +8805,252 @@ export default function MetaAdminPage() {
                       };
                     });
                     
+                    // Preparar dados para gráfico de circunferência
+                    const baseCircAbdominal = medidasIniciais?.circunferenciaAbdominal || 0;
+                    const circData = evolucao.filter(r => r.circunferenciaAbdominal).map(r => ({
+                      semana: r.weekIndex,
+                      circunferencia: r.circunferenciaAbdominal
+                    }));
+                    
+                    // Preparar dados para gráfico de HbA1c
+                    const exames = pacienteEditando?.examesLaboratoriais || [];
+                    const hba1cData = exames
+                      .filter(ex => ex.hemoglobinaGlicada)
+                      .sort((a, b) => new Date(a.dataColeta).getTime() - new Date(b.dataColeta).getTime())
+                      .map((ex, idx) => ({
+                        numExame: idx + 1,
+                        hba1c: ex.hemoglobinaGlicada,
+                        data: ex.dataColeta
+                      }));
+                    
+                    const metaHba1c = planoTerapeutico?.metas?.hba1cTargetType;
+                    const metaValue = metaHba1c ? parseFloat(metaHba1c.replace('≤', '')) : null;
+                    
                     return (
                       <div className="space-y-6">
-                        {/* Painel superior com gráficos */}
-                        {baselineWeight > 0 ? (
-                          <div className="border border-gray-200 rounded-lg p-6 bg-white">
-                            <div className="mb-4">
-                              <h4 className="text-lg font-semibold text-gray-900">
-                                {pacienteEditando?.nome}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                Peso inicial: {baselineWeight.toFixed(1)} kg
-                              </p>
-                            </div>
-                            
-                            {(() => {
-                              // Calcular range fixo: 20kg pra cima e 20kg pra baixo do peso inicial
-                              const domainMin = Math.max(0, baselineWeight - 20);
-                              const domainMax = baselineWeight + 20;
-                              
-                              return (
-                                <div className="h-64">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={chartData}>
-                                      <CartesianGrid strokeDasharray="3 3" />
-                                      <XAxis 
-                                        dataKey="semana" 
-                                        label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
-                                      />
-                                      <YAxis 
-                                        label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }}
-                                        domain={[domainMin, domainMax]}
-                                      />
-                                      <Tooltip 
-                                        formatter={(value: any) => `${parseFloat(value).toFixed(1)} kg`}
-                                        labelFormatter={(label) => `Semana ${label}`}
-                                      />
-                                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                      <Line 
-                                        type="monotone" 
-                                        dataKey="previsto" 
-                                        stroke="#3b82f6" 
-                                        strokeWidth={2}
-                                        name="Peso previsto"
-                                        dot={{ fill: '#3b82f6', r: 3 }}
-                                      />
-                                      <Line 
-                                        type="monotone" 
-                                        dataKey="real" 
-                                        stroke="#10b981" 
-                                        strokeWidth={2}
-                                        name="Peso real"
-                                        dot={{ fill: '#10b981', r: 4 }}
-                                      />
-                                    </LineChart>
-                                  </ResponsiveContainer>
-                                </div>
-                              );
-                            })()}
+                        {/* Tabs para selecionar gráfico */}
+                        <div className="border border-gray-200 rounded-lg bg-white">
+                          <div className="flex border-b border-gray-200">
+                            <button
+                              onClick={() => setGraficoAtivoPasta6('peso')}
+                              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                                graficoAtivoPasta6 === 'peso'
+                                  ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                              }`}
+                            >
+                              📊 Peso
+                            </button>
+                            <button
+                              onClick={() => setGraficoAtivoPasta6('circunferencia')}
+                              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                                graficoAtivoPasta6 === 'circunferencia'
+                                  ? 'bg-orange-50 text-orange-700 border-b-2 border-orange-700'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                              }`}
+                            >
+                              📏 Circunferência
+                            </button>
+                            <button
+                              onClick={() => setGraficoAtivoPasta6('hba1c')}
+                              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                                graficoAtivoPasta6 === 'hba1c'
+                                  ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-700'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                              }`}
+                            >
+                              🩸 HbA1c
+                            </button>
                           </div>
-                        ) : (
-                          <div className="border border-gray-200 rounded-lg p-6 bg-amber-50">
-                            <p className="text-sm text-amber-800">
-                              ⚠️ Para visualizar o gráfico, é necessário preencher o peso inicial na Pasta 2 (Medidas Iniciais).
-                            </p>
+                          
+                          {/* Conteúdo do gráfico selecionado */}
+                          <div className="p-6">
+                            {graficoAtivoPasta6 === 'peso' && (
+                              baselineWeight > 0 ? (
+                                <div>
+                                  <div className="mb-4">
+                                    <h4 className="text-lg font-semibold text-gray-900">
+                                      {pacienteEditando?.nome}
+                                    </h4>
+                                    <p className="text-sm text-gray-600">
+                                      Peso inicial: {baselineWeight.toFixed(1)} kg
+                                    </p>
+                                  </div>
+                                  
+                                  {(() => {
+                                    const domainMin = Math.max(0, baselineWeight - 20);
+                                    const domainMax = baselineWeight + 20;
+                                    
+                                    return (
+                                      <div className="h-64">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <LineChart data={pesoChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis 
+                                              dataKey="semana" 
+                                              label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                                            />
+                                            <YAxis 
+                                              label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }}
+                                              domain={[domainMin, domainMax]}
+                                            />
+                                            <Tooltip 
+                                              formatter={(value: any) => `${parseFloat(value).toFixed(1)} kg`}
+                                              labelFormatter={(label) => `Semana ${label}`}
+                                            />
+                                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                            <Line 
+                                              type="monotone" 
+                                              dataKey="previsto" 
+                                              stroke="#3b82f6" 
+                                              strokeWidth={2}
+                                              name="Peso previsto"
+                                              dot={{ fill: '#3b82f6', r: 3 }}
+                                            />
+                                            <Line 
+                                              type="monotone" 
+                                              dataKey="real" 
+                                              stroke="#10b981" 
+                                              strokeWidth={2}
+                                              name="Peso real"
+                                              dot={{ fill: '#10b981', r: 4 }}
+                                            />
+                                          </LineChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              ) : (
+                                <div className="py-8 bg-amber-50">
+                                  <p className="text-sm text-amber-800 text-center">
+                                    ⚠️ Para visualizar o gráfico, é necessário preencher o peso inicial na Pasta 2 (Medidas Iniciais).
+                                  </p>
+                                </div>
+                              )
+                            )}
+                            
+                            {graficoAtivoPasta6 === 'circunferencia' && (
+                              baseCircAbdominal > 0 && circData.length > 0 ? (
+                                <div>
+                                  <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                                    Circunferência Abdominal (cm)
+                                  </h4>
+                                  {(() => {
+                                    const domainMin = Math.max(0, baseCircAbdominal - 20);
+                                    const domainMax = baseCircAbdominal + 20;
+                                    
+                                    return (
+                                      <div className="h-64">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <LineChart data={circData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis 
+                                              dataKey="semana" 
+                                              label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                                            />
+                                            <YAxis 
+                                              label={{ value: 'Circunferência (cm)', angle: -90, position: 'insideLeft' }}
+                                              domain={[domainMin, domainMax]}
+                                            />
+                                            <Tooltip 
+                                              formatter={(value: any) => `${parseFloat(value).toFixed(1)} cm`}
+                                              labelFormatter={(label) => `Semana ${label}`}
+                                            />
+                                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                            <Line 
+                                              type="monotone" 
+                                              dataKey="circunferencia" 
+                                              stroke="#f59e0b" 
+                                              strokeWidth={2}
+                                              name="Circunferência Abdominal"
+                                              dot={{ fill: '#f59e0b', r: 4 }}
+                                            />
+                                          </LineChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              ) : (
+                                <div className="py-8 bg-amber-50">
+                                  <p className="text-sm text-amber-800 text-center">
+                                    ⚠️ Para visualizar o gráfico, é necessário preencher a circunferência abdominal inicial na Pasta 2 e adicionar registros semanais.
+                                  </p>
+                                </div>
+                              )
+                            )}
+                            
+                            {graficoAtivoPasta6 === 'hba1c' && (
+                              hba1cData.length > 0 ? (
+                                <div>
+                                  <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                                    Hemoglobina Glicada (HbA1c) %
+                                    {metaValue && <span className="text-sm font-normal text-gray-600 ml-2">(Meta: {'<'} {metaValue}%)</span>}
+                                  </h4>
+                                  {(() => {
+                                    const allValues = hba1cData.map(d => d.hba1c as number);
+                                    const minValue = Math.min(...allValues);
+                                    const maxValue = Math.max(...allValues);
+                                    const range = maxValue - minValue;
+                                    const domainMin = Math.max(0, minValue - range * 0.2);
+                                    const domainMax = maxValue + range * 0.2;
+                                    
+                                    return (
+                                      <div className="h-64">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <LineChart data={hba1cData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis 
+                                              dataKey="numExame" 
+                                              label={{ value: 'Exame', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                                            />
+                                            <YAxis 
+                                              label={{ value: 'HbA1c (%)', angle: -90, position: 'insideLeft' }}
+                                              domain={[domainMin, domainMax]}
+                                            />
+                                            <Tooltip 
+                                              formatter={(value: any) => `${parseFloat(value).toFixed(1)}%`}
+                                              labelFormatter={(label) => `Exame ${label}`}
+                                            />
+                                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                            <Line 
+                                              type="monotone" 
+                                              dataKey="hba1c" 
+                                              stroke="#8b5cf6" 
+                                              strokeWidth={2}
+                                              name="HbA1c"
+                                              dot={{ fill: '#8b5cf6', r: 4 }}
+                                            />
+                                            {metaValue && (
+                                              <Line 
+                                                type="monotone" 
+                                                data={hba1cData.map(d => ({ ...d, meta: metaValue }))}
+                                                dataKey="meta" 
+                                                stroke="#ef4444" 
+                                                strokeWidth={1}
+                                                strokeDasharray="5 5"
+                                                name="Meta"
+                                                dot={false}
+                                                legendType="line"
+                                              />
+                                            )}
+                                          </LineChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              ) : (
+                                <div className="py-8 bg-amber-50">
+                                  <p className="text-sm text-amber-800 text-center">
+                                    ⚠️ Para visualizar o gráfico, é necessário adicionar exames laboratoriais com HbA1c na Pasta 4.
+                                  </p>
+                                </div>
+                              )
+                            )}
                           </div>
-                        )}
-
-                        {/* Gráfico Circunferência Abdominal */}
-                        {(() => {
-                          const baseCircAbdominal = medidasIniciais?.circunferenciaAbdominal || 0;
-                          const circData = evolucao.filter(r => r.circunferenciaAbdominal).map(r => ({
-                            semana: r.weekIndex,
-                            circunferencia: r.circunferenciaAbdominal
-                          }));
-                          
-                          if (baseCircAbdominal > 0 && circData.length > 0) {
-                            const domainMin = Math.max(0, baseCircAbdominal - 20);
-                            const domainMax = baseCircAbdominal + 20;
-                            
-                            return (
-                              <div className="border border-gray-200 rounded-lg p-6 bg-white">
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                                  Circunferência Abdominal (cm)
-                                </h4>
-                                <div className="h-64">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={circData}>
-                                      <CartesianGrid strokeDasharray="3 3" />
-                                      <XAxis 
-                                        dataKey="semana" 
-                                        label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
-                                      />
-                                      <YAxis 
-                                        label={{ value: 'Circunferência (cm)', angle: -90, position: 'insideLeft' }}
-                                        domain={[domainMin, domainMax]}
-                                      />
-                                      <Tooltip 
-                                        formatter={(value: any) => `${parseFloat(value).toFixed(1)} cm`}
-                                        labelFormatter={(label) => `Semana ${label}`}
-                                      />
-                                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                      <Line 
-                                        type="monotone" 
-                                        dataKey="circunferencia" 
-                                        stroke="#f59e0b" 
-                                        strokeWidth={2}
-                                        name="Circunferência Abdominal"
-                                        dot={{ fill: '#f59e0b', r: 4 }}
-                                      />
-                                    </LineChart>
-                                  </ResponsiveContainer>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-
-                        {/* Gráfico HbA1c */}
-                        {(() => {
-                          const exames = pacienteEditando?.examesLaboratoriais || [];
-                          const hba1cData = exames
-                            .filter(ex => ex.hemoglobinaGlicada)
-                            .sort((a, b) => new Date(a.dataColeta).getTime() - new Date(b.dataColeta).getTime())
-                            .map((ex, idx) => ({
-                              numExame: idx + 1,
-                              hba1c: ex.hemoglobinaGlicada,
-                              data: ex.dataColeta
-                            }));
-                          
-                          const metaHba1c = planoTerapeutico?.metas?.hba1cTargetType;
-                          const metaValue = metaHba1c ? parseFloat(metaHba1c.replace('≤', '')) : null;
-                          
-                          if (hba1cData.length > 0) {
-                            const allValues = hba1cData.map(d => d.hba1c as number);
-                            const minValue = Math.min(...allValues);
-                            const maxValue = Math.max(...allValues);
-                            const range = maxValue - minValue;
-                            const domainMin = Math.max(0, minValue - range * 0.2);
-                            const domainMax = maxValue + range * 0.2;
-                            
-                            return (
-                              <div className="border border-gray-200 rounded-lg p-6 bg-white">
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                                  Hemoglobina Glicada (HbA1c) %
-                                  {metaValue && <span className="text-sm font-normal text-gray-600 ml-2">(Meta: {'<'} {metaValue}%)</span>}
-                                </h4>
-                                <div className="h-64">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={hba1cData}>
-                                      <CartesianGrid strokeDasharray="3 3" />
-                                      <XAxis 
-                                        dataKey="numExame" 
-                                        label={{ value: 'Exame', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
-                                      />
-                                      <YAxis 
-                                        label={{ value: 'HbA1c (%)', angle: -90, position: 'insideLeft' }}
-                                        domain={[domainMin, domainMax]}
-                                      />
-                                      <Tooltip 
-                                        formatter={(value: any) => `${parseFloat(value).toFixed(1)}%`}
-                                        labelFormatter={(label) => `Exame ${label}`}
-                                      />
-                                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                      <Line 
-                                        type="monotone" 
-                                        dataKey="hba1c" 
-                                        stroke="#8b5cf6" 
-                                        strokeWidth={2}
-                                        name="HbA1c"
-                                        dot={{ fill: '#8b5cf6', r: 4 }}
-                                      />
-                                      {metaValue && (
-                                        <Line 
-                                          type="monotone" 
-                                          data={hba1cData.map(d => ({ ...d, meta: metaValue }))}
-                                          dataKey="meta" 
-                                          stroke="#ef4444" 
-                                          strokeWidth={1}
-                                          strokeDasharray="5 5"
-                                          name="Meta"
-                                          dot={false}
-                                          legendType="line"
-                                        />
-                                      )}
-                                    </LineChart>
-                                  </ResponsiveContainer>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
+                        </div>
 
                         {/* Timeline de semanas */}
                         <div className="space-y-4">
