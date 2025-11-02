@@ -7431,15 +7431,24 @@ export default function MetaAdminPage() {
                                     onChange={(e) => {
                                       const numValue = parseFloat(e.target.value) || 0;
                                       const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
-                                      if (examesAtualizados.length === 0) {
+                                      
+                                      // Encontrar índice do exame selecionado
+                                      const indexExame = examesAtualizados.findIndex(e => {
+                                        const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                                        return dataExame === dataSelecionada;
+                                      });
+                                      
+                                      if (indexExame === -1) {
+                                        // Se não encontrar, criar novo exame com a data selecionada
                                         examesAtualizados.push({
                                           id: 'temp-' + Date.now(),
-                                          dataColeta: new Date(),
+                                          dataColeta: new Date(dataSelecionada),
                                           ...(key === 'fastingGlucose' ? { glicemiaJejum: numValue } : { hemoglobinaGlicada: numValue })
                                         });
                                       } else {
-                                        examesAtualizados[0] = {
-                                          ...examesAtualizados[0],
+                                        // Atualizar exame existente
+                                        examesAtualizados[indexExame] = {
+                                          ...examesAtualizados[indexExame],
                                           ...(key === 'fastingGlucose' ? { glicemiaJejum: numValue } : { hemoglobinaGlicada: numValue })
                                         };
                                       }
@@ -7480,17 +7489,24 @@ export default function MetaAdminPage() {
                                     onChange={(e) => {
                                       const numValue = parseFloat(e.target.value) || 0;
                                       const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
-                                      if (examesAtualizados.length === 0) {
+                                      
+                                      // Encontrar índice do exame selecionado
+                                      const indexExame = examesAtualizados.findIndex(e => {
+                                        const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                                        return dataExame === dataSelecionada;
+                                      });
+                                      
+                                      if (indexExame === -1) {
                                         examesAtualizados.push({
                                           id: 'temp-' + Date.now(),
-                                          dataColeta: new Date(),
+                                          dataColeta: new Date(dataSelecionada),
                                           ...(key === 'urea' ? { ureia: numValue } : 
                                              key === 'creatinine' ? { creatinina: numValue } : 
                                              { taxaFiltracaoGlomerular: numValue })
                                         });
                                       } else {
-                                        examesAtualizados[0] = {
-                                          ...examesAtualizados[0],
+                                        examesAtualizados[indexExame] = {
+                                          ...examesAtualizados[indexExame],
                                           ...(key === 'urea' ? { ureia: numValue } : 
                                              key === 'creatinine' ? { creatinina: numValue } : 
                                              { taxaFiltracaoGlomerular: numValue })
@@ -7537,18 +7553,25 @@ export default function MetaAdminPage() {
                                     onChange={(e) => {
                                       const numValue = parseFloat(e.target.value) || 0;
                                       const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
-                                      if (examesAtualizados.length === 0) {
+                                      
+                                      // Encontrar índice do exame selecionado
+                                      const indexExame = examesAtualizados.findIndex(e => {
+                                        const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                                        return dataExame === dataSelecionada;
+                                      });
+                                      
+                                      if (indexExame === -1) {
                                         examesAtualizados.push({
                                           id: 'temp-' + Date.now(),
-                                          dataColeta: new Date(),
+                                          dataColeta: new Date(dataSelecionada),
                                           ...(key === 'alt' ? { tgp: numValue } : 
                                              key === 'ast' ? { tgo: numValue } : 
                                              key === 'ggt' ? { ggt: numValue } : 
                                              { fosfataseAlcalina: numValue })
                                         });
                                       } else {
-                                        examesAtualizados[0] = {
-                                          ...examesAtualizados[0],
+                                        examesAtualizados[indexExame] = {
+                                          ...examesAtualizados[indexExame],
                                           ...(key === 'alt' ? { tgp: numValue } : 
                                              key === 'ast' ? { tgo: numValue } : 
                                              key === 'ggt' ? { ggt: numValue } : 
@@ -7590,15 +7613,22 @@ export default function MetaAdminPage() {
                                     onChange={(e) => {
                                       const numValue = parseFloat(e.target.value) || 0;
                                       const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
-                                      if (examesAtualizados.length === 0) {
+                                      
+                                      // Encontrar índice do exame selecionado
+                                      const indexExame = examesAtualizados.findIndex(e => {
+                                        const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                                        return dataExame === dataSelecionada;
+                                      });
+                                      
+                                      if (indexExame === -1) {
                                         examesAtualizados.push({
                                           id: 'temp-' + Date.now(),
-                                          dataColeta: new Date(),
+                                          dataColeta: new Date(dataSelecionada),
                                           ...(key === 'amylase' ? { amilase: numValue } : { lipase: numValue })
                                         });
                                       } else {
-                                        examesAtualizados[0] = {
-                                          ...examesAtualizados[0],
+                                        examesAtualizados[indexExame] = {
+                                          ...examesAtualizados[indexExame],
                                           ...(key === 'amylase' ? { amilase: numValue } : { lipase: numValue })
                                         };
                                       }
@@ -7643,18 +7673,25 @@ export default function MetaAdminPage() {
                                     onChange={(e) => {
                                       const numValue = parseFloat(e.target.value) || 0;
                                       const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
-                                      if (examesAtualizados.length === 0) {
+                                      
+                                      // Encontrar índice do exame selecionado
+                                      const indexExame = examesAtualizados.findIndex(e => {
+                                        const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                                        return dataExame === dataSelecionada;
+                                      });
+                                      
+                                      if (indexExame === -1) {
                                         examesAtualizados.push({
                                           id: 'temp-' + Date.now(),
-                                          dataColeta: new Date(),
+                                          dataColeta: new Date(dataSelecionada),
                                           ...(key === 'cholTotal' ? { colesterolTotal: numValue } : 
                                              key === 'ldl' ? { ldl: numValue } : 
                                              key === 'hdl' ? { hdl: numValue } : 
                                              { triglicerides: numValue })
                                         });
                                       } else {
-                                        examesAtualizados[0] = {
-                                          ...examesAtualizados[0],
+                                        examesAtualizados[indexExame] = {
+                                          ...examesAtualizados[indexExame],
                                           ...(key === 'cholTotal' ? { colesterolTotal: numValue } : 
                                              key === 'ldl' ? { ldl: numValue } : 
                                              key === 'hdl' ? { hdl: numValue } : 
@@ -7695,15 +7732,22 @@ export default function MetaAdminPage() {
                                     onChange={(e) => {
                                       const numValue = parseFloat(e.target.value) || 0;
                                       const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
-                                      if (examesAtualizados.length === 0) {
+                                      
+                                      // Encontrar índice do exame selecionado
+                                      const indexExame = examesAtualizados.findIndex(e => {
+                                        const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                                        return dataExame === dataSelecionada;
+                                      });
+                                      
+                                      if (indexExame === -1) {
                                         examesAtualizados.push({
                                           id: 'temp-' + Date.now(),
-                                          dataColeta: new Date(),
+                                          dataColeta: new Date(dataSelecionada),
                                           ...(key === 'tsh' ? { tsh: numValue } : { calcitonina: numValue })
                                         });
                                       } else {
-                                        examesAtualizados[0] = {
-                                          ...examesAtualizados[0],
+                                        examesAtualizados[indexExame] = {
+                                          ...examesAtualizados[indexExame],
                                           ...(key === 'tsh' ? { tsh: numValue } : { calcitonina: numValue })
                                         };
                                       }
