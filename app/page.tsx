@@ -147,113 +147,105 @@ export default function OftalmoPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <img 
                 src="/icones/oftware.png" 
                 alt="Oftware" 
-                className="w-10 h-10"
+                className="w-8 h-8 md:w-10 md:h-10"
               />
-              <div>
+              <div className="hidden md:block">
                 <h1 className="text-xl font-bold text-gray-900">Oftware</h1>
                 <p className="text-sm text-gray-600">Sistema de Gestão Médica</p>
               </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{user.displayName || 'Usuário'}</p>
-                <p className="text-xs text-gray-500">{user.email}</p>
+              <div className="md:hidden">
+                <h1 className="text-lg font-bold text-gray-900">Oftware</h1>
               </div>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Sair"
-              >
-                <LogOut size={20} />
-              </button>
             </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Sair"
+            >
+              <LogOut size={20} />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="px-4 py-6">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Selecione uma área</h2>
-          <p className="text-sm md:text-base text-gray-600">Escolha o módulo que deseja acessar</p>
-        </div>
-
+      <div className="px-4 py-4">
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 gap-4 max-w-md mx-auto md:max-w-full md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:gap-4 md:max-w-full md:grid-cols-2 lg:grid-cols-3">
           {/* Oftware */}
           <button
             onClick={() => router.push('/oftware')}
-            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-3">
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <HomeIcon size={20} className="text-blue-600" />
+            <div className="flex items-center mb-2">
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <HomeIcon size={18} className="text-blue-600" />
               </div>
-              <h3 className="ml-3 text-lg font-semibold text-gray-900">Oftware</h3>
+              <h3 className="ml-3 text-base font-semibold text-gray-900">Oftware</h3>
             </div>
-            <p className="text-sm text-gray-600">Assistência oftalmológica</p>
+            <p className="text-xs text-gray-600">Assistência oftalmológica</p>
           </button>
 
           {/* Admin Escala */}
           <button
             onClick={() => router.push('/admin')}
-            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-3">
-              <div className="bg-green-100 p-3 rounded-lg">
-                <Settings size={20} className="text-green-600" />
+            <div className="flex items-center mb-2">
+              <div className="bg-green-100 p-2 rounded-lg">
+                <Settings size={18} className="text-green-600" />
               </div>
-              <h3 className="ml-3 text-lg font-semibold text-gray-900">Admin Escala</h3>
+              <h3 className="ml-3 text-base font-semibold text-gray-900">Admin Escala</h3>
             </div>
-            <p className="text-sm text-gray-600">Gerenciamento de escalas médicas</p>
+            <p className="text-xs text-gray-600">Gerenciamento de escalas médicas</p>
           </button>
 
           {/* Admin META */}
           <button
             onClick={() => router.push('/metaadmin')}
-            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-3">
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <Stethoscope size={20} className="text-purple-600" />
+            <div className="flex items-center mb-2">
+              <div className="bg-purple-100 p-2 rounded-lg">
+                <Stethoscope size={18} className="text-purple-600" />
               </div>
-              <h3 className="ml-3 text-lg font-semibold text-gray-900">Admin META</h3>
+              <h3 className="ml-3 text-base font-semibold text-gray-900">Admin META</h3>
             </div>
-            <p className="text-sm text-gray-600">Tratamento de obesidade com Monjauro</p>
+            <p className="text-xs text-gray-600">Tratamento de obesidade com Monjauro</p>
           </button>
 
           {/* Paciente META */}
           <button
             onClick={() => router.push('/meta')}
-            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-3">
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <UserCheck size={20} className="text-orange-600" />
+            <div className="flex items-center mb-2">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <UserCheck size={18} className="text-orange-600" />
               </div>
-              <h3 className="ml-3 text-lg font-semibold text-gray-900">Paciente META</h3>
+              <h3 className="ml-3 text-base font-semibold text-gray-900">Paciente META</h3>
             </div>
-            <p className="text-sm text-gray-600">Acompanhamento Monjauro</p>
+            <p className="text-xs text-gray-600">Acompanhamento Monjauro</p>
           </button>
 
           {/* Residente */}
           <button
             onClick={() => router.push('/cenoft')}
-            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-3">
-              <div className="bg-indigo-100 p-3 rounded-lg">
-                <Users size={20} className="text-indigo-600" />
+            <div className="flex items-center mb-2">
+              <div className="bg-indigo-100 p-2 rounded-lg">
+                <Users size={18} className="text-indigo-600" />
               </div>
-              <h3 className="ml-3 text-lg font-semibold text-gray-900">Residente</h3>
+              <h3 className="ml-3 text-base font-semibold text-gray-900">Residente</h3>
             </div>
-            <p className="text-sm text-gray-600">Escalas Médicas</p>
+            <p className="text-xs text-gray-600">Escalas Médicas</p>
           </button>
         </div>
       </div>
