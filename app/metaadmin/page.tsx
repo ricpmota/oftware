@@ -7337,29 +7337,51 @@ export default function MetaAdminPage() {
                     const pacienteSex = pacienteEditando?.dadosIdentificacao?.sexoBiologico as Sex;
                     const exames = pacienteEditando?.examesLaboratoriais || [];
                     
+                    // Função helper para converter data de forma segura
+                    const safeDateToString = (date: any): string => {
+                      if (!date) return '';
+                      try {
+                        let d: Date;
+                        if (date instanceof Date) {
+                          d = date;
+                        } else if (typeof date === 'string') {
+                          d = new Date(date);
+                        } else if (date.toDate) {
+                          // Firestore Timestamp
+                          d = date.toDate();
+                        } else {
+                          d = new Date(date);
+                        }
+                        if (isNaN(d.getTime())) return '';
+                        return d.toISOString().split('T')[0];
+                      } catch {
+                        return '';
+                      }
+                    };
+                    
                     // Ordenar exames por data (mais recente primeiro)
                     const examesOrdenados = [...exames].sort((a, b) => {
-                      const dateA = new Date(a.dataColeta).getTime();
-                      const dateB = new Date(b.dataColeta).getTime();
-                      return dateB - dateA;
-                    });
+                      const dateA = safeDateToString(a.dataColeta);
+                      const dateB = safeDateToString(b.dataColeta);
+                      return dateB.localeCompare(dateA);
+                    }).filter(e => safeDateToString(e.dataColeta)); // Remover exames com datas inválidas
                     
                     // Inicializar data selecionada com o exame mais recente (se não estiver definida)
                     const dataInicial = examesOrdenados.length > 0 
-                      ? new Date(examesOrdenados[0].dataColeta).toISOString().split('T')[0]
+                      ? safeDateToString(examesOrdenados[0].dataColeta)
                       : '';
                     
                     const dataSelecionada = exameDataSelecionada || dataInicial;
                     
                     // Encontrar exame da data selecionada
                     const exameSelecionado = exames.find(e => {
-                      const dataExame = new Date(e.dataColeta).toISOString().split('T')[0];
+                      const dataExame = safeDateToString(e.dataColeta);
                       return dataExame === dataSelecionada;
                     }) || examesOrdenados[0] || {};
                     
                     // Preparar dados para gráfico de linha (todos os exames ao longo do tempo)
                     const dadosGrafico = examesOrdenados.map(exame => {
-                      const dataExame = new Date(exame.dataColeta).toISOString().split('T')[0];
+                      const dataExame = safeDateToString(exame.dataColeta);
                       return {
                         data: dataExame,
                         glicemiaJejum: exame.glicemiaJejum || null,
@@ -7397,8 +7419,17 @@ export default function MetaAdminPage() {
                               className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                             >
                               {examesOrdenados.map((exame, idx) => {
-                                const dataExame = new Date(exame.dataColeta).toISOString().split('T')[0];
-                                const dataFormatada = new Date(exame.dataColeta).toLocaleDateString('pt-BR');
+                                const dataExame = safeDateToString(exame.dataColeta);
+                                // Formatar para exibição
+                                let dataFormatada = '';
+                                if (dataExame) {
+                                  try {
+                                    const d = new Date(dataExame);
+                                    if (!isNaN(d.getTime())) {
+                                      dataFormatada = d.toLocaleDateString('pt-BR');
+                                    }
+                                  } catch {}
+                                }
                                 return (
                                   <option key={idx} value={dataExame}>
                                     {idx === 0 ? '🏥 Basal' : '📅'} {dataFormatada}
