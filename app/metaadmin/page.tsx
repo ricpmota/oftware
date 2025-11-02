@@ -8819,17 +8819,9 @@ export default function MetaAdminPage() {
                             </div>
                             
                             {(() => {
-                              // Calcular range dinâmico do eixo Y
-                              const realWeights = chartData.filter(d => d.real !== null).map(d => d.real as number);
-                              const previstoWeights = chartData.map(d => d.previsto);
-                              const allWeights = [...realWeights, ...previstoWeights];
-                              
-                              const minWeight = Math.min(...allWeights);
-                              const maxWeight = Math.max(...allWeights);
-                              const range = maxWeight - minWeight;
-                              
-                              const domainMin = Math.max(0, minWeight - range * 0.1);
-                              const domainMax = maxWeight + range * 0.1;
+                              // Calcular range fixo: 20kg pra cima e 20kg pra baixo do peso inicial
+                              const domainMin = Math.max(0, baselineWeight - 20);
+                              const domainMax = baselineWeight + 20;
                               
                               return (
                                 <div className="h-64">
@@ -8878,6 +8870,133 @@ export default function MetaAdminPage() {
                             </p>
                           </div>
                         )}
+
+                        {/* Gráfico Circunferência Abdominal */}
+                        {(() => {
+                          const baseCircAbdominal = medidasIniciais?.circunferenciaAbdominal || 0;
+                          const circData = evolucao.filter(r => r.circunferenciaAbdominal).map(r => ({
+                            semana: r.weekIndex,
+                            circunferencia: r.circunferenciaAbdominal
+                          }));
+                          
+                          if (baseCircAbdominal > 0 && circData.length > 0) {
+                            const domainMin = Math.max(0, baseCircAbdominal - 20);
+                            const domainMax = baseCircAbdominal + 20;
+                            
+                            return (
+                              <div className="border border-gray-200 rounded-lg p-6 bg-white">
+                                <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                                  Circunferência Abdominal (cm)
+                                </h4>
+                                <div className="h-64">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={circData}>
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis 
+                                        dataKey="semana" 
+                                        label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                                      />
+                                      <YAxis 
+                                        label={{ value: 'Circunferência (cm)', angle: -90, position: 'insideLeft' }}
+                                        domain={[domainMin, domainMax]}
+                                      />
+                                      <Tooltip 
+                                        formatter={(value: any) => `${parseFloat(value).toFixed(1)} cm`}
+                                        labelFormatter={(label) => `Semana ${label}`}
+                                      />
+                                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="circunferencia" 
+                                        stroke="#f59e0b" 
+                                        strokeWidth={2}
+                                        name="Circunferência Abdominal"
+                                        dot={{ fill: '#f59e0b', r: 4 }}
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                        {/* Gráfico HbA1c */}
+                        {(() => {
+                          const exames = pacienteEditando?.examesLaboratoriais || [];
+                          const hba1cData = exames
+                            .filter(ex => ex.hemoglobinaGlicada)
+                            .sort((a, b) => new Date(a.dataColeta).getTime() - new Date(b.dataColeta).getTime())
+                            .map((ex, idx) => ({
+                              numExame: idx + 1,
+                              hba1c: ex.hemoglobinaGlicada,
+                              data: ex.dataColeta
+                            }));
+                          
+                          const metaHba1c = planoTerapeutico?.metas?.hba1cTargetType;
+                          const metaValue = metaHba1c ? parseFloat(metaHba1c.replace('≤', '')) : null;
+                          
+                          if (hba1cData.length > 0) {
+                            const allValues = hba1cData.map(d => d.hba1c as number);
+                            const minValue = Math.min(...allValues);
+                            const maxValue = Math.max(...allValues);
+                            const range = maxValue - minValue;
+                            const domainMin = Math.max(0, minValue - range * 0.2);
+                            const domainMax = maxValue + range * 0.2;
+                            
+                            return (
+                              <div className="border border-gray-200 rounded-lg p-6 bg-white">
+                                <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                                  Hemoglobina Glicada (HbA1c) %
+                                  {metaValue && <span className="text-sm font-normal text-gray-600 ml-2">(Meta: {'<'} {metaValue}%)</span>}
+                                </h4>
+                                <div className="h-64">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={hba1cData}>
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis 
+                                        dataKey="numExame" 
+                                        label={{ value: 'Exame', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                                      />
+                                      <YAxis 
+                                        label={{ value: 'HbA1c (%)', angle: -90, position: 'insideLeft' }}
+                                        domain={[domainMin, domainMax]}
+                                      />
+                                      <Tooltip 
+                                        formatter={(value: any) => `${parseFloat(value).toFixed(1)}%`}
+                                        labelFormatter={(label) => `Exame ${label}`}
+                                      />
+                                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="hba1c" 
+                                        stroke="#8b5cf6" 
+                                        strokeWidth={2}
+                                        name="HbA1c"
+                                        dot={{ fill: '#8b5cf6', r: 4 }}
+                                      />
+                                      {metaValue && (
+                                        <Line 
+                                          type="monotone" 
+                                          data={hba1cData.map(d => ({ ...d, meta: metaValue }))}
+                                          dataKey="meta" 
+                                          stroke="#ef4444" 
+                                          strokeWidth={1}
+                                          strokeDasharray="5 5"
+                                          name="Meta"
+                                          dot={false}
+                                          legendType="line"
+                                        />
+                                      )}
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
 
                         {/* Timeline de semanas */}
                         <div className="space-y-4">
