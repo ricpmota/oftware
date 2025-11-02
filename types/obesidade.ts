@@ -237,21 +237,66 @@ export interface ExamesLaboratoriais {
 
 // Pasta 5: Plano Terapêutico
 export interface PlanoTerapeutico {
+  // 5.1 Metadados do plano
+  startDate?: Date;
+  injectionDayOfWeek?: 'seg' | 'ter' | 'qua' | 'qui' | 'sex' | 'sab' | 'dom';
+  responsibleDoctorId?: string;
+  consentSigned?: boolean;
+  
+  // 5.2 Dose e titulação
+  currentDoseMg?: 2.5 | 5 | 7.5 | 10 | 12.5 | 15;
+  lastDoseChangeAt?: Date;
+  nextReviewDate?: Date;
+  titrationStatus?: 'INICIADO' | 'EM_TITULACAO' | 'MANUTENCAO' | 'PAUSADO' | 'ENCERRADO';
+  titrationNotes?: string;
+  
+  // Histórico (mantido compatibilidade)
+  historicoDoses?: HistoricoDose[];
+  
+  // 5.3 Metas do tratamento
+  metas: {
+    weightLossTargetType?: 'PERCENTUAL' | 'PESO_ABSOLUTO';
+    weightLossTargetValue?: number;
+    targetWeightKg?: number;
+    hba1cTargetType?: '≤7.0' | '≤6.8' | '≤6.5';
+    waistReductionTargetCm?: 5 | 10 | 15;
+    secondaryGoals?: {
+      remissaoPreDiabetes?: boolean;
+      melhoraEHNA?: boolean;
+      reducaoTG?: boolean;
+      reducaoPA?: boolean;
+      outro?: boolean;
+      outroDescricao?: string;
+    };
+  };
+  
+  // 5.4 Plano comportamental
+  nutritionPlan?: 'Hipocalórico balanceado' | 'Low-carb moderado' | 'Mediterrâneo' | 'Proteína priorizada' | 'Personalizado';
+  nutritionNotes?: string;
+  activityPlan?: 'Iniciante' | 'Moderado' | 'Vigoroso' | 'Personalizado';
+  activityNotes?: string;
+  supportPlan?: {
+    nutricionista?: boolean;
+    psicologia?: boolean;
+    educacaoFisica?: boolean;
+    grupoApoio?: boolean;
+  };
+  
+  // 5.8 Campos auxiliares de auditoria
+  educationDelivered?: boolean;
+  informedRisksDiscussed?: boolean;
+  carePlanPdfUrl?: string;
+  auditNotes?: string;
+  
+  // Deprecated (mantido para compatibilidade)
   dataInicioTratamento?: Date;
   doseAtual?: {
-    quantidade: number; // mg
+    quantidade: number;
     frequencia: 'semanal';
     dataUltimaAjuste?: Date;
   };
-  historicoDoses?: HistoricoDose[];
   proximaRevisao?: Date;
   observacoesClinicas?: string;
-  metas: {
-    pesoAlvo?: number;
-    hba1cAlvo?: number;
-    imcDesejado?: number;
-    dataPrevistaReavaliacao?: Date;
-  };
 }
 
 export interface HistoricoDose {

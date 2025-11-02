@@ -8107,10 +8107,645 @@ export default function MetaAdminPage() {
               )}
 
               {pastaAtiva === 5 && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Plano Terapêutico</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  
+                  {/* 5.1 Metadados do plano */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">5.1 Metadados do Plano</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Data de início do tratamento *</label>
+                        <input
+                          type="date"
+                          value={(() => {
+                            const date = pacienteEditando?.planoTerapeutico?.startDate || pacienteEditando?.planoTerapeutico?.dataInicioTratamento;
+                            if (!date) return '';
+                            try {
+                              const d = new Date(date);
+                              if (!isNaN(d.getTime())) {
+                                return d.toISOString().split('T')[0];
+                              }
+                              return '';
+                            } catch {
+                              return '';
+                            }
+                          })()}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                startDate: e.target.value ? new Date(e.target.value) : undefined,
+                                dataInicioTratamento: e.target.value ? new Date(e.target.value) : undefined
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Dia da aplicação semanal *</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.injectionDayOfWeek || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                injectionDayOfWeek: e.target.value as any
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="seg">Segunda-feira</option>
+                          <option value="ter">Terça-feira</option>
+                          <option value="qua">Quarta-feira</option>
+                          <option value="qui">Quinta-feira</option>
+                          <option value="sex">Sexta-feira</option>
+                          <option value="sab">Sábado</option>
+                          <option value="dom">Domingo</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pacienteEditando?.planoTerapeutico?.consentSigned || false}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  consentSigned: e.target.checked
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Termo de consentimento assinado *</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5.2 Dose e titulação */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">5.2 Dose e Titulação</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Dose atual (mg) *</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.currentDoseMg || pacienteEditando?.planoTerapeutico?.doseAtual?.quantidade || ''}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            const now = new Date();
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                currentDoseMg: value as any,
+                                lastDoseChangeAt: now,
+                                nextReviewDate: new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000), // +28 dias
+                                doseAtual: {
+                                  quantidade: value,
+                                  frequencia: 'semanal' as const,
+                                  dataUltimaAjuste: now
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="2.5">2.5 mg</option>
+                          <option value="5">5 mg</option>
+                          <option value="7.5">7.5 mg</option>
+                          <option value="10">10 mg</option>
+                          <option value="12.5">12.5 mg</option>
+                          <option value="15">15 mg</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Status da titulação</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.titrationStatus || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                titrationStatus: e.target.value as any
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="INICIADO">Iniciado</option>
+                          <option value="EM_TITULACAO">Em titulação</option>
+                          <option value="MANUTENCAO">Manutenção</option>
+                          <option value="PAUSADO">Pausado</option>
+                          <option value="ENCERRADO">Encerrado</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Observações de titulação</label>
+                        <textarea
+                          value={pacienteEditando?.planoTerapeutico?.titrationNotes || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                titrationNotes: e.target.value
+                              }
+                            });
+                          }}
+                          placeholder="Motivo de ajuste, intolerância GI, etc."
+                          rows={3}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5.3 Metas do tratamento */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">5.3 Metas do Tratamento</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de meta de perda de peso</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.metas?.weightLossTargetType || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                metas: {
+                                  ...pacienteEditando?.planoTerapeutico?.metas,
+                                  weightLossTargetType: e.target.value as any
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="PERCENTUAL">Percentual</option>
+                          <option value="PESO_ABSOLUTO">Peso absoluto (kg)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Valor da meta</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={pacienteEditando?.planoTerapeutico?.metas?.weightLossTargetValue || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                metas: {
+                                  ...pacienteEditando?.planoTerapeutico?.metas,
+                                  weightLossTargetValue: parseFloat(e.target.value) || 0
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          placeholder={pacienteEditando?.planoTerapeutico?.metas?.weightLossTargetType === 'PERCENTUAL' ? '%' : 'kg'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Meta de HbA1c</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.metas?.hba1cTargetType || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                metas: {
+                                  ...pacienteEditando?.planoTerapeutico?.metas,
+                                  hba1cTargetType: e.target.value as any
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="≤7.0">≤7.0%</option>
+                          <option value="≤6.8">≤6.8%</option>
+                          <option value="≤6.5">≤6.5%</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Redução de circunferência (cm)</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.metas?.waistReductionTargetCm || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                metas: {
+                                  ...pacienteEditando?.planoTerapeutico?.metas,
+                                  waistReductionTargetCm: parseInt(e.target.value) as any
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="5">5 cm</option>
+                          <option value="10">10 cm</option>
+                          <option value="15">15 cm</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Metas secundárias</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals?.remissaoPreDiabetes || false}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  metas: {
+                                    ...pacienteEditando?.planoTerapeutico?.metas,
+                                    secondaryGoals: {
+                                      ...pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals,
+                                      remissaoPreDiabetes: e.target.checked
+                                    }
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Remissão de pré-diabetes</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals?.melhoraEHNA || false}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  metas: {
+                                    ...pacienteEditando?.planoTerapeutico?.metas,
+                                    secondaryGoals: {
+                                      ...pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals,
+                                      melhoraEHNA: e.target.checked
+                                    }
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Melhora de EHNA</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals?.reducaoTG || false}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  metas: {
+                                    ...pacienteEditando?.planoTerapeutico?.metas,
+                                    secondaryGoals: {
+                                      ...pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals,
+                                      reducaoTG: e.target.checked
+                                    }
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Redução de TG &lt;150 mg/dL</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals?.reducaoPA || false}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  metas: {
+                                    ...pacienteEditando?.planoTerapeutico?.metas,
+                                    secondaryGoals: {
+                                      ...pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals,
+                                      reducaoPA: e.target.checked
+                                    }
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">PA sistólica &lt;130 mmHg</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals?.outro || false}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  metas: {
+                                    ...pacienteEditando?.planoTerapeutico?.metas,
+                                    secondaryGoals: {
+                                      ...pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals,
+                                      outro: e.target.checked
+                                    }
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Outro</span>
+                        </label>
+                        {pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals?.outro && (
+                          <input
+                            type="text"
+                            value={pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals?.outroDescricao || ''}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  metas: {
+                                    ...pacienteEditando?.planoTerapeutico?.metas,
+                                    secondaryGoals: {
+                                      ...pacienteEditando?.planoTerapeutico?.metas?.secondaryGoals,
+                                      outroDescricao: e.target.value
+                                    }
+                                  }
+                                }
+                              });
+                            }}
+                            placeholder="Especificar meta"
+                            className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5.4 Plano comportamental */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">5.4 Plano Comportamental</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Plano nutricional</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.nutritionPlan || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                nutritionPlan: e.target.value as any
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Hipocalórico balanceado">Hipocalórico balanceado</option>
+                          <option value="Low-carb moderado">Low-carb moderado</option>
+                          <option value="Mediterrâneo">Mediterrâneo</option>
+                          <option value="Proteína priorizada">Proteína priorizada</option>
+                          <option value="Personalizado">Personalizado</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Plano de atividade física</label>
+                        <select
+                          value={pacienteEditando?.planoTerapeutico?.activityPlan || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                activityPlan: e.target.value as any
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Iniciante">Iniciante</option>
+                          <option value="Moderado">Moderado</option>
+                          <option value="Vigoroso">Vigoroso</option>
+                          <option value="Personalizado">Personalizado</option>
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Observações nutricionais</label>
+                        <textarea
+                          value={pacienteEditando?.planoTerapeutico?.nutritionNotes || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                nutritionNotes: e.target.value
+                              }
+                            });
+                          }}
+                          placeholder="Macros, fracionamento, ingestão hídrica mínima (≥2 L/dia)"
+                          rows={2}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Observações de atividade física</label>
+                        <textarea
+                          value={pacienteEditando?.planoTerapeutico?.activityNotes || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                activityNotes: e.target.value
+                              }
+                            });
+                          }}
+                          placeholder="Metas semanais (minutos), tipo (força/cardio)"
+                          rows={2}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Suporte multiprofissional</label>
+                        <div className="space-y-2">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={pacienteEditando?.planoTerapeutico?.supportPlan?.nutricionista || false}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando!,
+                                  planoTerapeutico: {
+                                    ...pacienteEditando?.planoTerapeutico,
+                                    supportPlan: {
+                                      ...pacienteEditando?.planoTerapeutico?.supportPlan,
+                                      nutricionista: e.target.checked
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-900">Nutricionista</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={pacienteEditando?.planoTerapeutico?.supportPlan?.psicologia || false}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando!,
+                                  planoTerapeutico: {
+                                    ...pacienteEditando?.planoTerapeutico,
+                                    supportPlan: {
+                                      ...pacienteEditando?.planoTerapeutico?.supportPlan,
+                                      psicologia: e.target.checked
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-900">Psicologia</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={pacienteEditando?.planoTerapeutico?.supportPlan?.educacaoFisica || false}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando!,
+                                  planoTerapeutico: {
+                                    ...pacienteEditando?.planoTerapeutico,
+                                    supportPlan: {
+                                      ...pacienteEditando?.planoTerapeutico?.supportPlan,
+                                      educacaoFisica: e.target.checked
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-900">Educação física</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={pacienteEditando?.planoTerapeutico?.supportPlan?.grupoApoio || false}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando!,
+                                  planoTerapeutico: {
+                                    ...pacienteEditando?.planoTerapeutico,
+                                    supportPlan: {
+                                      ...pacienteEditando?.planoTerapeutico?.supportPlan,
+                                      grupoApoio: e.target.checked
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-900">Grupo de apoio</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5.8 Auditoria */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">5.8 Auditoria e Educação</h4>
+                    <div className="space-y-3">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando?.planoTerapeutico?.educationDelivered || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                educationDelivered: e.target.checked
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Orientação sobre técnica de aplicação, dieta, hidratação, efeitos GI, janela de 96h</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando?.planoTerapeutico?.informedRisksDiscussed || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                informedRisksDiscussed: e.target.checked
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Riscos informados discutidos (MEN2/CMT, gestação/lactação, pancreatite)</span>
+                      </label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Observações de auditoria</label>
+                        <textarea
+                          value={pacienteEditando?.planoTerapeutico?.auditNotes || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                auditNotes: e.target.value
+                              }
+                            });
+                          }}
+                          placeholder="Justificativas clínicas de decisões fora da regra"
+                          rows={3}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
