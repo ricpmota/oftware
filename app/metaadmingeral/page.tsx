@@ -288,27 +288,12 @@ export default function MetaAdminGeralPage() {
         return;
       }
       
-      // Verificar se é o usuário master ou tem role de admin
+      // APENAS ricpmota.med@gmail.com pode acessar /metaadmingeral
       if (user.email === 'ricpmota.med@gmail.com') {
         loadData();
       } else {
-        UserService.getUserByUid(user.uid).then((userData) => {
-          if (userData?.role !== 'admin') {
-            // Redirecionar baseado no role
-            if (userData?.role === 'residente') {
-              router.push('/cenoft');
-            } else if (userData?.role === 'recepcao') {
-              router.push('/recepcao');
-            } else {
-              router.push('/');
-            }
-            return;
-          }
-          loadData();
-        }).catch((error) => {
-          console.error('Erro ao verificar role do usuário:', error);
-          router.push('/');
-        });
+        // Qualquer outro usuário é redirecionado
+        router.push('/meta');
       }
     });
 

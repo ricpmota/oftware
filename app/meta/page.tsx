@@ -224,18 +224,8 @@ export default function MetaPage() {
       if (user.email === 'ricpmota.med@gmail.com') {
         // Usuário master tem acesso a tudo
       } else {
-        // Verificar se é admin ou recepção e redirecionar para suas páginas
-        UserService.getUserByUid(user.uid).then((userData) => {
-          if (userData?.role === 'admin') {
-            router.push('/metaadmin');
-          } else if (userData?.role === 'recepcao') {
-            router.push('/recepcao');
-          }
-          // Caso contrário, permanece na página /meta (acesso liberado)
-        }).catch((error) => {
-          console.error('Erro ao verificar role do usuário:', error);
-          // Permanece na página /meta mesmo em caso de erro
-        });
+        // Não fazer verificação de role, deixar acesso livre para pacientes
+        // A página vai carregar dados do paciente se existir
       }
     });
 
