@@ -5,6 +5,7 @@ import { auth } from '../lib/firebase';
 import { onAuthStateChanged, User, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { 
+  Home as HomeIcon,
   Settings, 
   UserCheck, 
   Users, 
@@ -184,7 +185,27 @@ export default function OftalmoPage() {
         </div>
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Oftware - Página Inicial Antiga */}
+          <button
+            onClick={() => router.push('/oftware')}
+            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+          >
+            <div className="flex items-center mb-4">
+              <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <HomeIcon size={24} className="text-blue-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-semibold text-gray-900">Oftware</h3>
+            </div>
+            <p className="text-gray-600 mb-4">Página inicial antiga do sistema</p>
+            <div className="flex items-center text-blue-600 font-medium">
+              <span>Acessar</span>
+              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+
           {/* Admin Escala */}
           <button
             onClick={() => router.push('/admin')}
