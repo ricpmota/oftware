@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth } from '../lib/firebase';
 import { onAuthStateChanged, User, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { DoctorProfile } from '../types/doctor';
-import { PatientProvider } from '../contexts/PatientContext';
-
-// Lazy loading dos componentes principais
-const Home = lazy(() => import('../components/Home'));
-const DoctorProfileSetup = lazy(() => import('../components/DoctorProfileSetup'));
+import { useRouter } from 'next/navigation';
+import { 
+  Settings, 
+  UserCheck, 
+  Users, 
+  Stethoscope,
+  LogOut
+} from 'lucide-react';
 
 // Componente de loading otimizado
 const LoadingSpinner = () => (
@@ -24,10 +25,9 @@ const LoadingSpinner = () => (
 export default function OftalmoPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     // Debounce para evitar múltiplas chamadas
@@ -35,19 +35,6 @@ export default function OftalmoPage() {
     
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
-      
-      if (user) {
-        try {
-          const db = getFirestore();
-          const profileDoc = await getDoc(doc(db, 'doctors', user.uid));
-          
-          if (profileDoc.exists()) {
-            setDoctorProfile(profileDoc.data() as DoctorProfile);
-          }
-        } catch (error) {
-          console.error('Error fetching doctor profile:', error);
-        }
-      }
       
       // Debounce para suavizar transições
       timeoutId = setTimeout(() => {
@@ -61,24 +48,10 @@ export default function OftalmoPage() {
     };
   }, []);
 
-  const handleProfileComplete = (profile: DoctorProfile) => {
-    setDoctorProfile(profile);
-    setIsEditingProfile(false);
-  };
-
-  const handleEditProfile = () => {
-    setIsEditingProfile(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditingProfile(false);
-  };
-
   const handleLogout = async () => {
     try {
       await signOut(auth);
       setUser(null);
-      setDoctorProfile(null);
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -117,17 +90,17 @@ export default function OftalmoPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
           <div className="flex justify-center mb-6">
             <img 
               src="/icones/oftware.png" 
-              alt="Oftalmo Assist" 
+              alt="Oftware" 
               className="w-24 h-24"
             />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Oftalmo Assist</h1>
-          <p className="text-gray-600 mb-6">Sistema de assistência oftalmológica</p>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Oftware</h1>
+          <p className="text-gray-600 mb-6">Sistema de Gestão Médica</p>
           
           <div className="space-y-4">
             <button
@@ -160,7 +133,7 @@ export default function OftalmoPage() {
             )}
             
             <div className="text-xs text-gray-500 mt-6">
-              <p>Apenas médicos autorizados podem acessar o sistema</p>
+              <p>Acesse suas áreas do sistema</p>
             </div>
           </div>
         </div>
@@ -168,34 +141,131 @@ export default function OftalmoPage() {
     );
   }
 
-  // Se estiver editando o perfil, mostrar apenas o formulário
-  if (isEditingProfile) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <Suspense fallback={<LoadingSpinner />}>
-            <DoctorProfileSetup
-              onComplete={handleProfileComplete}
-              onCancel={handleCancelEdit}
-              isEditing={true}
-            />
-          </Suspense>
+  // Página de seleção após login
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/icones/oftware.png" 
+                alt="Oftware" 
+                className="w-10 h-10"
+              />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Oftware</h1>
+                <p className="text-sm text-gray-600">Sistema de Gestão Médica</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">{user.displayName || 'Usuário'}</p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Sair"
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <PatientProvider>
-      <Suspense fallback={<LoadingSpinner />}>
-        <div className="min-h-screen bg-gray-50">
-          <Home 
-            doctorProfile={doctorProfile}
-            onEditProfile={handleEditProfile}
-            onLogout={handleLogout}
-          />
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Selecione uma área</h2>
+          <p className="text-lg text-gray-600">Escolha o módulo que deseja acessar</p>
         </div>
-      </Suspense>
-    </PatientProvider>
+
+        {/* Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {/* Admin Escala */}
+          <button
+            onClick={() => router.push('/admin')}
+            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+          >
+            <div className="flex items-center mb-4">
+              <div className="bg-green-100 p-3 rounded-lg group-hover:bg-green-200 transition-colors">
+                <Settings size={24} className="text-green-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-semibold text-gray-900">Admin Escala</h3>
+            </div>
+            <p className="text-gray-600 mb-4">Gerenciamento de escalas médicas</p>
+            <div className="flex items-center text-green-600 font-medium">
+              <span>Acessar</span>
+              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+
+          {/* Admin META */}
+          <button
+            onClick={() => router.push('/metaadmin')}
+            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+          >
+            <div className="flex items-center mb-4">
+              <div className="bg-purple-100 p-3 rounded-lg group-hover:bg-purple-200 transition-colors">
+                <Stethoscope size={24} className="text-purple-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-semibold text-gray-900">Admin META</h3>
+            </div>
+            <p className="text-gray-600 mb-4">Tratamento de obesidade com Monjauro</p>
+            <div className="flex items-center text-purple-600 font-medium">
+              <span>Acessar</span>
+              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+
+          {/* Paciente META */}
+          <button
+            onClick={() => router.push('/meta')}
+            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+          >
+            <div className="flex items-center mb-4">
+              <div className="bg-orange-100 p-3 rounded-lg group-hover:bg-orange-200 transition-colors">
+                <UserCheck size={24} className="text-orange-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-semibold text-gray-900">Paciente META</h3>
+            </div>
+            <p className="text-gray-600 mb-4">Acompanhamento do tratamento</p>
+            <div className="flex items-center text-orange-600 font-medium">
+              <span>Acessar</span>
+              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+
+          {/* Residente */}
+          <button
+            onClick={() => router.push('/cenoft')}
+            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+          >
+            <div className="flex items-center mb-4">
+              <div className="bg-indigo-100 p-3 rounded-lg group-hover:bg-indigo-200 transition-colors">
+                <Users size={24} className="text-indigo-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-semibold text-gray-900">Residente</h3>
+            </div>
+            <p className="text-gray-600 mb-4">Portal para residentes médicos</p>
+            <div className="flex items-center text-indigo-600 font-medium">
+              <span>Acessar</span>
+              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
