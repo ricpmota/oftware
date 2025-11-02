@@ -9173,7 +9173,24 @@ export default function MetaAdminPage() {
                       ? ((adherenceCounts.onTime / evolucao.length) * 100).toFixed(0)
                       : '0';
 
-                    const statusColor = varianceStatusValue === 'GREEN' ? 'emerald' : varianceStatusValue === 'YELLOW' ? 'amber' : varianceStatusValue === 'RED' ? 'rose' : 'slate';
+                    // Função para obter classes CSS do status
+                    const getStatusClasses = (status: string) => {
+                      switch (status) {
+                        case 'GREEN': return 'bg-emerald-100 text-emerald-700';
+                        case 'YELLOW': return 'bg-amber-100 text-amber-700';
+                        case 'RED': return 'bg-rose-100 text-rose-700';
+                        default: return 'bg-slate-100 text-slate-700';
+                      }
+                    };
+
+                    const getStatusBadge = (status: string) => {
+                      switch (status) {
+                        case 'GREEN': return '✅ Dentro da meta';
+                        case 'YELLOW': return '⚠️ Atentar';
+                        case 'RED': return '❌ Crítico';
+                        default: return '⏸️ N/A';
+                      }
+                    };
 
                     return (
                       <div className="space-y-4">
@@ -9182,8 +9199,8 @@ export default function MetaAdminPage() {
                           <div className="bg-white border border-gray-200 rounded-lg p-4">
                             <div className="flex items-start justify-between mb-2">
                               <h4 className="text-sm font-semibold text-gray-900">Peso Atual vs. Esperado</h4>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${statusColor}-100 text-${statusColor}-700`}>
-                                {varianceStatusValue === 'GREEN' ? '✅ Dentro da meta' : varianceStatusValue === 'YELLOW' ? '⚠️ Atentar' : varianceStatusValue === 'RED' ? '❌ Crítico' : '⏸️ N/A'}
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(varianceStatusValue)}`}>
+                                {getStatusBadge(varianceStatusValue)}
                               </span>
                             </div>
                             <div className="space-y-1">
