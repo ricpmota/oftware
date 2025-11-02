@@ -17,6 +17,7 @@ import { PacienteCompleto } from '@/types/obesidade';
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -534,6 +535,42 @@ export default function MetaPage() {
         const circunferenciaInicial = paciente?.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal || 0;
         const ultimaCircunferencia = paciente?.evolucaoSeguimento?.[paciente.evolucaoSeguimento.length - 1]?.circunferenciaAbdominal || circunferenciaInicial;
 
+        // Preparar dados dos gráficos (últimas 4 semanas)
+        const seguimentoOrdem = paciente?.evolucaoSeguimento?.sort((a, b) => {
+          const dateA = new Date(a.dataRegistro);
+          const dateB = new Date(b.dataRegistro);
+          return dateA.getTime() - dateB.getTime();
+        }) || [];
+        
+        const ultimas4Semanas = seguimentoOrdem.slice(-4);
+        
+        // Calcular índice inicial correto
+        const indiceInicial = Math.max(1, semanasTratamento - ultimas4Semanas.length + 1);
+        
+        // Dados para gráfico de peso
+        const dadosGraficoPeso = ultimas4Semanas.map((s, idx) => ({
+          semana: `Sem ${indiceInicial + idx}`,
+          peso: s.peso || 0
+        }));
+        
+        // Dados para gráfico de circunferência abdominal
+        const dadosGraficoCircunferencia = ultimas4Semanas.map((s, idx) => ({
+          semana: `Sem ${indiceInicial + idx}`,
+          circunferencia: s.circunferenciaAbdominal || 0
+        }));
+        
+        // Dados para gráfico de HbA1c
+        const examesOrdenados = examesHbA1c.sort((a, b) => {
+          const dateA = new Date(a.dataColeta);
+          const dateB = new Date(b.dataColeta);
+          return dateA.getTime() - dateB.getTime();
+        });
+        const ultimos4ExamesHbA1c = examesOrdenados.slice(-4);
+        const dadosGraficoHbA1c = ultimos4ExamesHbA1c.map((exame, idx) => ({
+          semana: `Ex ${idx + 1}`,
+          hba1c: exame.hemoglobinaGlicada || 0
+        }));
+
         return (
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900">Estatísticas de Tratamento</h2>
@@ -576,6 +613,62 @@ export default function MetaPage() {
                 </div>
               </div>
             </div>
+
+            {/* Gráficos - Últimas 4 Semanas */}
+            {semanasTratamento > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Gráfico de Peso */}
+                {dadosGraficoPeso.some(d => d.peso > 0) && (
+                  <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Peso (últimas 4 semanas)</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={dadosGraficoPeso}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="semana" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="peso" stroke="#10b981" strokeWidth={2} name="Peso (kg)" dot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Gráfico de Circunferência Abdominal */}
+                {dadosGraficoCircunferencia.some(d => d.circunferencia > 0) && (
+                  <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Circunferência Abdominal (últimas 4 semanas)</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={dadosGraficoCircunferencia}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="semana" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="circunferencia" stroke="#f59e0b" strokeWidth={2} name="Circunferência (cm)" dot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Gráfico de HbA1c */}
+                {dadosGraficoHbA1c.some(d => d.hba1c > 0) && (
+                  <div className="bg-white p-4 rounded-lg shadow lg:col-span-2">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">HbA1c (últimos 4 exames)</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={dadosGraficoHbA1c}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="semana" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="hba1c" stroke="#8b5cf6" strokeWidth={2} name="HbA1c (%)" dot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       }
@@ -2160,12 +2253,19 @@ export default function MetaPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 {medicoResponsavel && (
-                  <>
+                  <div className="flex items-center">
                     <Stethoscope className="h-6 w-6 text-green-600" />
-                    <span className="ml-2 text-sm font-bold text-gray-900">
-                      {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
-                    </span>
-                  </>
+                    <div className="ml-2">
+                      <div className="text-sm font-bold text-gray-900">
+                        {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                      </div>
+                      {paciente?.dadosIdentificacao?.nomeCompleto && (
+                        <div className="text-xs text-gray-600">
+                          Paciente: {paciente.dadosIdentificacao.nomeCompleto}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
               <div className="flex items-center space-x-2">
