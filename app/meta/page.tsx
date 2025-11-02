@@ -12,6 +12,9 @@ import { Ferias } from '@/types/ferias';
 // import { InternalNotificationService } from '@/services/internalNotificationService';
 import { MensagemService } from '@/services/mensagemService';
 import { MensagemResidente, MensagemResidenteParaAdmin } from '@/types/mensagem';
+import { PacienteService } from '@/services/pacienteService';
+import { PacienteCompleto } from '@/types/obesidade';
+import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -70,6 +73,13 @@ export default function MetaPage() {
   });
   const [isSubmittingFerias, setIsSubmittingFerias] = useState(false);
   const [expandedFeriasCards, setExpandedFeriasCards] = useState<Set<string>>(new Set());
+
+  // Estados para paciente
+  const [paciente, setPaciente] = useState<PacienteCompleto | null>(null);
+  const [loadingPaciente, setLoadingPaciente] = useState(false);
+  const [mensagensPaciente, setMensagensPaciente] = useState<PacienteMensagem[]>([]);
+  const [loadingMensagensPaciente, setLoadingMensagensPaciente] = useState(false);
+  const [mensagensNaoLidasPaciente, setMensagensNaoLidasPaciente] = useState(0);
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -231,6 +241,52 @@ export default function MetaPage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  // Carregar dados do paciente e mensagens quando o usuário estiver logado
+  useEffect(() => {
+    if (user && user.email) {
+      loadPaciente();
+      loadMensagensPacienteAtual();
+    }
+  }, [user, loadPaciente, loadMensagensPacienteAtual]);
+
+  // Função para carregar dados do paciente
+  const loadPaciente = useCallback(async () => {
+    if (!user?.email) return;
+    
+    setLoadingPaciente(true);
+    try {
+      console.log('Carregando paciente para email:', user.email);
+      const pacienteData = await PacienteService.getPacienteByEmail(user.email);
+      console.log('Paciente encontrado:', pacienteData ? pacienteData.nome : 'nenhum');
+      setPaciente(pacienteData);
+    } catch (error) {
+      console.error('Erro ao carregar paciente:', error);
+      setPaciente(null);
+    } finally {
+      setLoadingPaciente(false);
+    }
+  }, [user?.email]);
+
+  // Função para carregar mensagens do paciente
+  const loadMensagensPacienteAtual = useCallback(async () => {
+    if (!user?.email) return;
+    
+    setLoadingMensagensPaciente(true);
+    try {
+      const mensagensData = await PacienteMensagemService.getMensagensPaciente(user.email);
+      setMensagensPaciente(mensagensData.filter(m => !m.deletada));
+      
+      // Contar não lidas
+      const naoLidas = mensagensData.filter(m => !m.lida && !m.deletada).length;
+      setMensagensNaoLidasPaciente(naoLidas);
+    } catch (error) {
+      console.error('Erro ao carregar mensagens do paciente:', error);
+      setMensagensPaciente([]);
+    } finally {
+      setLoadingMensagensPaciente(false);
+    }
+  }, [user?.email]);
 
   const loadTrocas = useCallback(async () => {
     if (!user) return;
