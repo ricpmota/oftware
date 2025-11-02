@@ -118,6 +118,20 @@ export default function MetaAdminPage() {
   const [showEditarPacienteModal, setShowEditarPacienteModal] = useState(false);
   const [pacienteEditando, setPacienteEditando] = useState<PacienteCompleto | null>(null);
   const [pastaAtiva, setPastaAtiva] = useState<number>(1);
+  const [showAdicionarSeguimentoModal, setShowAdicionarSeguimentoModal] = useState(false);
+  const [novoSeguimento, setNovoSeguimento] = useState({
+    peso: '',
+    circunferenciaAbdominal: '',
+    frequenciaCardiaca: '',
+    paSistolica: '',
+    paDiastolica: '',
+    doseAplicada: '',
+    adesao: '',
+    giSeverity: '',
+    localAplicacao: '',
+    observacoesPaciente: '',
+    comentarioMedico: ''
+  });
   
   const router = useRouter();
 
@@ -8768,7 +8782,6 @@ export default function MetaAdminPage() {
                     const metaPeso = planoTerapeutico?.metas?.weightLossTargetType === 'PERCENTUAL' 
                       ? planoTerapeutico?.metas?.weightLossTargetValue || 10
                       : 0;
-                    const doseAtual = planoTerapeutico?.currentDoseMg || planoTerapeutico?.doseAtual?.quantidade || 0;
                     
                     const carePlan: CarePlan = {
                       startDate: planoTerapeutico?.startDate 
@@ -8799,43 +8812,51 @@ export default function MetaAdminPage() {
                     return (
                       <div className="space-y-6">
                         {/* Painel superior com gráfico */}
-                        <div className="border border-gray-200 rounded-lg p-6 bg-white">
-                          <div className="mb-4">
-                            <h4 className="text-lg font-semibold text-gray-900">
-                              {pacienteEditando?.nome}
-                            </h4>
-                            <p className="text-sm text-gray-600">
-                              Peso inicial: {baselineWeight.toFixed(1)} kg • Dose atual: {doseAtual} mg/semana
+                        {baselineWeight > 0 ? (
+                          <div className="border border-gray-200 rounded-lg p-6 bg-white">
+                            <div className="mb-4">
+                              <h4 className="text-lg font-semibold text-gray-900">
+                                {pacienteEditando?.nome}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                Peso inicial: {baselineWeight.toFixed(1)} kg
+                              </p>
+                            </div>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="semana" label={{ value: 'Semana', position: 'insideBottom', offset: -10 }} />
+                                  <YAxis label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }} />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="previsto" 
+                                    stroke="#3b82f6" 
+                                    strokeWidth={2}
+                                    name="Peso previsto"
+                                    dot={{ fill: '#3b82f6', r: 4 }}
+                                  />
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="real" 
+                                    stroke="#10b981" 
+                                    strokeWidth={2}
+                                    name="Peso real"
+                                    dot={{ fill: '#10b981', r: 4 }}
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border border-gray-200 rounded-lg p-6 bg-amber-50">
+                            <p className="text-sm text-amber-800">
+                              ⚠️ Para visualizar o gráfico, é necessário preencher o peso inicial na Pasta 2 (Medidas Iniciais).
                             </p>
                           </div>
-                          <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="semana" label={{ value: 'Semana', position: 'insideBottom', offset: -10 }} />
-                                <YAxis label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }} />
-                                <Tooltip />
-                                <Legend />
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="previsto" 
-                                  stroke="#3b82f6" 
-                                  strokeWidth={2}
-                                  name="Peso previsto"
-                                  dot={{ fill: '#3b82f6', r: 4 }}
-                                />
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="real" 
-                                  stroke="#10b981" 
-                                  strokeWidth={2}
-                                  name="Peso real"
-                                  dot={{ fill: '#10b981', r: 4 }}
-                                />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
+                        )}
 
                         {/* Timeline de semanas */}
                         <div className="space-y-4">
@@ -8845,7 +8866,7 @@ export default function MetaAdminPage() {
                               <p className="text-gray-500">Nenhum seguimento registrado ainda.</p>
                               <button
                                 onClick={() => {
-                                  // TODO: abrir modal para adicionar novo seguimento
+                                  setShowAdicionarSeguimentoModal(true);
                                 }}
                                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                               >
@@ -8971,6 +8992,17 @@ export default function MetaAdminPage() {
                               );
                             })
                           )}
+                          
+                          {/* Botão adicionar novo registro */}
+                          <div className="mt-4">
+                            <button
+                              onClick={() => setShowAdicionarSeguimentoModal(true)}
+                              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                              <Plus size={16} />
+                              Adicionar Novo Registro
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -9040,6 +9072,283 @@ export default function MetaAdminPage() {
                 className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
                 {loadingPacientes ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Adicionar Seguimento Semanal */}
+      {showAdicionarSeguimentoModal && pacienteEditando && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Novo Registro Semanal</h2>
+              <button
+                onClick={() => setShowAdicionarSeguimentoModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Número da Semana *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={pacienteEditando?.evolucaoSeguimento?.length ? pacienteEditando.evolucaoSeguimento.length + 1 : 1}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-gray-50"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Data do Registro *</label>
+                <input
+                  type="date"
+                  value={(() => {
+                    const planoTerapeutico = pacienteEditando?.planoTerapeutico;
+                    if (planoTerapeutico?.startDate) {
+                      const startDate = new Date(planoTerapeutico.startDate);
+                      const nextWeek = new Date(startDate.getTime() + (pacienteEditando?.evolucaoSeguimento?.length || 0) * 7 * 24 * 60 * 60 * 1000);
+                      return nextWeek.toISOString().split('T')[0];
+                    }
+                    return new Date().toISOString().split('T')[0];
+                  })()}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-gray-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Peso (kg) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="20"
+                  max="400"
+                  value={novoSeguimento.peso}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, peso: e.target.value })}
+                  placeholder="Digite o peso atual"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Circunferência Abdominal (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={novoSeguimento.circunferenciaAbdominal}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, circunferenciaAbdominal: e.target.value })}
+                    placeholder="cm"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Frequência Cardíaca (bpm)</label>
+                  <input
+                    type="number"
+                    value={novoSeguimento.frequenciaCardiaca}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, frequenciaCardiaca: e.target.value })}
+                    placeholder="bpm"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">PA Sistólica (mmHg)</label>
+                  <input
+                    type="number"
+                    value={novoSeguimento.paSistolica}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, paSistolica: e.target.value })}
+                    placeholder="mmHg"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">PA Diastólica (mmHg)</label>
+                  <input
+                    type="number"
+                    value={novoSeguimento.paDiastolica}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, paDiastolica: e.target.value })}
+                    placeholder="mmHg"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dose Aplicada (mg) *</label>
+                <select 
+                  value={novoSeguimento.doseAplicada}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, doseAplicada: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Selecione</option>
+                  <option value="2.5">2.5 mg</option>
+                  <option value="5">5 mg</option>
+                  <option value="7.5">7.5 mg</option>
+                  <option value="10">10 mg</option>
+                  <option value="12.5">12.5 mg</option>
+                  <option value="15">15 mg</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Adesão *</label>
+                <select 
+                  value={novoSeguimento.adesao}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, adesao: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Selecione</option>
+                  <option value="ON_TIME">Pontual (ON_TIME)</option>
+                  <option value="LATE_<96H">Tardia &lt; 96h</option>
+                  <option value="MISSED">Perdida</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Efeitos GI</label>
+                <select 
+                  value={novoSeguimento.giSeverity}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, giSeverity: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Nenhum</option>
+                  <option value="LEVE">Leve</option>
+                  <option value="MODERADO">Moderado</option>
+                  <option value="GRAVE">Grave</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Local da Aplicação</label>
+                <select 
+                  value={novoSeguimento.localAplicacao}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, localAplicacao: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Selecione</option>
+                  <option value="abdome">Abdome</option>
+                  <option value="coxa">Coxa</option>
+                  <option value="braco">Braço</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Observações do Paciente</label>
+                <textarea
+                  value={novoSeguimento.observacoesPaciente}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, observacoesPaciente: e.target.value })}
+                  placeholder="Como está se sentindo, sintomas, dificuldades..."
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Comentário Médico</label>
+                <textarea
+                  value={novoSeguimento.comentarioMedico}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, comentarioMedico: e.target.value })}
+                  placeholder="Observações clínicas, orientações, ajustes..."
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowAdicionarSeguimentoModal(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!novoSeguimento.peso || !novoSeguimento.doseAplicada || !novoSeguimento.adesao) {
+                    alert('Por favor, preencha os campos obrigatórios: Peso, Dose Aplicada e Adesão');
+                    return;
+                  }
+                  
+                  if (!pacienteEditando) return;
+                  
+                  const evolucao = pacienteEditando.evolucaoSeguimento || [];
+                  const weekIndex = evolucao.length + 1;
+                  const planoTerapeutico = pacienteEditando.planoTerapeutico;
+                  
+                  const dataRegistro = planoTerapeutico?.startDate 
+                    ? new Date(new Date(planoTerapeutico.startDate).getTime() + (weekIndex - 1) * 7 * 24 * 60 * 60 * 1000)
+                    : new Date();
+                  
+                  const novoRegistro: any = {
+                    id: 'seguimento-' + Date.now(),
+                    weekIndex: weekIndex,
+                    dataRegistro: dataRegistro,
+                    peso: parseFloat(novoSeguimento.peso) || undefined,
+                    circunferenciaAbdominal: novoSeguimento.circunferenciaAbdominal ? parseFloat(novoSeguimento.circunferenciaAbdominal) : undefined,
+                    frequenciaCardiaca: novoSeguimento.frequenciaCardiaca ? parseInt(novoSeguimento.frequenciaCardiaca) : undefined,
+                    pressaoArterial: (novoSeguimento.paSistolica && novoSeguimento.paDiastolica) ? {
+                      sistolica: parseInt(novoSeguimento.paSistolica),
+                      diastolica: parseInt(novoSeguimento.paDiastolica)
+                    } : undefined,
+                    doseAplicada: {
+                      quantidade: parseFloat(novoSeguimento.doseAplicada),
+                      data: dataRegistro,
+                      horario: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    },
+                    adherence: novoSeguimento.adesao as any,
+                    giSeverity: novoSeguimento.giSeverity as any,
+                    localAplicacao: novoSeguimento.localAplicacao as any,
+                    observacoesPaciente: novoSeguimento.observacoesPaciente || undefined,
+                    comentarioMedico: novoSeguimento.comentarioMedico || undefined,
+                    alerts: []
+                  };
+                  
+                  // Gerar alertas automáticos
+                  if (novoSeguimento.adesao === 'MISSED') {
+                    novoRegistro.alerts.push('MISSED_DOSE');
+                  }
+                  if (novoSeguimento.giSeverity === 'GRAVE') {
+                    novoRegistro.alerts.push('GI_SEVERE');
+                  }
+                  
+                  setPacienteEditando({
+                    ...pacienteEditando,
+                    evolucaoSeguimento: [...evolucao, novoRegistro]
+                  });
+                  
+                  setNovoSeguimento({
+                    peso: '',
+                    circunferenciaAbdominal: '',
+                    frequenciaCardiaca: '',
+                    paSistolica: '',
+                    paDiastolica: '',
+                    doseAplicada: '',
+                    adesao: '',
+                    giSeverity: '',
+                    localAplicacao: '',
+                    observacoesPaciente: '',
+                    comentarioMedico: ''
+                  });
+                  
+                  setShowAdicionarSeguimentoModal(false);
+                  setMessage('Registro semanal adicionado com sucesso!');
+                }}
+                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+              >
+                Adicionar Registro
               </button>
             </div>
           </div>
