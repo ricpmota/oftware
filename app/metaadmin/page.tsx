@@ -1662,22 +1662,80 @@ export default function MetaAdminPage() {
             </div>
             
             {/* Lista de Pacientes */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="text-center py-12">
-                <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum paciente cadastrado</h3>
-                <p className="text-gray-500 mb-6">
-                  Comece adicionando seus pacientes ou eles aparecerão aqui quando solicitarem atendimento.
-                </p>
-                <button
-                  onClick={() => setShowCadastrarPacienteModal(true)}
-                  className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center"
-                >
-                  <Plus size={18} className="mr-2" />
-                  Cadastrar Primeiro Paciente
-                </button>
+            {loadingPacientes ? (
+              <div className="bg-white shadow rounded-lg p-12 text-center">
+                <RefreshCw className="mx-auto h-12 w-12 text-gray-400 mb-4 animate-spin" />
+                <p className="text-gray-600">Carregando pacientes...</p>
               </div>
-            </div>
+            ) : pacientes.length === 0 ? (
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center py-12">
+                  <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum paciente cadastrado</h3>
+                  <p className="text-gray-500 mb-6">
+                    Comece adicionando seus pacientes ou eles aparecerão aqui quando solicitarem atendimento.
+                  </p>
+                  <button
+                    onClick={() => setShowCadastrarPacienteModal(true)}
+                    className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center"
+                  >
+                    <Plus size={18} className="mr-2" />
+                    Cadastrar Primeiro Paciente
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nome
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Telefone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Data de Cadastro
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {pacientes.map((paciente) => (
+                      <tr key={paciente.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{paciente.nome}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{paciente.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {paciente.dadosIdentificacao?.telefone || '-'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {paciente.dataCadastro?.toLocaleDateString('pt-BR') || '-'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button className="text-green-600 hover:text-green-900 mr-4">
+                            Ver Detalhes
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         );
 
