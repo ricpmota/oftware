@@ -46,6 +46,11 @@ export class PacienteService {
         id: pacienteDoc.id,
         ...data,
         dataCadastro: data.dataCadastro?.toDate(),
+        dadosIdentificacao: {
+          ...data.dadosIdentificacao,
+          dataNascimento: data.dadosIdentificacao?.dataNascimento?.toDate(),
+          dataCadastro: data.dadosIdentificacao?.dataCadastro?.toDate(),
+        },
       } as PacienteCompleto;
     } catch (error) {
       console.error('Erro ao buscar paciente:', error);
@@ -68,6 +73,11 @@ export class PacienteService {
         id: pacienteSnapshot.docs[0].id,
         ...data,
         dataCadastro: data.dataCadastro?.toDate(),
+        dadosIdentificacao: {
+          ...data.dadosIdentificacao,
+          dataNascimento: data.dadosIdentificacao?.dataNascimento?.toDate(),
+          dataCadastro: data.dadosIdentificacao?.dataCadastro?.toDate(),
+        },
       } as PacienteCompleto;
     } catch (error) {
       console.error('Erro ao buscar paciente por userId:', error);
@@ -87,6 +97,11 @@ export class PacienteService {
           id: doc.id,
           ...data,
           dataCadastro: data.dataCadastro?.toDate(),
+          dadosIdentificacao: {
+            ...data.dadosIdentificacao,
+            dataNascimento: data.dadosIdentificacao?.dataNascimento?.toDate(),
+            dataCadastro: data.dadosIdentificacao?.dataCadastro?.toDate(),
+          },
         } as PacienteCompleto;
       });
     } catch (error) {
@@ -105,6 +120,11 @@ export class PacienteService {
           id: doc.id,
           ...data,
           dataCadastro: data.dataCadastro?.toDate(),
+          dadosIdentificacao: {
+            ...data.dadosIdentificacao,
+            dataNascimento: data.dadosIdentificacao?.dataNascimento?.toDate(),
+            dataCadastro: data.dadosIdentificacao?.dataCadastro?.toDate(),
+          },
         } as PacienteCompleto;
       });
     } catch (error) {
