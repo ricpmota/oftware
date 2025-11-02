@@ -8834,19 +8834,31 @@ export default function MetaAdminPage() {
                     
                     // Preparar dados para gráfico de HbA1c com curva prevista (das semanas de seguimento)
                     const exames = pacienteEditando?.examesLaboratoriais || [];
-                    const baseHbA1c = exames
+                    const baseHbA1cFromExams = exames
                       .filter(ex => ex.hemoglobinaGlicada)
                       .sort((a, b) => new Date(a.dataColeta).getTime() - new Date(b.dataColeta).getTime())[0]?.hemoglobinaGlicada;
                     
+                    // Baseline: usar o primeiro registro real (se houver) ou o baseline dos exames
+                    const primeiroRegistroHbA1c = evolucao.find(e => e.hba1c);
+                    const baseHbA1c = primeiroRegistroHbA1c?.hba1c || baseHbA1cFromExams;
+                    
                     const hba1cData = expectedCurve.map(week => {
                       const registroSemana = evolucao.find(e => e.weekIndex === week.weekIndex);
-                      const previsto = baseHbA1c && week.doseMg
-                        ? predictHbA1c({
+                      
+                      // Calcular previsto: semana 1 sempre = baseline (real ou exames)
+                      let previsto = null;
+                      if (baseHbA1c && week.doseMg) {
+                        if (week.weekIndex === 1) {
+                          previsto = baseHbA1c;
+                        } else {
+                          previsto = predictHbA1c({
                             baselineHbA1c: baseHbA1c,
                             weekIndex: week.weekIndex,
                             doseAchievedMg: week.doseMg
-                          })
-                        : null;
+                          });
+                        }
+                      }
+                      
                       return {
                         semana: week.weekIndex,
                         hba1c: registroSemana?.hba1c || null,
