@@ -268,6 +268,60 @@ export class PacienteService {
     }
   }
 
+  // Buscar paciente por email
+  static async getPacienteByEmail(email: string): Promise<PacienteCompleto | null> {
+    try {
+      const pacienteQuery = query(collection(db, 'pacientes_completos'), where('email', '==', email));
+      const pacienteSnapshot = await getDocs(pacienteQuery);
+      
+      if (pacienteSnapshot.empty) {
+        return null;
+      }
+      
+      const data = pacienteSnapshot.docs[0].data();
+      
+      // Converter datas em evolucaoSeguimento
+      let evolucaoSeguimento = data.evolucaoSeguimento;
+      if (evolucaoSeguimento && Array.isArray(evolucaoSeguimento)) {
+        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => ({
+          ...seg,
+          dataRegistro: seg.dataRegistro?.toDate ? seg.dataRegistro.toDate() : (seg.dataRegistro ? new Date(seg.dataRegistro) : undefined),
+          doseAplicada: seg.doseAplicada ? {
+            ...seg.doseAplicada,
+            data: seg.doseAplicada.data?.toDate ? seg.doseAplicada.data.toDate() : (seg.doseAplicada.data ? new Date(seg.doseAplicada.data) : undefined)
+          } : undefined
+        }));
+      }
+      
+      // Converter datas em planoTerapeutico
+      let planoTerapeutico = data.planoTerapeutico;
+      if (planoTerapeutico) {
+        planoTerapeutico = {
+          ...planoTerapeutico,
+          startDate: planoTerapeutico.startDate?.toDate ? planoTerapeutico.startDate.toDate() : (planoTerapeutico.startDate ? new Date(planoTerapeutico.startDate) : undefined),
+          lastDoseChangeAt: planoTerapeutico.lastDoseChangeAt?.toDate ? planoTerapeutico.lastDoseChangeAt.toDate() : (planoTerapeutico.lastDoseChangeAt ? new Date(planoTerapeutico.lastDoseChangeAt) : undefined),
+          nextReviewDate: planoTerapeutico.nextReviewDate?.toDate ? planoTerapeutico.nextReviewDate.toDate() : (planoTerapeutico.nextReviewDate ? new Date(planoTerapeutico.nextReviewDate) : undefined),
+        };
+      }
+      
+      return {
+        id: pacienteSnapshot.docs[0].id,
+        ...data,
+        dataCadastro: data.dataCadastro?.toDate(),
+        dadosIdentificacao: {
+          ...data.dadosIdentificacao,
+          dataNascimento: data.dadosIdentificacao?.dataNascimento?.toDate(),
+          dataCadastro: data.dadosIdentificacao?.dataCadastro?.toDate(),
+        },
+        evolucaoSeguimento,
+        planoTerapeutico,
+      } as PacienteCompleto;
+    } catch (error) {
+      console.error('Erro ao buscar paciente por email:', error);
+      throw error;
+    }
+  }
+
   // Buscar todos os pacientes de um médico
   static async getPacientesByMedico(medicoId: string): Promise<PacienteCompleto[]> {
     try {

@@ -458,26 +458,31 @@ export default function MetaAdminPage() {
         return;
       }
       
-      // Verificar se é o usuário master ou tem role de admin
+      // Verificar se é o usuário master
       if (user.email === 'ricpmota.med@gmail.com') {
         loadData();
       } else {
-        UserService.getUserByUid(user.uid).then((userData) => {
-          if (userData?.role !== 'admin') {
-            // Redirecionar baseado no role
-            if (userData?.role === 'residente') {
-              router.push('/cenoft');
-            } else if (userData?.role === 'recepcao') {
-              router.push('/recepcao');
-            } else {
-              router.push('/');
-            }
-            return;
+        // Verificar se é um médico cadastrado
+        MedicoService.getMedicoByUserId(user.uid).then((medicoData) => {
+          if (medicoData) {
+            // É um médico, carregar dados
+            loadData();
+          } else {
+            // Não é médico, verificar se é admin ou redirecionar
+            UserService.getUserByUid(user.uid).then((userData) => {
+              if (userData?.role === 'admin') {
+                router.push('/admin');
+              } else {
+                router.push('/meta');
+              }
+            }).catch((error) => {
+              console.error('Erro ao verificar role do usuário:', error);
+              router.push('/meta');
+            });
           }
-          loadData();
         }).catch((error) => {
-          console.error('Erro ao verificar role do usuário:', error);
-          router.push('/');
+          console.error('Erro ao verificar médico:', error);
+          router.push('/meta');
         });
       }
     });
