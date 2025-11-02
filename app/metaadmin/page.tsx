@@ -149,6 +149,7 @@ export default function MetaAdminPage() {
       const medico = await MedicoService.getMedicoByUserId(user.uid);
       
       if (medico) {
+        console.log('Médico carregado:', medico);
         setMedicoPerfil(medico);
         setPerfilMedico({
           crmNumero: medico.crm.numero,
@@ -156,6 +157,8 @@ export default function MetaAdminPage() {
           endereco: medico.localizacao.endereco,
           cidades: medico.cidades
         });
+      } else {
+        console.log('Nenhum médico encontrado para user.uid:', user.uid);
       }
     } catch (error) {
       console.error('Erro ao carregar perfil médico:', error);
@@ -190,7 +193,8 @@ export default function MetaAdminPage() {
         status: 'ativo' as const
       };
 
-      await MedicoService.createOrUpdateMedico(medicoData);
+      const medicoId = await MedicoService.createOrUpdateMedico(medicoData);
+      console.log('Médico salvo com ID:', medicoId);
       await loadMedicoPerfil();
       setMessage('Perfil salvo com sucesso!');
     } catch (error) {
@@ -640,7 +644,9 @@ export default function MetaAdminPage() {
     
     setLoadingPacientes(true);
     try {
+      console.log('Carregando pacientes para médico ID:', medicoPerfil.id);
       const pacientesData = await PacienteService.getPacientesByMedico(medicoPerfil.id);
+      console.log('Pacientes encontrados:', pacientesData);
       setPacientes(pacientesData);
     } catch (error) {
       console.error('Erro ao carregar pacientes:', error);
@@ -661,6 +667,8 @@ export default function MetaAdminPage() {
       return;
     }
 
+    console.log('Criando paciente para médico ID:', medicoPerfil.id);
+
     setLoadingPacientes(true);
     try {
       // Por enquanto, criar um paciente básico
@@ -669,7 +677,7 @@ export default function MetaAdminPage() {
         userId: user.uid + '_' + Date.now(), // ID temporário até implementar Firebase Auth para pacientes
         email: novoPaciente.email,
         nome: novoPaciente.nome,
-        medicoResponsavelId: medicoPerfil.id || '',
+        medicoResponsavelId: medicoPerfil.id!,
         dadosIdentificacao: {
           nomeCompleto: novoPaciente.nome,
           email: novoPaciente.email,
