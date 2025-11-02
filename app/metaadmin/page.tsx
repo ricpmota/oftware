@@ -9311,7 +9311,7 @@ export default function MetaAdminPage() {
                   }
                   
                   // Atualizar paciente com novo registro
-                  const pacienteAtualizado = {
+                  const pacienteAtualizado: PacienteCompleto = {
                     ...pacienteEditando,
                     evolucaoSeguimento: [...evolucao, novoRegistro]
                   };
@@ -9319,12 +9319,29 @@ export default function MetaAdminPage() {
                   // Salvar no Firestore
                   setLoadingPacientes(true);
                   try {
+                    if (!pacienteAtualizado.id) {
+                      setMessage('Erro: Paciente não possui ID. Por favor, feche e reabra o modal.');
+                      return;
+                    }
+                    
                     await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
-                    setPacienteEditando(pacienteAtualizado);
-                    setMessage('Registro semanal adicionado com sucesso!');
+                    
+                    // Recarregar paciente atualizado do Firestore
+                    const pacienteRecarregado = await PacienteService.getPacienteById(pacienteAtualizado.id);
+                    
+                    if (pacienteRecarregado) {
+                      setPacienteEditando(pacienteRecarregado);
+                      setMessage('Registro semanal adicionado com sucesso!');
+                    } else {
+                      setPacienteEditando(pacienteAtualizado);
+                      setMessage('Registro semanal adicionado com sucesso!');
+                    }
+                    
+                    // Recarregar lista de pacientes
+                    await loadPacientes();
                   } catch (error) {
                     console.error('Erro ao salvar registro:', error);
-                    setMessage('Erro ao salvar registro semanal');
+                    setMessage('Erro ao salvar registro semanal: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
                   } finally {
                     setLoadingPacientes(false);
                   }
