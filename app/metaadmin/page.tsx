@@ -4951,7 +4951,19 @@ export default function MetaAdminPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Data de Nascimento</label>
                       <input
                         type="date"
-                        value={pacienteEditando.dadosIdentificacao?.dataNascimento ? new Date(pacienteEditando.dadosIdentificacao.dataNascimento).toISOString().split('T')[0] : ''}
+                        value={(() => {
+                          const date = pacienteEditando.dadosIdentificacao?.dataNascimento;
+                          if (!date) return '';
+                          try {
+                            const d = new Date(date);
+                            if (!isNaN(d.getTime())) {
+                              return d.toISOString().split('T')[0];
+                            }
+                            return '';
+                          } catch {
+                            return '';
+                          }
+                        })()}
                         onChange={(e) => {
                           setPacienteEditando({
                             ...pacienteEditando,
