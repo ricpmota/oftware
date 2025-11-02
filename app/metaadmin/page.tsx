@@ -746,13 +746,15 @@ export default function MetaAdminPage() {
   useEffect(() => {
     if (user && activeMenu === 'pacientes') {
       console.log('Menu pacientes ativado, carregando perfil médico primeiro...');
-      loadMedicoPerfil().then((medico) => {
-        if (medico) {
-          loadPacientes();
-        }
-      });
+      loadMedicoPerfil();
     }
   }, [user, activeMenu, loadMedicoPerfil]);
+
+  useEffect(() => {
+    if (user && medicoPerfil && activeMenu === 'pacientes') {
+      loadPacientes();
+    }
+  }, [user, medicoPerfil, activeMenu, loadPacientes]);
 
   useEffect(() => {
     if (user && activeMenu === 'troca') {
@@ -4809,7 +4811,7 @@ export default function MetaAdminPage() {
       {/* Modal de Editar Paciente com 9 Pastas */}
       {showEditarPacienteModal && pacienteEditando && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
               <div>
