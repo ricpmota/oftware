@@ -120,6 +120,8 @@ export default function MetaAdminPage() {
   const [pastaAtiva, setPastaAtiva] = useState<number>(1);
   const [graficoAtivoPasta6, setGraficoAtivoPasta6] = useState<'peso' | 'circunferencia' | 'hba1c'>('peso');
   const [showAdicionarSeguimentoModal, setShowAdicionarSeguimentoModal] = useState(false);
+  const [showEditarSeguimentoModal, setShowEditarSeguimentoModal] = useState(false);
+  const [seguimentoEditando, setSeguimentoEditando] = useState<any>(null);
   const [novoSeguimento, setNovoSeguimento] = useState({
     peso: '',
     circunferenciaAbdominal: '',
@@ -8789,11 +8791,8 @@ export default function MetaAdminPage() {
                     // Usar modelo dose-driven: schedule sugerido de titulação
                     const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
                     
-                    // Calcular semanas totais: até a última semana com registro ou +12 semanas
-                    const ultimaSemanaComRegistro = evolucao.length > 0 
-                      ? Math.max(...evolucao.map(e => e.weekIndex))
-                      : 0;
-                    const totalSemanasGrafico = Math.max(52, ultimaSemanaComRegistro + 12);
+                    // Calcular semanas totais: fixo em 18 semanas (1 ano de tratamento)
+                    const totalSemanasGrafico = 18;
                     
                     const expectedCurve = buildExpectedCurveDoseDriven({
                       baselineWeightKg: baselineWeight,
@@ -9214,15 +9213,62 @@ export default function MetaAdminPage() {
                                     </div>
                                   )}
                                   
-                                  {/* Botão editar */}
-                                  <button
-                                    className="mt-4 text-sm text-blue-600 hover:text-blue-800"
-                                    onClick={() => {
-                                      // TODO: abrir modal de edição de seguimento
-                                    }}
-                                  >
-                                    Ver detalhes / Editar
-                                  </button>
+                                  {/* Botões de ação */}
+                                  <div className="mt-4 flex gap-2">
+                                    <button
+                                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
+                                      onClick={() => {
+                                        setSeguimentoEditando(registro);
+                                        setNovoSeguimento({
+                                          peso: registro.peso?.toString() || '',
+                                          circunferenciaAbdominal: registro.circunferenciaAbdominal?.toString() || '',
+                                          frequenciaCardiaca: registro.frequenciaCardiaca?.toString() || '',
+                                          paSistolica: registro.pressaoArterial?.sistolica?.toString() || '',
+                                          paDiastolica: registro.pressaoArterial?.diastolica?.toString() || '',
+                                          doseAplicada: registro.doseAplicada?.quantidade?.toString() || '',
+                                          adesao: registro.adherence || registro.adesao || '',
+                                          giSeverity: registro.giSeverity || '',
+                                          localAplicacao: registro.localAplicacao || '',
+                                          observacoesPaciente: registro.observacoesPaciente || '',
+                                          comentarioMedico: registro.comentarioMedico || ''
+                                        });
+                                        setShowEditarSeguimentoModal(true);
+                                      }}
+                                    >
+                                      <Edit size={14} />
+                                      Editar
+                                    </button>
+                                    <button
+                                      className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium flex items-center justify-center gap-2"
+                                      onClick={async () => {
+                                        if (confirm('Tem certeza que deseja excluir este registro?')) {
+                                          if (!pacienteEditando || !registro.id) return;
+                                          setLoadingPacientes(true);
+                                          try {
+                                            const evolucaoAtualizada = evolucao.filter(e => e.id !== registro.id);
+                                            const pacienteAtualizado: PacienteCompleto = {
+                                              ...pacienteEditando,
+                                              evolucaoSeguimento: evolucaoAtualizada
+                                            };
+                                            await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+                                            const pacienteRecarregado = await PacienteService.getPacienteById(pacienteEditando.id);
+                                            if (pacienteRecarregado) {
+                                              setPacienteEditando(pacienteRecarregado);
+                                            }
+                                            setMessage('Registro excluído com sucesso!');
+                                            await loadPacientes();
+                                          } catch (error) {
+                                            console.error('Erro ao excluir registro:', error);
+                                            setMessage('Erro ao excluir registro');
+                                          } finally {
+                                            setLoadingPacientes(false);
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })
@@ -9615,6 +9661,289 @@ export default function MetaAdminPage() {
                 className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
               >
                 Adicionar Registro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Editar Seguimento Semanal */}
+      {showEditarSeguimentoModal && pacienteEditando && seguimentoEditando && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Editar Registro Semanal - Semana {seguimentoEditando.weekIndex}</h2>
+              <button
+                onClick={() => {
+                  setShowEditarSeguimentoModal(false);
+                  setSeguimentoEditando(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Peso (kg) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="20"
+                  max="400"
+                  value={novoSeguimento.peso}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, peso: e.target.value })}
+                  placeholder="Digite o peso atual"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Circunferência Abdominal (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={novoSeguimento.circunferenciaAbdominal}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, circunferenciaAbdominal: e.target.value })}
+                    placeholder="cm"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Frequência Cardíaca (bpm)</label>
+                  <input
+                    type="number"
+                    value={novoSeguimento.frequenciaCardiaca}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, frequenciaCardiaca: e.target.value })}
+                    placeholder="bpm"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">PA Sistólica (mmHg)</label>
+                  <input
+                    type="number"
+                    value={novoSeguimento.paSistolica}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, paSistolica: e.target.value })}
+                    placeholder="mmHg"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">PA Diastólica (mmHg)</label>
+                  <input
+                    type="number"
+                    value={novoSeguimento.paDiastolica}
+                    onChange={(e) => setNovoSeguimento({ ...novoSeguimento, paDiastolica: e.target.value })}
+                    placeholder="mmHg"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dose Aplicada (mg) *</label>
+                <select 
+                  value={novoSeguimento.doseAplicada}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, doseAplicada: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Selecione</option>
+                  <option value="2.5">2.5 mg</option>
+                  <option value="5">5 mg</option>
+                  <option value="7.5">7.5 mg</option>
+                  <option value="10">10 mg</option>
+                  <option value="12.5">12.5 mg</option>
+                  <option value="15">15 mg</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Adesão *</label>
+                <select 
+                  value={novoSeguimento.adesao}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, adesao: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Selecione</option>
+                  <option value="ON_TIME">Pontual</option>
+                  <option value="LATE_<96H">Atrasada</option>
+                  <option value="MISSED">Perdida</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Efeitos GI</label>
+                <select 
+                  value={novoSeguimento.giSeverity}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, giSeverity: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Nenhum</option>
+                  <option value="LEVE">Leve</option>
+                  <option value="MODERADO">Moderado</option>
+                  <option value="GRAVE">Grave</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Local da Aplicação</label>
+                <select 
+                  value={novoSeguimento.localAplicacao}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, localAplicacao: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                >
+                  <option value="">Selecione</option>
+                  <option value="abdome">Abdome</option>
+                  <option value="coxa">Coxa</option>
+                  <option value="braco">Braço</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Observações do Paciente</label>
+                <textarea
+                  value={novoSeguimento.observacoesPaciente}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, observacoesPaciente: e.target.value })}
+                  placeholder="Como está se sentindo, sintomas, dificuldades..."
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Comentário Médico</label>
+                <textarea
+                  value={novoSeguimento.comentarioMedico}
+                  onChange={(e) => setNovoSeguimento({ ...novoSeguimento, comentarioMedico: e.target.value })}
+                  placeholder="Observações clínicas, orientações, ajustes..."
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowEditarSeguimentoModal(false);
+                  setSeguimentoEditando(null);
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!novoSeguimento.peso || !novoSeguimento.doseAplicada || !novoSeguimento.adesao) {
+                    alert('Por favor, preencha os campos obrigatórios: Peso, Dose Aplicada e Adesão');
+                    return;
+                  }
+                  
+                  if (!pacienteEditando || !seguimentoEditando) return;
+                  
+                  const evolucao = pacienteEditando.evolucaoSeguimento || [];
+                  const planoTerapeutico = pacienteEditando.planoTerapeutico;
+                  const dataRegistro = seguimentoEditando.dataRegistro || new Date();
+                  
+                  const registroAtualizado: any = {
+                    ...seguimentoEditando,
+                    peso: parseFloat(novoSeguimento.peso) || undefined,
+                    circunferenciaAbdominal: novoSeguimento.circunferenciaAbdominal ? parseFloat(novoSeguimento.circunferenciaAbdominal) : undefined,
+                    frequenciaCardiaca: novoSeguimento.frequenciaCardiaca ? parseInt(novoSeguimento.frequenciaCardiaca) : undefined,
+                    pressaoArterial: (novoSeguimento.paSistolica && novoSeguimento.paDiastolica) ? {
+                      sistolica: parseInt(novoSeguimento.paSistolica),
+                      diastolica: parseInt(novoSeguimento.paDiastolica)
+                    } : undefined,
+                    doseAplicada: {
+                      quantidade: parseFloat(novoSeguimento.doseAplicada),
+                      data: dataRegistro,
+                      horario: seguimentoEditando.doseAplicada?.horario || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    },
+                    adherence: novoSeguimento.adesao as any,
+                    giSeverity: novoSeguimento.giSeverity as any,
+                    localAplicacao: novoSeguimento.localAplicacao as any,
+                    observacoesPaciente: novoSeguimento.observacoesPaciente || undefined,
+                    comentarioMedico: novoSeguimento.comentarioMedico || undefined
+                  };
+                  
+                  // Regenerar alertas automáticos
+                  registroAtualizado.alerts = [];
+                  if (novoSeguimento.adesao === 'MISSED') {
+                    registroAtualizado.alerts.push('MISSED_DOSE');
+                  }
+                  if (novoSeguimento.giSeverity === 'GRAVE') {
+                    registroAtualizado.alerts.push('GI_SEVERE');
+                  }
+                  
+                  // Atualizar paciente com registro editado
+                  const evolucaoAtualizada = evolucao.map(e => 
+                    e.id === seguimentoEditando.id ? registroAtualizado : e
+                  );
+                  const pacienteAtualizado: PacienteCompleto = {
+                    ...pacienteEditando,
+                    evolucaoSeguimento: evolucaoAtualizada
+                  };
+                  
+                  // Salvar no Firestore
+                  setLoadingPacientes(true);
+                  try {
+                    if (!pacienteAtualizado.id) {
+                      setMessage('Erro: Paciente não possui ID. Por favor, feche e reabra o modal.');
+                      setLoadingPacientes(false);
+                      return;
+                    }
+                    
+                    await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+                    
+                    // Recarregar paciente atualizado do Firestore
+                    const pacienteRecarregado = await PacienteService.getPacienteById(pacienteAtualizado.id);
+                    
+                    if (pacienteRecarregado) {
+                      setPacienteEditando(pacienteRecarregado);
+                      setMessage('Registro semanal editado com sucesso!');
+                    } else {
+                      setPacienteEditando(pacienteAtualizado);
+                      setMessage('Registro semanal editado com sucesso!');
+                    }
+                    
+                    // Recarregar lista de pacientes
+                    await loadPacientes();
+                    
+                    setShowEditarSeguimentoModal(false);
+                    setSeguimentoEditando(null);
+                  } catch (error) {
+                    console.error('Erro ao salvar registro:', error);
+                    setMessage('Erro ao salvar registro semanal: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+                  } finally {
+                    setLoadingPacientes(false);
+                  }
+                  
+                  setNovoSeguimento({
+                    peso: '',
+                    circunferenciaAbdominal: '',
+                    frequenciaCardiaca: '',
+                    paSistolica: '',
+                    paDiastolica: '',
+                    doseAplicada: '',
+                    adesao: '',
+                    giSeverity: '',
+                    localAplicacao: '',
+                    observacoesPaciente: '',
+                    comentarioMedico: ''
+                  });
+                }}
+                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+              >
+                Salvar Alterações
               </button>
             </div>
           </div>
