@@ -8989,17 +8989,6 @@ export default function MetaAdminPage() {
                               );
                             })
                           )}
-                          
-                          {/* Botão adicionar novo registro */}
-                          <div className="mt-4">
-                            <button
-                              onClick={() => setShowAdicionarSeguimentoModal(true)}
-                              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
-                            >
-                              <Plus size={16} />
-                              Adicionar Novo Registro
-                            </button>
-                          </div>
                         </div>
                       </div>
                     );
@@ -9321,10 +9310,24 @@ export default function MetaAdminPage() {
                     novoRegistro.alerts.push('GI_SEVERE');
                   }
                   
-                  setPacienteEditando({
+                  // Atualizar paciente com novo registro
+                  const pacienteAtualizado = {
                     ...pacienteEditando,
                     evolucaoSeguimento: [...evolucao, novoRegistro]
-                  });
+                  };
+                  
+                  // Salvar no Firestore
+                  setLoadingPacientes(true);
+                  try {
+                    await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+                    setPacienteEditando(pacienteAtualizado);
+                    setMessage('Registro semanal adicionado com sucesso!');
+                  } catch (error) {
+                    console.error('Erro ao salvar registro:', error);
+                    setMessage('Erro ao salvar registro semanal');
+                  } finally {
+                    setLoadingPacientes(false);
+                  }
                   
                   setNovoSeguimento({
                     peso: '',
@@ -9341,7 +9344,6 @@ export default function MetaAdminPage() {
                   });
                   
                   setShowAdicionarSeguimentoModal(false);
-                  setMessage('Registro semanal adicionado com sucesso!');
                 }}
                 className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
               >
