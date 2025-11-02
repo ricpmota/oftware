@@ -242,14 +242,6 @@ export default function MetaPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Carregar dados do paciente e mensagens quando o usuário estiver logado
-  useEffect(() => {
-    if (user && user.email) {
-      loadPaciente();
-      loadMensagensPacienteAtual();
-    }
-  }, [user, loadPaciente, loadMensagensPacienteAtual]);
-
   // Função para carregar dados do paciente
   const loadPaciente = useCallback(async () => {
     if (!user?.email) return;
@@ -287,6 +279,14 @@ export default function MetaPage() {
       setLoadingMensagensPaciente(false);
     }
   }, [user?.email]);
+
+  // Carregar dados do paciente e mensagens quando o usuário estiver logado
+  useEffect(() => {
+    if (user && user.email) {
+      loadPaciente();
+      loadMensagensPacienteAtual();
+    }
+  }, [user, loadPaciente, loadMensagensPacienteAtual]);
 
   const loadTrocas = useCallback(async () => {
     if (!user) return;

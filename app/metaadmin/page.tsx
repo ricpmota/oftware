@@ -460,13 +460,15 @@ export default function MetaAdminPage() {
       
       // Verificar se é o usuário master
       if (user.email === 'ricpmota.med@gmail.com') {
-        loadData();
+        // Master: será carregado em useEffect separado
+        // Não fazer nada aqui para evitar problemas de ordem
       } else {
         // Verificar se é um médico cadastrado
         MedicoService.getMedicoByUserId(user.uid).then((medicoData) => {
           if (medicoData) {
-            // É um médico, carregar dados
-            loadData();
+            // É um médico, apenas carregar perfil médico e pacientes
+            // Não precisa carregar dados de admin/residentes
+            setMedicoPerfil(medicoData);
           } else {
             // Não é médico, verificar se é admin ou redirecionar
             UserService.getUserByUid(user.uid).then((userData) => {
@@ -488,7 +490,14 @@ export default function MetaAdminPage() {
     });
 
     return () => unsubscribe();
-  }, [router, loadData]);
+  }, [router]);
+
+  // Carregar dados para usuário master após inicialização completa
+  useEffect(() => {
+    if (user && user.email === 'ricpmota.med@gmail.com' && typeof loadData === 'function') {
+      loadData();
+    }
+  }, [user, loadData]);
 
   const loadTrocasPendentes = useCallback(async () => {
     if (!user) return;
