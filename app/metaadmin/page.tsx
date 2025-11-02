@@ -4854,11 +4854,11 @@ export default function MetaAdminPage() {
                   onClick={() => setPastaAtiva(pasta.id)}
                   className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     pastaAtiva === pasta.id
-                      ? 'border-green-500 text-green-600'
+                      ? 'border-green-500 text-green-700 bg-green-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  Pasta {pasta.id}: {pasta.nome}
+                  {pasta.nome}
                 </button>
               ))}
             </div>
@@ -4883,7 +4883,7 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                       />
                     </div>
                     <div>
@@ -4900,7 +4900,7 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                       />
                     </div>
                     <div>
@@ -4917,7 +4917,7 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                       />
                     </div>
                     <div>
@@ -4934,7 +4934,7 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                       />
                     </div>
                     <div>
@@ -4951,7 +4951,7 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                       />
                     </div>
                     <div>
@@ -4967,7 +4967,7 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                       >
                         <option value="">Selecione</option>
                         <option value="M">Masculino</option>
