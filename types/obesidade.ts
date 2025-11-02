@@ -53,10 +53,6 @@ export interface DadosIdentificacao {
     estado?: string;
     cep?: string;
   };
-  localizacaoGeografica?: {
-    latitude: number;
-    longitude: number;
-  };
   dataCadastro: Date;
 }
 

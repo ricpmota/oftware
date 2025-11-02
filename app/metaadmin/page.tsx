@@ -5088,47 +5088,86 @@ export default function MetaAdminPage() {
                     {/* CEP */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">CEP</label>
-                      <input
-                        type="text"
-                        value={pacienteEditando.dadosIdentificacao?.endereco?.cep || ''}
-                        onChange={(e) => {
-                          setPacienteEditando({
-                            ...pacienteEditando,
-                            dadosIdentificacao: {
-                              ...pacienteEditando.dadosIdentificacao,
-                              endereco: {
-                                ...pacienteEditando.dadosIdentificacao?.endereco,
-                                cep: e.target.value
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={pacienteEditando.dadosIdentificacao?.endereco?.cep || ''}
+                          onChange={(e) => {
+                            const cepValue = e.target.value.replace(/\D/g, '');
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosIdentificacao: {
+                                ...pacienteEditando.dadosIdentificacao,
+                                endereco: {
+                                  ...pacienteEditando.dadosIdentificacao?.endereco,
+                                  cep: cepValue.length <= 8 ? cepValue : cepValue.slice(0, 8)
+                                }
+                              }
+                            });
+                          }}
+                          onBlur={async (e) => {
+                            const cepValue = e.target.value.replace(/\D/g, '');
+                            if (cepValue.length === 8) {
+                              try {
+                                const response = await fetch(`https://viacep.com.br/ws/${cepValue}/json/`);
+                                const data = await response.json();
+                                if (!data.erro) {
+                                  setPacienteEditando({
+                                    ...pacienteEditando,
+                                    dadosIdentificacao: {
+                                      ...pacienteEditando.dadosIdentificacao,
+                                      endereco: {
+                                        ...pacienteEditando.dadosIdentificacao?.endereco,
+                                        cep: data.cep?.replace(/\D/g, '') || cepValue,
+                                        rua: data.logradouro || '',
+                                        cidade: data.localidade || '',
+                                        estado: data.uf || ''
+                                      }
+                                    }
+                                  });
+                                }
+                              } catch (error) {
+                                console.error('Erro ao buscar CEP:', error);
                               }
                             }
-                          });
-                        }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
-                        placeholder="Ex: 12345-678"
-                      />
-                    </div>
-
-                    {/* Lat/Long - Readonly mostrando informações se existirem */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
-                      <input
-                        type="text"
-                        value={pacienteEditando.dadosIdentificacao?.localizacaoGeografica?.latitude?.toString() || ''}
-                        readOnly
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-600 bg-gray-50"
-                        placeholder="Gerado automaticamente"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Longitude</label>
-                      <input
-                        type="text"
-                        value={pacienteEditando.dadosIdentificacao?.localizacaoGeografica?.longitude?.toString() || ''}
-                        readOnly
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-600 bg-gray-50"
-                        placeholder="Gerado automaticamente"
-                      />
+                          }}
+                          className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          placeholder="Ex: 12345678"
+                          maxLength={9}
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const cepValue = pacienteEditando.dadosIdentificacao?.endereco?.cep?.replace(/\D/g, '');
+                            if (cepValue && cepValue.length === 8) {
+                              try {
+                                const response = await fetch(`https://viacep.com.br/ws/${cepValue}/json/`);
+                                const data = await response.json();
+                                if (!data.erro) {
+                                  setPacienteEditando({
+                                    ...pacienteEditando,
+                                    dadosIdentificacao: {
+                                      ...pacienteEditando.dadosIdentificacao,
+                                      endereco: {
+                                        ...pacienteEditando.dadosIdentificacao?.endereco,
+                                        cep: data.cep?.replace(/\D/g, '') || cepValue,
+                                        rua: data.logradouro || '',
+                                        cidade: data.localidade || '',
+                                        estado: data.uf || ''
+                                      }
+                                    }
+                                  });
+                                }
+                              } catch (error) {
+                                console.error('Erro ao buscar CEP:', error);
+                              }
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+                        >
+                          Buscar
+                        </button>
+                      </div>
                     </div>
 
                     {/* Data de Cadastro e Médico Responsável */}
@@ -5136,7 +5175,19 @@ export default function MetaAdminPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Data de Cadastro</label>
                       <input
                         type="text"
-                        value={pacienteEditando.dadosIdentificacao?.dataCadastro ? new Date(pacienteEditando.dadosIdentificacao.dataCadastro).toLocaleDateString('pt-BR') : ''}
+                        value={(() => {
+                          const date = pacienteEditando.dadosIdentificacao?.dataCadastro;
+                          if (!date) return '';
+                          try {
+                            const d = new Date(date);
+                            if (!isNaN(d.getTime())) {
+                              return d.toLocaleDateString('pt-BR');
+                            }
+                            return '';
+                          } catch {
+                            return '';
+                          }
+                        })()}
                         readOnly
                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-600 bg-gray-50"
                       />
