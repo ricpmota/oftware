@@ -210,34 +210,21 @@ export default function MetaPage() {
         return;
       }
       
-      // Verificar se é o usuário master ou tem role de residente
+      // Verificar se é o usuário master
       if (user.email === 'ricpmota.med@gmail.com') {
         // Usuário master tem acesso a tudo
       } else {
-        // Verificar se é um residente válido
-        UserService.getAllResidentes().then((residentes) => {
-          const isResidente = residentes.some(residente => residente.email === user.email);
-          
-          if (!isResidente) {
-            // Se não for residente, verificar se é admin ou recepção
-            UserService.getUserByUid(user.uid).then((userData) => {
-              if (userData?.role === 'admin') {
-                router.push('/admin');
-              } else if (userData?.role === 'recepcao') {
-                router.push('/recepcao');
-              } else {
-                router.push('/');
-              }
-            }).catch((error) => {
-              console.error('Erro ao verificar role do usuário:', error);
-              router.push('/');
-            });
-            return;
+        // Verificar se é admin ou recepção e redirecionar para suas páginas
+        UserService.getUserByUid(user.uid).then((userData) => {
+          if (userData?.role === 'admin') {
+            router.push('/metaadmin');
+          } else if (userData?.role === 'recepcao') {
+            router.push('/recepcao');
           }
-          // Se for residente, acesso liberado
+          // Caso contrário, permanece na página /meta (acesso liberado)
         }).catch((error) => {
-          console.error('Erro ao verificar residentes:', error);
-          router.push('/');
+          console.error('Erro ao verificar role do usuário:', error);
+          // Permanece na página /meta mesmo em caso de erro
         });
       }
     });
