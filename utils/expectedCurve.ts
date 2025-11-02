@@ -1,6 +1,11 @@
 /**
  * Utilitários para cálculo da curva de peso esperada no tratamento
  * Engine calibrada com âncoras clínicas baseadas em prática real de tirzepatida
+ * 
+ * Inclui:
+ * - buildExpectedCurveDoseDrivenAnchored(): curva de peso com âncoras clínicas
+ * - predictHbA1c(): modelo Emax temporal para HbA1c
+ * - predictWaistCircumference(): modelo linear para circunferência abdominal
  */
 
 // ---------- Tipos ----------
@@ -183,6 +188,15 @@ export function buildExpectedCurveDoseDrivenAnchored(params: {
 }
 
 // ---------- HbA1c prevista (modelo Emax temporal) ----------
+/**
+ * predictHbA1c - calcula HbA1c prevista ao longo do tempo segundo modelo Emax(dose)
+ * 
+ * Fórmula: HbA1c_t = max(4.8, A0 - Emax(dose) * (1 - exp(-k * weeks)))
+ * Onde:
+ * - A0 = HbA1c basal (%)
+ * - Emax = redução máxima esperada por dose (ver EMAX_BY_DOSE)
+ * - k = velocidade de resposta (0.10-0.15; padrão 0.12)
+ */
 export function predictHbA1c(params: {
   baselineHbA1c: number;
   weekIndex: number;
@@ -197,6 +211,18 @@ export function predictHbA1c(params: {
 }
 
 // ---------- Cintura prevista (linear vs. % perda de peso) ----------
+/**
+ * predictWaistCircumference - reduz cintura proporcional à perda de peso (%)
+ * 
+ * Fórmula: waist_t = waist0 - α × (% perda)
+ * Onde:
+ * - α = 0.9 cm por 1% de perda (padrão)
+ * - floorCm = limite inferior opcional
+ * 
+ * Exemplo (C₀ = 110 cm, perda = 9%):
+ * predictWaistCircumference({ baselineWaistCm: 110, cumulativeWeightLossPct: 9 })
+ * ≈ 101.9 cm
+ */
 export function predictWaistCircumference(params: {
   baselineWaistCm: number;
   cumulativeWeightLossPct: number;
