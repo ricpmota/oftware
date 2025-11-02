@@ -3,6 +3,7 @@ export interface Medico {
   userId: string; // Firebase Auth UID
   email: string;
   nome: string;
+  genero?: 'M' | 'F'; // Para exibir Dr./Dra.
   crm: {
     numero: string;
     estado: string;
