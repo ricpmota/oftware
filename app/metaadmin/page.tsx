@@ -8779,7 +8779,9 @@ export default function MetaAdminPage() {
                     const medidasIniciais = pacienteEditando?.dadosClinicos?.medidasIniciais;
                     
                     // Construir care plan a partir dos dados existentes
-                    const baselineWeight = medidasIniciais?.peso || 0;
+                    // Baseline weight: usar o peso real da primeira medição (weekIndex 1) ou peso inicial se não houver registros
+                    const primeiroRegistro = evolucao.find(e => e.weekIndex === 1);
+                    const baselineWeight = primeiroRegistro?.peso || medidasIniciais?.peso || 0;
                     const metaPeso = planoTerapeutico?.metas?.weightLossTargetType === 'PERCENTUAL' 
                       ? planoTerapeutico?.metas?.weightLossTargetValue || 0
                       : planoTerapeutico?.metas?.weightLossTargetValue || 0;
@@ -8787,16 +8789,22 @@ export default function MetaAdminPage() {
                     // Usar modelo dose-driven: schedule sugerido de titulação
                     const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
                     
+                    // Calcular semanas totais: até a última semana com registro ou +12 semanas
+                    const ultimaSemanaComRegistro = evolucao.length > 0 
+                      ? Math.max(...evolucao.map(e => e.weekIndex))
+                      : 0;
+                    const totalSemanasGrafico = Math.max(52, ultimaSemanaComRegistro + 12);
+                    
                     const expectedCurve = buildExpectedCurveDoseDriven({
                       baselineWeightKg: baselineWeight,
                       doseSchedule: suggestedSchedule,
-                      totalWeeks: 52,
+                      totalWeeks: totalSemanasGrafico,
                       targetType: planoTerapeutico?.metas?.weightLossTargetType,
                       targetValue: metaPeso
                     });
                     
-                    // Preparar dados para o gráfico de peso
-                    const pesoChartData = expectedCurve.slice(0, Math.min(52, evolucao.length + 12)).map((week, idx) => {
+                    // Preparar dados para o gráfico de peso (todas as semanas até a última)
+                    const pesoChartData = expectedCurve.slice(0, totalSemanasGrafico).map((week) => {
                       const registroSemana = evolucao.find(e => e.weekIndex === week.weekIndex);
                       return {
                         semana: week.weekIndex,
@@ -8805,12 +8813,15 @@ export default function MetaAdminPage() {
                       };
                     });
                     
-                    // Preparar dados para gráfico de circunferência
-                    const baseCircAbdominal = medidasIniciais?.circunferenciaAbdominal || 0;
-                    const circData = evolucao.filter(r => r.circunferenciaAbdominal).map(r => ({
-                      semana: r.weekIndex,
-                      circunferencia: r.circunferenciaAbdominal
-                    }));
+                    // Preparar dados para gráfico de circunferência (mesmas semanas do gráfico de peso)
+                    const baseCircAbdominal = primeiroRegistro?.circunferenciaAbdominal || medidasIniciais?.circunferenciaAbdominal || 0;
+                    const circData = pesoChartData.map(week => {
+                      const registroSemana = evolucao.find(e => e.weekIndex === week.semana);
+                      return {
+                        semana: week.semana,
+                        circunferencia: registroSemana?.circunferenciaAbdominal || null
+                      };
+                    });
                     
                     // Preparar dados para gráfico de HbA1c
                     const exames = pacienteEditando?.examesLaboratoriais || [];
@@ -8873,7 +8884,7 @@ export default function MetaAdminPage() {
                                       {pacienteEditando?.nome}
                                     </h4>
                                     <p className="text-sm text-gray-600">
-                                      Peso inicial: {baselineWeight.toFixed(1)} kg
+                                      Peso inicial (primeira medição): {baselineWeight.toFixed(1)} kg
                                     </p>
                                   </div>
                                   
@@ -8931,7 +8942,7 @@ export default function MetaAdminPage() {
                             )}
                             
                             {graficoAtivoPasta6 === 'circunferencia' && (
-                              baseCircAbdominal > 0 && circData.length > 0 ? (
+                              baseCircAbdominal > 0 ? (
                                 <div>
                                   <h4 className="text-lg font-semibold text-gray-900 mb-4">
                                     Circunferência Abdominal (cm)
@@ -9216,6 +9227,17 @@ export default function MetaAdminPage() {
                               );
                             })
                           )}
+                          
+                          {/* Botão adicionar novo registro - sempre visível quando há registros */}
+                          <div className="mt-4">
+                            <button
+                              onClick={() => setShowAdicionarSeguimentoModal(true)}
+                              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                              <Plus size={16} />
+                              Adicionar Novo Registro
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
