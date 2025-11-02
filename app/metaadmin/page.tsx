@@ -26,7 +26,7 @@ import { LabRangeBar } from '@/components/LabRangeBar';
 import { labRanges, getLabRange, labOrderBySection, Sex } from '@/types/labRanges';
 import { AlertBadges } from '@/components/AlertBadges';
 import { ProgressPill } from '@/components/ProgressPill';
-import { buildExpectedCurve, buildExpectedCurveDoseDriven, buildSuggestedDoseSchedule, varianceStatus, CarePlan } from '@/utils/expectedCurve';
+import { buildExpectedCurve, buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, varianceStatus } from '@/utils/expectedCurve';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function MetaAdminPage() {
@@ -8788,18 +8788,20 @@ export default function MetaAdminPage() {
                       ? planoTerapeutico?.metas?.weightLossTargetValue || 0
                       : planoTerapeutico?.metas?.weightLossTargetValue || 0;
                     
-                    // Usar modelo dose-driven: schedule sugerido de titulação
+                    // Usar modelo dose-driven anchored: schedule sugerido de titulação com âncoras clínicas
                     const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
                     
-                    // Calcular semanas totais: fixo em 18 semanas (1 ano de tratamento)
+                    // Calcular semanas totais: fixo em 18 semanas
                     const totalSemanasGrafico = 18;
                     
-                    const expectedCurve = buildExpectedCurveDoseDriven({
+                    const expectedCurve = buildExpectedCurveDoseDrivenAnchored({
                       baselineWeightKg: baselineWeight,
                       doseSchedule: suggestedSchedule,
                       totalWeeks: totalSemanasGrafico,
                       targetType: planoTerapeutico?.metas?.weightLossTargetType,
-                      targetValue: metaPeso
+                      targetValue: metaPeso,
+                      useAnchorWeek: 18,
+                      useAnchorPct: 9.0
                     });
                     
                     // Preparar dados para o gráfico de peso (todas as semanas até a última)
