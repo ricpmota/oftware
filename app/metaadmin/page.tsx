@@ -5017,76 +5017,8 @@ export default function MetaAdminPage() {
                       </select>
                     </div>
                     
-                    {/* Endereço - Rua */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Endereço (Rua)</label>
-                      <input
-                        type="text"
-                        value={pacienteEditando.dadosIdentificacao?.endereco?.rua || ''}
-                        onChange={(e) => {
-                          setPacienteEditando({
-                            ...pacienteEditando,
-                            dadosIdentificacao: {
-                              ...pacienteEditando.dadosIdentificacao,
-                              endereco: {
-                                ...pacienteEditando.dadosIdentificacao?.endereco,
-                                rua: e.target.value
-                              }
-                            }
-                          });
-                        }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
-                        placeholder="Ex: Rua Exemplo, 123"
-                      />
-                    </div>
-
-                    {/* Cidade e Estado */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
-                      <input
-                        type="text"
-                        value={pacienteEditando.dadosIdentificacao?.endereco?.cidade || ''}
-                        onChange={(e) => {
-                          setPacienteEditando({
-                            ...pacienteEditando,
-                            dadosIdentificacao: {
-                              ...pacienteEditando.dadosIdentificacao,
-                              endereco: {
-                                ...pacienteEditando.dadosIdentificacao?.endereco,
-                                cidade: e.target.value
-                              }
-                            }
-                          });
-                        }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
-                        placeholder="Ex: São Paulo"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
-                      <input
-                        type="text"
-                        value={pacienteEditando.dadosIdentificacao?.endereco?.estado || ''}
-                        onChange={(e) => {
-                          setPacienteEditando({
-                            ...pacienteEditando,
-                            dadosIdentificacao: {
-                              ...pacienteEditando.dadosIdentificacao,
-                              endereco: {
-                                ...pacienteEditando.dadosIdentificacao?.endereco,
-                                estado: e.target.value
-                              }
-                            }
-                          });
-                        }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
-                        placeholder="Ex: SP"
-                      />
-                    </div>
-
                     {/* CEP */}
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">CEP</label>
                       <div className="flex gap-2">
                         <input
@@ -5170,8 +5102,76 @@ export default function MetaAdminPage() {
                       </div>
                     </div>
 
-                    {/* Data de Cadastro e Médico Responsável */}
+                    {/* Endereço - Rua */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Endereço (Rua)</label>
+                      <input
+                        type="text"
+                        value={pacienteEditando.dadosIdentificacao?.endereco?.rua || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              endereco: {
+                                ...pacienteEditando.dadosIdentificacao?.endereco,
+                                rua: e.target.value
+                              }
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        placeholder="Ex: Rua Exemplo, 123"
+                      />
+                    </div>
+
+                    {/* Cidade e Estado */}
                     <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
+                      <input
+                        type="text"
+                        value={pacienteEditando.dadosIdentificacao?.endereco?.cidade || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              endereco: {
+                                ...pacienteEditando.dadosIdentificacao?.endereco,
+                                cidade: e.target.value
+                              }
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        placeholder="Ex: São Paulo"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                      <input
+                        type="text"
+                        value={pacienteEditando.dadosIdentificacao?.endereco?.estado || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosIdentificacao: {
+                              ...pacienteEditando.dadosIdentificacao,
+                              endereco: {
+                                ...pacienteEditando.dadosIdentificacao?.endereco,
+                                estado: e.target.value
+                              }
+                            }
+                          });
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        placeholder="Ex: SP"
+                      />
+                    </div>
+
+                    {/* Data de Cadastro e Médico Responsável */}
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Data de Cadastro</label>
                       <input
                         type="text"
