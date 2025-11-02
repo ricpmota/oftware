@@ -178,112 +178,82 @@ export default function OftalmoPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Selecione uma área</h2>
-          <p className="text-lg text-gray-600">Escolha o módulo que deseja acessar</p>
+      <div className="px-4 py-6">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Selecione uma área</h2>
+          <p className="text-sm md:text-base text-gray-600">Escolha o módulo que deseja acessar</p>
         </div>
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Oftware - Página Inicial Antiga */}
+        <div className="grid grid-cols-1 gap-4 max-w-md mx-auto md:max-w-full md:grid-cols-2 lg:grid-cols-3">
+          {/* Oftware */}
           <button
             onClick={() => router.push('/oftware')}
-            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-4">
-              <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-200 transition-colors">
-                <HomeIcon size={24} className="text-blue-600" />
+            <div className="flex items-center mb-3">
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <HomeIcon size={20} className="text-blue-600" />
               </div>
-              <h3 className="ml-4 text-xl font-semibold text-gray-900">Oftware</h3>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Oftware</h3>
             </div>
-            <p className="text-gray-600 mb-4">Página inicial antiga do sistema</p>
-            <div className="flex items-center text-blue-600 font-medium">
-              <span>Acessar</span>
-              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
+            <p className="text-sm text-gray-600">Assistência oftalmológica</p>
           </button>
 
           {/* Admin Escala */}
           <button
             onClick={() => router.push('/admin')}
-            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-4">
-              <div className="bg-green-100 p-3 rounded-lg group-hover:bg-green-200 transition-colors">
-                <Settings size={24} className="text-green-600" />
+            <div className="flex items-center mb-3">
+              <div className="bg-green-100 p-3 rounded-lg">
+                <Settings size={20} className="text-green-600" />
               </div>
-              <h3 className="ml-4 text-xl font-semibold text-gray-900">Admin Escala</h3>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Admin Escala</h3>
             </div>
-            <p className="text-gray-600 mb-4">Gerenciamento de escalas médicas</p>
-            <div className="flex items-center text-green-600 font-medium">
-              <span>Acessar</span>
-              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
+            <p className="text-sm text-gray-600">Gerenciamento de escalas médicas</p>
           </button>
 
           {/* Admin META */}
           <button
             onClick={() => router.push('/metaadmin')}
-            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-4">
-              <div className="bg-purple-100 p-3 rounded-lg group-hover:bg-purple-200 transition-colors">
-                <Stethoscope size={24} className="text-purple-600" />
+            <div className="flex items-center mb-3">
+              <div className="bg-purple-100 p-3 rounded-lg">
+                <Stethoscope size={20} className="text-purple-600" />
               </div>
-              <h3 className="ml-4 text-xl font-semibold text-gray-900">Admin META</h3>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Admin META</h3>
             </div>
-            <p className="text-gray-600 mb-4">Tratamento de obesidade com Monjauro</p>
-            <div className="flex items-center text-purple-600 font-medium">
-              <span>Acessar</span>
-              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
+            <p className="text-sm text-gray-600">Tratamento de obesidade com Monjauro</p>
           </button>
 
           {/* Paciente META */}
           <button
             onClick={() => router.push('/meta')}
-            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-4">
-              <div className="bg-orange-100 p-3 rounded-lg group-hover:bg-orange-200 transition-colors">
-                <UserCheck size={24} className="text-orange-600" />
+            <div className="flex items-center mb-3">
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <UserCheck size={20} className="text-orange-600" />
               </div>
-              <h3 className="ml-4 text-xl font-semibold text-gray-900">Paciente META</h3>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Paciente META</h3>
             </div>
-            <p className="text-gray-600 mb-4">Acompanhamento do tratamento</p>
-            <div className="flex items-center text-orange-600 font-medium">
-              <span>Acessar</span>
-              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
+            <p className="text-sm text-gray-600">Acompanhamento Monjauro</p>
           </button>
 
           {/* Residente */}
           <button
             onClick={() => router.push('/cenoft')}
-            className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group border border-gray-200"
+            className="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-all border border-gray-200"
           >
-            <div className="flex items-center mb-4">
-              <div className="bg-indigo-100 p-3 rounded-lg group-hover:bg-indigo-200 transition-colors">
-                <Users size={24} className="text-indigo-600" />
+            <div className="flex items-center mb-3">
+              <div className="bg-indigo-100 p-3 rounded-lg">
+                <Users size={20} className="text-indigo-600" />
               </div>
-              <h3 className="ml-4 text-xl font-semibold text-gray-900">Residente</h3>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Residente</h3>
             </div>
-            <p className="text-gray-600 mb-4">Portal para residentes médicos</p>
-            <div className="flex items-center text-indigo-600 font-medium">
-              <span>Acessar</span>
-              <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
+            <p className="text-sm text-gray-600">Escalas Médicas</p>
           </button>
         </div>
       </div>
