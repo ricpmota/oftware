@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -17,11 +17,8 @@ import EditServicoForm from '@/components/EditServicoForm';
 import EditEscalaForm from '@/components/EditEscalaForm';
 import { MensagemService } from '@/services/mensagemService';
 import { Mensagem, MensagemResidenteParaAdmin } from '@/types/mensagem';
-import { MedicoService } from '@/services/medicoService';
-import { Medico } from '@/types/medico';
-import { estadosCidades, estadosList } from '@/data/cidades-brasil';
 
-export default function MetaAdminPage() {
+export default function MetaAdminGeralPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
   const [filtroPeriodo, setFiltroPeriodo] = useState<'semana' | 'mes' | 'ano'>('semana');
   const [users, setUsers] = useState<UserType[]>([]);
@@ -57,18 +54,6 @@ export default function MetaAdminPage() {
   const [ferias, setFerias] = useState<Ferias[]>([]);
   const [feriasPendentes, setFeriasPendentes] = useState<Ferias[]>([]);
   const [loadingFerias, setLoadingFerias] = useState(false);
-  
-  // Estados para perfil médico
-  const [medicoPerfil, setMedicoPerfil] = useState<Medico | null>(null);
-  const [loadingPerfil, setLoadingPerfil] = useState(false);
-  const [perfilMedico, setPerfilMedico] = useState({
-    crmNumero: '',
-    crmEstado: '',
-    endereco: '',
-    cidades: [] as { estado: string; cidade: string }[]
-  });
-  const [estadoSelecionado, setEstadoSelecionado] = useState<string>('');
-  const [cidadeSelecionada, setCidadeSelecionada] = useState<string>('');
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -126,99 +111,6 @@ export default function MetaAdminPage() {
     type: '', // 'residente', 'local', 'servico', 'escala'
     data: null as Residente | Local | Servico | Escala | null
   });
-
-  // Função para carregar perfil do médico
-  const loadMedicoPerfil = useCallback(async () => {
-    if (!user) return;
-    
-    setLoadingPerfil(true);
-    try {
-      const medico = await MedicoService.getMedicoByUserId(user.uid);
-      
-      if (medico) {
-        setMedicoPerfil(medico);
-        setPerfilMedico({
-          crmNumero: medico.crm.numero,
-          crmEstado: medico.crm.estado,
-          endereco: medico.localizacao.endereco,
-          cidades: medico.cidades
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao carregar perfil médico:', error);
-    } finally {
-      setLoadingPerfil(false);
-    }
-  }, [user]);
-
-  // Função para salvar perfil do médico
-  const handleSalvarPerfil = async () => {
-    if (!user) return;
-    
-    if (!perfilMedico.crmNumero || !perfilMedico.crmEstado || !perfilMedico.endereco) {
-      alert('Por favor, preencha todos os campos obrigatórios');
-      return;
-    }
-
-    setLoadingPerfil(true);
-    try {
-      const medicoData = {
-        userId: user.uid,
-        email: user.email || '',
-        nome: user.displayName || 'Médico',
-        crm: {
-          numero: perfilMedico.crmNumero,
-          estado: perfilMedico.crmEstado
-        },
-        localizacao: {
-          endereco: perfilMedico.endereco
-        },
-        cidades: perfilMedico.cidades,
-        status: 'ativo' as const
-      };
-
-      await MedicoService.createOrUpdateMedico(medicoData);
-      await loadMedicoPerfil();
-      setMessage('Perfil salvo com sucesso!');
-    } catch (error) {
-      console.error('Erro ao salvar perfil médico:', error);
-      setMessage('Erro ao salvar perfil médico');
-    } finally {
-      setLoadingPerfil(false);
-    }
-  };
-
-  // Função para adicionar cidade
-  const handleAdicionarCidade = () => {
-    if (!estadoSelecionado || !cidadeSelecionada) {
-      alert('Por favor, selecione estado e cidade');
-      return;
-    }
-
-    const cidadeJaExiste = perfilMedico.cidades.some(
-      c => c.estado === estadoSelecionado && c.cidade === cidadeSelecionada
-    );
-
-    if (cidadeJaExiste) {
-      alert('Esta cidade já está na lista');
-      return;
-    }
-
-    setPerfilMedico({
-      ...perfilMedico,
-      cidades: [...perfilMedico.cidades, { estado: estadoSelecionado, cidade: cidadeSelecionada }]
-    });
-    setEstadoSelecionado('');
-    setCidadeSelecionada('');
-  };
-
-  // Função para remover cidade
-  const handleRemoverCidade = (index: number) => {
-    setPerfilMedico({
-      ...perfilMedico,
-      cidades: perfilMedico.cidades.filter((_, i) => i !== index)
-    });
-  };
 
   const ensureAdminUser = useCallback(async () => {
     try {
@@ -620,12 +512,6 @@ export default function MetaAdminPage() {
     setMensagemEnviadaSelecionada(mensagem);
     setShowMensagemEnviadaModal(true);
   };
-
-  useEffect(() => {
-    if (user && activeMenu === 'meu-perfil') {
-      loadMedicoPerfil();
-    }
-  }, [user, activeMenu, loadMedicoPerfil]);
 
   useEffect(() => {
     if (user && activeMenu === 'troca') {
@@ -1347,203 +1233,11 @@ export default function MetaAdminPage() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      case 'meu-perfil':
+      case 'usuarios':
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Meu Perfil Médico</h2>
-            </div>
-
-            {loadingPerfil ? (
-              <div className="bg-white shadow rounded-lg p-6">
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Carregando perfil...</p>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white shadow rounded-lg p-6">
-                <form onSubmit={(e) => { e.preventDefault(); handleSalvarPerfil(); }}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* CRM Número */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Número *
-                      </label>
-                      <input
-                        type="text"
-                        value={perfilMedico.crmNumero}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, crmNumero: e.target.value })}
-                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        placeholder="Ex: 12345"
-                        required
-                      />
-                    </div>
-
-                    {/* CRM Estado */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Estado *
-                      </label>
-                      <select
-                        value={perfilMedico.crmEstado}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, crmEstado: e.target.value })}
-                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        required
-                      >
-                        <option value="">Selecione o estado</option>
-                        {estadosList.map((estado) => (
-                          <option key={estado.sigla} value={estado.sigla}>
-                            {estado.nome}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Endereço */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Endereço Completo *
-                      </label>
-                      <input
-                        type="text"
-                        value={perfilMedico.endereco}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, endereco: e.target.value })}
-                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        placeholder="Ex: Rua Exemplo, 123 - Bairro - Cidade/UF"
-                        required
-                      />
-                    </div>
-
-                    {/* Cidades de Atendimento */}
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Cidades de Atendimento
-                      </label>
-                      
-                      {/* Seleção de Estado e Cidade */}
-                      <div className="flex gap-2 mb-4">
-                        <select
-                          value={estadoSelecionado}
-                          onChange={(e) => {
-                            setEstadoSelecionado(e.target.value);
-                            setCidadeSelecionada('');
-                          }}
-                          className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                        >
-                          <option value="">Selecione o estado</option>
-                          {estadosList.map((estado) => (
-                            <option key={estado.sigla} value={estado.sigla}>
-                              {estado.nome}
-                            </option>
-                          ))}
-                        </select>
-                        
-                        <select
-                          value={cidadeSelecionada}
-                          onChange={(e) => setCidadeSelecionada(e.target.value)}
-                          className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                          disabled={!estadoSelecionado}
-                        >
-                          <option value="">Selecione a cidade</option>
-                          {estadoSelecionado && estadosCidades[estadoSelecionado as keyof typeof estadosCidades].cidades.map((cidade) => (
-                            <option key={cidade} value={cidade}>
-                              {cidade}
-                            </option>
-                          ))}
-                        </select>
-                        
-                        <button
-                          type="button"
-                          onClick={handleAdicionarCidade}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
-                        >
-                          <Plus size={20} />
-                        </button>
-                      </div>
-
-                      {/* Lista de Cidades Adicionadas */}
-                      {perfilMedico.cidades.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-sm text-gray-600 font-medium">Cidades adicionadas:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {perfilMedico.cidades.map((cidade, index) => (
-                              <span
-                                key={index}
-                                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
-                              >
-                                {estadosCidades[cidade.estado as keyof typeof estadosCidades]?.nome || cidade.estado} - {cidade.cidade}
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoverCidade(index)}
-                                  className="ml-2 hover:text-red-700"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {perfilMedico.cidades.length === 0 && (
-                        <p className="text-sm text-gray-500">Nenhuma cidade adicionada ainda</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Botão Salvar */}
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={loadingPerfil}
-                      className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loadingPerfil ? 'Salvando...' : 'Salvar Perfil'}
-                    </button>
-                  </div>
-                </form>
-
-                {/* Informações do Perfil Existentes */}
-                {medicoPerfil && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações do Perfil</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Data de Cadastro</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {medicoPerfil.dataCadastro.toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Status</p>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          medicoPerfil.status === 'ativo' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {medicoPerfil.status === 'ativo' ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      case 'pacientes':
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Meus Pacientes</h2>
-              <button
-                onClick={() => {/* TODO: Abrir modal novo paciente */}}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center"
-              >
-                <Plus size={16} className="mr-2" />
-                Novo Paciente
-              </button>
+              <h2 className="text-2xl font-bold text-gray-900">Usuários do Firebase Authentication</h2>
             </div>
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <table className="min-w-full divide-y divide-gray-200">
@@ -4083,7 +3777,7 @@ export default function MetaAdminPage() {
             {!sidebarCollapsed && (
               <div className="px-4 py-4 border-b border-gray-200">
                 <p className="text-sm text-gray-600">
-                  Bem-vindo, Admin
+                  Bem-vindo, Admin Geral
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   {user.email}
@@ -4093,18 +3787,6 @@ export default function MetaAdminPage() {
 
             {/* Navigation */}
             <nav className="flex-1 px-4 py-4 space-y-2">
-              <button
-                onClick={() => setActiveMenu('meu-perfil')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'meu-perfil'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Meu Perfil' : ''}
-              >
-                <Stethoscope size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Meu Perfil Médico'}
-              </button>
               <button
                 onClick={() => setActiveMenu('estatisticas')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -4118,16 +3800,16 @@ export default function MetaAdminPage() {
                 {!sidebarCollapsed && 'Estatísticas'}
               </button>
               <button
-                onClick={() => setActiveMenu('pacientes')}
+                onClick={() => setActiveMenu('usuarios')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'pacientes'
+                  activeMenu === 'usuarios'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Pacientes' : ''}
+                title={sidebarCollapsed ? 'Usuários' : ''}
               >
                 <Users size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Pacientes'}
+                {!sidebarCollapsed && 'Usuários'}
               </button>
               <button
                 onClick={() => setActiveMenu('residentes')}
@@ -4264,7 +3946,7 @@ export default function MetaAdminPage() {
                   alt="Oftware Logo"
                   className="h-8 w-8"
                 />
-                <span className="ml-2 text-lg font-semibold text-gray-900">Admin</span>
+                <span className="ml-2 text-lg font-semibold text-gray-900">Meta Admin Geral</span>
               </div>
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -4571,18 +4253,6 @@ export default function MetaAdminPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
         <div className="flex overflow-x-auto scrollbar-hide items-center py-2 px-2 space-x-1">
           <button
-            onClick={() => setActiveMenu('meu-perfil')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'meu-perfil'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Stethoscope className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Meu Perfil</span>
-          </button>
-          
-          <button
             onClick={() => setActiveMenu('estatisticas')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
               activeMenu === 'estatisticas'
@@ -4595,15 +4265,15 @@ export default function MetaAdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveMenu('pacientes')}
+            onClick={() => setActiveMenu('usuarios')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'pacientes'
+              activeMenu === 'usuarios'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
             <Users className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Pacientes</span>
+            <span className="text-xs font-medium">Usuários</span>
           </button>
 
           <button
