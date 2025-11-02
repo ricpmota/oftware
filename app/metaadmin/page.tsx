@@ -147,7 +147,7 @@ export default function MetaAdminPage() {
     tipo: 'clinico' as 'clinico' | 'alerta' | 'orientacao' | 'revisao'
   });
   const [mensagensPaciente, setMensagensPaciente] = useState<PacienteMensagem[]>([]);
-  const [loadingMensagens, setLoadingMensagens] = useState(false);
+  const [loadingMensagensPaciente, setLoadingMensagensPaciente] = useState(false);
   
   const router = useRouter();
 
@@ -643,7 +643,7 @@ export default function MetaAdminPage() {
   const loadMensagensPaciente = useCallback(async () => {
     if (!pacienteEditando?.email) return;
     
-    setLoadingMensagens(true);
+    setLoadingMensagensPaciente(true);
     try {
       const mensagensData = await PacienteMensagemService.getMensagensPaciente(pacienteEditando.email);
       setMensagensPaciente(mensagensData.filter(m => !m.deletada));
@@ -651,7 +651,7 @@ export default function MetaAdminPage() {
       console.error('Erro ao carregar mensagens do paciente:', error);
       setMensagensPaciente([]);
     } finally {
-      setLoadingMensagens(false);
+      setLoadingMensagensPaciente(false);
     }
   }, [pacienteEditando?.email]);
 
@@ -662,7 +662,7 @@ export default function MetaAdminPage() {
       return;
     }
 
-    setLoadingMensagens(true);
+    setLoadingMensagensPaciente(true);
     
     try {
       await PacienteMensagemService.criarMensagem({
@@ -683,7 +683,7 @@ export default function MetaAdminPage() {
       console.error('Erro ao enviar mensagem:', error);
       setMessage('Erro ao enviar mensagem. Tente novamente.');
     } finally {
-      setLoadingMensagens(false);
+      setLoadingMensagensPaciente(false);
     }
   };
 
@@ -693,7 +693,7 @@ export default function MetaAdminPage() {
       return;
     }
 
-    setLoadingMensagens(true);
+    setLoadingMensagensPaciente(true);
     
     try {
       await PacienteMensagemService.deletarMensagem(mensagemId);
@@ -704,7 +704,7 @@ export default function MetaAdminPage() {
       console.error('Erro ao deletar mensagem:', error);
       setMessage('Erro ao deletar mensagem.');
     } finally {
-      setLoadingMensagens(false);
+      setLoadingMensagensPaciente(false);
     }
   };
 
@@ -9619,11 +9619,11 @@ export default function MetaAdminPage() {
                       
                       <button
                         onClick={handleEnviarMensagemPaciente}
-                        disabled={loadingMensagens}
+                        disabled={loadingMensagensPaciente}
                         className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         <Send size={16} />
-                        {loadingMensagens ? 'Enviando...' : 'Enviar Mensagem'}
+                        {loadingMensagensPaciente ? 'Enviando...' : 'Enviar Mensagem'}
                       </button>
                     </div>
                   </div>
@@ -9631,7 +9631,7 @@ export default function MetaAdminPage() {
                   {/* Histórico de mensagens */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-900">Histórico de Mensagens</h4>
-                    {loadingMensagens && mensagensPaciente.length === 0 ? (
+                    {loadingMensagensPaciente && mensagensPaciente.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
                         <RefreshCw className="mx-auto animate-spin text-gray-400 mb-2" />
                         <p className="text-gray-600">Carregando mensagens...</p>
