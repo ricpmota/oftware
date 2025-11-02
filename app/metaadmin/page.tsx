@@ -458,35 +458,16 @@ export default function MetaAdminPage() {
         return;
       }
       
-      // Verificar se é o usuário master
-      if (user.email === 'ricpmota.med@gmail.com') {
-        // Master: será carregado em useEffect separado
-        // Não fazer nada aqui para evitar problemas de ordem
-      } else {
-        // Verificar se é um médico cadastrado
-        MedicoService.getMedicoByUserId(user.uid).then((medicoData) => {
-          if (medicoData) {
-            // É um médico, apenas carregar perfil médico e pacientes
-            // Não precisa carregar dados de admin/residentes
-            setMedicoPerfil(medicoData);
-          } else {
-            // Não é médico, verificar se é admin ou redirecionar
-            UserService.getUserByUid(user.uid).then((userData) => {
-              if (userData?.role === 'admin') {
-                router.push('/admin');
-              } else {
-                router.push('/meta');
-              }
-            }).catch((error) => {
-              console.error('Erro ao verificar role do usuário:', error);
-              router.push('/meta');
-            });
-          }
-        }).catch((error) => {
-          console.error('Erro ao verificar médico:', error);
-          router.push('/meta');
-        });
-      }
+      // Qualquer usuário autenticado pode acessar /metaadmin
+      // Tentar carregar perfil médico se existir (opcional)
+      MedicoService.getMedicoByUserId(user.uid).then((medicoData) => {
+        if (medicoData) {
+          setMedicoPerfil(medicoData);
+        }
+      }).catch((error) => {
+        console.error('Erro ao verificar médico:', error);
+        // Não redirecionar, deixar acesso livre
+      });
     });
 
     return () => unsubscribe();
