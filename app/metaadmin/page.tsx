@@ -9097,10 +9097,229 @@ export default function MetaAdminPage() {
 
               {pastaAtiva === 9 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados Derivados / Indicadores</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Dados Derivados / Indicadores</h3>
+                    <button
+                      onClick={() => loadPacientes()}
+                      className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-2"
+                    >
+                      <RefreshCw size={16} />
+                      Atualizar
+                    </button>
                   </div>
+
+                  {/* Informação: Indicadores calculados automaticamente */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-800 font-medium mb-2">📊 Indicadores Ativos</p>
+                    <p className="text-sm text-green-700">
+                      Os indicadores são calculados automaticamente com base nos dados das pastas anteriores:
+                    </p>
+                    <ul className="list-disc list-inside text-sm text-green-700 mt-2 space-y-1">
+                      <li><strong>Peso:</strong> Real vs. Previsto, % de perda, variância</li>
+                      <li><strong>Adesão:</strong> Taxa de aplicação pontual, atrasos, esquecimentos</li>
+                      <li><strong>Segurança:</strong> Alertas ativos, bloqueios de dose, tempo médio de resolução</li>
+                      <li><strong>Metabólicos:</strong> HbA1c prevista, Circunferência abdominal prevista</li>
+                    </ul>
+                  </div>
+
+                  {/* Exibição de KPIs simples do paciente atual */}
+                  {pacienteEditando && (() => {
+                    const evolucao = pacienteEditando.evolucaoSeguimento || [];
+                    const medidasIniciais = pacienteEditando.dadosClinicos?.medidasIniciais;
+                    const planoTerapeutico = pacienteEditando.planoTerapeutico;
+                    
+                    const baselineWeight = medidasIniciais?.peso || 0;
+                    const ultimoRegistro = evolucao.length > 0 ? evolucao[evolucao.length - 1] : null;
+                    
+                    if (!ultimoRegistro) {
+                      return (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <p className="text-sm text-gray-600 text-center">
+                            Nenhum registro de seguimento ainda. Adicione registros na Pasta 6 para visualizar indicadores.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    const lossPct = baselineWeight > 0 && ultimoRegistro.peso 
+                      ? ((baselineWeight - ultimoRegistro.peso) / baselineWeight * 100).toFixed(1)
+                      : '0.0';
+
+                    const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
+                    const expectedCurve = buildExpectedCurveDoseDrivenAnchored({
+                      baselineWeightKg: baselineWeight,
+                      doseSchedule: suggestedSchedule,
+                      totalWeeks: 18,
+                      targetType: planoTerapeutico?.metas?.weightLossTargetType,
+                      targetValue: planoTerapeutico?.metas?.weightLossTargetValue || 0,
+                      useAnchorWeek: 18,
+                      useAnchorPct: 9.0
+                    });
+                    
+                    const expectedWeek = expectedCurve.find(e => e.weekIndex === ultimoRegistro.weekIndex);
+                    const expectedWeight = expectedWeek?.expectedWeightKg || baselineWeight;
+                    const varianceKg = ultimoRegistro.peso ? (ultimoRegistro.peso - expectedWeight) : null;
+                    const varianceStatusValue = varianceStatus(varianceKg);
+                    
+                    const adherenceCounts = evolucao.reduce((acc, r) => {
+                      const adherence = r.adherence || r.adesao;
+                      if (adherence === 'ON_TIME' || adherence === 'pontual') acc.onTime++;
+                      else if (adherence === 'MISSED' || adherence === 'esquecida') acc.missed++;
+                      else acc.late++;
+                      return acc;
+                    }, { onTime: 0, late: 0, missed: 0 });
+                    
+                    const adherenceRate = evolucao.length > 0 
+                      ? ((adherenceCounts.onTime / evolucao.length) * 100).toFixed(0)
+                      : '0';
+
+                    const statusColor = varianceStatusValue === 'GREEN' ? 'emerald' : varianceStatusValue === 'YELLOW' ? 'amber' : varianceStatusValue === 'RED' ? 'rose' : 'slate';
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Cards de KPI */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="text-sm font-semibold text-gray-900">Peso Atual vs. Esperado</h4>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium bg-${statusColor}-100 text-${statusColor}-700`}>
+                                {varianceStatusValue === 'GREEN' ? '✅ Dentro da meta' : varianceStatusValue === 'YELLOW' ? '⚠️ Atentar' : varianceStatusValue === 'RED' ? '❌ Crítico' : '⏸️ N/A'}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Real:</span>
+                                <span className="font-semibold text-gray-900">{ultimoRegistro.peso?.toFixed(1) || '-'} kg</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Esperado:</span>
+                                <span className="font-semibold text-gray-700">{expectedWeight.toFixed(1)} kg</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Δ:</span>
+                                <span className={`font-semibold ${varianceKg !== null ? varianceKg > 0 ? 'text-red-600' : 'text-green-600' : 'text-gray-700'}`}>
+                                  {varianceKg !== null ? `${varianceKg > 0 ? '+' : ''}${varianceKg.toFixed(1)} kg` : 'N/A'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">% Perda:</span>
+                                <span className="font-semibold text-blue-600">{lossPct}%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="text-sm font-semibold text-gray-900">Adesão ao Tratamento</h4>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                parseFloat(adherenceRate) >= 80 ? 'bg-emerald-100 text-emerald-700' : 
+                                parseFloat(adherenceRate) >= 60 ? 'bg-amber-100 text-amber-700' : 
+                                'bg-rose-100 text-rose-700'
+                              }`}>
+                                {parseFloat(adherenceRate) >= 80 ? '✅ Excelente' : parseFloat(adherenceRate) >= 60 ? '⚠️ Regular' : '❌ Crítico'}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Taxa de Pontualidade:</span>
+                                <span className="font-semibold text-emerald-600">{adherenceRate}%</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Registros:</span>
+                                <span className="font-semibold text-gray-900">{evolucao.length}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Pontual:</span>
+                                <span className="font-semibold text-green-600">{adherenceCounts.onTime}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Atrasados:</span>
+                                <span className="font-semibold text-yellow-600">{adherenceCounts.late}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Esquecidos:</span>
+                                <span className="font-semibold text-red-600">{adherenceCounts.missed}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="text-sm font-semibold text-gray-900">Segurança</h4>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                !ultimoRegistro.bloquearDose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                              }`}>
+                                {!ultimoRegistro.bloquearDose ? '✅ Liberado' : '❌ Bloqueado'}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Dose Atual:</span>
+                                <span className="font-semibold text-gray-900">{ultimoRegistro.doseAplicada?.quantidade || planoTerapeutico?.doseTitulacao?.currentDoseMg || '-'} mg</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Upgrade Bloqueado:</span>
+                                <span className={`font-semibold ${ultimoRegistro.bloquearDose ? 'text-red-600' : 'text-green-600'}`}>
+                                  {ultimoRegistro.bloquearDose ? 'Sim' : 'Não'}
+                                </span>
+                              </div>
+                              {ultimoRegistro.giSeverity && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">Severidade GI:</span>
+                                  <span className={`font-semibold ${
+                                    ultimoRegistro.giSeverity === 'LEVE' ? 'text-green-600' :
+                                    ultimoRegistro.giSeverity === 'MODERADO' ? 'text-yellow-600' :
+                                    'text-red-600'
+                                  }`}>
+                                    {ultimoRegistro.giSeverity}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="text-sm font-semibold text-gray-900">Metabólicos</h4>
+                            </div>
+                            <div className="space-y-1">
+                              {expectedWeek && (
+                                <>
+                                  {expectedWeek.expectedHbA1c !== undefined && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-gray-600">HbA1c Prevista:</span>
+                                      <span className="font-semibold text-purple-600">{expectedWeek.expectedHbA1c.toFixed(1)}%</span>
+                                    </div>
+                                  )}
+                                  {expectedWeek.expectedWaistCm !== undefined && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-gray-600">Circunferência Prevista:</span>
+                                      <span className="font-semibold text-orange-600">{expectedWeek.expectedWaistCm.toFixed(1)} cm</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {ultimoRegistro.hba1c && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">HbA1c Real:</span>
+                                  <span className="font-semibold text-purple-600">{ultimoRegistro.hba1c.toFixed(1)}%</span>
+                                </div>
+                              )}
+                              {ultimoRegistro.circunferenciaAbdominal && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">Circunferência Real:</span>
+                                  <span className="font-semibold text-orange-600">{ultimoRegistro.circunferenciaAbdominal.toFixed(1)} cm</span>
+                                </div>
+                              )}
+                              {(!expectedWeek && !ultimoRegistro.hba1c && !ultimoRegistro.circunferenciaAbdominal) && (
+                                <p className="text-xs text-gray-500 italic">Sem dados metabólicos disponíveis</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
