@@ -26,7 +26,7 @@ import { LabRangeBar } from '@/components/LabRangeBar';
 import { labRanges, getLabRange, labOrderBySection, Sex } from '@/types/labRanges';
 import { AlertBadges } from '@/components/AlertBadges';
 import { ProgressPill } from '@/components/ProgressPill';
-import { buildExpectedCurve, buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, varianceStatus } from '@/utils/expectedCurve';
+import { buildExpectedCurve, buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, varianceStatus, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function MetaAdminPage() {
@@ -8815,26 +8815,44 @@ export default function MetaAdminPage() {
                       };
                     });
                     
-                    // Preparar dados para gráfico de circunferência (mesmas semanas do gráfico de peso)
+                    // Preparar dados para gráfico de circunferência com curva prevista
                     const baseCircAbdominal = primeiroRegistro?.circunferenciaAbdominal || medidasIniciais?.circunferenciaAbdominal || 0;
-                    const circData = pesoChartData.map(week => {
-                      const registroSemana = evolucao.find(e => e.weekIndex === week.semana);
+                    const circData = expectedCurve.map(week => {
+                      const registroSemana = evolucao.find(e => e.weekIndex === week.weekIndex);
+                      const previsto = week.expectedCumulativePct 
+                        ? predictWaistCircumference({ 
+                            baselineWaistCm: baseCircAbdominal, 
+                            cumulativeWeightLossPct: week.expectedCumulativePct 
+                          })
+                        : null;
                       return {
-                        semana: week.semana,
-                        circunferencia: registroSemana?.circunferenciaAbdominal || null
+                        semana: week.weekIndex,
+                        circunferencia: registroSemana?.circunferenciaAbdominal || null,
+                        previsto: previsto
                       };
                     });
                     
-                    // Preparar dados para gráfico de HbA1c
+                    // Preparar dados para gráfico de HbA1c com curva prevista (das semanas de seguimento)
                     const exames = pacienteEditando?.examesLaboratoriais || [];
-                    const hba1cData = exames
+                    const baseHbA1c = exames
                       .filter(ex => ex.hemoglobinaGlicada)
-                      .sort((a, b) => new Date(a.dataColeta).getTime() - new Date(b.dataColeta).getTime())
-                      .map((ex, idx) => ({
-                        numExame: idx + 1,
-                        hba1c: ex.hemoglobinaGlicada,
-                        data: ex.dataColeta
-                      }));
+                      .sort((a, b) => new Date(a.dataColeta).getTime() - new Date(b.dataColeta).getTime())[0]?.hemoglobinaGlicada;
+                    
+                    const hba1cData = expectedCurve.map(week => {
+                      const registroSemana = evolucao.find(e => e.weekIndex === week.weekIndex);
+                      const previsto = baseHbA1c && week.doseMg
+                        ? predictHbA1c({
+                            baselineHbA1c: baseHbA1c,
+                            weekIndex: week.weekIndex,
+                            doseAchievedMg: week.doseMg
+                          })
+                        : null;
+                      return {
+                        semana: week.weekIndex,
+                        hba1c: registroSemana?.hba1c || null,
+                        previsto: previsto
+                      };
+                    });
                     
                     const metaHba1c = planoTerapeutico?.metas?.hba1cTargetType;
                     const metaValue = metaHba1c ? parseFloat(metaHba1c.replace('≤', '')) : null;
@@ -8979,6 +8997,16 @@ export default function MetaAdminPage() {
                                               name="Circunferência Abdominal"
                                               dot={{ fill: '#f59e0b', r: 4 }}
                                             />
+                                            <Line 
+                                              type="monotone" 
+                                              dataKey="previsto" 
+                                              stroke="#6366f1" 
+                                              strokeWidth={2}
+                                              strokeDasharray="5 5"
+                                              name="Circunferência Prevista"
+                                              dot={false}
+                                              legendType="line"
+                                            />
                                           </LineChart>
                                         </ResponsiveContainer>
                                       </div>
@@ -8995,14 +9023,16 @@ export default function MetaAdminPage() {
                             )}
                             
                             {graficoAtivoPasta6 === 'hba1c' && (
-                              hba1cData.length > 0 ? (
+                              baseHbA1c ? (
                                 <div>
                                   <h4 className="text-lg font-semibold text-gray-900 mb-4">
                                     Hemoglobina Glicada (HbA1c) %
                                     {metaValue && <span className="text-sm font-normal text-gray-600 ml-2">(Meta: {'<'} {metaValue}%)</span>}
                                   </h4>
                                   {(() => {
-                                    const allValues = hba1cData.map(d => d.hba1c as number);
+                                    const valuesWithPrevisto = hba1cData.map(d => d.previsto).filter(v => v !== null) as number[];
+                                    const valuesWithReal = hba1cData.map(d => d.hba1c).filter(v => v !== null) as number[];
+                                    const allValues = [...valuesWithPrevisto, ...valuesWithReal];
                                     const minValue = Math.min(...allValues);
                                     const maxValue = Math.max(...allValues);
                                     const range = maxValue - minValue;
@@ -9015,24 +9045,34 @@ export default function MetaAdminPage() {
                                           <LineChart data={hba1cData}>
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis 
-                                              dataKey="numExame" 
-                                              label={{ value: 'Exame', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                                              dataKey="semana" 
+                                              label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
                                             />
                                             <YAxis 
                                               label={{ value: 'HbA1c (%)', angle: -90, position: 'insideLeft' }}
                                               domain={[domainMin, domainMax]}
                                             />
                                             <Tooltip 
-                                              formatter={(value: any) => `${parseFloat(value).toFixed(1)}%`}
-                                              labelFormatter={(label) => `Exame ${label}`}
+                                              formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)}%` : 'N/A'}
+                                              labelFormatter={(label) => `Semana ${label}`}
                                             />
                                             <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                            <Line 
+                                              type="monotone" 
+                                              dataKey="previsto" 
+                                              stroke="#6366f1" 
+                                              strokeWidth={2}
+                                              strokeDasharray="5 5"
+                                              name="HbA1c Prevista"
+                                              dot={false}
+                                              legendType="line"
+                                            />
                                             <Line 
                                               type="monotone" 
                                               dataKey="hba1c" 
                                               stroke="#8b5cf6" 
                                               strokeWidth={2}
-                                              name="HbA1c"
+                                              name="HbA1c Real"
                                               dot={{ fill: '#8b5cf6', r: 4 }}
                                             />
                                             {metaValue && (

@@ -317,6 +317,7 @@ export interface SeguimentoSemanal {
     diastolica: number;
   };
   frequenciaCardiaca?: number;
+  hba1c?: number; // %
   doseAplicada?: {
     quantidade: number; // mg
     data: Date;
