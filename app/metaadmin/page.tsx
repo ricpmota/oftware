@@ -6816,10 +6816,960 @@ export default function MetaAdminPage() {
               )}
 
               {pastaAtiva === 3 && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Estilo de Vida</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
+                  
+                  {/* 3.1 Padrão Alimentar */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.1 Padrão Alimentar</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="equilibrada"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'equilibrada'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'equilibrada' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Alimentação equilibrada (refeições regulares, baixo consumo de ultraprocessados)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="hipercalorico_noturno"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'hipercalorico_noturno'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'hipercalorico_noturno' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Hiper calórico noturno (belisca à noite, refeições tardias)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="ultraprocessados"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'ultraprocessados'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'ultraprocessados' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Alta ingestão de ultraprocessados</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="baixo_proteico"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'baixo_proteico'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'baixo_proteico' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Baixo teor proteico</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="hiperproteico"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'hiperproteico'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'hiperproteico' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Hiperproteico (ex.: low-carb, cetogênica, protein sparing)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="jejum_intermitente"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'jejum_intermitente'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'jejum_intermitente' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Jejum intermitente (≥14h)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="vegetariano_vegano"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'vegetariano_vegano'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'vegetariano_vegano' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Vegetariano/vegano</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="padraoAlimentar"
+                          value="outro"
+                          checked={pacienteEditando.estiloVida?.padraoAlimentar === 'outro'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                padraoAlimentar: 'outro' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Outro (especificar)</span>
+                      </label>
+                      {pacienteEditando.estiloVida?.padraoAlimentar === 'outro' && (
+                        <div className="ml-6">
+                          <input
+                            type="text"
+                            value={pacienteEditando.estiloVida?.padraoAlimentarOutro || ''}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  padraoAlimentarOutro: e.target.value
+                                }
+                              });
+                            }}
+                            placeholder="Especificar padrão alimentar"
+                            className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                            required
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3.2 Frequência Alimentar */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.2 Frequência Alimentar</h4>
+                    <div>
+                      <select
+                        value={pacienteEditando.estiloVida?.frequenciaAlimentar || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            estiloVida: {
+                              ...pacienteEditando.estiloVida,
+                              frequenciaAlimentar: e.target.value as any
+                            }
+                          });
+                        }}
+                        className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                      >
+                        <option value="">Selecione</option>
+                        <option value="2_ou_menos">2 ou menos refeições/dia</option>
+                        <option value="3">3 refeições/dia</option>
+                        <option value="4_a_5">4 a 5 refeições/dia</option>
+                        <option value="6_ou_mais">6 ou mais refeições/dia</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 3.3 Ingestão de Líquidos */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.3 Ingestão de Líquidos Diários</h4>
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="6"
+                        step="0.1"
+                        value={pacienteEditando.estiloVida?.hidratacaoLitros || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            estiloVida: {
+                              ...pacienteEditando.estiloVida,
+                              hidratacaoLitros: parseFloat(e.target.value) || 0
+                            }
+                          });
+                        }}
+                        className="w-full md:w-48 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                      />
+                      <p className="text-sm text-blue-600">💧 Ideal ≥ 2 L/dia</p>
+                      {pacienteEditando.estiloVida?.hidratacaoLitros && pacienteEditando.estiloVida.hidratacaoLitros < 1.5 && (
+                        <p className="text-sm text-amber-600">⚠️ Aumentar hidratação para evitar constipação</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3.4 Atividade Física */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.4 Atividade Física</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="atividadeFisica"
+                            value="sedentario"
+                            checked={pacienteEditando.estiloVida?.atividadeFisica === 'sedentario'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  atividadeFisica: 'sedentario' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Sedentário (0-1x/semana)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="atividadeFisica"
+                            value="leve"
+                            checked={pacienteEditando.estiloVida?.atividadeFisica === 'leve'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  atividadeFisica: 'leve' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Leve (caminhadas ocasionais, ≤90 min/semana)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="atividadeFisica"
+                            value="moderada"
+                            checked={pacienteEditando.estiloVida?.atividadeFisica === 'moderada'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  atividadeFisica: 'moderada' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Moderada (3-4x/semana, >150 min/semana)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="atividadeFisica"
+                            value="intensa"
+                            checked={pacienteEditando.estiloVida?.atividadeFisica === 'intensa'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  atividadeFisica: 'intensa' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Intensa (≥5x/semana, atividade vigorosa)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="atividadeFisica"
+                            value="profissional"
+                            checked={pacienteEditando.estiloVida?.atividadeFisica === 'profissional'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  atividadeFisica: 'profissional' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Profissional ou atleta</span>
+                        </label>
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={pacienteEditando.estiloVida?.tipoAtividade || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                tipoAtividade: e.target.value
+                              }
+                            });
+                          }}
+                          placeholder="Ex: caminhada, musculação, natação"
+                          className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3.5 Uso de Álcool */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.5 Uso de Álcool</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="usoAlcool"
+                          value="nao_consome"
+                          checked={pacienteEditando.estiloVida?.usoAlcool === 'nao_consome'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                usoAlcool: 'nao_consome' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Não consome</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="usoAlcool"
+                          value="social"
+                          checked={pacienteEditando.estiloVida?.usoAlcool === 'social'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                usoAlcool: 'social' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Social (≤2x/mês)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="usoAlcool"
+                          value="frequente"
+                          checked={pacienteEditando.estiloVida?.usoAlcool === 'frequente'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                usoAlcool: 'frequente' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Frequente (≥1x/semana)</span>
+                      </label>
+                      {(pacienteEditando.estiloVida?.usoAlcool === 'frequente' || pacienteEditando.estiloVida?.usoAlcool === 'abuso') && (
+                        <p className="text-sm text-amber-600">⚠️ Possível interferência metabólica e hepática</p>
+                      )}
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="usoAlcool"
+                          value="abuso"
+                          checked={pacienteEditando.estiloVida?.usoAlcool === 'abuso'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                usoAlcool: 'abuso' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Abuso/diário (≥3x/semana ou >3 doses por ocasião)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 3.6 Tabagismo */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.6 Tabagismo</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="tabagismo"
+                          value="nunca"
+                          checked={pacienteEditando.estiloVida?.tabagismo === 'nunca'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                tabagismo: 'nunca' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Nunca fumou</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="tabagismo"
+                          value="ex_fumante_menos_5"
+                          checked={pacienteEditando.estiloVida?.tabagismo === 'ex_fumante_menos_5'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                tabagismo: 'ex_fumante_menos_5' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Ex-fumante (&lt;5 anos)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="tabagismo"
+                          value="ex_fumante_mais_5"
+                          checked={pacienteEditando.estiloVida?.tabagismo === 'ex_fumante_mais_5'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                tabagismo: 'ex_fumante_mais_5' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Ex-fumante (>5 anos)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="tabagismo"
+                          value="atual_ate_10"
+                          checked={pacienteEditando.estiloVida?.tabagismo === 'atual_ate_10'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                tabagismo: 'atual_ate_10' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Fumante atual (≤10 cigarros/dia)</span>
+                      </label>
+                      {(pacienteEditando.estiloVida?.tabagismo === 'atual_ate_10' || pacienteEditando.estiloVida?.tabagismo === 'atual_mais_10') && (
+                        <p className="text-sm text-amber-600">⚠️ Recomendar cessação; tabagismo reduz eficácia metabólica</p>
+                      )}
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="tabagismo"
+                          value="atual_mais_10"
+                          checked={pacienteEditando.estiloVida?.tabagismo === 'atual_mais_10'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                tabagismo: 'atual_mais_10' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Fumante atual (>10 cigarros/dia)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 3.7 Sono */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.7 Sono</h4>
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        min="3"
+                        max="12"
+                        value={pacienteEditando.estiloVida?.horasSono || ''}
+                        onChange={(e) => {
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            estiloVida: {
+                              ...pacienteEditando.estiloVida,
+                              horasSono: parseInt(e.target.value) || 0
+                            }
+                          });
+                        }}
+                        className="w-full md:w-48 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                      />
+                      <p className="text-sm text-blue-600">💤 Sono ideal entre 7 e 9 horas por noite</p>
+                      {pacienteEditando.estiloVida?.horasSono && pacienteEditando.estiloVida.horasSono < 6 && (
+                        <p className="text-sm text-amber-600">⚠️ Restrição de sono</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3.8 Estresse */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.8 Estresse e Bem-estar Emocional</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="nivelEstresse"
+                            value="baixo"
+                            checked={pacienteEditando.estiloVida?.nivelEstresse === 'baixo'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  nivelEstresse: 'baixo' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Baixo (tranquilo, poucas preocupações)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="nivelEstresse"
+                            value="moderado"
+                            checked={pacienteEditando.estiloVida?.nivelEstresse === 'moderado'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  nivelEstresse: 'moderado' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Moderado (estresse ocasional)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="nivelEstresse"
+                            value="elevado"
+                            checked={pacienteEditando.estiloVida?.nivelEstresse === 'elevado'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  nivelEstresse: 'elevado' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Elevado (estresse frequente, ansiedade)</span>
+                        </label>
+                        {(pacienteEditando.estiloVida?.nivelEstresse === 'elevado' || pacienteEditando.estiloVida?.nivelEstresse === 'muito_elevado') && (
+                          <p className="text-sm text-amber-600">⚠️ Fator comportamental de risco</p>
+                        )}
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="nivelEstresse"
+                            value="muito_elevado"
+                            checked={pacienteEditando.estiloVida?.nivelEstresse === 'muito_elevado'}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  nivelEstresse: 'muito_elevado' as const
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Muito elevado (impacta alimentação ou sono)</span>
+                        </label>
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={pacienteEditando.estiloVida?.observacoesEstresse || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                observacoesEstresse: e.target.value
+                              }
+                            });
+                          }}
+                          placeholder="Observações (opcional)"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3.9 Suporte */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.9 Suporte Psicológico e Acompanhamento Multiprofissional</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.suporte?.nutricionista || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                suporte: {
+                                  ...pacienteEditando.estiloVida?.suporte,
+                                  nutricionista: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Acompanha com nutricionista</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.suporte?.psicologo || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                suporte: {
+                                  ...pacienteEditando.estiloVida?.suporte,
+                                  psicologo: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Acompanha com psicólogo</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.suporte?.educadorFisico || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                suporte: {
+                                  ...pacienteEditando.estiloVida?.suporte,
+                                  educadorFisico: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Faz acompanhamento com educador físico</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.suporte?.semAcompanhamento || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                suporte: {
+                                  ...pacienteEditando.estiloVida?.suporte,
+                                  semAcompanhamento: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Não realiza acompanhamento multiprofissional</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 3.10 Expectativas */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.10 Expectativas do Paciente com o Tratamento</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.expectativasTratamento?.reduzirPeso10porcento || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                expectativasTratamento: {
+                                  ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                  reduzirPeso10porcento: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Reduzir peso corporal ≥ 10%</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.expectativasTratamento?.controlarGlicemia || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                expectativasTratamento: {
+                                  ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                  controlarGlicemia: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Controlar glicemia / HbA1c &lt; 6,8%</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.expectativasTratamento?.melhorarDisposicao || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                expectativasTratamento: {
+                                  ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                  melhorarDisposicao: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Melhorar disposição física e mental</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.expectativasTratamento?.reduzirCircunf10cm || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                expectativasTratamento: {
+                                  ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                  reduzirCircunf10cm: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Reduzir circunferência abdominal ≥ 10 cm</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.expectativasTratamento?.reverterPreDiabetes || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                expectativasTratamento: {
+                                  ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                  reverterPreDiabetes: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Reverter pré-diabetes ou resistência insulínica</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.expectativasTratamento?.melhorarAutoestima || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                expectativasTratamento: {
+                                  ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                  melhorarAutoestima: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Melhorar imagem corporal e autoestima</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.estiloVida?.expectativasTratamento?.outro || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              estiloVida: {
+                                ...pacienteEditando.estiloVida,
+                                expectativasTratamento: {
+                                  ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                  outro: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Outro (especificar)</span>
+                      </label>
+                      {pacienteEditando.estiloVida?.expectativasTratamento?.outro && (
+                        <div className="ml-6">
+                          <input
+                            type="text"
+                            value={pacienteEditando.estiloVida?.expectativasTratamento?.outroDescricao || ''}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                estiloVida: {
+                                  ...pacienteEditando.estiloVida,
+                                  expectativasTratamento: {
+                                    ...pacienteEditando.estiloVida?.expectativasTratamento,
+                                    outroDescricao: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            placeholder="Especificar expectativa"
+                            className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3.11 Observações */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">3.11 Observações Clínicas</h4>
+                    <textarea
+                      value={pacienteEditando.estiloVida?.observacoesClinicas || ''}
+                      onChange={(e) => {
+                        setPacienteEditando({
+                          ...pacienteEditando,
+                          estiloVida: {
+                            ...pacienteEditando.estiloVida,
+                            observacoesClinicas: e.target.value
+                          }
+                        });
+                      }}
+                      placeholder="Observações específicas (ex.: padrão alimentar irregular, comportamento alimentar emocional, horários de refeições etc.)"
+                      rows={4}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                    />
                   </div>
                 </div>
               )}

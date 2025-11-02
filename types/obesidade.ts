@@ -154,19 +154,55 @@ export interface Medicacao {
 
 // Pasta 3: Estilo de Vida
 export interface EstiloVida {
-  padraoAlimentar?: string;
-  nivelAtividadeFisica?: {
-    frequencia?: string;
-    tipo?: string;
+  // 3.1 Padrão alimentar
+  padraoAlimentar?: 'equilibrada' | 'hipercalorico_noturno' | 'ultraprocessados' | 'baixo_proteico' | 'hiperproteico' | 'jejum_intermitente' | 'vegetariano_vegano' | 'outro';
+  padraoAlimentarOutro?: string;
+  
+  // 3.2 Frequência alimentar
+  frequenciaAlimentar?: '2_ou_menos' | '3' | '4_a_5' | '6_ou_mais';
+  
+  // 3.3 Ingestão de líquidos
+  hidratacaoLitros?: number; // 0.5-6
+  
+  // 3.4 Atividade física
+  atividadeFisica?: 'sedentario' | 'leve' | 'moderada' | 'intensa' | 'profissional';
+  tipoAtividade?: string;
+  
+  // 3.5 Uso de álcool
+  usoAlcool?: 'nao_consome' | 'social' | 'frequente' | 'abuso';
+  
+  // 3.6 Tabagismo
+  tabagismo?: 'nunca' | 'ex_fumante_menos_5' | 'ex_fumante_mais_5' | 'atual_ate_10' | 'atual_mais_10';
+  
+  // 3.7 Sono
+  horasSono?: number; // 3-12
+  
+  // 3.8 Estresse e bem-estar
+  nivelEstresse?: 'baixo' | 'moderado' | 'elevado' | 'muito_elevado';
+  observacoesEstresse?: string;
+  
+  // 3.9 Suporte multiprofissional
+  suporte?: {
+    nutricionista?: boolean;
+    psicologo?: boolean;
+    educadorFisico?: boolean;
+    semAcompanhamento?: boolean;
   };
-  usoAlcool?: {
-    frequencia?: string;
-    quantidade?: string;
+  
+  // 3.10 Expectativas do tratamento
+  expectativasTratamento?: {
+    reduzirPeso10porcento?: boolean;
+    controlarGlicemia?: boolean;
+    melhorarDisposicao?: boolean;
+    reduzirCircunf10cm?: boolean;
+    reverterPreDiabetes?: boolean;
+    melhorarAutoestima?: boolean;
+    outro?: boolean;
+    outroDescricao?: string;
   };
-  tabagismo?: 'nunca' | 'ex-fumante' | 'atual';
-  horasMediasSono?: number;
-  nivelEstresseAnsiedade?: string;
-  expectativasTratamento?: string;
+  
+  // 3.11 Observações clínicas
+  observacoesClinicas?: string;
 }
 
 // Pasta 4: Exames Laboratoriais
