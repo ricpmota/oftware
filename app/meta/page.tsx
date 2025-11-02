@@ -18,6 +18,7 @@ import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMe
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -519,57 +520,117 @@ export default function MetaPage() {
   const renderContent = () => {
     switch (activeMenu) {
       case 'estatisticas': {
-        // Calcular estatísticas de tratamento
-        const semanasTratamento = paciente?.evolucaoSeguimento?.length || 0;
+        const evolucao = paciente?.evolucaoSeguimento || [];
+        const planoTerapeutico = paciente?.planoTerapeutico;
+        const medidasIniciais = paciente?.dadosClinicos?.medidasIniciais;
         
-        // Calcular perda de peso acumulado
-        const pesoInicial = paciente?.dadosClinicos?.medidasIniciais?.peso || 0;
-        const ultimoPeso = paciente?.evolucaoSeguimento?.[paciente.evolucaoSeguimento.length - 1]?.peso || pesoInicial;
-        const perdaPesoAcumulado = pesoInicial > 0 ? pesoInicial - ultimoPeso : 0;
+        // Calcular estatísticas básicas
+        const semanasTratamento = evolucao.length;
+        const pesoInicial = medidasIniciais?.peso || 0;
+        const ultimoPeso = evolucao.length > 0 ? evolucao[evolucao.length - 1]?.peso || pesoInicial : pesoInicial;
+        const perdaPesoAcumulado = pesoInicial > 0 && ultimoPeso > 0 ? pesoInicial - ultimoPeso : 0;
         
-        // HbA1c atual (último exame)
+        // HbA1c atual (último exame ou última medição)
         const examesHbA1c = paciente?.examesLaboratoriais?.filter(e => e.hemoglobinaGlicada) || [];
-        const hba1cAtual = examesHbA1c.length > 0 ? examesHbA1c[examesHbA1c.length - 1].hemoglobinaGlicada : 0;
+        const hba1cAtual = evolucao.length > 0 
+          ? evolucao[evolucao.length - 1]?.hba1c || 0
+          : examesHbA1c.length > 0 
+            ? examesHbA1c[examesHbA1c.length - 1].hemoglobinaGlicada || 0 
+            : 0;
         
         // Circunferência abdominal atual
-        const circunferenciaInicial = paciente?.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal || 0;
-        const ultimaCircunferencia = paciente?.evolucaoSeguimento?.[paciente.evolucaoSeguimento.length - 1]?.circunferenciaAbdominal || circunferenciaInicial;
+        const circunferenciaInicial = medidasIniciais?.circunferenciaAbdominal || 0;
+        const ultimaCircunferencia = evolucao.length > 0 
+          ? evolucao[evolucao.length - 1]?.circunferenciaAbdominal || circunferenciaInicial 
+          : circunferenciaInicial;
 
-        // Preparar dados dos gráficos (últimas 4 semanas)
-        const seguimentoOrdem = paciente?.evolucaoSeguimento?.sort((a, b) => {
+        // Preparar curva esperada igual ao médico
+        const primeiroRegistro = evolucao.find(e => e.weekIndex === 1);
+        const baselineWeight = primeiroRegistro?.peso || medidasIniciais?.peso || 0;
+        
+        const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
+        const totalSemanasGrafico = 18;
+        
+        const expectedCurve = buildExpectedCurveDoseDrivenAnchored({
+          baselineWeightKg: baselineWeight,
+          doseSchedule: suggestedSchedule,
+          totalWeeks: totalSemanasGrafico,
+          targetType: planoTerapeutico?.metas?.weightLossTargetType,
+          targetValue: planoTerapeutico?.metas?.weightLossTargetValue || 0,
+          useAnchorWeek: 18,
+          useAnchorPct: 9.0
+        });
+
+        // Preparar dados para gráfico de peso (últimas 4 semanas)
+        const seguimentoOrdem = evolucao.sort((a, b) => {
           const dateA = new Date(a.dataRegistro);
           const dateB = new Date(b.dataRegistro);
           return dateA.getTime() - dateB.getTime();
-        }) || [];
+        });
         
         const ultimas4Semanas = seguimentoOrdem.slice(-4);
-        
-        // Calcular índice inicial correto
         const indiceInicial = Math.max(1, semanasTratamento - ultimas4Semanas.length + 1);
         
-        // Dados para gráfico de peso
-        const dadosGraficoPeso = ultimas4Semanas.map((s, idx) => ({
-          semana: `Sem ${indiceInicial + idx}`,
-          peso: s.peso || 0
-        }));
-        
-        // Dados para gráfico de circunferência abdominal
-        const dadosGraficoCircunferencia = ultimas4Semanas.map((s, idx) => ({
-          semana: `Sem ${indiceInicial + idx}`,
-          circunferencia: s.circunferenciaAbdominal || 0
-        }));
-        
-        // Dados para gráfico de HbA1c
+        const pesoChartData = ultimas4Semanas.map((s) => {
+          const expectedWeek = expectedCurve.find(e => e.weekIndex === s.weekIndex);
+          return {
+            semana: s.weekIndex,
+            previsto: expectedWeek?.expectedWeightKg || null,
+            real: s.peso || null
+          };
+        });
+
+        // Preparar dados para gráfico de circunferência abdominal (últimas 4 semanas)
+        const baseCircAbdominal = primeiroRegistro?.circunferenciaAbdominal || medidasIniciais?.circunferenciaAbdominal || 0;
+        const circData = ultimas4Semanas.map((s) => {
+          const expectedWeek = expectedCurve.find(e => e.weekIndex === s.weekIndex);
+          const previsto = expectedWeek?.expectedCumulativePct 
+            ? predictWaistCircumference({ 
+                baselineWaistCm: baseCircAbdominal, 
+                cumulativeWeightLossPct: expectedWeek.expectedCumulativePct 
+              })
+            : null;
+          return {
+            semana: s.weekIndex,
+            circunferencia: s.circunferenciaAbdominal || null,
+            previsto: previsto
+          };
+        });
+
+        // Preparar dados para gráfico de HbA1c (últimas 4 semanas)
         const examesOrdenados = examesHbA1c.sort((a, b) => {
           const dateA = new Date(a.dataColeta);
           const dateB = new Date(b.dataColeta);
           return dateA.getTime() - dateB.getTime();
         });
-        const ultimos4ExamesHbA1c = examesOrdenados.slice(-4);
-        const dadosGraficoHbA1c = ultimos4ExamesHbA1c.map((exame, idx) => ({
-          semana: `Ex ${idx + 1}`,
-          hba1c: exame.hemoglobinaGlicada || 0
-        }));
+        const baseHbA1cFromExams = examesOrdenados.length > 0 ? examesOrdenados[0].hemoglobinaGlicada : 0;
+        const primeiroRegistroHbA1c = evolucao.find(e => e.hba1c);
+        const baseHbA1c = primeiroRegistroHbA1c?.hba1c || baseHbA1cFromExams;
+        
+        const hba1cData = ultimas4Semanas.map((s) => {
+          const expectedWeek = expectedCurve.find(e => e.weekIndex === s.weekIndex);
+          let previsto = null;
+          if (baseHbA1c && expectedWeek?.doseMg) {
+            if (s.weekIndex === 1) {
+              previsto = baseHbA1c;
+            } else {
+              previsto = predictHbA1c({
+                baselineHbA1c: baseHbA1c,
+                weekIndex: s.weekIndex,
+                doseAchievedMg: expectedWeek.doseMg
+              });
+            }
+          }
+          
+          return {
+            semana: s.weekIndex,
+            hba1c: s.hba1c || null,
+            previsto: previsto
+          };
+        });
+        
+        const metaHba1c = planoTerapeutico?.metas?.hba1cTargetType;
+        const metaValue = metaHba1c ? parseFloat(metaHba1c.replace('≤', '')) : null;
 
         return (
           <div className="space-y-4">
@@ -614,57 +675,182 @@ export default function MetaPage() {
               </div>
             </div>
 
-            {/* Gráficos - Últimas 4 Semanas */}
+            {/* Gráficos - Últimas 4 Semanas (Real vs Previsto) */}
             {semanasTratamento > 0 && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Gráfico de Peso */}
-                {dadosGraficoPeso.some(d => d.peso > 0) && (
+                {baselineWeight > 0 && (
                   <div className="bg-white p-4 rounded-lg shadow">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Peso (últimas 4 semanas)</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={dadosGraficoPeso}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="semana" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="peso" stroke="#10b981" strokeWidth={2} name="Peso (kg)" dot={{ r: 5 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    {(() => {
+                      const domainMin = Math.max(0, baselineWeight - 20);
+                      const domainMax = baselineWeight + 20;
+                      
+                      return (
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={pesoChartData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="semana" 
+                                label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                              />
+                              <YAxis 
+                                label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }}
+                                domain={[domainMin, domainMax]}
+                              />
+                              <Tooltip 
+                                formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)} kg` : 'N/A'}
+                                labelFormatter={(label) => `Semana ${label}`}
+                              />
+                              <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                              <Line 
+                                type="monotone" 
+                                dataKey="previsto" 
+                                stroke="#3b82f6" 
+                                strokeWidth={2}
+                                name="Peso previsto"
+                                dot={{ fill: '#3b82f6', r: 3 }}
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="real" 
+                                stroke="#10b981" 
+                                strokeWidth={2}
+                                name="Peso real"
+                                dot={{ fill: '#10b981', r: 4 }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
                 {/* Gráfico de Circunferência Abdominal */}
-                {dadosGraficoCircunferencia.some(d => d.circunferencia > 0) && (
+                {baseCircAbdominal > 0 && (
                   <div className="bg-white p-4 rounded-lg shadow">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Circunferência Abdominal (últimas 4 semanas)</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={dadosGraficoCircunferencia}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="semana" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="circunferencia" stroke="#f59e0b" strokeWidth={2} name="Circunferência (cm)" dot={{ r: 5 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    {(() => {
+                      const domainMin = Math.max(0, baseCircAbdominal - 20);
+                      const domainMax = baseCircAbdominal + 20;
+                      
+                      return (
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={circData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="semana" 
+                                label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                              />
+                              <YAxis 
+                                label={{ value: 'Circunferência (cm)', angle: -90, position: 'insideLeft' }}
+                                domain={[domainMin, domainMax]}
+                              />
+                              <Tooltip 
+                                formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)} cm` : 'N/A'}
+                                labelFormatter={(label) => `Semana ${label}`}
+                              />
+                              <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                              <Line 
+                                type="monotone" 
+                                dataKey="circunferencia" 
+                                stroke="#f59e0b" 
+                                strokeWidth={2}
+                                name="Circunferência Abdominal"
+                                dot={{ fill: '#f59e0b', r: 4 }}
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="previsto" 
+                                stroke="#6366f1" 
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                name="Circunferência Prevista"
+                                dot={false}
+                                legendType="line"
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
                 {/* Gráfico de HbA1c */}
-                {dadosGraficoHbA1c.some(d => d.hba1c > 0) && (
+                {baseHbA1c && (
                   <div className="bg-white p-4 rounded-lg shadow lg:col-span-2">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">HbA1c (últimos 4 exames)</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={dadosGraficoHbA1c}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="semana" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="hba1c" stroke="#8b5cf6" strokeWidth={2} name="HbA1c (%)" dot={{ r: 5 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      HbA1c (últimas 4 semanas)
+                      {metaValue && <span className="text-sm font-normal text-gray-600 ml-2">(Meta: {'<'} {metaValue}%)</span>}
+                    </h3>
+                    {(() => {
+                      const valuesWithPrevisto = hba1cData.map(d => d.previsto).filter(v => v !== null) as number[];
+                      const valuesWithReal = hba1cData.map(d => d.hba1c).filter(v => v !== null) as number[];
+                      const allValues = [...valuesWithPrevisto, ...valuesWithReal];
+                      const minValue = Math.min(...allValues);
+                      const maxValue = Math.max(...allValues);
+                      const range = maxValue - minValue;
+                      const domainMin = Math.max(0, minValue - range * 0.2);
+                      const domainMax = maxValue + range * 0.2;
+                      
+                      return (
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={hba1cData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="semana" 
+                                label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                              />
+                              <YAxis 
+                                label={{ value: 'HbA1c (%)', angle: -90, position: 'insideLeft' }}
+                                domain={[domainMin, domainMax]}
+                              />
+                              <Tooltip 
+                                formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)}%` : 'N/A'}
+                                labelFormatter={(label) => `Semana ${label}`}
+                              />
+                              <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                              <Line 
+                                type="monotone" 
+                                dataKey="previsto" 
+                                stroke="#6366f1" 
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                name="HbA1c Prevista"
+                                dot={false}
+                                legendType="line"
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="hba1c" 
+                                stroke="#8b5cf6" 
+                                strokeWidth={2}
+                                name="HbA1c Real"
+                                dot={{ fill: '#8b5cf6', r: 4 }}
+                              />
+                              {metaValue && (
+                                <Line 
+                                  type="monotone" 
+                                  data={hba1cData.map(d => ({ ...d, meta: metaValue }))}
+                                  dataKey="meta" 
+                                  stroke="#ef4444" 
+                                  strokeWidth={1}
+                                  strokeDasharray="5 5"
+                                  name="Meta"
+                                  dot={false}
+                                  legendType="line"
+                                />
+                              )}
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
