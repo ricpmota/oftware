@@ -24,6 +24,10 @@ import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
 import { LabRangeBar } from '@/components/LabRangeBar';
 import { labRanges, getLabRange, labOrderBySection, Sex } from '@/types/labRanges';
+import { AlertBadges } from '@/components/AlertBadges';
+import { ProgressPill } from '@/components/ProgressPill';
+import { buildExpectedCurve, varianceStatus, CarePlan } from '@/utils/expectedCurve';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -8751,11 +8755,226 @@ export default function MetaAdminPage() {
               )}
 
               {pastaAtiva === 6 && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Evolução / Seguimento Semanal</h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">Formulário completo será implementado em seguida.</p>
-                  </div>
+                  
+                  {(() => {
+                    const evolucao = pacienteEditando?.evolucaoSeguimento || [];
+                    const planoTerapeutico = pacienteEditando?.planoTerapeutico;
+                    const medidasIniciais = pacienteEditando?.dadosClinicos?.medidasIniciais;
+                    
+                    // Construir care plan a partir dos dados existentes
+                    const baselineWeight = medidasIniciais?.peso || 0;
+                    const metaPeso = planoTerapeutico?.metas?.weightLossTargetType === 'PERCENTUAL' 
+                      ? planoTerapeutico?.metas?.weightLossTargetValue || 10
+                      : 0;
+                    const doseAtual = planoTerapeutico?.currentDoseMg || planoTerapeutico?.doseAtual?.quantidade || 0;
+                    
+                    const carePlan: CarePlan = {
+                      startDate: planoTerapeutico?.startDate 
+                        ? new Date(planoTerapeutico.startDate).toISOString() 
+                        : new Date().toISOString(),
+                      baselineWeightKg: baselineWeight,
+                      targetType: planoTerapeutico?.metas?.weightLossTargetType === 'PESO_ABSOLUTO' 
+                        ? 'PESO_ABSOLUTO' 
+                        : 'PERCENTUAL',
+                      targetValue: planoTerapeutico?.metas?.weightLossTargetValue || metaPeso,
+                      targetWeeks: 24,
+                      expectedModel: 'PIECEWISE',
+                      doseSchedule: []
+                    };
+                    
+                    const expectedCurve = buildExpectedCurve(carePlan);
+                    
+                    // Preparar dados para o gráfico
+                    const chartData = expectedCurve.slice(0, Math.min(24, evolucao.length + 12)).map((week, idx) => {
+                      const registroSemana = evolucao.find(e => e.weekIndex === week.weekIndex);
+                      return {
+                        semana: week.weekIndex,
+                        previsto: week.expectedWeightKg,
+                        real: registroSemana?.peso || null
+                      };
+                    });
+                    
+                    return (
+                      <div className="space-y-6">
+                        {/* Painel superior com gráfico */}
+                        <div className="border border-gray-200 rounded-lg p-6 bg-white">
+                          <div className="mb-4">
+                            <h4 className="text-lg font-semibold text-gray-900">
+                              {pacienteEditando?.nome}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              Peso inicial: {baselineWeight.toFixed(1)} kg • Dose atual: {doseAtual} mg/semana
+                            </p>
+                          </div>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="semana" label={{ value: 'Semana', position: 'insideBottom', offset: -10 }} />
+                                <YAxis label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }} />
+                                <Tooltip />
+                                <Legend />
+                                <Line 
+                                  type="monotone" 
+                                  dataKey="previsto" 
+                                  stroke="#3b82f6" 
+                                  strokeWidth={2}
+                                  name="Peso previsto"
+                                  dot={{ fill: '#3b82f6', r: 4 }}
+                                />
+                                <Line 
+                                  type="monotone" 
+                                  dataKey="real" 
+                                  stroke="#10b981" 
+                                  strokeWidth={2}
+                                  name="Peso real"
+                                  dot={{ fill: '#10b981', r: 4 }}
+                                />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Timeline de semanas */}
+                        <div className="space-y-4">
+                          <h4 className="font-semibold text-gray-900">Timeline Semanal</h4>
+                          {evolucao.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                              <p className="text-gray-500">Nenhum seguimento registrado ainda.</p>
+                              <button
+                                onClick={() => {
+                                  // TODO: abrir modal para adicionar novo seguimento
+                                }}
+                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                              >
+                                Adicionar Primeiro Registro
+                              </button>
+                            </div>
+                          ) : (
+                            evolucao.map((registro, idx) => {
+                              const expectedWeek = expectedCurve.find(e => e.weekIndex === registro.weekIndex);
+                              const varianceKg = expectedWeek && registro.peso 
+                                ? registro.peso - expectedWeek.expectedWeightKg 
+                                : 0;
+                              const status = varianceStatus(varianceKg);
+                              
+                              const startDate = new Date(carePlan.startDate);
+                              const weekStart = new Date(startDate.getTime() + (registro.weekIndex - 1) * 7 * 24 * 60 * 60 * 1000);
+                              const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+                              
+                              return (
+                                <div 
+                                  key={registro.id} 
+                                  className={`border-2 rounded-lg p-4 ${
+                                    idx % 2 === 0 ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-green-500'
+                                  }`}
+                                >
+                                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                    {/* Cabeçalho */}
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="font-semibold text-gray-900">
+                                          Semana {registro.weekIndex}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          ({weekStart.toLocaleDateString('pt-BR')} a {weekEnd.toLocaleDateString('pt-BR')})
+                                        </span>
+                                      </div>
+                                      {registro.doseAplicada && (
+                                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium mb-2">
+                                          Dose {registro.doseAplicada.quantidade} mg
+                                        </span>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Comparativo de peso */}
+                                    {expectedWeek && registro.peso && (
+                                      <div>
+                                        <ProgressPill
+                                          varianceKg={varianceKg}
+                                          expectedWeight={expectedWeek.expectedWeightKg}
+                                          actualWeight={registro.peso}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Adesão e sintomas */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 text-sm">
+                                    <div>
+                                      <span className="text-gray-700">Adesão: </span>
+                                      <span className={`font-medium ${
+                                        registro.adherence === 'ON_TIME' || registro.adesao === 'pontual' 
+                                          ? 'text-green-700' 
+                                          : registro.adherence === 'MISSED' || registro.adesao === 'esquecida'
+                                          ? 'text-red-700'
+                                          : 'text-yellow-700'
+                                      }`}>
+                                        {registro.adherence || registro.adesao || 'Não informado'}
+                                      </span>
+                                    </div>
+                                    {registro.giSeverity && (
+                                      <div>
+                                        <span className="text-gray-700">Efeitos GI: </span>
+                                        <span className={`font-medium ${
+                                          registro.giSeverity === 'LEVE' ? 'text-green-700' :
+                                          registro.giSeverity === 'MODERADO' ? 'text-yellow-700' :
+                                          'text-red-700'
+                                        }`}>
+                                          {registro.giSeverity}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {registro.localAplicacao && (
+                                      <div>
+                                        <span className="text-gray-700">Local: </span>
+                                        <span className="text-gray-900 capitalize">{registro.localAplicacao}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Alertas */}
+                                  {registro.alerts && registro.alerts.length > 0 && (
+                                    <AlertBadges alerts={registro.alerts} />
+                                  )}
+                                  
+                                  {/* Observações */}
+                                  {(registro.observacoesPaciente || registro.comentarioMedico) && (
+                                    <div className="mt-4 space-y-2">
+                                      {registro.observacoesPaciente && (
+                                        <div className="text-sm">
+                                          <span className="font-medium text-gray-700">Paciente: </span>
+                                          <span className="text-gray-900">{registro.observacoesPaciente}</span>
+                                        </div>
+                                      )}
+                                      {registro.comentarioMedico && (
+                                        <div className="text-sm">
+                                          <span className="font-medium text-blue-700">Médico: </span>
+                                          <span className="text-gray-900">{registro.comentarioMedico}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Botão editar */}
+                                  <button
+                                    className="mt-4 text-sm text-blue-600 hover:text-blue-800"
+                                    onClick={() => {
+                                      // TODO: abrir modal de edição de seguimento
+                                    }}
+                                  >
+                                    Ver detalhes / Editar
+                                  </button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

@@ -308,6 +308,7 @@ export interface HistoricoDose {
 // Pasta 6: Evolução / Seguimento Semanal
 export interface SeguimentoSemanal {
   id: string;
+  weekIndex: number; // número da semana desde o início
   dataRegistro: Date;
   peso?: number; // kg
   circunferenciaAbdominal?: number; // cm
@@ -321,8 +322,12 @@ export interface SeguimentoSemanal {
     data: Date;
     horario: string;
   };
-  adesao?: 'pontual' | 'atrasada' | 'esquecida';
+  adesao?: 'pontual' | 'atrasada' | 'esquecida' | 'ON_TIME' | 'LATE_<96H' | 'MISSED';
+  adherence?: 'ON_TIME' | 'LATE_<96H' | 'MISSED'; // novo campo
+  giSeverity?: 'LEVE' | 'MODERADO' | 'GRAVE';
   efeitosColaterais?: EfeitoColateral[];
+  alerts?: ('MISSED_DOSE' | 'GI_SEVERE' | 'PREGNANCY_FLAG' | 'LAB_ABNORMAL' | 'MEN2_RISK')[];
+  localAplicacao?: 'abdome' | 'coxa' | 'braco';
   observacoesPaciente?: string;
   comentarioMedico?: string;
 }
