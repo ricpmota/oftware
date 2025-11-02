@@ -2,6 +2,31 @@ import { collection, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setD
 import { db } from '@/lib/firebase';
 import { PacienteCompleto } from '@/types/obesidade';
 
+/**
+ * Remove valores undefined recursivamente de um objeto (Firestore não aceita undefined)
+ */
+function removeUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefined(item));
+  }
+  
+  if (typeof obj === 'object' && obj.constructor === Object) {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = removeUndefined(value);
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
 export class PacienteService {
   // Criar ou atualizar paciente completo
   static async createOrUpdatePaciente(paciente: PacienteCompleto | Omit<PacienteCompleto, 'id'>): Promise<string> {
@@ -37,40 +62,64 @@ export class PacienteService {
         
         // Converter datas em evolucaoSeguimento
         if (dataToSave.evolucaoSeguimento) {
-          dataToSave.evolucaoSeguimento = dataToSave.evolucaoSeguimento.map((seg: any) => ({
-            ...seg,
-            dataRegistro: seg.dataRegistro instanceof Date 
-              ? seg.dataRegistro 
-              : seg.dataRegistro ? new Date(seg.dataRegistro) : new Date(),
-            doseAplicada: seg.doseAplicada ? {
-              ...seg.doseAplicada,
-              data: seg.doseAplicada.data instanceof Date 
-                ? seg.doseAplicada.data 
-                : seg.doseAplicada.data ? new Date(seg.doseAplicada.data) : new Date()
-            } : undefined
-          }));
+          dataToSave.evolucaoSeguimento = dataToSave.evolucaoSeguimento.map((seg: any) => {
+            const cleanedSeg: any = {
+              ...seg,
+              dataRegistro: seg.dataRegistro instanceof Date 
+                ? seg.dataRegistro 
+                : seg.dataRegistro ? new Date(seg.dataRegistro) : new Date()
+            };
+            
+            if (seg.doseAplicada) {
+              cleanedSeg.doseAplicada = {
+                ...seg.doseAplicada,
+                data: seg.doseAplicada.data instanceof Date 
+                  ? seg.doseAplicada.data 
+                  : seg.doseAplicada.data ? new Date(seg.doseAplicada.data) : new Date()
+              };
+            }
+            
+            return cleanedSeg;
+          });
         }
         
-        // Converter datas em planoTerapeutico
+        // Converter datas em planoTerapeutico e remover campos undefined
         if (dataToSave.planoTerapeutico) {
+          const plano: any = {};
+          
           if (dataToSave.planoTerapeutico.startDate) {
-            dataToSave.planoTerapeutico.startDate = dataToSave.planoTerapeutico.startDate instanceof Date
+            plano.startDate = dataToSave.planoTerapeutico.startDate instanceof Date
               ? dataToSave.planoTerapeutico.startDate
               : new Date(dataToSave.planoTerapeutico.startDate);
           }
           if (dataToSave.planoTerapeutico.lastDoseChangeAt) {
-            dataToSave.planoTerapeutico.lastDoseChangeAt = dataToSave.planoTerapeutico.lastDoseChangeAt instanceof Date
+            plano.lastDoseChangeAt = dataToSave.planoTerapeutico.lastDoseChangeAt instanceof Date
               ? dataToSave.planoTerapeutico.lastDoseChangeAt
               : new Date(dataToSave.planoTerapeutico.lastDoseChangeAt);
           }
           if (dataToSave.planoTerapeutico.nextReviewDate) {
-            dataToSave.planoTerapeutico.nextReviewDate = dataToSave.planoTerapeutico.nextReviewDate instanceof Date
+            plano.nextReviewDate = dataToSave.planoTerapeutico.nextReviewDate instanceof Date
               ? dataToSave.planoTerapeutico.nextReviewDate
               : new Date(dataToSave.planoTerapeutico.nextReviewDate);
           }
+          
+          // Copiar outros campos do planoTerapeutico
+          Object.keys(dataToSave.planoTerapeutico).forEach(key => {
+            if (key !== 'startDate' && key !== 'lastDoseChangeAt' && key !== 'nextReviewDate') {
+              const value = (dataToSave.planoTerapeutico as any)[key];
+              if (value !== undefined) {
+                plano[key] = value;
+              }
+            }
+          });
+          
+          dataToSave.planoTerapeutico = plano;
         }
         
-        await updateDoc(doc(db, 'pacientes_completos', id), dataToSave);
+        // Remover valores undefined antes de salvar no Firestore
+        const cleanedData = removeUndefined(dataToSave);
+        
+        await updateDoc(doc(db, 'pacientes_completos', id), cleanedData);
         return id;
       }
       
@@ -88,14 +137,22 @@ export class PacienteService {
           dataCadastro: pacienteData.dataCadastro || new Date()
         };
         
-        await updateDoc(doc(db, 'pacientes_completos', existingDoc.id), dataToSave);
+        // Remover valores undefined antes de salvar no Firestore
+        const cleanedData = removeUndefined(dataToSave);
+        
+        await updateDoc(doc(db, 'pacientes_completos', existingDoc.id), cleanedData);
         return existingDoc.id;
       } else {
         // Criar novo paciente
-        const docRef = await addDoc(collection(db, 'pacientes_completos'), {
+        const dataToSave: any = {
           ...paciente,
           dataCadastro: new Date()
-        });
+        };
+        
+        // Remover valores undefined antes de salvar no Firestore
+        const cleanedData = removeUndefined(dataToSave);
+        
+        const docRef = await addDoc(collection(db, 'pacientes_completos'), cleanedData);
         return docRef.id;
       }
     } catch (error) {

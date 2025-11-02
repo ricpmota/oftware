@@ -9316,18 +9316,26 @@ export default function MetaAdminPage() {
                     evolucaoSeguimento: [...evolucao, novoRegistro]
                   };
                   
+                  console.log('Novo registro criado:', novoRegistro);
+                  console.log('Paciente atualizado com evolucaoSeguimento:', pacienteAtualizado.evolucaoSeguimento);
+                  
                   // Salvar no Firestore
                   setLoadingPacientes(true);
                   try {
                     if (!pacienteAtualizado.id) {
                       setMessage('Erro: Paciente não possui ID. Por favor, feche e reabra o modal.');
+                      setLoadingPacientes(false);
                       return;
                     }
                     
+                    console.log('Salvando paciente com ID:', pacienteAtualizado.id);
                     await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+                    console.log('Paciente salvo com sucesso!');
                     
                     // Recarregar paciente atualizado do Firestore
                     const pacienteRecarregado = await PacienteService.getPacienteById(pacienteAtualizado.id);
+                    console.log('Paciente recarregado:', pacienteRecarregado);
+                    console.log('Evolucao seguimento recarregada:', pacienteRecarregado?.evolucaoSeguimento);
                     
                     if (pacienteRecarregado) {
                       setPacienteEditando(pacienteRecarregado);
