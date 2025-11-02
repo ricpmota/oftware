@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -15,6 +15,8 @@ import { MensagemResidente, MensagemResidenteParaAdmin } from '@/types/mensagem'
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
+import { MedicoService } from '@/services/medicoService';
+import { Medico } from '@/types/medico';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -80,6 +82,9 @@ export default function MetaPage() {
   const [mensagensPaciente, setMensagensPaciente] = useState<PacienteMensagem[]>([]);
   const [loadingMensagensPaciente, setLoadingMensagensPaciente] = useState(false);
   const [mensagensNaoLidasPaciente, setMensagensNaoLidasPaciente] = useState(0);
+  
+  // Estados para médico responsável
+  const [medicoResponsavel, setMedicoResponsavel] = useState<Medico | null>(null);
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -242,9 +247,24 @@ export default function MetaPage() {
       const pacienteData = await PacienteService.getPacienteByEmail(user.email);
       console.log('Paciente encontrado:', pacienteData ? pacienteData.nome : 'nenhum');
       setPaciente(pacienteData);
+      
+      // Carregar dados do médico responsável
+      if (pacienteData && pacienteData.medicoResponsavelId) {
+        try {
+          const medicoData = await MedicoService.getMedicoById(pacienteData.medicoResponsavelId);
+          setMedicoResponsavel(medicoData);
+          console.log('Médico responsável carregado:', medicoData ? medicoData.nome : 'nenhum');
+        } catch (error) {
+          console.error('Erro ao carregar médico:', error);
+          setMedicoResponsavel(null);
+        }
+      } else {
+        setMedicoResponsavel(null);
+      }
     } catch (error) {
       console.error('Erro ao carregar paciente:', error);
       setPaciente(null);
+      setMedicoResponsavel(null);
     } finally {
       setLoadingPaciente(false);
     }
@@ -498,309 +518,64 @@ export default function MetaPage() {
   const renderContent = () => {
     switch (activeMenu) {
       case 'estatisticas': {
-        const totalEscalas = userEscalas.length;
-        const totalServicos = userEscalas.reduce((total, escala) => {
-          return total + Object.values(escala.dias).reduce((diaTotal, dia) => {
-            if (Array.isArray(dia)) {
-              return diaTotal + dia.filter(servico => servico.residentes.includes(user?.email || '')).length;
-            }
-            return diaTotal;
-          }, 0);
-        }, 0);
-
-        // Encontrar o nível do usuário atual
-        const usuarioAtual = residentes.find(r => r.email === user?.email);
-        const nivelUsuario = usuarioAtual?.nivel || 'R1'; // Fallback para R1 se não encontrar
+        // Calcular estatísticas de tratamento
+        const semanasTratamento = paciente?.evolucaoSeguimento?.length || 0;
         
-        // Debug logs para verificar personalização do usuário
-        console.log('🔍 DEBUG PERSONALIZAÇÃO DO USUÁRIO:');
-        console.log('- Email do usuário logado:', user?.email);
-        console.log('- Usuário atual encontrado:', usuarioAtual);
-        console.log('- Nível do usuário:', nivelUsuario);
-        console.log('- Escalas do usuário:', userEscalas.length);
-        console.log('- Total de escalas:', todasEscalas.length);
-
-        // Estatísticas de serviços por turno - agrupado por serviço e local
-        const servicosPorTurno = todasEscalas.reduce((acc, escala) => {
-          Object.values(escala.dias).forEach(dia => {
-            if (Array.isArray(dia)) {
-              dia.forEach(servico => {
-                const servicoInfo = servicos.find(s => s.id === servico.servicoId);
-                const localInfo = locais.find(l => l.id === servico.localId);
-                if (!servicoInfo || !localInfo) return;
-
-                const servicoKey = `${servicoInfo.nome} - ${localInfo.nome}`;
-                if (!acc[servicoKey]) {
-                  acc[servicoKey] = {};
-                }
-
-                // Para cada residente do mesmo nível neste serviço
-                servico.residentes.forEach(email => {
-                  const residente = residentes.find(r => r.email === email);
-                  if (residente?.nivel === nivelUsuario && residente) {
-                    if (!acc[servicoKey][residente.nome]) {
-                      acc[servicoKey][residente.nome] = { 
-                        manha: 0, 
-                        tarde: 0 
-                      };
-                    }
-                    if (servico.turno === 'manha') {
-                      acc[servicoKey][residente.nome].manha += 1;
-                    } else {
-                      acc[servicoKey][residente.nome].tarde += 1;
-                    }
-                  }
-                });
-              });
-            }
-          });
-          return acc;
-        }, {} as Record<string, Record<string, { manha: number; tarde: number }>>);
+        // Calcular perda de peso acumulado
+        const pesoInicial = paciente?.dadosClinicos?.medidasIniciais?.peso || 0;
+        const ultimoPeso = paciente?.evolucaoSeguimento?.[paciente.evolucaoSeguimento.length - 1]?.peso || pesoInicial;
+        const perdaPesoAcumulado = pesoInicial > 0 ? pesoInicial - ultimoPeso : 0;
+        
+        // HbA1c atual (último exame)
+        const examesHbA1c = paciente?.examesLaboratoriais?.filter(e => e.hemoglobinaGlicada) || [];
+        const hba1cAtual = examesHbA1c.length > 0 ? examesHbA1c[examesHbA1c.length - 1].hemoglobinaGlicada : 0;
+        
+        // Circunferência abdominal atual
+        const circunferenciaInicial = paciente?.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal || 0;
+        const ultimaCircunferencia = paciente?.evolucaoSeguimento?.[paciente.evolucaoSeguimento.length - 1]?.circunferenciaAbdominal || circunferenciaInicial;
 
         return (
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">Estatísticas</h2>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setFiltroTempo('semana')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md ${
-                    filtroTempo === 'semana'
-                      ? 'bg-green-100 text-green-700 border border-green-300'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  Semana
-                </button>
-                <button
-                  onClick={() => setFiltroTempo('mes')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md ${
-                    filtroTempo === 'mes'
-                      ? 'bg-green-100 text-green-700 border border-green-300'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  Mês
-                </button>
-                <button
-                  onClick={() => setFiltroTempo('ano')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md ${
-                    filtroTempo === 'ano'
-                      ? 'bg-green-100 text-green-700 border border-green-300'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  Ano
-                </button>
-              </div>
-            </div>
+            <h2 className="text-xl font-bold text-gray-900">Estatísticas de Tratamento</h2>
             
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                 <div className="flex items-center">
                   <BarChart3 className="h-8 w-8 text-green-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Suas Escalas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{totalEscalas}</p>
+                    <p className="text-sm font-medium text-gray-500">Semanas de Tratamento</p>
+                    <p className="text-2xl font-semibold text-gray-900">{semanasTratamento}</p>
                   </div>
                 </div>
               </div>
               <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                 <div className="flex items-center">
-                  <Calendar className="h-8 w-8 text-blue-600" />
+                  <RefreshCw className="h-8 w-8 text-blue-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Serviços Atribuídos</p>
-                    <p className="text-2xl font-semibold text-gray-900">{totalServicos}</p>
+                    <p className="text-sm font-medium text-gray-500">Perda de Peso Acumulado</p>
+                    <p className="text-2xl font-semibold text-gray-900">{perdaPesoAcumulado.toFixed(1)} kg</p>
                   </div>
                 </div>
               </div>
               <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                 <div className="flex items-center">
-                  <RefreshCw className="h-8 w-8 text-purple-600" />
+                  <Calendar className="h-8 w-8 text-purple-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Trocas Solicitadas</p>
-                    <p className="text-2xl font-semibold text-gray-900">0</p>
+                    <p className="text-sm font-medium text-gray-500">HbA1c Atual</p>
+                    <p className="text-2xl font-semibold text-gray-900">{hba1cAtual > 0 ? hba1cAtual.toFixed(1) + '%' : '-'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
+                <div className="flex items-center">
+                  <RefreshCw className="h-8 w-8 text-orange-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Circunferência Abdominal Atual</p>
+                    <p className="text-2xl font-semibold text-gray-900">{ultimaCircunferencia > 0 ? ultimaCircunferencia.toFixed(1) + ' cm' : '-'}</p>
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div className="bg-white shadow rounded-lg p-3 lg:p-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Resumo Semanal</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-2 text-sm font-medium text-gray-600">Dia</th>
-                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-600">Seg</th>
-                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-600">Ter</th>
-                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-600">Qua</th>
-                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-600">Qui</th>
-                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-600">Sex</th>
-                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-600">Sáb</th>
-                      <th className="text-center py-2 px-2 text-sm font-medium text-gray-600">Dom</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-gray-100">
-                      <td className="py-2 px-2 text-sm font-medium text-gray-900">Manhã</td>
-                      {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((dia) => {
-                        const escalasSemanaAtual = getEscalasSemanaAtual();
-                        
-                        const servicosDoDia = escalasSemanaAtual.flatMap(escala => {
-                          const diaData = escala.dias[dia as keyof typeof escala.dias];
-                          if (Array.isArray(diaData)) {
-                            return diaData.filter(servico => 
-                              servico.residentes.includes(user?.email || '') && servico.turno === 'manha'
-                            );
-                          }
-                          return [];
-                        });
-
-                        // Verificar se algum serviço é folga
-                        const servicoFolga = servicosDoDia.find(servico => {
-                          const servicoInfo = servicos.find(s => s.id === servico.servicoId);
-                          return servicoInfo?.nome?.toLowerCase().includes('folga');
-                        });
-
-                        return (
-                          <td key={dia} className="text-center py-2 px-2">
-                            {servicoFolga ? (
-                              <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full font-bold">
-                                F
-                              </span>
-                            ) : servicosDoDia.length > 0 ? (
-                              <span className="inline-block px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                                {servicosDoDia.length}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                    <tr>
-                      <td className="py-2 px-2 text-sm font-medium text-gray-900">Tarde</td>
-                      {['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'].map((dia) => {
-                        const escalasSemanaAtual = getEscalasSemanaAtual();
-                        
-                        const servicosDoDia = escalasSemanaAtual.flatMap(escala => {
-                          const diaData = escala.dias[dia as keyof typeof escala.dias];
-                          if (Array.isArray(diaData)) {
-                            return diaData.filter(servico => 
-                              servico.residentes.includes(user?.email || '') && servico.turno === 'tarde'
-                            );
-                          }
-                          return [];
-                        });
-
-                        // Verificar se algum serviço é folga
-                        const servicoFolga = servicosDoDia.find(servico => {
-                          const servicoInfo = servicos.find(s => s.id === servico.servicoId);
-                          return servicoInfo?.nome?.toLowerCase().includes('folga');
-                        });
-
-                        return (
-                          <td key={dia} className="text-center py-2 px-2">
-                            {servicoFolga ? (
-                              <span className="inline-block px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full font-bold">
-                                F
-                              </span>
-                            ) : servicosDoDia.length > 0 ? (
-                              <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                {servicosDoDia.length}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">-</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-
-            {/* Estatísticas por serviço e local */}
-            {Object.keys(servicosPorTurno).length > 0 && (
-              <div className="bg-white shadow rounded-lg p-3 lg:p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-3">
-                  Estatísticas por Serviço - Nível {nivelUsuario}
-                </h3>
-                <div className="space-y-4">
-                  {Object.entries(servicosPorTurno).map(([servicoKey, residentesData]) => (
-                    <div key={servicoKey} className="border border-gray-200 rounded-lg p-3">
-                      <h4 className="font-medium text-gray-900 mb-3 text-center text-sm">{servicoKey}</h4>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-1 px-2 text-xs font-medium text-gray-600">Residente</th>
-                              <th className="text-center py-1 px-1 text-xs font-medium text-gray-600">M</th>
-                              <th className="text-center py-1 px-1 text-xs font-medium text-gray-600">T</th>
-                              <th className="text-center py-1 px-1 text-xs font-medium text-gray-600">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(() => {
-                              // Separar usuário atual dos outros residentes
-                              const entries = Object.entries(residentesData);
-                              const currentUserEntry = entries.find(([nome]) => nome === usuarioAtual?.nome);
-                              const otherEntries = entries.filter(([nome]) => nome !== usuarioAtual?.nome);
-                              
-                              // Ordenar: usuário atual primeiro, depois os outros
-                              const sortedEntries = currentUserEntry ? [currentUserEntry, ...otherEntries] : otherEntries;
-                              
-                              return sortedEntries.map(([residenteNome, turnos]) => {
-                                const isCurrentUser = residenteNome === usuarioAtual?.nome;
-                                // Abreviar nome: Ricardo Pinto Mota -> Ricardo P.
-                                const nomeAbreviado = residenteNome.split(' ').slice(0, 2).map((parte, index) => 
-                                  index === 1 ? `${parte.charAt(0)}.` : parte
-                                ).join(' ');
-                                
-                                return (
-                                  <tr 
-                                    key={residenteNome} 
-                                    className={`border-b border-gray-100 ${
-                                      isCurrentUser ? 'bg-green-50' : 'hover:bg-gray-50'
-                                    }`}
-                                  >
-                                    <td className={`py-2 px-2 text-xs font-medium ${
-                                      isCurrentUser ? 'text-green-800' : 'text-gray-900'
-                                    }`}>
-                                      {nomeAbreviado}
-                                      {isCurrentUser && ' (Você)'}
-                                    </td>
-                                    <td className="text-center py-2 px-1">
-                                      <span className="inline-block px-1 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-medium">
-                                        {turnos.manha}
-                                      </span>
-                                    </td>
-                                    <td className="text-center py-2 px-1">
-                                      <span className="inline-block px-1 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                        {turnos.tarde}
-                                      </span>
-                                    </td>
-                                    <td className="text-center py-2 px-1">
-                                      <span className="inline-block px-1 py-0.5 bg-purple-100 text-purple-800 rounded text-xs font-bold">
-                                        {turnos.manha + turnos.tarde}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                );
-                              });
-                            })()}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         );
       }
@@ -2384,12 +2159,14 @@ export default function MetaPage() {
           <div className="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <img
-                  src="/icones/oftware.png"
-                  alt="Oftware Logo"
-                  className="h-8 w-8"
-                />
-                <span className="ml-2 text-lg font-bold text-gray-900">Oftware</span>
+                {medicoResponsavel && (
+                  <>
+                    <Stethoscope className="h-6 w-6 text-green-600" />
+                    <span className="ml-2 text-sm font-bold text-gray-900">
+                      {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                    </span>
+                  </>
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 <button
@@ -2398,9 +2175,9 @@ export default function MetaPage() {
                   title="Mensagens"
                 >
                   <MessageSquare className="w-5 h-5" />
-                  {mensagensNaoLidas > 0 && (
+                  {mensagensNaoLidasPaciente > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {mensagensNaoLidas > 9 ? '9+' : mensagensNaoLidas}
+                      {mensagensNaoLidasPaciente > 9 ? '9+' : mensagensNaoLidasPaciente}
                     </span>
                   )}
                 </button>
@@ -2437,41 +2214,6 @@ export default function MetaPage() {
             <span className="text-xs font-medium">Estatísticas</span>
           </button>
 
-          <button
-            onClick={() => setActiveMenu('escalas')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-              activeMenu === 'escalas'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Calendar className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Escalas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveMenu('troca')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors relative ${
-              activeMenu === 'troca'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <RefreshCw className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Trocas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveMenu('ferias')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors relative ${
-              activeMenu === 'ferias'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Calendar className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Férias</span>
-          </button>
         </div>
       </div>
 

@@ -32,6 +32,27 @@ export class MedicoService {
     }
   }
 
+  // Buscar médico por ID
+  static async getMedicoById(medicoId: string): Promise<Medico | null> {
+    try {
+      const medicoDoc = await getDoc(doc(db, 'medicos', medicoId));
+      
+      if (!medicoDoc.exists()) {
+        return null;
+      }
+      
+      const medicoData = medicoDoc.data();
+      return {
+        id: medicoDoc.id,
+        ...medicoData,
+        dataCadastro: medicoData.dataCadastro?.toDate(),
+      } as Medico;
+    } catch (error) {
+      console.error('Erro ao buscar médico por ID:', error);
+      throw error;
+    }
+  }
+
   // Buscar médico por userId
   static async getMedicoByUserId(userId: string): Promise<Medico | null> {
     try {
