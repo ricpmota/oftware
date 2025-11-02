@@ -5756,11 +5756,1061 @@ export default function MetaAdminPage() {
                     </div>
                   </div>
 
-                  {/* Placeholder para demais seções */}
+                  {/* 2.4 Medicações em uso atual */}
                   <div className="border border-gray-200 rounded-lg p-4">
-                    <p className="text-sm text-gray-600">
-                      Seções 2.4 a 2.11 serão implementadas em seguida.
-                    </p>
+                    <h4 className="font-semibold text-gray-800 mb-4">2.4 Medicações em uso atual</h4>
+                    <div className="space-y-3">
+                      {pacienteEditando.dadosClinicos?.medicacoesUsoAtual?.map((med, index) => (
+                        <div key={index} className="flex gap-2 items-end">
+                          <select
+                            value={med.categoria}
+                            onChange={(e) => {
+                              const meds = [...(pacienteEditando.dadosClinicos?.medicacoesUsoAtual || [])];
+                              meds[index] = { ...med, categoria: e.target.value as any };
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  medicacoesUsoAtual: meds
+                                }
+                              });
+                            }}
+                            className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                          >
+                            <option value="metformina">Metformina</option>
+                            <option value="sglt2i">SGLT2i (dapagliflozina/empagliflozina)</option>
+                            <option value="insulina">Insulina basal/bolus</option>
+                            <option value="statina">Estatina</option>
+                            <option value="anti_hipertensivo">Anti-hipertensivo (IECA/BRA, BCC, tiazídico)</option>
+                            <option value="antidepressivo">Antidepressivo/ansiolítico</option>
+                            <option value="outro">Outro</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={med.nomeFarmaco}
+                            onChange={(e) => {
+                              const meds = [...(pacienteEditando.dadosClinicos?.medicacoesUsoAtual || [])];
+                              meds[index] = { ...med, nomeFarmaco: e.target.value };
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  medicacoesUsoAtual: meds
+                                }
+                              });
+                            }}
+                            placeholder="Nome do fármaco"
+                            className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                          />
+                          <input
+                            type="text"
+                            value={med.dose}
+                            onChange={(e) => {
+                              const meds = [...(pacienteEditando.dadosClinicos?.medicacoesUsoAtual || [])];
+                              meds[index] = { ...med, dose: e.target.value };
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  medicacoesUsoAtual: meds
+                                }
+                              });
+                            }}
+                            placeholder="Dose"
+                            className="w-32 border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                          />
+                          <input
+                            type="text"
+                            value={med.frequencia}
+                            onChange={(e) => {
+                              const meds = [...(pacienteEditando.dadosClinicos?.medicacoesUsoAtual || [])];
+                              meds[index] = { ...med, frequencia: e.target.value };
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  medicacoesUsoAtual: meds
+                                }
+                              });
+                            }}
+                            placeholder="Freq."
+                            className="w-32 border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const meds = pacienteEditando.dadosClinicos?.medicacoesUsoAtual || [];
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  medicacoesUsoAtual: meds.filter((_, i) => i !== index)
+                                }
+                              });
+                            }}
+                            className="px-2 py-2 text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const meds = [...(pacienteEditando.dadosClinicos?.medicacoesUsoAtual || []), {
+                            categoria: 'outro' as const,
+                            nomeFarmaco: '',
+                            dose: '',
+                            frequencia: ''
+                          }];
+                          setPacienteEditando({
+                            ...pacienteEditando,
+                            dadosClinicos: {
+                              ...pacienteEditando.dadosClinicos,
+                              medicacoesUsoAtual: meds
+                            }
+                          });
+                        }}
+                        className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        <Plus size={16} className="mr-1" />
+                        Adicionar medicação
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2.5 Alergias */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.5 Alergias</h4>
+                    <div className="space-y-3">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.alergias?.semAlergias || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                alergias: {
+                                  ...pacienteEditando.dadosClinicos?.alergias,
+                                  semAlergias: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Sem alergias conhecidas</span>
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={!!pacienteEditando.dadosClinicos?.alergias?.medicamentosa}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  alergias: {
+                                    ...pacienteEditando.dadosClinicos?.alergias,
+                                    medicamentosa: e.target.checked ? { farmaco: '', reacao: '' } : undefined
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Medicamentosa</span>
+                        </label>
+                        {pacienteEditando.dadosClinicos?.alergias?.medicamentosa && (
+                          <div className="ml-6 space-y-2">
+                            <input
+                              type="text"
+                              value={pacienteEditando.dadosClinicos?.alergias?.medicamentosa?.farmaco || ''}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    alergias: {
+                                      ...pacienteEditando.dadosClinicos?.alergias,
+                                      medicamentosa: {
+                                        ...pacienteEditando.dadosClinicos?.alergias?.medicamentosa!,
+                                        farmaco: e.target.value
+                                      }
+                                    }
+                                  }
+                                });
+                              }}
+                              placeholder="Fármaco"
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                            />
+                            <input
+                              type="text"
+                              value={pacienteEditando.dadosClinicos?.alergias?.medicamentosa?.reacao || ''}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    alergias: {
+                                      ...pacienteEditando.dadosClinicos?.alergias,
+                                      medicamentosa: {
+                                        ...pacienteEditando.dadosClinicos?.alergias?.medicamentosa!,
+                                        reacao: e.target.value
+                                      }
+                                    }
+                                  }
+                                });
+                              }}
+                              placeholder="Reação"
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                            />
+                          </div>
+                        )}
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={!!pacienteEditando.dadosClinicos?.alergias?.alimento}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  alergias: {
+                                    ...pacienteEditando.dadosClinicos?.alergias,
+                                    alimento: e.target.checked ? '' : undefined
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Alimento</span>
+                        </label>
+                        {pacienteEditando.dadosClinicos?.alergias?.alimento !== undefined && (
+                          <div className="ml-6">
+                            <input
+                              type="text"
+                              value={pacienteEditando.dadosClinicos?.alergias?.alimento || ''}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    alergias: {
+                                      ...pacienteEditando.dadosClinicos?.alergias,
+                                      alimento: e.target.value
+                                    }
+                                  }
+                                });
+                              }}
+                              placeholder="Especificar alimento"
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                            />
+                          </div>
+                        )}
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={!!pacienteEditando.dadosClinicos?.alergias?.latexAdesivo}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  alergias: {
+                                    ...pacienteEditando.dadosClinicos?.alergias,
+                                    latexAdesivo: e.target.checked ? '' : undefined
+                                  }
+                                }
+                              });
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-900">Látex/adesivo</span>
+                        </label>
+                        {pacienteEditando.dadosClinicos?.alergias?.latexAdesivo !== undefined && (
+                          <div className="ml-6">
+                            <input
+                              type="text"
+                              value={pacienteEditando.dadosClinicos?.alergias?.latexAdesivo || ''}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    alergias: {
+                                      ...pacienteEditando.dadosClinicos?.alergias,
+                                      latexAdesivo: e.target.value
+                                    }
+                                  }
+                                });
+                              }}
+                              placeholder="Especificar"
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2.6 Riscos e condições */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.6 Riscos e condições que impactam a tirzepatida</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Pancreatite prévia</label>
+                        <div className="space-x-4">
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="pancreatitePrevia"
+                              value="sim"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.pancreatitePrevia === 'sim'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      pancreatitePrevia: 'sim' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Sim</span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="pancreatitePrevia"
+                              value="nao"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.pancreatitePrevia === 'nao'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      pancreatitePrevia: 'nao' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Não</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Gastroparesia diagnosticada</label>
+                        <div className="space-x-4">
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="gastroparesia"
+                              value="sim"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.gastroparesia === 'sim'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      gastroparesia: 'sim' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Sim</span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="gastroparesia"
+                              value="nao"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.gastroparesia === 'nao'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      gastroparesia: 'nao' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Não</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Histórico familiar CMT ou MEN2</label>
+                        <div className="space-x-4">
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="historicoCMT"
+                              value="sim"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.historicoCMT_MEN2 === 'sim'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      historicoCMT_MEN2: 'sim' as const
+                                    }
+                                  }
+                                });
+                                // TODO: Gerar alerta MEN2_RISK e bloquear plano
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Sim</span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="historicoCMT"
+                              value="nao"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.historicoCMT_MEN2 === 'nao'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      historicoCMT_MEN2: 'nao' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Não</span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="historicoCMT"
+                              value="desconheco"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.historicoCMT_MEN2 === 'desconheco'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      historicoCMT_MEN2: 'desconheco' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Desconheço</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Gestação</label>
+                        <div className="space-x-4">
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="gestacao"
+                              value="sim"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.gestacao === 'sim'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      gestacao: 'sim' as const
+                                    }
+                                  }
+                                });
+                                // TODO: Gerar alerta e bloquear plano
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Sim</span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="gestacao"
+                              value="nao"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.gestacao === 'nao'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      gestacao: 'nao' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Não</span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="gestacao"
+                              value="desconheco"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.gestacao === 'desconheco'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      gestacao: 'desconheco' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Desconheço</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Lactação</label>
+                        <div className="space-x-4">
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="lactacao"
+                              value="sim"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.lactacao === 'sim'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      lactacao: 'sim' as const
+                                    }
+                                  }
+                                });
+                                // TODO: Gerar alerta e bloquear plano
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Sim</span>
+                          </label>
+                          <label className="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="lactacao"
+                              value="nao"
+                              checked={pacienteEditando.dadosClinicos?.riscos?.lactacao === 'nao'}
+                              onChange={(e) => {
+                                setPacienteEditando({
+                                  ...pacienteEditando,
+                                  dadosClinicos: {
+                                    ...pacienteEditando.dadosClinicos,
+                                    riscos: {
+                                      ...pacienteEditando.dadosClinicos?.riscos,
+                                      lactacao: 'nao' as const
+                                    }
+                                  }
+                                });
+                              }}
+                              className="mr-1"
+                            />
+                            <span className="text-sm text-gray-900">Não</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2.7 História tireoidiana */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.7 História tireoidiana</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="historiaTireoidiana"
+                          value="eutireoidismo"
+                          checked={pacienteEditando.dadosClinicos?.historiaTireoidiana === 'eutireoidismo'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                historiaTireoidiana: 'eutireoidismo' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Eutireoidismo (sem doença conhecida)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="historiaTireoidiana"
+                          value="hipotireoidismo_tratado"
+                          checked={pacienteEditando.dadosClinicos?.historiaTireoidiana === 'hipotireoidismo_tratado'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                historiaTireoidiana: 'hipotireoidismo_tratado' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Hipotireoidismo tratado</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="historiaTireoidiana"
+                          value="nodulo_bocio"
+                          checked={pacienteEditando.dadosClinicos?.historiaTireoidiana === 'nodulo_bocio'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                historiaTireoidiana: 'nodulo_bocio' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Nódulo/bócio sem malignidade</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="historiaTireoidiana"
+                          value="tireoidite_previa"
+                          checked={pacienteEditando.dadosClinicos?.historiaTireoidiana === 'tireoidite_previa'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                historiaTireoidiana: 'tireoidite_previa' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Tireoidite prévia</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="historiaTireoidiana"
+                          value="cmt_confirmado"
+                          checked={pacienteEditando.dadosClinicos?.historiaTireoidiana === 'cmt_confirmado'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                historiaTireoidiana: 'cmt_confirmado' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">CMT (carcinoma medular) confirmado</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="historiaTireoidiana"
+                          value="outro"
+                          checked={pacienteEditando.dadosClinicos?.historiaTireoidiana === 'outro'}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                historiaTireoidiana: 'outro' as const
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Outro (especificar)</span>
+                      </label>
+                      {pacienteEditando.dadosClinicos?.historiaTireoidiana === 'outro' && (
+                        <div className="ml-6">
+                          <input
+                            type="text"
+                            value={pacienteEditando.dadosClinicos?.historiaTireoidianaOutro || ''}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  historiaTireoidianaOutro: e.target.value
+                                }
+                              });
+                            }}
+                            placeholder="Especificar"
+                            className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2.8 Função renal */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.8 Função renal (para enquadrar DRC)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">eGFR (ml/min/1,73m²)</label>
+                        <input
+                          type="number"
+                          value={pacienteEditando.dadosClinicos?.funcaoRenal?.egfr || ''}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                funcaoRenal: {
+                                  ...pacienteEditando.dadosClinicos?.funcaoRenal,
+                                  egfr: parseFloat(e.target.value) || undefined
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          placeholder="Opcional"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Estágio DRC</label>
+                        <select
+                          value={pacienteEditando.dadosClinicos?.funcaoRenal?.estagioDRC || ''}
+                          onChange={(e) => {
+                            const estagio = e.target.value as any;
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                funcaoRenal: {
+                                  ...pacienteEditando.dadosClinicos?.funcaoRenal,
+                                  estagioDRC: estagio
+                                }
+                              }
+                            });
+                            if (estagio === 'G5') {
+                              // TODO: Gerar alerta LAB_ABNORMAL
+                            }
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="G1">G1 (eGFR ≥ 90, com lesão renal)</option>
+                          <option value="G2">G2 (eGFR 60-89)</option>
+                          <option value="G3a">G3a (eGFR 45-59)</option>
+                          <option value="G3b">G3b (eGFR 30-44)</option>
+                          <option value="G4">G4 (eGFR 15-29)</option>
+                          <option value="G5">G5 (eGFR &lt; 15 ou diálise)</option>
+                          <option value="desconheco">Desconheço / Sem exame recente</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2.10 Sintomas basais GI */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.10 Sintomas basais relacionados ao trato GI</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.sintomasGI?.plenitudePosPrandial || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                sintomasGI: {
+                                  ...pacienteEditando.dadosClinicos?.sintomasGI,
+                                  plenitudePosPrandial: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Plenitude pós-prandial</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.sintomasGI?.nauseaLeve || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                sintomasGI: {
+                                  ...pacienteEditando.dadosClinicos?.sintomasGI,
+                                  nauseaLeve: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Náusea leve</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.sintomasGI?.constipacao || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                sintomasGI: {
+                                  ...pacienteEditando.dadosClinicos?.sintomasGI,
+                                  constipacao: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Constipação</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.sintomasGI?.refluxoPirose || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                sintomasGI: {
+                                  ...pacienteEditando.dadosClinicos?.sintomasGI,
+                                  refluxoPirose: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Refluxo/pirose</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.sintomasGI?.nenhum || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                sintomasGI: {
+                                  ...pacienteEditando.dadosClinicos?.sintomasGI,
+                                  nenhum: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Nenhum</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 2.11 Objetivos do tratamento */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">2.11 Objetivos do tratamento</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.objetivosTratamento?.perdaPeso10Porcento || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                objetivosTratamento: {
+                                  ...pacienteEditando.dadosClinicos?.objetivosTratamento,
+                                  perdaPeso10Porcento: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Perda de ≥10% do peso inicial</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.objetivosTratamento?.hba1cMenor68 || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                objetivosTratamento: {
+                                  ...pacienteEditando.dadosClinicos?.objetivosTratamento,
+                                  hba1cMenor68: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">HbA1c &lt; 6,8%</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.objetivosTratamento?.reducaoCircunferencia10cm || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                objetivosTratamento: {
+                                  ...pacienteEditando.dadosClinicos?.objetivosTratamento,
+                                  reducaoCircunferencia10cm: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Redução de circunferência abdominal ≥ 10 cm</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.objetivosTratamento?.remissaoPreDiabetes || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                objetivosTratamento: {
+                                  ...pacienteEditando.dadosClinicos?.objetivosTratamento,
+                                  remissaoPreDiabetes: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Remissão de pré-diabetes</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.objetivosTratamento?.melhoraEHNA || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                objetivosTratamento: {
+                                  ...pacienteEditando.dadosClinicos?.objetivosTratamento,
+                                  melhoraEHNA: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Melhora de EHNA (enzimas/esteatose)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={pacienteEditando.dadosClinicos?.objetivosTratamento?.outro || false}
+                          onChange={(e) => {
+                            setPacienteEditando({
+                              ...pacienteEditando,
+                              dadosClinicos: {
+                                ...pacienteEditando.dadosClinicos,
+                                objetivosTratamento: {
+                                  ...pacienteEditando.dadosClinicos?.objetivosTratamento,
+                                  outro: e.target.checked
+                                }
+                              }
+                            });
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-900">Outro objetivo (especificar)</span>
+                      </label>
+                      {pacienteEditando.dadosClinicos?.objetivosTratamento?.outro && (
+                        <div className="ml-6">
+                          <input
+                            type="text"
+                            value={pacienteEditando.dadosClinicos?.objetivosTratamento?.outroDescricao || ''}
+                            onChange={(e) => {
+                              setPacienteEditando({
+                                ...pacienteEditando,
+                                dadosClinicos: {
+                                  ...pacienteEditando.dadosClinicos,
+                                  objetivosTratamento: {
+                                    ...pacienteEditando.dadosClinicos?.objetivosTratamento,
+                                    outroDescricao: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            placeholder="Especificar objetivo"
+                            className="w-full md:w-96 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
