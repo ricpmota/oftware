@@ -31,6 +31,8 @@ import { alertEngine, isDoseUpgradeBlocked, getSuggestedAction, getSeverityClass
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Info, AlertTriangle, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
+import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
+import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 import KpiCard from '@/components/KpiCard';
 import TrendLine from '@/components/TrendLine';
 import StackedBars from '@/components/StackedBars';
@@ -155,6 +157,10 @@ export default function MetaAdminPage() {
   });
   
   // Estados para mensagens aos pacientes (Pasta 8)
+  
+  // Estados para solicitações de pacientes
+  const [solicitacoesMedico, setSolicitacoesMedico] = useState<SolicitacaoMedico[]>([]);
+  const [loadingSolicitacoes, setLoadingSolicitacoes] = useState(false);
   const [novaMensagemPaciente, setNovaMensagemPaciente] = useState({
     titulo: '',
     mensagem: '',
@@ -788,6 +794,23 @@ export default function MetaAdminPage() {
     }
   }, [user, medicoPerfil]);
 
+  // Função para carregar solicitações do médico
+  const loadSolicitacoesMedico = useCallback(async () => {
+    if (!user || !medicoPerfil) return;
+    
+    setLoadingSolicitacoes(true);
+    try {
+      console.log('Carregando solicitações para médico ID:', medicoPerfil.id);
+      const solicitacoesData = await SolicitacaoMedicoService.getSolicitacoesPorMedico(medicoPerfil.id);
+      console.log('Solicitações encontradas:', solicitacoesData);
+      setSolicitacoesMedico(solicitacoesData);
+    } catch (error) {
+      console.error('Erro ao carregar solicitações:', error);
+    } finally {
+      setLoadingSolicitacoes(false);
+    }
+  }, [user, medicoPerfil]);
+
   // Função para criar novo paciente
   const handleCriarPaciente = async () => {
     if (!user || !medicoPerfil) {
@@ -864,6 +887,85 @@ export default function MetaAdminPage() {
     }
   };
 
+  // Função para aceitar solicitação
+  const handleAceitarSolicitacao = async (solicitacao: SolicitacaoMedico) => {
+    if (!medicoPerfil) return;
+    
+    try {
+      // Criar paciente automaticamente
+      const pacienteData = {
+        userId: solicitacao.pacienteEmail + '_' + Date.now(), // ID temporário
+        email: solicitacao.pacienteEmail,
+        nome: solicitacao.pacienteNome,
+        medicoResponsavelId: medicoPerfil.id!,
+        dadosIdentificacao: {
+          nomeCompleto: solicitacao.pacienteNome,
+          email: solicitacao.pacienteEmail,
+          dataCadastro: new Date()
+        },
+        dadosClinicos: {
+          comorbidades: {}
+        },
+        estiloVida: {},
+        examesLaboratoriais: [],
+        planoTerapeutico: {
+          metas: {}
+        },
+        evolucaoSeguimento: [],
+        alertas: [],
+        comunicacao: {
+          mensagens: [],
+          anexos: [],
+          logsAuditoria: []
+        },
+        indicadores: {
+          tempoEmTratamento: {
+            dias: 0,
+            semanas: 0
+          },
+          adesaoMedia: 0,
+          incidenciaEfeitosAdversos: {
+            total: 0,
+            grave: 0,
+            moderado: 0,
+            leve: 0
+          }
+        },
+        status: 'ativo' as const,
+        statusTratamento: 'pendente' as const
+      };
+
+      await PacienteService.createOrUpdatePaciente(pacienteData);
+      
+      // Cancelar todas as outras solicitações pendentes do paciente
+      await SolicitacaoMedicoService.cancelarSolicitacoesPendentesPaciente(solicitacao.pacienteEmail);
+      
+      // Aceitar a solicitação atual
+      await SolicitacaoMedicoService.aceitarSolicitacao(solicitacao.id);
+      
+      // Recarregar dados
+      await loadSolicitacoesMedico();
+      await loadPacientes();
+      
+      setMessage('Solicitação aceita! Paciente criado com sucesso.');
+    } catch (error) {
+      console.error('Erro ao aceitar solicitação:', error);
+      alert('Erro ao aceitar solicitação');
+    }
+  };
+
+  // Função para rejeitar solicitação
+  const handleRejeitarSolicitacao = async (solicitacaoId: string) => {
+    try {
+      await SolicitacaoMedicoService.rejeitarSolicitacao(solicitacaoId);
+      await loadSolicitacoesMedico();
+      setMessage('Solicitação rejeitada.');
+    } catch (error) {
+      console.error('Erro ao rejeitar solicitação:', error);
+      alert('Erro ao rejeitar solicitação');
+    }
+  };
+
   useEffect(() => {
     if (user && activeMenu === 'meu-perfil') {
       loadMedicoPerfil();
@@ -880,8 +982,9 @@ export default function MetaAdminPage() {
   useEffect(() => {
     if (user && medicoPerfil && activeMenu === 'pacientes') {
       loadPacientes();
+      loadSolicitacoesMedico();
     }
-  }, [user, medicoPerfil, activeMenu, loadPacientes]);
+  }, [user, medicoPerfil, activeMenu, loadPacientes, loadSolicitacoesMedico]);
 
   useEffect(() => {
     if (user && activeMenu === 'troca') {
@@ -1940,6 +2043,60 @@ export default function MetaAdminPage() {
               </table>
                 </div>
               )}
+
+            {/* Lista de Solicitações */}
+            {solicitacoesMedico.length > 0 && (
+              <div className="bg-white shadow rounded-lg overflow-hidden mt-6">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Solicitações de Pacientes</h3>
+                </div>
+                <div className="divide-y divide-gray-200">
+                  {solicitacoesMedico.map((solicitacao) => (
+                    <div key={solicitacao.id} className="px-6 py-4 flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-base font-medium text-gray-900">{solicitacao.pacienteNome}</h4>
+                        <p className="text-sm text-gray-500">{solicitacao.pacienteEmail}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Solicitado em: {solicitacao.criadoEm?.toLocaleDateString('pt-BR')}
+                        </p>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
+                          solicitacao.status === 'pendente'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : solicitacao.status === 'aceita'
+                            ? 'bg-green-100 text-green-800'
+                            : solicitacao.status === 'rejeitada'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {solicitacao.status === 'pendente' && 'Pendente'}
+                          {solicitacao.status === 'aceita' && 'Aceita'}
+                          {solicitacao.status === 'rejeitada' && 'Rejeitada'}
+                          {solicitacao.status === 'desistiu' && 'Desistiu'}
+                        </span>
+                      </div>
+                      {solicitacao.status === 'pendente' && (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleRejeitarSolicitacao(solicitacao.id)}
+                            className="px-4 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition-colors flex items-center"
+                          >
+                            <X size={16} className="mr-1" />
+                            Rejeitar
+                          </button>
+                          <button
+                            onClick={() => handleAceitarSolicitacao(solicitacao)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center"
+                          >
+                            <CheckCircle2 size={16} className="mr-1" />
+                            Aceitar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
 
