@@ -1038,7 +1038,7 @@ export default function MetaPage() {
         ];
 
         if (exames.length === 0) {
-                                return (
+                        return (
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-gray-900">Exames Laboratoriais</h2>
               <div className="bg-white p-8 rounded-lg shadow text-center">
@@ -2860,34 +2860,46 @@ export default function MetaPage() {
                   {medicos.length} médico(s) encontrado(s)
                 </h3>
                 {medicos.map((medico) => (
-                  <div key={medico.id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-xl font-bold text-gray-900">
-                          {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
-                        </h4>
-                        <p className="text-gray-600 mt-1">
-                          CRM-{medico.crm.estado} {medico.crm.numero}
-                        </p>
-                        <p className="text-gray-600 mt-2">
-                          📍 {medico.localizacao.endereco}
-                        </p>
-                        {medico.telefone && (
-                          <p className="text-gray-600 mt-2">
-                            📞 {medico.telefone}
-                          </p>
-                        )}
-                        <div className="mt-3">
-                          <p className="text-sm font-medium text-gray-700">Cidades atendidas:</p>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {medico.cidades.map((c, idx) => (
-                              <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                {c.cidade}/{c.estado}
-                              </span>
-                            ))}
+                  <div key={medico.id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-all border border-gray-200">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className="flex-shrink-0">
+                          <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
+                            <Stethoscope className="h-7 w-7 text-green-600" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-xl font-bold text-gray-900 mb-1">
+                            {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                          </h4>
+                          <div className="space-y-1">
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">CRM:</span> {medico.crm.estado} {medico.crm.numero}
+                            </p>
+                            <p className="text-sm text-gray-600 flex items-start">
+                              <span className="mr-1">📍</span>
+                              <span className="flex-1">{medico.localizacao.endereco}</span>
+                            </p>
+                            {medico.telefone && (
+                              <p className="text-sm text-gray-600">
+                                <span className="mr-1">📞</span>
+                                <span>{medico.telefone}</span>
+                              </p>
+                            )}
+                          </div>
+                          <div className="mt-3">
+                            <p className="text-xs font-medium text-gray-500 mb-2">Cidades atendidas</p>
+                            <div className="flex flex-wrap gap-2">
+                              {medico.cidades.map((c, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium border border-green-200">
+                                  {c.cidade}/{c.estado}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
+                      
                       {(() => {
                         // Verificar se já tem solicitação para este médico
                         const solicitacaoParaEsteMedico = minhasSolicitacoes.find(s => s.medicoId === medico.id);
@@ -2896,14 +2908,14 @@ export default function MetaPage() {
                         return temPendenteOuAceita ? (
                           <button
                             disabled
-                            className="ml-4 px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed whitespace-nowrap"
+                            className="px-6 py-3 bg-gray-400 text-white rounded-lg cursor-not-allowed whitespace-nowrap font-medium"
                           >
-                            Aguardando
+                            ⏳ Aguardando
                           </button>
                         ) : (
                           <button
                             onClick={() => abrirModalMedico(medico)}
-                            className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+                            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap font-medium shadow-sm"
                           >
                             Solicitar
                           </button>
@@ -2940,35 +2952,66 @@ export default function MetaPage() {
               <div className="bg-white shadow rounded-lg overflow-hidden">
                 <div className="divide-y divide-gray-200">
                   {minhasSolicitacoes.map((solicitacao) => (
-                    <div key={solicitacao.id} className="px-6 py-4">
+                    <div key={solicitacao.id} className="px-6 py-5 hover:bg-gray-50 transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="text-base font-medium text-gray-900">{solicitacao.medicoNome}</h4>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Solicitado em: {solicitacao.criadoEm?.toLocaleDateString('pt-BR')}
-                          </p>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
-                            solicitacao.status === 'pendente'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : solicitacao.status === 'aceita'
-                              ? 'bg-green-100 text-green-800'
-                              : solicitacao.status === 'rejeitada'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {solicitacao.status === 'pendente' && 'Pendente'}
-                            {solicitacao.status === 'aceita' && 'Aceita'}
-                            {solicitacao.status === 'rejeitada' && 'Rejeitada'}
-                            {solicitacao.status === 'desistiu' && 'Desistiu'}
-                          </span>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="flex-shrink-0">
+                              <Stethoscope className="h-8 w-8 text-green-600" />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-bold text-gray-900">
+                                Dr(a). {solicitacao.medicoNome}
+                              </h4>
+                            </div>
+                          </div>
+                          
+                          <div className="ml-11 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-500">Solicitado em:</span>
+                              <span className="text-sm text-gray-900">{solicitacao.criadoEm?.toLocaleDateString('pt-BR')}</span>
+                            </div>
+                            
+                            {solicitacao.status === 'aceita' && solicitacao.aceitaEm && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-gray-500">Aceita em:</span>
+                                <span className="text-sm text-gray-900">{solicitacao.aceitaEm?.toLocaleDateString('pt-BR')}</span>
+                              </div>
+                            )}
+                            
+                            {solicitacao.motivoDesistencia && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-xs font-medium text-gray-500">Motivo:</span>
+                                <span className="text-sm text-gray-700 italic">"{solicitacao.motivoDesistencia}"</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="ml-11 mt-3">
+                            <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                              solicitacao.status === 'pendente'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : solicitacao.status === 'aceita'
+                                ? 'bg-green-100 text-green-800'
+                                : solicitacao.status === 'rejeitada'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {solicitacao.status === 'pendente' && '⏳ Pendente'}
+                              {solicitacao.status === 'aceita' && '✓ Aceita'}
+                              {solicitacao.status === 'rejeitada' && '✕ Rejeitada'}
+                              {solicitacao.status === 'desistiu' && '↩ Desistiu'}
+                            </span>
+                          </div>
                         </div>
+                        
                         {(solicitacao.status === 'pendente' || solicitacao.status === 'aceita') && (
                           <button
                             onClick={() => {
                               setSolicitacaoParaDesistir(solicitacao);
                               setShowModalDesistir(true);
                             }}
-                            className="ml-4 px-3 py-1 text-xs text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition-colors"
+                            className="ml-4 px-4 py-2 text-sm text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
                           >
                             Desistir
                           </button>
@@ -3478,7 +3521,7 @@ export default function MetaPage() {
             >
               <UserIcon className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
               {!sidebarCollapsed && 'Meu Perfil'}
-            </button>
+              </button>
               
             </nav>
 
@@ -3974,7 +4017,7 @@ export default function MetaPage() {
               >
                 <X size={24} />
               </button>
-            </div>
+    </div>
 
             <div className="p-6 space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
