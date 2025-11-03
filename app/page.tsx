@@ -144,12 +144,14 @@ export default function OftalmoPage() {
 
     // Página de seleção após login
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen h-screen md:min-h-screen md:h-auto relative overflow-hidden">
       {/* Background Image */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-no-repeat w-full h-full"
         style={{
           backgroundImage: 'url(/icones/monjauro.jpeg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center center',
         }}
       >
         {/* Overlay escuro para melhorar legibilidade - reduzido para deixar a imagem mais visível */}
