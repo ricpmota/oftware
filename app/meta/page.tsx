@@ -2847,7 +2847,13 @@ export default function MetaPage() {
                               c.estado === estadoBuscaMedico && c.cidade === e.target.value
                             );
                           });
-                          setMedicos(medicosFiltrados);
+                          // Ordenar: verificados primeiro, depois alfabético
+                          const medicosOrdenados = medicosFiltrados.sort((a, b) => {
+                            if (a.isVerificado && !b.isVerificado) return -1;
+                            if (!a.isVerificado && b.isVerificado) return 1;
+                            return a.nome.localeCompare(b.nome);
+                          });
+                          setMedicos(medicosOrdenados);
                         } catch (error) {
                           console.error('Erro ao buscar médicos:', error);
                           alert('Erro ao buscar médicos');
@@ -2895,9 +2901,18 @@ export default function MetaPage() {
                           <Stethoscope className="h-8 w-8 text-green-600" />
                         </div>
                         <div>
-                          <h4 className="text-2xl font-bold text-gray-900 mb-2">
-                            {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
-                          </h4>
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="text-2xl font-bold text-gray-900">
+                              {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                            </h4>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              medico.isVerificado
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {medico.isVerificado ? '✓ Verificado' : '⚠ Não Verificado'}
+                            </span>
+                          </div>
                           <p className="text-base text-gray-600">
                             <span className="font-medium">CRM:</span> {medico.crm.estado} {medico.crm.numero}
                           </p>
@@ -3615,8 +3630,17 @@ export default function MetaPage() {
                   <div className="flex items-center">
                     <Stethoscope className="h-6 w-6 text-green-600" />
                     <div className="ml-2">
-                      <div className="text-sm font-bold text-gray-900">
-                        {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-bold text-gray-900">
+                          {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                        </div>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                          medicoResponsavel.isVerificado
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {medicoResponsavel.isVerificado ? '✓' : '⚠'}
+                        </span>
                       </div>
                       {paciente?.dadosIdentificacao?.nomeCompleto && (
                         <div className="text-xs text-gray-600">

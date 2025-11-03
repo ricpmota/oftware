@@ -17,6 +17,9 @@ import EditServicoForm from '@/components/EditServicoForm';
 import EditEscalaForm from '@/components/EditEscalaForm';
 import { MensagemService } from '@/services/mensagemService';
 import { Mensagem, MensagemResidenteParaAdmin } from '@/types/mensagem';
+import { MedicoService } from '@/services/medicoService';
+import { Medico } from '@/types/medico';
+import { Stethoscope, CheckCircle, XCircle } from 'lucide-react';
 
 export default function MetaAdminGeralPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -54,6 +57,10 @@ export default function MetaAdminGeralPage() {
   const [ferias, setFerias] = useState<Ferias[]>([]);
   const [feriasPendentes, setFeriasPendentes] = useState<Ferias[]>([]);
   const [loadingFerias, setLoadingFerias] = useState(false);
+  
+  // Estados para médicos
+  const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [loadingMedicos, setLoadingMedicos] = useState(false);
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -356,6 +363,39 @@ export default function MetaAdminGeralPage() {
     }
   }, [user]);
 
+  // Função para carregar médicos
+  const loadMedicos = useCallback(async () => {
+    setLoadingMedicos(true);
+    try {
+      const medicosData = await MedicoService.getAllMedicos();
+      setMedicos(medicosData);
+    } catch (error) {
+      console.error('Erro ao carregar médicos:', error);
+    } finally {
+      setLoadingMedicos(false);
+    }
+  }, []);
+
+  // Função para verificar/desverificar médico
+  const handleToggleVerificacaoMedico = async (medicoId: string, isVerificado: boolean) => {
+    try {
+      const medico = medicos.find(m => m.id === medicoId);
+      if (!medico) return;
+
+      const medicoData = {
+        ...medico,
+        isVerificado: !isVerificado
+      };
+
+      await MedicoService.createOrUpdateMedico(medicoData);
+      await loadMedicos();
+      setMessage(isVerificado ? 'Médico desverificado com sucesso!' : 'Médico verificado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao alterar verificação:', error);
+      setMessage('Erro ao alterar verificação do médico');
+    }
+  };
+
   // Função para carregar mensagens do admin
   const loadMensagens = useCallback(async () => {
     if (!user) return;
@@ -516,6 +556,12 @@ export default function MetaAdminGeralPage() {
       loadMensagensResidentes();
     }
   }, [user, activeMenu, loadMensagens, loadMensagensResidentes]);
+
+  useEffect(() => {
+    if (activeMenu === 'verificar-medicos') {
+      loadMedicos();
+    }
+  }, [activeMenu, loadMedicos]);
 
   const handleAprovarTroca = async (trocaId: string) => {
     try {
@@ -3275,6 +3321,97 @@ export default function MetaAdminGeralPage() {
         );
       }
 
+      case 'verificar-medicos': {
+        return (
+          <div className="p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Verificar Médicos</h2>
+              <p className="text-gray-600 mt-2">Gerencie a verificação dos médicos cadastrados</p>
+            </div>
+
+            {loadingMedicos ? (
+              <div className="bg-white shadow rounded-lg p-12 text-center">
+                <RefreshCw className="mx-auto h-12 w-12 text-gray-400 mb-4 animate-spin" />
+                <p className="text-gray-600">Carregando médicos...</p>
+              </div>
+            ) : medicos.length === 0 ? (
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center py-12">
+                  <Stethoscope className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-gray-600">Nenhum médico cadastrado</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 text-sm font-medium text-gray-700">
+                    <div>Nome</div>
+                    <div>Email</div>
+                    <div>CRM</div>
+                    <div>Cidades</div>
+                    <div>Status</div>
+                    <div className="text-center">Ação</div>
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-200">
+                  {medicos.map((medico) => (
+                    <div key={medico.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center text-sm">
+                        <div>
+                          <p className="font-medium text-gray-900">{medico.nome}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">{medico.email}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">
+                            {medico.crm.numero} - {medico.crm.estado}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">{medico.cidades.length} cidade(s)</p>
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            medico.isVerificado
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {medico.isVerificado ? '✓ Verificado' : '⚠ Não Verificado'}
+                          </span>
+                        </div>
+                        <div className="flex justify-center">
+                          <button
+                            onClick={() => handleToggleVerificacaoMedico(medico.id, medico.isVerificado || false)}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
+                              medico.isVerificado
+                                ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                                : 'bg-green-600 text-white hover:bg-green-700'
+                            }`}
+                          >
+                            {medico.isVerificado ? (
+                              <>
+                                <XCircle size={16} className="mr-2" />
+                                Desverificar
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle size={16} className="mr-2" />
+                                Verificar
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
       case 'mensagens': {
         return (
           <div className="p-6">
@@ -3889,6 +4026,19 @@ export default function MetaAdminGeralPage() {
                     {feriasPendentes.length > 9 ? '9+' : feriasPendentes.length}
                   </span>
                 )}
+              </button>
+              
+              <button
+                onClick={() => setActiveMenu('verificar-medicos')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'verificar-medicos'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+                title={sidebarCollapsed ? 'Verificar Médicos' : ''}
+              >
+                <Stethoscope size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Verificar Médicos'}
               </button>
               
               <button

@@ -268,7 +268,8 @@ export default function MetaAdminPage() {
           pontoReferencia: perfilMedico.pontoReferencia || undefined
         },
         cidades: perfilMedico.cidades,
-        status: 'ativo' as const
+        status: 'ativo' as const,
+        isVerificado: medicoPerfil?.isVerificado || false
       };
 
       const medicoId = await MedicoService.createOrUpdateMedico(medicoData);
@@ -2065,11 +2066,39 @@ export default function MetaAdminPage() {
                   </div>
                 </form>
 
+                {/* Alerta de Verificação */}
+                {medicoPerfil && !medicoPerfil.isVerificado && (
+                  <div className="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-md">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-lg font-semibold text-yellow-900 mb-2">
+                          Perfil Não Verificado
+                        </h3>
+                        <p className="text-sm text-yellow-800 mb-3">
+                          Seu perfil ainda não foi verificado. Para garantir a segurança dos pacientes, envie os seguintes documentos para <strong>suporte@oftware.com.br</strong>:
+                        </p>
+                        <ul className="list-disc list-inside text-sm text-yellow-800 space-y-1 mb-3">
+                          <li>Cópia do CRM (verso e anverso)</li>
+                          <li>CNH ou Passaporte com Foto</li>
+                          <li>Self segurando um documento com Foto</li>
+                          <li>Comprovante de quitação do CFM</li>
+                        </ul>
+                        <p className="text-sm text-yellow-800 font-medium">
+                          Após o envio dos documentos, você receberá uma notificação quando seu perfil for verificado.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Informações do Perfil Existentes */}
                 {medicoPerfil && (
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações do Perfil</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Data de Cadastro</p>
                         <p className="text-sm font-medium text-gray-900">
@@ -2084,6 +2113,16 @@ export default function MetaAdminPage() {
                             : 'bg-gray-100 text-gray-800'
                         }`}>
                           {medicoPerfil.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Verificação</p>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          medicoPerfil.isVerificado
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {medicoPerfil.isVerificado ? '✓ Verificado' : '⚠ Não Verificado'}
                         </span>
                       </div>
                     </div>

@@ -22,6 +22,7 @@ export interface Medico {
   }[];
   dataCadastro: Date;
   status: 'ativo' | 'inativo';
+  isVerificado?: boolean; // Verificação do médico pelo admin
 }
 
 export interface CidadeAtendimento {
