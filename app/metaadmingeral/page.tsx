@@ -1439,140 +1439,134 @@ export default function MetaAdminGeralPage() {
           </div>
         );
 
-      case 'residentes':
-        const residentesR1 = residentes.filter(r => r.nivel === 'R1');
-        const residentesR2 = residentes.filter(r => r.nivel === 'R2');
-        const residentesR3 = residentes.filter(r => r.nivel === 'R3');
-        
+            case 'pacientes':
+        // Função auxiliar para calcular quantificação de doses
+        const calcularDosesAplicadas = (paciente: PacienteCompleto): number => {
+          if (!paciente.evolucaoSeguimento || paciente.evolucaoSeguimento.length === 0) return 0;
+          return paciente.evolucaoSeguimento.filter(
+            seguimento => seguimento.doseAplicada && seguimento.adherence !== 'MISSED'
+          ).length;
+        };
+
+        // Função auxiliar para calcular tempo de tratamento
+        const calcularTempoTratamento = (paciente: PacienteCompleto): { dias: number; semanas: number; meses: number } => {
+          const dataInicio = paciente.planoTerapeutico?.startDate 
+            ? new Date(paciente.planoTerapeutico.startDate)
+            : paciente.dataCadastro 
+            ? new Date(paciente.dataCadastro)
+            : null;
+          
+          if (!dataInicio) {
+            return { dias: 0, semanas: 0, meses: 0 };
+          }
+
+          const agora = new Date();
+          const diffMs = agora.getTime() - dataInicio.getTime();
+          const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          const semanas = Math.floor(dias / 7);
+          const meses = Math.floor(dias / 30);
+
+          return { dias, semanas, meses };
+        };
+
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Residentes</h2>
-              <button
-                onClick={() => setShowCadastrarResidenteModal(true)}
-                className="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                <UserPlus size={16} className="mr-2" />
-                Adicionar Residente
-              </button>
+              <h2 className="text-2xl font-bold text-gray-900">Pacientes</h2>
             </div>
-            
-            {/* Lista de Residentes por Nível */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* R1 */}
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">R1 ({residentesR1.length})</h3>
-                </div>
-                <div className="px-6 py-4">
-                  {residentesR1.length === 0 ? (
-                    <p className="text-gray-500 text-sm">Nenhum residente R1 cadastrado</p>
-                  ) : (
-                    <div className="space-y-2">
-                              {residentesR1.map((residente) => (
-                                <div key={residente.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-900">{residente.nome}</p>
-                                    <p className="text-xs text-gray-500">{residente.email}</p>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => openEditModal('residente', residente)}
-                                      className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
-                                    >
-                                      <Edit size={14} className="mr-1" />
-                                      Editar
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteResidente(residente.id)}
-                                      className="text-red-600 hover:text-red-800 text-sm"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                    </div>
-                  )}
+            {loadingPacientes ? (
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Carregando pacientes...</p>
                 </div>
               </div>
+            ) : (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nome
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Médico Responsável
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Doses Aplicadas
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tempo de Tratamento
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Data de Cadastro
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {pacientes.map((paciente) => {
+                      const medico = medicos.find(m => m.id === paciente.medicoResponsavelId);
+                      const dosesAplicadas = calcularDosesAplicadas(paciente);
+                      const tempoTratamento = calcularTempoTratamento(paciente);
+                      const tempoTexto = tempoTratamento.meses > 0
+                        ? `${tempoTratamento.meses} ${tempoTratamento.meses === 1 ? 'mês' : 'meses'}`
+                        : tempoTratamento.semanas > 0
+                        ? `${tempoTratamento.semanas} ${tempoTratamento.semanas === 1 ? 'semana' : 'semanas'}`
+                        : `${tempoTratamento.dias} ${tempoTratamento.dias === 1 ? 'dia' : 'dias'}`;
 
-              {/* R2 */}
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">R2 ({residentesR2.length})</h3>
-                </div>
-                <div className="px-6 py-4">
-                  {residentesR2.length === 0 ? (
-                    <p className="text-gray-500 text-sm">Nenhum residente R2 cadastrado</p>
-                  ) : (
-                    <div className="space-y-2">
-                              {residentesR2.map((residente) => (
-                                <div key={residente.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-900">{residente.nome}</p>
-                                    <p className="text-xs text-gray-500">{residente.email}</p>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => openEditModal('residente', residente)}
-                                      className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
-                                    >
-                                      <Edit size={14} className="mr-1" />
-                                      Editar
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteResidente(residente.id)}
-                                      className="text-red-600 hover:text-red-800 text-sm"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                    </div>
-                  )}
-                </div>
+                      return (
+                        <tr key={paciente.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {paciente.dadosIdentificacao?.nomeCompleto || paciente.nome || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {paciente.email}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {medico ? `${medico.genero === 'F' ? 'Dra.' : 'Dr.'} ${medico.nome}` : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 font-medium">
+                            {dosesAplicadas}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                            {tempoTexto}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {paciente.dataCadastro ? new Date(paciente.dataCadastro).toLocaleDateString('pt-BR') : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              paciente.statusTratamento === 'em_tratamento'
+                                ? 'bg-blue-100 text-blue-800'
+                                : paciente.statusTratamento === 'concluido'
+                                ? 'bg-green-100 text-green-800'
+                                : paciente.statusTratamento === 'abandono'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {paciente.statusTratamento === 'em_tratamento' ? 'Em Tratamento' :
+                               paciente.statusTratamento === 'concluido' ? 'Concluído' :
+                               paciente.statusTratamento === 'abandono' ? 'Abandono' : 'Pendente'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {pacientes.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Nenhum paciente encontrado</p>
+                  </div>
+                )}
               </div>
-
-              {/* R3 */}
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">R3 ({residentesR3.length})</h3>
-                </div>
-                <div className="px-6 py-4">
-                  {residentesR3.length === 0 ? (
-                    <p className="text-gray-500 text-sm">Nenhum residente R3 cadastrado</p>
-                  ) : (
-                    <div className="space-y-2">
-                              {residentesR3.map((residente) => (
-                                <div key={residente.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-900">{residente.nome}</p>
-                                    <p className="text-xs text-gray-500">{residente.email}</p>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => openEditModal('residente', residente)}
-                                      className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
-                                    >
-                                      <Edit size={14} className="mr-1" />
-                                      Editar
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteResidente(residente.id)}
-                                      className="text-red-600 hover:text-red-800 text-sm"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         );
 
