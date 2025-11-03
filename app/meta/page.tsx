@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -1039,6 +1039,239 @@ export default function MetaPage() {
                   })}
                 </div>
               ))}
+            </div>
+          </div>
+        );
+      }
+
+      case 'plano': {
+        const planoTerapeutico = paciente?.planoTerapeutico;
+        const evolucao = paciente?.evolucaoSeguimento || [];
+        
+        // Função para converter dia da semana
+        const diaSemanaNome = (dia: string) => {
+          const dias: { [key: string]: string } = {
+            seg: 'Segunda-feira',
+            ter: 'Terça-feira',
+            qua: 'Quarta-feira',
+            qui: 'Quinta-feira',
+            sex: 'Sexta-feira',
+            sab: 'Sábado',
+            dom: 'Domingo'
+          };
+          return dias[dia] || dia;
+        };
+        
+        // Calcular próxima dose
+        const calcularProximaDose = () => {
+          if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
+            return null;
+          }
+          
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+          
+          const diasSemana: { [key: string]: number } = {
+            dom: 0,
+            seg: 1,
+            ter: 2,
+            qua: 3,
+            qui: 4,
+            sex: 5,
+            sab: 6
+          };
+          
+          const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
+          const diaHoje = hoje.getDay();
+          
+          let diasParaProximo = (diaDesejado - diaHoje + 7) % 7;
+          if (diasParaProximo === 0) diasParaProximo = 7; // Semana que vem
+          
+          const proximaData = new Date(hoje);
+          proximaData.setDate(hoje.getDate() + diasParaProximo);
+          
+          return proximaData;
+        };
+        
+        const proximaDose = calcularProximaDose();
+        
+        // Criar calendário de doses
+        const criarCalendarioDoses = () => {
+          if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
+            return [];
+          }
+          
+          const startDate = new Date(planoTerapeutico.startDate);
+          const diasSemana: { [key: string]: number } = {
+            dom: 0,
+            seg: 1,
+            ter: 2,
+            qua: 3,
+            qui: 4,
+            sex: 5,
+            sab: 6
+          };
+          
+          const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
+          
+          // Ajustar startDate para o dia da semana correto
+          while (startDate.getDay() !== diaDesejado) {
+            startDate.setDate(startDate.getDate() + 1);
+          }
+          
+          const calendario = [];
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+          
+          // Criar 18 semanas de calendário (18 semanas = 18 doses)
+          for (let semana = 0; semana < 18; semana++) {
+            const dataDose = new Date(startDate);
+            dataDose.setDate(startDate.getDate() + (semana * 7));
+            
+            // Encontrar dose aplicada neste dia
+            const doseAplicada = evolucao.find(e => {
+              const dataRegistro = new Date(e.dataRegistro);
+              dataRegistro.setHours(0, 0, 0, 0);
+              return dataRegistro.getTime() === dataDose.getTime();
+            });
+            
+            const status = dataDose < hoje 
+              ? (doseAplicada ? 'tomada' : 'perdida')
+              : dataDose.getTime() === hoje.getTime()
+              ? 'hoje'
+              : 'futura';
+            
+            calendario.push({
+              data: dataDose,
+              semana: semana + 1,
+              dose: doseAplicada?.doseAplicada || planoTerapeutico?.currentDoseMg || 0,
+              status,
+              adherence: doseAplicada?.adherence || null
+            });
+          }
+          
+          return calendario;
+        };
+        
+        const calendario = criarCalendarioDoses();
+        
+        if (!planoTerapeutico) {
+          return (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900">Plano Terapêutico</h2>
+              <div className="bg-white p-8 rounded-lg shadow text-center">
+                <FileText className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum plano cadastrado</h3>
+                <p className="text-gray-500">Seu plano terapêutico aparecerá aqui.</p>
+              </div>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Plano Terapêutico</h2>
+            
+            {/* Informações do Plano */}
+            <div className="bg-white rounded-lg shadow p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Data de Início</label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {planoTerapeutico.startDate 
+                      ? new Date(planoTerapeutico.startDate).toLocaleDateString('pt-BR')
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Dia da Aplicação</label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {planoTerapeutico.injectionDayOfWeek 
+                      ? diaSemanaNome(planoTerapeutico.injectionDayOfWeek)
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Dose Atual</label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {planoTerapeutico.currentDoseMg 
+                      ? `${planoTerapeutico.currentDoseMg} mg`
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {planoTerapeutico.titrationStatus || '-'}
+                  </p>
+                </div>
+                {proximaDose && (
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-500">Próxima Dose</label>
+                    <p className="text-lg font-semibold text-green-600">
+                      {proximaDose.toLocaleDateString('pt-BR')} ({diaSemanaNome(planoTerapeutico.injectionDayOfWeek)})
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Calendário de Doses */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Medicações</h3>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {calendario.map((item, idx) => (
+                  <div 
+                    key={idx}
+                    className={`flex items-center justify-between p-3 rounded-md border ${
+                      item.status === 'tomada' 
+                        ? 'bg-green-50 border-green-200' 
+                        : item.status === 'perdida'
+                        ? 'bg-red-50 border-red-200'
+                        : item.status === 'hoje'
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 text-center">
+                        <div className="text-xs text-gray-500">Semana</div>
+                        <div className="text-lg font-bold text-gray-900">{item.semana}</div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm text-gray-600">
+                          {item.data.toLocaleDateString('pt-BR')} ({diaSemanaNome(planoTerapeutico.injectionDayOfWeek)})
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Dose: {item.dose} mg
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {item.status === 'tomada' && (
+                        <span className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
+                          ✓ Tomada
+                        </span>
+                      )}
+                      {item.status === 'perdida' && (
+                        <span className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full">
+                          ✗ Perdida
+                        </span>
+                      )}
+                      {item.status === 'hoje' && (
+                        <span className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
+                          Hoje
+                        </span>
+                      )}
+                      {item.status === 'futura' && (
+                        <span className="px-3 py-1 bg-gray-400 text-white text-xs font-medium rounded-full">
+                          Futura
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -2575,6 +2808,19 @@ export default function MetaPage() {
             </button>
 
             <button
+              onClick={() => setActiveMenu('plano')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeMenu === 'plano'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={sidebarCollapsed ? 'Plano' : ''}
+            >
+              <FileText className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+              {!sidebarCollapsed && 'Plano'}
+            </button>
+
+            <button
               onClick={() => setActiveMenu('escalas')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeMenu === 'escalas'
@@ -2708,6 +2954,18 @@ export default function MetaPage() {
           >
             <FlaskConical className="w-5 h-5 mb-1" />
             <span className="text-xs font-medium">Exames</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('plano')}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+              activeMenu === 'plano'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <FileText className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Plano</span>
           </button>
 
         </div>
