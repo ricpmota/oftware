@@ -105,6 +105,8 @@ export default function MetaPage() {
   const [cidadeBuscaMedico, setCidadeBuscaMedico] = useState<string>('');
   const [showModalMedico, setShowModalMedico] = useState(false);
   const [medicoSelecionado, setMedicoSelecionado] = useState<Medico | null>(null);
+  const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<SolicitacaoMedico[]>([]);
+  const [loadingMinhasSolicitacoes, setLoadingMinhasSolicitacoes] = useState(false);
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -310,6 +312,22 @@ export default function MetaPage() {
     }
   }, [user?.email]);
 
+  // Função para carregar solicitações do paciente
+  const loadMinhasSolicitacoes = useCallback(async () => {
+    if (!user?.email) return;
+    
+    setLoadingMinhasSolicitacoes(true);
+    try {
+      const solicitacoesData = await SolicitacaoMedicoService.getSolicitacoesPorPaciente(user.email);
+      setMinhasSolicitacoes(solicitacoesData);
+    } catch (error) {
+      console.error('Erro ao carregar solicitações:', error);
+      setMinhasSolicitacoes([]);
+    } finally {
+      setLoadingMinhasSolicitacoes(false);
+    }
+  }, [user?.email]);
+
   // Carregar dados do paciente e mensagens quando o usuário estiver logado
   useEffect(() => {
     if (user && user.email) {
@@ -490,6 +508,13 @@ export default function MetaPage() {
     }
   }, [user, loadData, loadTrocas, loadFerias, loadMensagens, loadMensagensEnviadas]);
 
+  // Carregar solicitações quando entrar na página Médicos
+  useEffect(() => {
+    if (user && activeMenu === 'medicos') {
+      loadMinhasSolicitacoes();
+    }
+  }, [user, activeMenu, loadMinhasSolicitacoes]);
+
   // Debug: Log dos serviços carregados
   useEffect(() => {
     if (servicos.length > 0) {
@@ -652,18 +677,7 @@ export default function MetaPage() {
 
         return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Estatísticas de Tratamento</h2>
-              {!paciente?.medicoResponsavelId && (
-                <button
-                  onClick={() => setActiveMenu('medicos')}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <Stethoscope size={20} />
-                  Encontrar um Médico
-                </button>
-              )}
-            </div>
+            <h2 className="text-xl font-bold text-gray-900">Estatísticas de Tratamento</h2>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
@@ -2697,34 +2711,6 @@ export default function MetaPage() {
       }
 
       case 'medicos': {
-        // Função para buscar médicos
-        const buscarMedicos = async () => {
-          if (!estadoBuscaMedico || !cidadeBuscaMedico) {
-            alert('Por favor, selecione estado e cidade');
-            return;
-          }
-
-          setLoadingMedicos(true);
-          try {
-            // Buscar todos os médicos ativos
-            const todosMedicos = await MedicoService.getAllMedicos();
-            
-            // Filtrar por cidade
-            const medicosFiltrados = todosMedicos.filter(medico => {
-              return medico.cidades.some(c => 
-                c.estado === estadoBuscaMedico && c.cidade === cidadeBuscaMedico
-              );
-            });
-
-            setMedicos(medicosFiltrados);
-          } catch (error) {
-            console.error('Erro ao buscar médicos:', error);
-            alert('Erro ao buscar médicos');
-          } finally {
-            setLoadingMedicos(false);
-          }
-        };
-
         // Função para abrir modal de médico
         const abrirModalMedico = (medico: Medico) => {
           setMedicoSelecionado(medico);
@@ -2735,13 +2721,62 @@ export default function MetaPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Encontrar um Médico</h2>
-              <button
-                onClick={() => setActiveMenu('estatisticas')}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                <X size={24} />
-              </button>
             </div>
+
+            {/* Minhas Solicitações */}
+            {minhasSolicitacoes.length > 0 && (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Minhas Solicitações</h3>
+                </div>
+                <div className="divide-y divide-gray-200">
+                  {minhasSolicitacoes.map((solicitacao) => (
+                    <div key={solicitacao.id} className="px-6 py-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="text-base font-medium text-gray-900">{solicitacao.medicoNome}</h4>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Solicitado em: {solicitacao.criadoEm?.toLocaleDateString('pt-BR')}
+                          </p>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
+                            solicitacao.status === 'pendente'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : solicitacao.status === 'aceita'
+                              ? 'bg-green-100 text-green-800'
+                              : solicitacao.status === 'rejeitada'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {solicitacao.status === 'pendente' && 'Pendente'}
+                            {solicitacao.status === 'aceita' && 'Aceita'}
+                            {solicitacao.status === 'rejeitada' && 'Rejeitada'}
+                            {solicitacao.status === 'desistiu' && 'Desistiu'}
+                          </span>
+                        </div>
+                        {solicitacao.status === 'pendente' && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Tem certeza que deseja desistir desta solicitação?')) return;
+                              try {
+                                await SolicitacaoMedicoService.desistirSolicitacao(solicitacao.id);
+                                await loadMinhasSolicitacoes();
+                                alert('Solicitação cancelada.');
+                              } catch (error) {
+                                console.error('Erro ao cancelar solicitação:', error);
+                                alert('Erro ao cancelar solicitação');
+                              }
+                            }}
+                            className="ml-4 px-3 py-1 text-xs text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition-colors"
+                          >
+                            Desistir
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Filtros */}
             <div className="bg-white p-6 rounded-lg shadow">
@@ -2773,7 +2808,27 @@ export default function MetaPage() {
                   </label>
                   <select
                     value={cidadeBuscaMedico}
-                    onChange={(e) => setCidadeBuscaMedico(e.target.value)}
+                    onChange={async (e) => {
+                      setCidadeBuscaMedico(e.target.value);
+                      // Buscar automaticamente quando selecionar cidade
+                      if (e.target.value && estadoBuscaMedico) {
+                        setLoadingMedicos(true);
+                        try {
+                          const todosMedicos = await MedicoService.getAllMedicos();
+                          const medicosFiltrados = todosMedicos.filter(medico => {
+                            return medico.cidades.some(c => 
+                              c.estado === estadoBuscaMedico && c.cidade === e.target.value
+                            );
+                          });
+                          setMedicos(medicosFiltrados);
+                        } catch (error) {
+                          console.error('Erro ao buscar médicos:', error);
+                          alert('Erro ao buscar médicos');
+                        } finally {
+                          setLoadingMedicos(false);
+                        }
+                      }
+                    }}
                     className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                     disabled={!estadoBuscaMedico}
                   >
@@ -2786,24 +2841,6 @@ export default function MetaPage() {
                   </select>
                 </div>
               </div>
-
-              <button
-                onClick={buscarMedicos}
-                disabled={loadingMedicos || !estadoBuscaMedico || !cidadeBuscaMedico}
-                className="mt-4 w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loadingMedicos ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Buscando...
-                  </>
-                ) : (
-                  <>
-                    <Stethoscope size={20} />
-                    Buscar Médicos
-                  </>
-                )}
-              </button>
             </div>
 
             {/* Lista de Médicos */}
@@ -3336,6 +3373,19 @@ export default function MetaPage() {
             </button>
 
             <button
+              onClick={() => setActiveMenu('medicos')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeMenu === 'medicos'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={sidebarCollapsed ? 'Médicos' : ''}
+            >
+              <Stethoscope className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+              {!sidebarCollapsed && 'Médicos'}
+            </button>
+
+            <button
               onClick={() => setActiveMenu('perfil')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeMenu === 'perfil'
@@ -3347,45 +3397,6 @@ export default function MetaPage() {
               <UserIcon className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
               {!sidebarCollapsed && 'Meu Perfil'}
             </button>
-
-            <button
-              onClick={() => setActiveMenu('escalas')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'escalas'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              title={sidebarCollapsed ? 'Escalas' : ''}
-            >
-              <Calendar className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
-              {!sidebarCollapsed && 'Minhas Escalas'}
-            </button>
-
-            <button
-              onClick={() => setActiveMenu('troca')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors relative ${
-                activeMenu === 'troca'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              title={sidebarCollapsed ? 'Trocas' : ''}
-            >
-              <RefreshCw className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
-              {!sidebarCollapsed && 'Trocas'}
-            </button>
-
-            <button
-              onClick={() => setActiveMenu('ferias')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors relative ${
-                activeMenu === 'ferias'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              title={sidebarCollapsed ? 'Férias' : ''}
-            >
-              <Calendar className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
-              {!sidebarCollapsed && 'Férias'}
-              </button>
               
             </nav>
 
@@ -3494,6 +3505,18 @@ export default function MetaPage() {
           >
             <FileText className="w-5 h-5 mb-1" />
             <span className="text-xs font-medium">Plano</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('medicos')}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+              activeMenu === 'medicos'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Stethoscope className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Médicos</span>
           </button>
 
           <button

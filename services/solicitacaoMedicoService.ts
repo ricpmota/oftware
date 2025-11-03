@@ -8,10 +8,19 @@ export class SolicitacaoMedicoService {
    */
   static async criarSolicitacao(solicitacao: Omit<SolicitacaoMedico, 'id' | 'criadoEm'>): Promise<string> {
     try {
-      const solicitacaoData = {
-        ...solicitacao,
+      // Remove campos undefined antes de salvar
+      const solicitacaoData: any = {
+        pacienteEmail: solicitacao.pacienteEmail,
+        pacienteNome: solicitacao.pacienteNome,
+        medicoId: solicitacao.medicoId,
+        medicoNome: solicitacao.medicoNome,
+        status: solicitacao.status,
         criadoEm: new Date()
       };
+
+      if (solicitacao.pacienteId) {
+        solicitacaoData.pacienteId = solicitacao.pacienteId;
+      }
 
       const docRef = await addDoc(collection(db, 'solicitacoes_medico'), solicitacaoData);
       return docRef.id;
