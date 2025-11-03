@@ -177,36 +177,8 @@ export default function OftalmoPage() {
       {/* Main Content */}
       <div className="px-4 py-4">
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 gap-3 md:gap-4 md:max-w-full md:grid-cols-2 lg:grid-cols-3">
-          {/* Oftware */}
-          <button
-            onClick={() => router.push('/oftware')}
-            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
-          >
-            <div className="flex items-center mb-2">
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <HomeIcon size={18} className="text-blue-600" />
-              </div>
-              <h3 className="ml-3 text-base font-semibold text-gray-900">Oftware</h3>
-            </div>
-            <p className="text-xs text-gray-600">Assistência oftalmológica</p>
-          </button>
-
-          {/* Admin Escala */}
-          <button
-            onClick={() => router.push('/admin')}
-            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
-          >
-            <div className="flex items-center mb-2">
-              <div className="bg-green-100 p-2 rounded-lg">
-                <Settings size={18} className="text-green-600" />
-              </div>
-              <h3 className="ml-3 text-base font-semibold text-gray-900">Admin Escala</h3>
-            </div>
-            <p className="text-xs text-gray-600">Gerenciamento de escalas médicas</p>
-          </button>
-
-          {/* Admin META */}
+        <div className="grid grid-cols-1 gap-3 md:gap-4 md:max-w-full md:grid-cols-2">
+          {/* Médico */}
           <button
             onClick={() => router.push('/metaadmin')}
             className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
@@ -215,12 +187,12 @@ export default function OftalmoPage() {
               <div className="bg-purple-100 p-2 rounded-lg">
                 <Stethoscope size={18} className="text-purple-600" />
               </div>
-              <h3 className="ml-3 text-base font-semibold text-gray-900">Admin META</h3>
+              <h3 className="ml-3 text-base font-semibold text-gray-900">Médico</h3>
             </div>
             <p className="text-xs text-gray-600">Tratamento de obesidade com Monjauro</p>
           </button>
 
-          {/* Paciente META */}
+          {/* Paciente */}
           <button
             onClick={() => router.push('/meta')}
             className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
@@ -229,23 +201,9 @@ export default function OftalmoPage() {
               <div className="bg-orange-100 p-2 rounded-lg">
                 <UserCheck size={18} className="text-orange-600" />
               </div>
-              <h3 className="ml-3 text-base font-semibold text-gray-900">Paciente META</h3>
+              <h3 className="ml-3 text-base font-semibold text-gray-900">Paciente</h3>
             </div>
             <p className="text-xs text-gray-600">Acompanhamento Monjauro</p>
-          </button>
-
-          {/* Residente */}
-          <button
-            onClick={() => router.push('/cenoft')}
-            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
-          >
-            <div className="flex items-center mb-2">
-              <div className="bg-indigo-100 p-2 rounded-lg">
-                <Users size={18} className="text-indigo-600" />
-              </div>
-              <h3 className="ml-3 text-base font-semibold text-gray-900">Residente</h3>
-            </div>
-            <p className="text-xs text-gray-600">Escalas Médicas</p>
           </button>
         </div>
       </div>
