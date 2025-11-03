@@ -89,6 +89,9 @@ export default function MetaAdminPage() {
   });
   const [estadoSelecionado, setEstadoSelecionado] = useState<string>('');
   const [cidadeSelecionada, setCidadeSelecionada] = useState<string>('');
+  const [showModalNovaCidade, setShowModalNovaCidade] = useState(false);
+  const [novaCidadeEstado, setNovaCidadeEstado] = useState<string>('');
+  const [novaCidadeNome, setNovaCidadeNome] = useState<string>('');
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -1907,9 +1910,21 @@ export default function MetaAdminPage() {
                         <button
                           type="button"
                           onClick={handleAdicionarCidade}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
+                          disabled={!estadoSelecionado || !cidadeSelecionada}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
                           <Plus size={20} />
+                        </button>
+                      </div>
+                      
+                      {/* Botão para adicionar cidade manualmente */}
+                      <div className="mb-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowModalNovaCidade(true)}
+                          className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors text-sm font-medium"
+                        >
+                          + Adicionar cidade que não está na lista
                         </button>
                       </div>
 
@@ -10551,6 +10566,91 @@ export default function MetaAdminPage() {
           </button>
         </div>
       </div>
+
+      {/* Modal para adicionar cidade manualmente */}
+      {showModalNovaCidade && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Adicionar Nova Cidade</h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Estado *
+                </label>
+                <select
+                  value={novaCidadeEstado}
+                  onChange={(e) => setNovaCidadeEstado(e.target.value)}
+                  className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="">Selecione o estado</option>
+                  {estadosList.map((estado) => (
+                    <option key={estado.sigla} value={estado.sigla}>
+                      {estado.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nome da Cidade *
+                </label>
+                <input
+                  type="text"
+                  value={novaCidadeNome}
+                  onChange={(e) => setNovaCidadeNome(e.target.value)}
+                  className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  placeholder="Digite o nome da cidade"
+                />
+              </div>
+            </div>
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowModalNovaCidade(false);
+                  setNovaCidadeEstado('');
+                  setNovaCidadeNome('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (!novaCidadeEstado || !novaCidadeNome) {
+                    alert('Por favor, preencha todos os campos');
+                    return;
+                  }
+
+                  // Verificar se a cidade já foi adicionada
+                  const jaExiste = perfilMedico.cidades.some(
+                    c => c.estado === novaCidadeEstado && c.cidade.toLowerCase() === novaCidadeNome.toLowerCase()
+                  );
+
+                  if (jaExiste) {
+                    alert('Esta cidade já foi adicionada');
+                    return;
+                  }
+
+                  // Adicionar a cidade
+                  setPerfilMedico({
+                    ...perfilMedico,
+                    cidades: [...perfilMedico.cidades, { estado: novaCidadeEstado, cidade: novaCidadeNome }]
+                  });
+
+                  setShowModalNovaCidade(false);
+                  setNovaCidadeEstado('');
+                  setNovaCidadeNome('');
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
