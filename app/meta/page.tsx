@@ -1016,9 +1016,9 @@ export default function MetaPage() {
                       );
                     })}
                   </select>
-                      </div>
-                    </div>
                 </div>
+              </div>
+            </div>
             
             {/* Exibição dos exames */}
             <div className="space-y-6 pb-4">
@@ -1066,8 +1066,8 @@ export default function MetaPage() {
                           ) : (
                             <div className="h-[150px] flex items-center justify-center border border-gray-200 rounded-md bg-gray-50">
                               <p className="text-xs text-gray-500">Sem dados históricos</p>
-              </div>
-            )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
