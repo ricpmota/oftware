@@ -1994,14 +1994,11 @@ export default function MetaAdminPage() {
                             
                             const todasCidades = [...new Set([...cidadesPadrao, ...cidadesCustomEstado])].sort();
                             
-                            return todasCidades.map((cidade) => {
-                              const isCustomizada = cidadesCustomEstado.includes(cidade);
-                              return (
-                                <option key={cidade} value={cidade}>
-                                  {cidade} {isCustomizada ? '(Customizada)' : ''}
-                                </option>
-                              );
-                            });
+                            return todasCidades.map((cidade) => (
+                              <option key={cidade} value={cidade}>
+                                {cidade}
+                              </option>
+                            ));
                           })()}
                         </select>
                         
