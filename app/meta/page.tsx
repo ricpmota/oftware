@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -2893,113 +2893,111 @@ export default function MetaPage() {
                   {medicos.length} médico(s) encontrado(s)
                 </h3>
                 {medicos.map((medico) => (
-                  <div key={medico.id} className="bg-white p-6 lg:p-8 rounded-lg shadow hover:shadow-lg transition-all border border-gray-200">
-                    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-                      {/* Avatar e Nome */}
-                      <div className="flex items-start gap-4 flex-shrink-0">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Stethoscope className="h-8 w-8 text-green-600" />
+                  <div key={medico.id} className={`bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all border-l-4 ${
+                    medico.isVerificado ? 'border-green-500' : 'border-red-500'
+                  }`}>
+                    {/* Header com Nome, Badge e Botão */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          medico.isVerificado ? 'bg-green-50' : 'bg-red-50'
+                        }`}>
+                          {medico.isVerificado ? (
+                            <ShieldCheck className="h-6 w-6 text-green-600" />
+                          ) : (
+                            <Shield className="h-6 w-6 text-red-600" />
+                          )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="text-2xl font-bold text-gray-900">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-lg font-bold text-gray-900 truncate">
                               {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
                             </h4>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              medico.isVerificado
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {medico.isVerificado ? '✓ Verificado' : '⚠ Não Verificado'}
-                            </span>
                           </div>
-                          <p className="text-base text-gray-600">
-                            <span className="font-medium">CRM:</span> {medico.crm.estado} {medico.crm.numero}
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">CRM</span> {medico.crm.estado} {medico.crm.numero}
                           </p>
                         </div>
                       </div>
-
-                      {/* Informações e Botão */}
-                      <div className="flex-1 space-y-4">
-                        {/* Endereço e Telefone */}
-                        <div className="space-y-2">
-                          <div className="flex items-start gap-2">
-                            <span className="text-lg mt-0.5">📍</span>
-                            <div className="flex-1">
-                              <p className="text-base text-gray-700 leading-relaxed mb-1">
-                                {medico.localizacao.endereco}
-                              </p>
-                              {medico.localizacao.pontoReferencia && (
-                                <p className="text-sm text-gray-500 italic">
-                                  Ref.: {medico.localizacao.pontoReferencia}
-                                </p>
-                              )}
-                              <a
-                                href={`https://maps.google.com/?q=${encodeURIComponent(medico.localizacao.endereco)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-sm text-green-600 hover:text-green-700 font-medium mt-1"
-                              >
-                                <span>🗺️</span>
-                                Abrir no mapa
-                              </a>
-                            </div>
-                          </div>
-                          {medico.telefone && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">📞</span>
-                              <div className="flex items-center gap-3">
-                                <p className="text-base text-gray-700">{medico.telefone}</p>
-                                <a
-                                  href={`https://wa.me/55${medico.telefone.replace(/\D/g, '')}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
-                                >
-                                  <span>💬</span>
-                                  WhatsApp
-                                </a>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Cidades Atendidas */}
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700 mb-3">Cidades atendidas</p>
-                          <div className="flex flex-wrap gap-2">
-                            {medico.cidades.map((c, idx) => (
-                              <span key={idx} className="px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium border border-green-200">
-                                {c.cidade}/{c.estado}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
+                      
                       {/* Botão de Ação */}
-                      <div className="flex-shrink-0 lg:self-center">
+                      <div className="flex-shrink-0">
                         {(() => {
-                          // Verificar se já tem solicitação para este médico
                           const solicitacaoParaEsteMedico = minhasSolicitacoes.find(s => s.medicoId === medico.id);
                           const temPendenteOuAceita = solicitacaoParaEsteMedico && (solicitacaoParaEsteMedico.status === 'pendente' || solicitacaoParaEsteMedico.status === 'aceita');
                           
                           return temPendenteOuAceita ? (
                             <button
                               disabled
-                              className="w-full lg:w-auto px-6 py-3 bg-gray-400 text-white rounded-lg cursor-not-allowed whitespace-nowrap font-medium"
+                              className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed text-sm font-medium"
                             >
                               ⏳ Aguardando
                             </button>
                           ) : (
                             <button
                               onClick={() => abrirModalMedico(medico)}
-                              className="w-full lg:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap font-medium shadow-sm"
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
                             >
                               Solicitar
                             </button>
                           );
                         })()}
+                      </div>
+                    </div>
+
+                    {/* Informações do Médico */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3 ml-14">
+                      {/* Endereço */}
+                      <div className="flex items-start gap-2">
+                        <span className="text-sm">📍</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-700 leading-snug">
+                            {medico.localizacao.endereco}
+                          </p>
+                          {medico.localizacao.pontoReferencia && (
+                            <p className="text-xs text-gray-500 italic mt-0.5">
+                              Ref.: {medico.localizacao.pontoReferencia}
+                            </p>
+                          )}
+                          <a
+                            href={`https://maps.google.com/?q=${encodeURIComponent(medico.localizacao.endereco)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium mt-1"
+                          >
+                            Ver no mapa
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Telefone */}
+                      {medico.telefone && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-sm">📞</span>
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-700 mb-1">{medico.telefone}</p>
+                            <a
+                              href={`https://wa.me/55${medico.telefone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors text-xs font-medium"
+                            >
+                              WhatsApp
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Cidades Atendidas */}
+                    <div className="pt-3 border-t border-gray-100 ml-14">
+                      <p className="text-xs font-semibold text-gray-600 mb-2">Cidades atendidas</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {medico.cidades.map((c, idx) => (
+                          <span key={idx} className="px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium border border-green-200">
+                            {c.cidade}/{c.estado}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -3630,17 +3628,15 @@ export default function MetaPage() {
                   <div className="flex items-center">
                     <Stethoscope className="h-6 w-6 text-green-600" />
                     <div className="ml-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <div className="text-sm font-bold text-gray-900">
                           {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
                         </div>
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          medicoResponsavel.isVerificado
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {medicoResponsavel.isVerificado ? '✓' : '⚠'}
-                        </span>
+                        {medicoResponsavel.isVerificado ? (
+                          <ShieldCheck className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <Shield className="h-4 w-4 text-red-600" />
+                        )}
                       </div>
                       {paciente?.dadosIdentificacao?.nomeCompleto && (
                         <div className="text-xs text-gray-600">

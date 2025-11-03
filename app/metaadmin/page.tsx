@@ -29,7 +29,7 @@ import { ProgressPill } from '@/components/ProgressPill';
 import { buildExpectedCurve, buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, varianceStatus, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 import { alertEngine, isDoseUpgradeBlocked, getSuggestedAction, getSeverityClasses } from '@/utils/alertEngine';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Info, AlertTriangle, AlertCircle, CheckCircle2, Send } from 'lucide-react';
+import { Info, AlertTriangle, AlertCircle, CheckCircle2, Send, Shield, ShieldCheck } from 'lucide-react';
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
 import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
 import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
@@ -2117,13 +2117,25 @@ export default function MetaAdminPage() {
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Verificação</p>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          medicoPerfil.isVerificado
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {medicoPerfil.isVerificado ? '✓ Verificado' : '⚠ Não Verificado'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            medicoPerfil.isVerificado
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {medicoPerfil.isVerificado ? (
+                              <>
+                                <ShieldCheck className="h-3 w-3" />
+                                Verificado
+                              </>
+                            ) : (
+                              <>
+                                <Shield className="h-3 w-3" />
+                                Não Verificado
+                              </>
+                            )}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

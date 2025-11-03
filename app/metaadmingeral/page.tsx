@@ -19,7 +19,7 @@ import { MensagemService } from '@/services/mensagemService';
 import { Mensagem, MensagemResidenteParaAdmin } from '@/types/mensagem';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
-import { Stethoscope, CheckCircle, XCircle } from 'lucide-react';
+import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck } from 'lucide-react';
 
 export default function MetaAdminGeralPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -3372,12 +3372,22 @@ export default function MetaAdminGeralPage() {
                           <p className="text-gray-600">{medico.cidades.length} cidade(s)</p>
                         </div>
                         <div>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             medico.isVerificado
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
                           }`}>
-                            {medico.isVerificado ? '✓ Verificado' : '⚠ Não Verificado'}
+                            {medico.isVerificado ? (
+                              <>
+                                <ShieldCheck size={14} />
+                                Verificado
+                              </>
+                            ) : (
+                              <>
+                                <Shield size={14} />
+                                Não Verificado
+                              </>
+                            )}
                           </span>
                         </div>
                         <div className="flex justify-center">
