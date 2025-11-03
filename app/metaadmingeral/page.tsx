@@ -4103,39 +4103,39 @@ export default function MetaAdminGeralPage() {
           </button>
 
           <button
-            onClick={() => setActiveMenu('usuarios')}
+            onClick={() => setActiveMenu('medicos')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'usuarios'
+              activeMenu === 'medicos'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Stethoscope className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Médicos</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('pacientes')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'pacientes'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
             <Users className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Usuários</span>
+            <span className="text-xs font-medium">Pacientes</span>
           </button>
 
           <button
-            onClick={() => setActiveMenu('residentes')}
+            onClick={() => setActiveMenu('monjauro')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'residentes'
+              activeMenu === 'monjauro'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <UserCheck className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Residentes</span>
-          </button>
-
-          <button
-            onClick={() => setActiveMenu('locais')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'locais'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <MapPin className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Locais</span>
+            <Pill className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Monjauro</span>
           </button>
 
           <button
