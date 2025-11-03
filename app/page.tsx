@@ -152,8 +152,8 @@ export default function OftalmoPage() {
           backgroundImage: 'url(/icones/monjauro.jpeg)',
         }}
       >
-        {/* Overlay escuro para melhorar legibilidade */}
-        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+        {/* Overlay escuro para melhorar legibilidade - reduzido para deixar a imagem mais visível */}
+        <div className="absolute inset-0 bg-black bg-opacity-20"></div>
       </div>
 
       {/* Header */}
@@ -186,52 +186,52 @@ export default function OftalmoPage() {
       </div>
 
       {/* Main Content */}
-      <div className="relative min-h-[calc(100vh-80px)] flex items-center justify-center px-4 py-8 md:py-12">
-        {/* Cards Grid - Desktop: lado a lado, Mobile: centralizado e maior */}
+      <div className="relative min-h-[calc(100vh-80px)] flex items-center justify-center px-4 py-4 md:py-12">
+        {/* Cards Grid - Desktop: lado a lado, Mobile: centralizado e compacto */}
         <div className="w-full max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 lg:gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 lg:gap-12">
             {/* Médico */}
             <button
               onClick={() => router.push('/metaadmin')}
-              className="group relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 md:p-10 hover:shadow-3xl hover:scale-105 transition-all duration-300 border border-white/20 transform hover:-translate-y-2"
+              className="group relative bg-white/70 backdrop-blur-sm rounded-xl md:rounded-2xl shadow-lg md:shadow-2xl p-4 md:p-10 hover:shadow-xl md:hover:shadow-3xl hover:scale-105 transition-all duration-300 border border-white/30 transform hover:-translate-y-1 md:hover:-translate-y-2"
             >
               <div className="flex flex-col items-center text-center">
-                <div className="bg-gradient-to-br from-purple-500 to-purple-700 p-6 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                  <Stethoscope size={48} className="text-white" />
+                <div className="bg-gradient-to-br from-purple-500 to-purple-700 p-3 md:p-6 rounded-xl md:rounded-2xl mb-3 md:mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md md:shadow-lg">
+                  <Stethoscope size={32} className="md:w-12 md:h-12 text-white" />
                 </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Médico</h3>
-                <p className="text-sm md:text-base text-gray-600 leading-relaxed">Tratamento de obesidade com Monjauro</p>
-                <div className="mt-6 flex items-center text-purple-600 font-medium group-hover:translate-x-2 transition-transform duration-300">
-                  <span className="text-sm md:text-base">Acessar</span>
-                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 className="text-lg md:text-3xl font-bold text-gray-900 mb-2 md:mb-3">Médico</h3>
+                <p className="text-xs md:text-base text-gray-700 md:text-gray-600 leading-relaxed">Tratamento de obesidade com Monjauro</p>
+                <div className="mt-4 md:mt-6 flex items-center text-purple-600 font-medium group-hover:translate-x-2 transition-transform duration-300">
+                  <span className="text-xs md:text-base">Acessar</span>
+                  <svg className="w-4 h-4 md:w-5 md:h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
               </div>
               {/* Efeito de brilho no hover */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-400/0 via-purple-400/20 to-purple-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-xl md:rounded-2xl bg-gradient-to-r from-purple-400/0 via-purple-400/20 to-purple-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </button>
 
             {/* Paciente */}
             <button
               onClick={() => router.push('/meta')}
-              className="group relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 md:p-10 hover:shadow-3xl hover:scale-105 transition-all duration-300 border border-white/20 transform hover:-translate-y-2"
+              className="group relative bg-white/70 backdrop-blur-sm rounded-xl md:rounded-2xl shadow-lg md:shadow-2xl p-4 md:p-10 hover:shadow-xl md:hover:shadow-3xl hover:scale-105 transition-all duration-300 border border-white/30 transform hover:-translate-y-1 md:hover:-translate-y-2"
             >
               <div className="flex flex-col items-center text-center">
-                <div className="bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                  <UserCheck size={48} className="text-white" />
+                <div className="bg-gradient-to-br from-orange-500 to-orange-700 p-3 md:p-6 rounded-xl md:rounded-2xl mb-3 md:mb-6 group-hover:scale-110 transition-transform duration-300 shadow-md md:shadow-lg">
+                  <UserCheck size={32} className="md:w-12 md:h-12 text-white" />
                 </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Paciente</h3>
-                <p className="text-sm md:text-base text-gray-600 leading-relaxed">Acompanhamento Monjauro</p>
-                <div className="mt-6 flex items-center text-orange-600 font-medium group-hover:translate-x-2 transition-transform duration-300">
-                  <span className="text-sm md:text-base">Acessar</span>
-                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 className="text-lg md:text-3xl font-bold text-gray-900 mb-2 md:mb-3">Paciente</h3>
+                <p className="text-xs md:text-base text-gray-700 md:text-gray-600 leading-relaxed">Acompanhamento Monjauro</p>
+                <div className="mt-4 md:mt-6 flex items-center text-orange-600 font-medium group-hover:translate-x-2 transition-transform duration-300">
+                  <span className="text-xs md:text-base">Acessar</span>
+                  <svg className="w-4 h-4 md:w-5 md:h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
               </div>
               {/* Efeito de brilho no hover */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-400/0 via-orange-400/20 to-orange-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 rounded-xl md:rounded-2xl bg-gradient-to-r from-orange-400/0 via-orange-400/20 to-orange-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </button>
           </div>
         </div>
