@@ -71,6 +71,8 @@ export default function MetaAdminGeralPage() {
   // Estados para Monjauro
   const [monjauroPrecos, setMonjauroPrecos] = useState<{ tipo: string; preco: number }[]>([]);
   const [editandoMonjauro, setEditandoMonjauro] = useState<{ tipo: string; preco: number } | null>(null);
+  const [editandoMonjauroTipo, setEditandoMonjauroTipo] = useState<string | null>(null);
+  const [precoEditandoMonjauro, setPrecoEditandoMonjauro] = useState<string>('0');
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -1662,52 +1664,113 @@ export default function MetaAdminGeralPage() {
           </div>
         );
 
-              case 'locais':
+                            case 'monjauro':
+                const tiposMonjauro = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
+                
+                const handleSalvarPrecoMonjauro = async (tipo: string, preco: number) => {
+                  try {
+                    // Aqui você pode integrar com Firestore para salvar os preços
+                    // Por enquanto, vamos apenas atualizar o estado local
+                    const novosPrecos = [...monjauroPrecos];
+                    const index = novosPrecos.findIndex(p => p.tipo === tipo);
+                    if (index >= 0) {
+                      novosPrecos[index].preco = preco;
+                    } else {
+                      novosPrecos.push({ tipo, preco });
+                    }
+                    setMonjauroPrecos(novosPrecos);
+                    setMessage(`Preço do Monjauro ${tipo} atualizado com sucesso!`);
+                    
+                    // TODO: Integrar com Firestore para persistir os preços
+                    // await MonjauroService.updatePreco(tipo, preco);
+                  } catch (error) {
+                    console.error('Erro ao salvar preço:', error);
+                    setMessage('Erro ao salvar preço');
+                  }
+                };
+
                 return (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-2xl font-bold text-gray-900">Locais</h2>
-                      <button
-                        onClick={() => setShowCadastrarLocalModal(true)}
-                        className="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                      >
-                        <MapPin size={16} className="mr-2" />
-                        Adicionar Local
-                      </button>
+                      <h2 className="text-2xl font-bold text-gray-900">Precificação Monjauro</h2>
                     </div>
                     <div className="bg-white shadow rounded-lg">
                       <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">Lista de Locais ({locais.length})</h3>
+                        <h3 className="text-lg font-medium text-gray-900">Tipos de Monjauro</h3>
+                        <p className="text-sm text-gray-500 mt-1">Configure os preços dos diferentes tipos de Monjauro para que os médicos possam encomendar.</p>
                       </div>
                       <div className="px-6 py-4">
-                        {locais.length === 0 ? (
-                          <p className="text-gray-500 text-sm">Nenhum local cadastrado</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {locais.map((local) => (
-                              <div key={local.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">{local.nome}</p>
+                        <div className="space-y-4">
+                          {tiposMonjauro.map((tipo) => {
+                            const precoAtual = monjauroPrecos.find(p => p.tipo === tipo);
+                            const editando = editandoMonjauroTipo === tipo;
+
+                            return (
+                              <div key={tipo} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex items-center space-x-4">
+                                  <Pill className="h-6 w-6 text-green-600" />
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">Monjauro {tipo}</p>
+                                    {!editando && precoAtual && (
+                                      <p className="text-xs text-gray-500">Preço atual: R$ {precoAtual.preco.toFixed(2).replace('.', ',')}</p>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => openEditModal('local', local)}
-                                    className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
-                                  >
-                                    <Edit size={14} className="mr-1" />
-                                    Editar
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteLocal(local.id)}
-                                    className="text-red-600 hover:text-red-800 text-sm"
-                                  >
-                                    Excluir
-                                  </button>
+                                <div className="flex items-center space-x-2">
+                                  {editando ? (
+                                    <>
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-sm text-gray-700">R$</span>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={precoEditandoMonjauro}
+                                          onChange={(e) => setPrecoEditandoMonjauro(e.target.value)}
+                                          className="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                          placeholder="0.00"
+                                        />
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          const precoNum = parseFloat(precoEditandoMonjauro);
+                                          if (!isNaN(precoNum) && precoNum >= 0) {
+                                            handleSalvarPrecoMonjauro(tipo, precoNum);
+                                            setEditandoMonjauroTipo(null);
+                                            setPrecoEditandoMonjauro('0');
+                                          }
+                                        }}
+                                        className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                      >
+                                        Salvar
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setPrecoEditandoMonjauro('0');
+                                          setEditandoMonjauroTipo(null);
+                                        }}
+                                        className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 transition-colors"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setPrecoEditandoMonjauro(precoAtual?.preco?.toString() || '0');
+                                        setEditandoMonjauroTipo(tipo);
+                                      }}
+                                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                                    >
+                                      <Edit size={14} className="mr-1" />
+                                      {precoAtual ? 'Editar Preço' : 'Definir Preço'}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
