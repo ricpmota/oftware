@@ -2860,67 +2860,78 @@ export default function MetaPage() {
                   {medicos.length} médico(s) encontrado(s)
                 </h3>
                 {medicos.map((medico) => (
-                  <div key={medico.id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-all border border-gray-200">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4 flex-1">
-                        <div className="flex-shrink-0">
-                          <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
-                            <Stethoscope className="h-7 w-7 text-green-600" />
-                          </div>
+                  <div key={medico.id} className="bg-white p-6 lg:p-8 rounded-lg shadow hover:shadow-lg transition-all border border-gray-200">
+                    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+                      {/* Avatar e Nome */}
+                      <div className="flex items-start gap-4 flex-shrink-0">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Stethoscope className="h-8 w-8 text-green-600" />
                         </div>
-                        <div className="flex-1">
-                          <h4 className="text-xl font-bold text-gray-900 mb-1">
+                        <div>
+                          <h4 className="text-2xl font-bold text-gray-900 mb-2">
                             {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
                           </h4>
-                          <div className="space-y-1">
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">CRM:</span> {medico.crm.estado} {medico.crm.numero}
+                          <p className="text-base text-gray-600">
+                            <span className="font-medium">CRM:</span> {medico.crm.estado} {medico.crm.numero}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Informações e Botão */}
+                      <div className="flex-1 space-y-4">
+                        {/* Endereço e Telefone */}
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <span className="text-lg mt-0.5">📍</span>
+                            <p className="text-base text-gray-700 leading-relaxed">
+                              {medico.localizacao.endereco}
                             </p>
-                            <p className="text-sm text-gray-600 flex items-start">
-                              <span className="mr-1">📍</span>
-                              <span className="flex-1">{medico.localizacao.endereco}</span>
-                            </p>
-                            {medico.telefone && (
-                              <p className="text-sm text-gray-600">
-                                <span className="mr-1">📞</span>
-                                <span>{medico.telefone}</span>
-                              </p>
-                            )}
                           </div>
-                          <div className="mt-3">
-                            <p className="text-xs font-medium text-gray-500 mb-2">Cidades atendidas</p>
-                            <div className="flex flex-wrap gap-2">
-                              {medico.cidades.map((c, idx) => (
-                                <span key={idx} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium border border-green-200">
-                                  {c.cidade}/{c.estado}
-                                </span>
-                              ))}
+                          {medico.telefone && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">📞</span>
+                              <p className="text-base text-gray-700">{medico.telefone}</p>
                             </div>
+                          )}
+                        </div>
+
+                        {/* Cidades Atendidas */}
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700 mb-3">Cidades atendidas</p>
+                          <div className="flex flex-wrap gap-2">
+                            {medico.cidades.map((c, idx) => (
+                              <span key={idx} className="px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium border border-green-200">
+                                {c.cidade}/{c.estado}
+                              </span>
+                            ))}
                           </div>
                         </div>
                       </div>
-                      
-                      {(() => {
-                        // Verificar se já tem solicitação para este médico
-                        const solicitacaoParaEsteMedico = minhasSolicitacoes.find(s => s.medicoId === medico.id);
-                        const temPendenteOuAceita = solicitacaoParaEsteMedico && (solicitacaoParaEsteMedico.status === 'pendente' || solicitacaoParaEsteMedico.status === 'aceita');
-                        
-                        return temPendenteOuAceita ? (
-                          <button
-                            disabled
-                            className="px-6 py-3 bg-gray-400 text-white rounded-lg cursor-not-allowed whitespace-nowrap font-medium"
-                          >
-                            ⏳ Aguardando
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => abrirModalMedico(medico)}
-                            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap font-medium shadow-sm"
-                          >
-                            Solicitar
-                          </button>
-                        );
-                      })()}
+
+                      {/* Botão de Ação */}
+                      <div className="flex-shrink-0 lg:self-center">
+                        {(() => {
+                          // Verificar se já tem solicitação para este médico
+                          const solicitacaoParaEsteMedico = minhasSolicitacoes.find(s => s.medicoId === medico.id);
+                          const temPendenteOuAceita = solicitacaoParaEsteMedico && (solicitacaoParaEsteMedico.status === 'pendente' || solicitacaoParaEsteMedico.status === 'aceita');
+                          
+                          return temPendenteOuAceita ? (
+                            <button
+                              disabled
+                              className="w-full lg:w-auto px-6 py-3 bg-gray-400 text-white rounded-lg cursor-not-allowed whitespace-nowrap font-medium"
+                            >
+                              ⏳ Aguardando
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => abrirModalMedico(medico)}
+                              className="w-full lg:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap font-medium shadow-sm"
+                            >
+                              Solicitar
+                            </button>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 ))}
