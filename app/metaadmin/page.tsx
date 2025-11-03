@@ -3820,6 +3820,15 @@ export default function MetaAdminPage() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Erro no logout:', error);
+    }
+  };
+
   if (userLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -3834,15 +3843,6 @@ export default function MetaAdminPage() {
   if (!user) {
     return null; // Será redirecionado
   }
-
-  const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      router.push('/');
-    } catch (error) {
-      console.error('Erro no logout:', error);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
