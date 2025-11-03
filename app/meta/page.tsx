@@ -1101,7 +1101,6 @@ export default function MetaPage() {
             return [];
           }
           
-          const startDate = new Date(planoTerapeutico.startDate);
           const diasSemana: { [key: string]: number } = {
             dom: 0,
             seg: 1,
@@ -1114,9 +1113,11 @@ export default function MetaPage() {
           
           const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
           
-          // Ajustar startDate para o dia da semana correto
-          while (startDate.getDay() !== diaDesejado) {
-            startDate.setDate(startDate.getDate() + 1);
+          // Ajustar primeira dose para o dia da semana correto (sem mutar startDate original)
+          const primeiraDose = new Date(planoTerapeutico.startDate);
+          primeiraDose.setHours(0, 0, 0, 0);
+          while (primeiraDose.getDay() !== diaDesejado) {
+            primeiraDose.setDate(primeiraDose.getDate() + 1);
           }
           
           // Obter dose inicial do plano
@@ -1128,8 +1129,9 @@ export default function MetaPage() {
           
           // Criar 18 semanas de calendário (18 semanas = 18 doses)
           for (let semana = 0; semana < 18; semana++) {
-            const dataDose = new Date(startDate);
-            dataDose.setDate(startDate.getDate() + (semana * 7));
+            // Calcular data da dose como primeiraDose + (semana * 7 dias)
+            const dataDose = new Date(primeiraDose);
+            dataDose.setDate(primeiraDose.getDate() + (semana * 7));
             
             // Calcular dose planejada baseada no esquema de titulação (aumento de 2.5mg a cada 4 semanas)
             const dosePlanejada = doseInicial + (Math.floor(semana / 4) * 2.5);
