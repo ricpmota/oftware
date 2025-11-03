@@ -4,6 +4,7 @@ export interface Medico {
   email: string;
   nome: string;
   genero?: 'M' | 'F'; // Para exibir Dr./Dra.
+  telefone?: string; // Telefone do médico
   crm: {
     numero: string;
     estado: string;

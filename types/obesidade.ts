@@ -36,7 +36,7 @@ export interface PacienteCompleto {
   
   dataCadastro: Date;
   status: 'ativo' | 'inativo' | 'arquivado';
-  statusTratamento: 'pendente' | 'em_tratamento' | 'concluido';
+  statusTratamento: 'pendente' | 'em_tratamento' | 'concluido' | 'desistiu';
 }
 
 // Pasta 1: Dados de Identificação

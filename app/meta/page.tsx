@@ -641,7 +641,18 @@ export default function MetaPage() {
 
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">Estatísticas de Tratamento</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Estatísticas de Tratamento</h2>
+              {!paciente?.medicoResponsavelId && (
+                <button
+                  onClick={() => setActiveMenu('medicos')}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <Stethoscope size={20} />
+                  Encontrar um Médico
+                </button>
+              )}
+            </div>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
@@ -998,8 +1009,8 @@ export default function MetaPage() {
                     if (!range) return null;
                     
                     const value = exameSelecionado[campo.field as keyof typeof exameSelecionado] as number | undefined;
-                    
-                    return (
+
+                        return (
                       <div key={campo.field} className="grid grid-cols-1 gap-4 mb-4 last:mb-0">
                         {/* Input e LabRangeBar */}
                         <div>
@@ -1041,9 +1052,9 @@ export default function MetaPage() {
                           )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+              </div>
               ))}
             </div>
           </div>
@@ -1188,7 +1199,7 @@ export default function MetaPage() {
         const calendario = criarCalendarioDoses();
         
         if (!planoTerapeutico) {
-          return (
+                                return (
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-gray-900">Plano Terapêutico</h2>
               <div className="bg-white p-8 rounded-lg shadow text-center">
@@ -1293,27 +1304,27 @@ export default function MetaPage() {
                       {item.status === 'tomada' && (
                         <span className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
                           ✓ Tomada
-                        </span>
+                                      </span>
                       )}
                       {item.status === 'perdida' && (
                         <span className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full">
                           ✗ Perdida
-                        </span>
+                                      </span>
                       )}
                       {item.status === 'hoje' && (
                         <span className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
                           Hoje
-                        </span>
+                                      </span>
                       )}
                       {item.status === 'futura' && (
                         <span className="px-3 py-1 bg-gray-400 text-white text-xs font-medium rounded-full">
                           Futura
                         </span>
                       )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
             </div>
           </div>
         );

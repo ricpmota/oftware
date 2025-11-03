@@ -79,6 +79,7 @@ export default function MetaAdminPage() {
     crmNumero: '',
     crmEstado: '',
     endereco: '',
+    telefone: '',
     genero: '' as 'M' | 'F' | '',
     cidades: [] as { estado: string; cidade: string }[]
   });
@@ -208,6 +209,7 @@ export default function MetaAdminPage() {
           crmNumero: medico.crm.numero,
           crmEstado: medico.crm.estado,
           endereco: medico.localizacao.endereco,
+          telefone: medico.telefone || '',
           genero: medico.genero || '',
           cidades: medico.cidades
         });
@@ -240,6 +242,7 @@ export default function MetaAdminPage() {
         email: user.email || '',
         nome: user.displayName || 'Médico',
         genero: perfilMedico.genero || undefined,
+        telefone: perfilMedico.telefone || undefined,
         crm: {
           numero: perfilMedico.crmNumero,
           estado: perfilMedico.crmEstado
@@ -1658,6 +1661,20 @@ export default function MetaAdminPage() {
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* Telefone */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Telefone
+                      </label>
+                      <input
+                        type="tel"
+                        value={perfilMedico.telefone || ''}
+                        onChange={(e) => setPerfilMedico({ ...perfilMedico, telefone: e.target.value })}
+                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        placeholder="Ex: (11) 98765-4321"
+                      />
                     </div>
 
                     {/* Endereço */}
