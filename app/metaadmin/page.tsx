@@ -477,10 +477,10 @@ export default function MetaAdminPage() {
         if (medicoData) {
           setMedicoPerfil(medicoData);
         }
-      }).catch((error) => {
+        }).catch((error) => {
         console.error('Erro ao verificar médico:', error);
         // Não redirecionar, deixar acesso livre
-      });
+        });
     });
 
     return () => unsubscribe();
@@ -1846,31 +1846,31 @@ export default function MetaAdminPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white shadow rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nome
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Telefone
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Data de Cadastro
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
                     {pacientes.map((paciente) => (
                       <tr key={paciente.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1892,7 +1892,7 @@ export default function MetaAdminPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             (paciente.statusTratamento || 'pendente') === 'em_tratamento'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-green-100 text-green-800' 
                               : (paciente.statusTratamento || 'pendente') === 'concluido'
                               ? 'bg-blue-100 text-blue-800'
                               : 'bg-yellow-100 text-yellow-800'
@@ -1919,10 +1919,10 @@ export default function MetaAdminPage() {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                </tbody>
+              </table>
+                </div>
+              )}
           </div>
         );
 
@@ -2882,8 +2882,8 @@ export default function MetaAdminPage() {
                 </div>
               </div>
             </div>
-          </div>
-        );
+                        </div>
+                      );
       }
 
       case 'troca': {
@@ -4268,7 +4268,7 @@ export default function MetaAdminPage() {
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Cadastrar Novo Paciente</h2>
-              <button
+          <button
                 onClick={() => {
                   setShowCadastrarPacienteModal(false);
                   setNovoPaciente({ nome: '', email: '', telefone: '', cpf: '' });
@@ -4276,7 +4276,7 @@ export default function MetaAdminPage() {
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X size={24} />
-              </button>
+          </button>
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); handleCriarPaciente(); }}>
@@ -4343,7 +4343,7 @@ export default function MetaAdminPage() {
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
-                <button
+          <button
                   type="button"
                   onClick={() => {
                     setShowCadastrarPacienteModal(false);
@@ -4352,7 +4352,7 @@ export default function MetaAdminPage() {
                   className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
                 >
                   Cancelar
-                </button>
+          </button>
                 <button
                   type="submit"
                   disabled={loadingPacientes}
@@ -4391,7 +4391,7 @@ export default function MetaAdminPage() {
                   <option value="em_tratamento">Em Tratamento</option>
                   <option value="concluido">Concluído</option>
                 </select>
-                <button
+          <button
                   onClick={() => {
                     setShowEditarPacienteModal(false);
                     setPacienteEditando(null);
@@ -4427,7 +4427,7 @@ export default function MetaAdminPage() {
                   }`}
                 >
                   {pasta.nome}
-                </button>
+          </button>
               ))}
             </div>
 
@@ -4606,7 +4606,7 @@ export default function MetaAdminPage() {
                           placeholder="Ex: 12345678"
                           maxLength={9}
                         />
-                        <button
+          <button
                           type="button"
                           onClick={async () => {
                             const cepValue = pacienteEditando.dadosIdentificacao?.endereco?.cep?.replace(/\D/g, '');
@@ -7376,6 +7376,8 @@ export default function MetaAdminPage() {
                         taxaFiltracaoGlomerular: exame.taxaFiltracaoGlomerular || null,
                         tgp: exame.tgp || null,
                         tgo: exame.tgo || null,
+                        ggt: exame.ggt || null,
+                        fosfataseAlcalina: exame.fosfataseAlcalina || null,
                         amilase: exame.amilase || null,
                         lipase: exame.lipase || null,
                         colesterolTotal: exame.colesterolTotal || null,
@@ -8333,7 +8335,7 @@ export default function MetaAdminPage() {
                               }`}
                             >
                               📊 Peso
-                            </button>
+          </button>
                             <button
                               onClick={() => setGraficoAtivoPasta6('circunferencia')}
                               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
@@ -8571,7 +8573,7 @@ export default function MetaAdminPage() {
                         <div className="space-y-4">
                           <div className="flex justify-between items-center">
                             <h4 className="font-semibold text-gray-900">Timeline Semanal</h4>
-                            <button
+          <button
                               onClick={() => setShowAdicionarSeguimentoModal(true)}
                               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium flex items-center gap-2"
                             >
@@ -8744,7 +8746,7 @@ export default function MetaAdminPage() {
                                     >
                                       <Edit size={14} />
                                       Editar
-                                    </button>
+          </button>
                                     <button
                                       className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium flex items-center justify-center gap-2"
                                       onClick={async () => {
@@ -8879,7 +8881,7 @@ export default function MetaAdminPage() {
                                   <div className="flex gap-2 ml-4">
                                     {alerta.status === 'ACTIVE' && (
                                       <>
-                                        <button
+          <button
                                           className="px-3 py-1.5 text-xs rounded-md bg-white/70 hover:bg-white font-medium border border-gray-300"
                                           onClick={() => {
                                             if (!pacienteEditando) return;
@@ -9295,7 +9297,7 @@ export default function MetaAdminPage() {
                               }`}
                             >
                               📊 Adesão por Semana
-                            </button>
+          </button>
                             <button
                               onClick={() => setIndicadorAtivoPasta9('adesao')}
                               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
@@ -9376,7 +9378,7 @@ export default function MetaAdminPage() {
 
             {/* Footer com botões */}
             <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <button
+          <button
                 onClick={() => {
                   setShowEditarPacienteModal(false);
                   setPacienteEditando(null);
@@ -10262,7 +10264,7 @@ export default function MetaAdminPage() {
             <Stethoscope className="w-4 h-4 mb-1" />
             <span className="text-xs font-medium">Meu Perfil</span>
           </button>
-          
+
           <button
             onClick={() => setActiveMenu('estatisticas')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${

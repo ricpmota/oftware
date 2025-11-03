@@ -922,6 +922,8 @@ export default function MetaPage() {
             taxaFiltracaoGlomerular: exame.taxaFiltracaoGlomerular || null,
             tgp: exame.tgp || null,
             tgo: exame.tgo || null,
+            ggt: exame.ggt || null,
+            fosfataseAlcalina: exame.fosfataseAlcalina || null,
             amilase: exame.amilase || null,
             lipase: exame.lipase || null,
             colesterolTotal: exame.colesterolTotal || null,
