@@ -4826,16 +4826,17 @@ export default function MetaAdminPage() {
                     <option value="concluido">Concluído</option>
                     <option value="abandono">Abandono</option>
                   </select>
-          <button
-                  onClick={() => {
-                    setShowEditarPacienteModal(false);
-                    setPacienteEditando(null);
-                    setPastaAtiva(1);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
+                  <button
+                    onClick={() => {
+                      setShowEditarPacienteModal(false);
+                      setPacienteEditando(null);
+                      setPastaAtiva(1);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
               </div>
               {/* Alerta de abandono */}
               {pacienteEditando.statusTratamento === 'abandono' && (
