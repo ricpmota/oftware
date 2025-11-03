@@ -2917,6 +2917,23 @@ export default function MetaPage() {
                           <p className="text-sm text-gray-600">
                             <span className="font-medium">CRM</span> {medico.crm.estado} {medico.crm.numero}
                           </p>
+                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                            medico.isVerificado
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {medico.isVerificado ? (
+                              <>
+                                <ShieldCheck className="h-3 w-3" />
+                                Verificado
+                              </>
+                            ) : (
+                              <>
+                                <Shield className="h-3 w-3" />
+                                Não Verificado
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                       
@@ -3636,6 +3653,23 @@ export default function MetaPage() {
                           <ShieldCheck className="h-4 w-4 text-green-600" />
                         ) : (
                           <Shield className="h-4 w-4 text-red-600" />
+                        )}
+                      </div>
+                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                        medicoResponsavel.isVerificado
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {medicoResponsavel.isVerificado ? (
+                          <>
+                            <ShieldCheck className="h-3 w-3" />
+                            Verificado
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="h-3 w-3" />
+                            Não Verificado
+                          </>
                         )}
                       </div>
                       {paciente?.dadosIdentificacao?.nomeCompleto && (

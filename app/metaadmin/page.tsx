@@ -4267,10 +4267,38 @@ export default function MetaAdminPage() {
             {/* User info */}
             {!sidebarCollapsed && (
               <div className="px-4 py-4 border-b border-gray-200">
-                <p className="text-sm text-gray-600">
-                  Bem-vindo, Admin
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-sm font-semibold text-gray-900">
+                    Bem-vindo, {medicoPerfil ? `${medicoPerfil.genero === 'F' ? 'Dra.' : 'Dr.'} ${medicoPerfil.nome}` : 'Admin'}
+                  </p>
+                  {medicoPerfil && (
+                    medicoPerfil.isVerificado ? (
+                      <ShieldCheck className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Shield className="h-4 w-4 text-red-600" />
+                    )
+                  )}
+                </div>
+                {medicoPerfil && (
+                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium mb-2 ${
+                    medicoPerfil.isVerificado
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {medicoPerfil.isVerificado ? (
+                      <>
+                        <ShieldCheck className="h-3 w-3" />
+                        Verificado
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-3 w-3" />
+                        Não Verificado
+                      </>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">
                   {user.email}
                 </p>
               </div>
