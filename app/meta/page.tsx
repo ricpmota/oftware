@@ -2828,14 +2828,14 @@ export default function MetaPage() {
               <>
             {/* Alerta de paciente em tratamento */}
             {paciente?.statusTratamento === 'em_tratamento' && medicoResponsavel && (
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    <X className="h-5 w-5 text-yellow-600" />
+                    <MessageSquare className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Você já está sendo acompanhado por {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}.</strong> Não é possível solicitar um novo médico durante o tratamento.
+                    <p className="text-sm text-blue-800">
+                      <strong>Você está sendo acompanhado por {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}.</strong> Para solicitar um novo médico, primeiro você precisa abandonar o tratamento atual na aba "Meu Médico".
                     </p>
                   </div>
                 </div>
@@ -2856,7 +2856,6 @@ export default function MetaPage() {
                       setCidadeBuscaMedico('');
                     }}
                     className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    disabled={paciente?.statusTratamento === 'em_tratamento'}
                   >
                     <option value="">Selecione o estado</option>
                     {estadosList.map((estado) => (
@@ -2901,7 +2900,7 @@ export default function MetaPage() {
                       }
                     }}
                     className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    disabled={!estadoBuscaMedico || paciente?.statusTratamento === 'em_tratamento'}
+                    disabled={!estadoBuscaMedico}
                   >
                     <option value="">Selecione a cidade</option>
                     {estadoBuscaMedico && (() => {
