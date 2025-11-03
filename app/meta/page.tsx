@@ -19,7 +19,7 @@ import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { estadosCidades, estadosList } from '@/data/cidades-brasil';
 import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
-import { SolicitacaoMedico, MOTIVOS_DESISTENCIA } from '@/types/solicitacaoMedico';
+import { SolicitacaoMedico, MOTIVOS_DESISTENCIA, MOTIVOS_ABANDONO_TRATAMENTO } from '@/types/solicitacaoMedico';
 import { CidadeCustomizadaService } from '@/services/cidadeCustomizadaService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
@@ -108,10 +108,12 @@ export default function MetaPage() {
   const [medicoSelecionado, setMedicoSelecionado] = useState<Medico | null>(null);
   const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<SolicitacaoMedico[]>([]);
   const [loadingMinhasSolicitacoes, setLoadingMinhasSolicitacoes] = useState(false);
-  const [abaAtivaMedicos, setAbaAtivaMedicos] = useState<'buscar' | 'solicitacoes'>('buscar');
+  const [abaAtivaMedicos, setAbaAtivaMedicos] = useState<'buscar' | 'solicitacoes' | 'meu-medico'>('buscar');
   const [showModalDesistir, setShowModalDesistir] = useState(false);
   const [solicitacaoParaDesistir, setSolicitacaoParaDesistir] = useState<SolicitacaoMedico | null>(null);
   const [motivoDesistencia, setMotivoDesistencia] = useState('');
+  const [showModalAbandono, setShowModalAbandono] = useState(false);
+  const [motivoAbandono, setMotivoAbandono] = useState('');
   const [cidadesCustomizadas, setCidadesCustomizadas] = useState<{ estado: string; cidade: string }[]>([]);
 
   // Carregar cidades customizadas
@@ -2761,6 +2763,11 @@ export default function MetaPage() {
       case 'medicos': {
         // Função para abrir modal de médico
         const abrirModalMedico = (medico: Medico) => {
+          // Bloquear se paciente está em tratamento
+          if (paciente?.statusTratamento === 'em_tratamento') {
+            alert(`Você já está sendo acompanhado por ${medicoResponsavel?.genero === 'F' ? 'Dra.' : 'Dr.'} ${medicoResponsavel?.nome}. Não é possível solicitar um novo médico durante o tratamento.`);
+            return;
+          }
           setMedicoSelecionado(medico);
           setShowModalMedico(true);
         };
@@ -2799,12 +2806,40 @@ export default function MetaPage() {
                     </span>
                   )}
                 </button>
+                {paciente?.statusTratamento === 'em_tratamento' && medicoResponsavel && (
+                  <button
+                    onClick={() => setAbaAtivaMedicos('meu-medico')}
+                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      abaAtivaMedicos === 'meu-medico'
+                        ? 'border-green-600 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Meu Médico
+                  </button>
+                )}
               </nav>
             </div>
 
             {/* Conteúdo das Tabs */}
             {abaAtivaMedicos === 'buscar' && (
               <>
+            {/* Alerta de paciente em tratamento */}
+            {paciente?.statusTratamento === 'em_tratamento' && medicoResponsavel && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <X className="h-5 w-5 text-yellow-600" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Você já está sendo acompanhado por {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}.</strong> Não é possível solicitar um novo médico durante o tratamento.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Filtros */}
             <div className="bg-white p-6 rounded-lg shadow">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2819,6 +2854,7 @@ export default function MetaPage() {
                       setCidadeBuscaMedico('');
                     }}
                     className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    disabled={paciente?.statusTratamento === 'em_tratamento'}
                   >
                     <option value="">Selecione o estado</option>
                     {estadosList.map((estado) => (
@@ -2863,7 +2899,7 @@ export default function MetaPage() {
                       }
                     }}
                     className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    disabled={!estadoBuscaMedico}
+                    disabled={!estadoBuscaMedico || paciente?.statusTratamento === 'em_tratamento'}
                   >
                     <option value="">Selecione a cidade</option>
                     {estadoBuscaMedico && (() => {
@@ -2949,6 +2985,13 @@ export default function MetaPage() {
                               className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed text-sm font-medium"
                             >
                               ⏳ Aguardando
+                            </button>
+                          ) : paciente?.statusTratamento === 'em_tratamento' ? (
+                            <button
+                              disabled
+                              className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed text-sm font-medium"
+                            >
+                              Em Tratamento
                             </button>
                           ) : (
                             <button
@@ -3121,6 +3164,67 @@ export default function MetaPage() {
                 <Stethoscope className="mx-auto h-16 w-16 text-gray-400 mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma solicitação</h3>
                 <p className="text-gray-500">Você ainda não enviou nenhuma solicitação.</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Aba Meu Médico */}
+        {abaAtivaMedicos === 'meu-medico' && (
+          <>
+            {medicoResponsavel && (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Meu Médico</h3>
+                  
+                  {/* Card do Médico */}
+                  <div className="border border-gray-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        medicoResponsavel.isVerificado ? 'bg-green-50' : 'bg-red-50'
+                      }`}>
+                        {medicoResponsavel.isVerificado ? (
+                          <ShieldCheck className="h-6 w-6 text-green-600" />
+                        ) : (
+                          <Shield className="h-6 w-6 text-red-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-lg font-bold text-gray-900">
+                          {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-medium">CRM:</span> {medicoResponsavel.crm.estado} {medicoResponsavel.crm.numero}
+                        </p>
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                          medicoResponsavel.isVerificado
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {medicoResponsavel.isVerificado ? (
+                            <>
+                              <ShieldCheck className="h-3 w-3" />
+                              Verificado
+                            </>
+                          ) : (
+                            <>
+                              <Shield className="h-3 w-3" />
+                              Não Verificado
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Botão Abandonar Tratamento */}
+                  <button
+                    onClick={() => setShowModalAbandono(true)}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Abandonar Tratamento
+                  </button>
+                </div>
               </div>
             )}
           </>
@@ -4315,6 +4419,91 @@ export default function MetaPage() {
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Confirmar Desistência
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Abandono de Tratamento */}
+      {showModalAbandono && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Abandonar Tratamento</h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-700">
+                Você está prestes a abandonar seu tratamento com <strong>{medicoResponsavel?.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel?.nome}</strong>.
+              </p>
+              <p className="text-sm text-red-600 font-semibold">
+                ⚠️ Esta ação é irreversível e o médico será notificado.
+              </p>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Motivo do abandono *
+                </label>
+                <select
+                  value={motivoAbandono}
+                  onChange={(e) => setMotivoAbandono(e.target.value)}
+                  className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                >
+                  <option value="">Selecione um motivo</option>
+                  {MOTIVOS_ABANDONO_TRATAMENTO.map((motivo) => (
+                    <option key={motivo} value={motivo}>
+                      {motivo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                * Seus dados serão compartilhados com o médico para melhorar o atendimento.
+              </p>
+            </div>
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowModalAbandono(false);
+                  setMotivoAbandono('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!motivoAbandono || !paciente?.id) {
+                    alert('Por favor, selecione um motivo do abandono.');
+                    return;
+                  }
+
+                  try {
+                    // Atualizar status do paciente para abandono
+                    const pacienteAtualizado = {
+                      ...paciente,
+                      statusTratamento: 'abandono' as const,
+                      motivoAbandono: motivoAbandono
+                    };
+                    await PacienteService.updatePaciente(paciente.id, pacienteAtualizado);
+                    
+                    // Recarregar dados
+                    await loadPaciente();
+                    
+                    alert('Tratamento abandonado com sucesso.');
+                    setShowModalAbandono(false);
+                    setMotivoAbandono('');
+                    setAbaAtivaMedicos('buscar');
+                  } catch (error) {
+                    console.error('Erro ao abandonar tratamento:', error);
+                    alert('Erro ao abandonar tratamento');
+                  }
+                }}
+                disabled={!motivoAbandono}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Confirmar Abandono
               </button>
             </div>
           </div>

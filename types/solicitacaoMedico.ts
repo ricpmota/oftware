@@ -23,3 +23,12 @@ export const MOTIVOS_DESISTENCIA = [
   'Outro motivo'
 ] as const;
 
+// Motivos pré-definidos para abandono de tratamento
+export const MOTIVOS_ABANDONO_TRATAMENTO = [
+  'Não vi resultados esperados',
+  'Efeitos colaterais intoleráveis',
+  'Custo do medicamento elevado',
+  'Problemas de logística/compliance',
+  'Outro motivo'
+] as const;
+

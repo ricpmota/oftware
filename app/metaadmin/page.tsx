@@ -4804,26 +4804,28 @@ export default function MetaAdminPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Editar Paciente</h2>
-                <p className="text-sm text-gray-500 mt-1">{pacienteEditando.nome}</p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <select
-                  value={pacienteEditando.statusTratamento || 'pendente'}
-                  onChange={(e) => {
-                    setPacienteEditando({
-                      ...pacienteEditando,
-                      statusTratamento: e.target.value as 'pendente' | 'em_tratamento' | 'concluido'
-                    });
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900"
-                >
-                  <option value="pendente">Pendente</option>
-                  <option value="em_tratamento">Em Tratamento</option>
-                  <option value="concluido">Concluído</option>
-                </select>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Editar Paciente</h2>
+                  <p className="text-sm text-gray-500 mt-1">{pacienteEditando.nome}</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <select
+                    value={pacienteEditando.statusTratamento || 'pendente'}
+                    onChange={(e) => {
+                      setPacienteEditando({
+                        ...pacienteEditando,
+                        statusTratamento: e.target.value as 'pendente' | 'em_tratamento' | 'concluido' | 'abandono'
+                      });
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900"
+                  >
+                    <option value="pendente">Pendente</option>
+                    <option value="em_tratamento">Em Tratamento</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="abandono">Abandono</option>
+                  </select>
           <button
                   onClick={() => {
                     setShowEditarPacienteModal(false);
@@ -4835,6 +4837,24 @@ export default function MetaAdminPage() {
                   <X size={24} />
                 </button>
               </div>
+              {/* Alerta de abandono */}
+              {pacienteEditando.statusTratamento === 'abandono' && (
+                <div className="mt-3 bg-red-50 border-l-4 border-red-400 p-3">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-800">
+                        <strong>Paciente abandonou o tratamento.</strong> Este registro está bloqueado para edição.
+                        {pacienteEditando.motivoAbandono && (
+                          <span className="block mt-1 italic">Motivo: {pacienteEditando.motivoAbandono}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tabs das 9 Pastas */}
@@ -9839,7 +9859,7 @@ export default function MetaAdminPage() {
                     setLoadingPacientes(false);
                   }
                 }}
-                disabled={loadingPacientes}
+                disabled={loadingPacientes || pacienteEditando?.statusTratamento === 'abandono'}
                 className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
                 {loadingPacientes ? 'Salvando...' : 'Salvar Alterações'}
