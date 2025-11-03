@@ -1121,7 +1121,7 @@ export default function MetaAdminPage() {
   };
 
   useEffect(() => {
-    if (user && activeMenu === 'meu-perfil') {
+    if (user && (activeMenu === 'meu-perfil' || activeMenu === 'estatisticas')) {
       loadMedicoPerfil();
     }
   }, [user, activeMenu, loadMedicoPerfil]);
@@ -1132,6 +1132,13 @@ export default function MetaAdminPage() {
       loadMedicoPerfil();
     }
   }, [user, activeMenu, loadMedicoPerfil]);
+
+  // Carregar pacientes quando menu estatísticas for ativado
+  useEffect(() => {
+    if (user && medicoPerfil && activeMenu === 'estatisticas') {
+      loadPacientes();
+    }
+  }, [user, medicoPerfil, activeMenu, loadPacientes]);
 
   useEffect(() => {
     if (activeMenu === 'monjauro') {
@@ -2246,84 +2253,133 @@ export default function MetaAdminPage() {
                   </button>
                 </div>
               </div>
-            ) : (
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nome
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Telefone
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data de Cadastro
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                    {pacientes.map((paciente) => (
-                      <tr key={paciente.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{paciente.nome}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{paciente.email}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {paciente.dadosIdentificacao?.telefone || '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {paciente.dataCadastro?.toLocaleDateString('pt-BR') || '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            (paciente.statusTratamento || 'pendente') === 'em_tratamento'
-                              ? 'bg-green-100 text-green-800' 
-                              : (paciente.statusTratamento || 'pendente') === 'concluido'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {(paciente.statusTratamento || 'pendente') === 'em_tratamento'
-                              ? 'Em Tratamento'
-                              : (paciente.statusTratamento || 'pendente') === 'concluido'
-                              ? 'Concluído'
-                              : 'Pendente'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => {
-                              setPacienteEditando(paciente);
-                              setShowEditarPacienteModal(true);
-                              setPastaAtiva(1);
-                            }}
-                            className="text-green-600 hover:text-green-900 mr-4 flex items-center"
-                          >
-                            <Edit size={16} className="mr-1" />
-                            Editar
-                          </button>
-                        </td>
+                        ) : (
+              <>
+                {/* Versão Desktop - Tabela */}
+                <div className="hidden lg:block bg-white shadow rounded-lg overflow-hidden">        
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Nome
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Telefone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Data de Cadastro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {pacientes.map((paciente) => (
+                          <tr key={paciente.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{paciente.nome}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-500">{paciente.email}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-500">
+                                {paciente.dadosIdentificacao?.telefone || '-'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-500">
+                                {paciente.dataCadastro?.toLocaleDateString('pt-BR') || '-'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                (paciente.statusTratamento || 'pendente') === 'em_tratamento'
+                                  ? 'bg-green-100 text-green-800'
+                                  : (paciente.statusTratamento || 'pendente') === 'concluido'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {(paciente.statusTratamento || 'pendente') === 'em_tratamento'
+                                  ? 'Em Tratamento'
+                                  : (paciente.statusTratamento || 'pendente') === 'concluido'
+                                  ? 'Concluído'
+                                  : 'Pendente'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <button
+                                onClick={() => {
+                                  setPacienteEditando(paciente);
+                                  setShowEditarPacienteModal(true);
+                                  setPastaAtiva(1);
+                                }}
+                                className="text-green-600 hover:text-green-900 mr-4 flex items-center"
+                              >
+                                <Edit size={16} className="mr-1" />
+                                Editar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+
+                {/* Versão Mobile - Cards */}
+                <div className="lg:hidden space-y-3">
+                  {pacientes.map((paciente) => (
+                    <div key={paciente.id} className="bg-white shadow rounded-lg p-4 border border-gray-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-semibold text-gray-900 truncate">{paciente.nome}</h3>
+                          <p className="text-sm text-gray-500 truncate">{paciente.email}</p>
+                        </div>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ml-2 ${
+                          (paciente.statusTratamento || 'pendente') === 'em_tratamento'
+                            ? 'bg-green-100 text-green-800'
+                            : (paciente.statusTratamento || 'pendente') === 'concluido'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {(paciente.statusTratamento || 'pendente') === 'em_tratamento'
+                            ? 'Em Tratamento'
+                            : (paciente.statusTratamento || 'pendente') === 'concluido'
+                            ? 'Concluído'
+                            : 'Pendente'}
+                        </span>
+                      </div>
+                      <div className="space-y-1 mb-3">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <span className="font-medium mr-2">Telefone:</span>
+                          <span className="text-gray-900">{paciente.dadosIdentificacao?.telefone || '-'}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <span className="font-medium mr-2">Cadastro:</span>
+                          <span className="text-gray-900">{paciente.dataCadastro?.toLocaleDateString('pt-BR') || '-'}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          alert('Para uma melhor experiência de edição, recomendamos usar a versão desktop. Por favor, acesse pelo computador para editar os dados completos do paciente.');
+                        }}
+                        className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                      >
+                        <Edit size={16} className="mr-2" />
+                        Editar (Recomendado no Desktop)
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Lista de Solicitações */}
             {solicitacoesMedico.length > 0 && (
@@ -4633,15 +4689,45 @@ export default function MetaAdminPage() {
           {/* Mobile Header - Only visible on mobile */}
           <div className="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center">
+              <div className="flex items-center flex-1 min-w-0">
                 <img
                   src="/icones/oftware.png"
                   alt="Oftware Logo"
-                  className="h-8 w-8"
+                  className="h-8 w-8 flex-shrink-0"
                 />
-                <span className="ml-2 text-lg font-semibold text-gray-900">Admin</span>
+                <div className="ml-2 flex items-center gap-1.5 min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {medicoPerfil ? `${medicoPerfil.genero === 'F' ? 'Dra.' : 'Dr.'} ${medicoPerfil.nome}` : 'Admin'}
+                  </p>
+                  {medicoPerfil && (
+                    <>
+                      {medicoPerfil.isVerificado ? (
+                        <ShieldCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <Shield className="h-4 w-4 text-red-600 flex-shrink-0" />
+                      )}
+                      <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                        medicoPerfil.isVerificado
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {medicoPerfil.isVerificado ? (
+                          <>
+                            <ShieldCheck className="h-3 w-3" />
+                            Verificado
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="h-3 w-3" />
+                            Não Verificado
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-shrink-0">
                 <button
                   onClick={handleLogout}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
@@ -10965,18 +11051,6 @@ export default function MetaAdminPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
         <div className="flex overflow-x-auto scrollbar-hide items-center py-2 px-2 space-x-1">
           <button
-            onClick={() => setActiveMenu('meu-perfil')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'meu-perfil'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Stethoscope className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Meu Perfil</span>
-          </button>
-
-          <button
             onClick={() => setActiveMenu('estatisticas')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
               activeMenu === 'estatisticas'
@@ -10986,6 +11060,18 @@ export default function MetaAdminPage() {
           >
             <BarChart3 className="w-4 h-4 mb-1" />
             <span className="text-xs font-medium">Estatísticas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('meu-perfil')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'meu-perfil'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Stethoscope className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Meu Perfil</span>
           </button>
 
           <button
