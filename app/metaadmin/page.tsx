@@ -36,6 +36,7 @@ import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 import KpiCard from '@/components/KpiCard';
 import TrendLine from '@/components/TrendLine';
 import StackedBars from '@/components/StackedBars';
+import { CidadeCustomizadaService } from '@/services/cidadeCustomizadaService';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -92,6 +93,7 @@ export default function MetaAdminPage() {
   const [showModalNovaCidade, setShowModalNovaCidade] = useState(false);
   const [novaCidadeEstado, setNovaCidadeEstado] = useState<string>('');
   const [novaCidadeNome, setNovaCidadeNome] = useState<string>('');
+  const [cidadesCustomizadas, setCidadesCustomizadas] = useState<{ estado: string; cidade: string }[]>([]);
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -280,6 +282,89 @@ export default function MetaAdminPage() {
       setLoadingPerfil(false);
     }
   };
+
+  // Função para calcular similaridade entre duas strings (Levenshtein simplificado)
+  const calcularSimilaridade = (str1: string, str2: string): number => {
+    const s1 = str1.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const s2 = str2.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    
+    if (s1 === s2) return 1;
+    
+    // Calcular distância de Levenshtein
+    const len1 = s1.length;
+    const len2 = s2.length;
+    const matrix: number[][] = [];
+    
+    for (let i = 0; i <= len1; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= len2; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= len1; i++) {
+      for (let j = 1; j <= len2; j++) {
+        const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
+        );
+      }
+    }
+    
+    const distancia = matrix[len1][len2];
+    const maxLen = Math.max(len1, len2);
+    return 1 - (distancia / maxLen);
+  };
+
+  // Função para buscar cidades similares
+  const buscarCidadesSimilares = (estado: string, nomeCidade: string): { cidade: string; similaridade: number }[] => {
+    const todasCidades: string[] = [];
+    
+    // Cidades padrão do estado
+    if (estadosCidades[estado as keyof typeof estadosCidades]) {
+      todasCidades.push(...estadosCidades[estado as keyof typeof estadosCidades].cidades);
+    }
+    
+    // Cidades customizadas do estado
+    cidadesCustomizadas
+      .filter(c => c.estado === estado)
+      .forEach(c => {
+        if (!todasCidades.includes(c.cidade)) {
+          todasCidades.push(c.cidade);
+        }
+      });
+    
+    // Calcular similaridade com todas as cidades
+    const similares = todasCidades
+      .map(cidade => ({
+        cidade,
+        similaridade: calcularSimilaridade(nomeCidade, cidade)
+      }))
+      .filter(item => item.similaridade > 0.7 && item.similaridade < 1) // Similaridade entre 70% e 100%
+      .sort((a, b) => b.similaridade - a.similaridade)
+      .slice(0, 3); // Top 3 mais similares
+    
+    return similares;
+  };
+
+  // Função para carregar cidades customizadas
+  const loadCidadesCustomizadas = useCallback(async () => {
+    try {
+      const customizadas = await CidadeCustomizadaService.getAllCidadesCustomizadas();
+      setCidadesCustomizadas(
+        customizadas.map(c => ({ estado: c.estado, cidade: c.cidade }))
+      );
+    } catch (error) {
+      console.error('Erro ao carregar cidades customizadas:', error);
+    }
+  }, []);
+
+  // Carregar cidades customizadas quando o componente montar
+  useEffect(() => {
+    loadCidadesCustomizadas();
+  }, [loadCidadesCustomizadas]);
 
   // Função para adicionar cidade
   const handleAdicionarCidade = () => {
@@ -1900,11 +1985,24 @@ export default function MetaAdminPage() {
                           disabled={!estadoSelecionado}
                         >
                           <option value="">Selecione a cidade</option>
-                          {estadoSelecionado && estadosCidades[estadoSelecionado as keyof typeof estadosCidades].cidades.map((cidade) => (
-                            <option key={cidade} value={cidade}>
-                              {cidade}
-                            </option>
-                          ))}
+                          {estadoSelecionado && (() => {
+                            // Combinar cidades padrão e customizadas
+                            const cidadesPadrao = estadosCidades[estadoSelecionado as keyof typeof estadosCidades]?.cidades || [];
+                            const cidadesCustomEstado = cidadesCustomizadas
+                              .filter(c => c.estado === estadoSelecionado)
+                              .map(c => c.cidade);
+                            
+                            const todasCidades = [...new Set([...cidadesPadrao, ...cidadesCustomEstado])].sort();
+                            
+                            return todasCidades.map((cidade) => {
+                              const isCustomizada = cidadesCustomEstado.includes(cidade);
+                              return (
+                                <option key={cidade} value={cidade}>
+                                  {cidade} {isCustomizada ? '(Customizada)' : ''}
+                                </option>
+                              );
+                            });
+                          })()}
                         </select>
                         
                         <button
@@ -10617,26 +10715,78 @@ export default function MetaAdminPage() {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  if (!novaCidadeEstado || !novaCidadeNome) {
+                onClick={async () => {
+                  if (!novaCidadeEstado || !novaCidadeNome.trim()) {
                     alert('Por favor, preencha todos os campos');
                     return;
                   }
 
-                  // Verificar se a cidade já foi adicionada
+                  const cidadeNomeNormalizado = novaCidadeNome.trim();
+
+                  // Verificar se a cidade já foi adicionada nas cidades do médico
                   const jaExiste = perfilMedico.cidades.some(
-                    c => c.estado === novaCidadeEstado && c.cidade.toLowerCase() === novaCidadeNome.toLowerCase()
+                    c => c.estado === novaCidadeEstado && c.cidade.toLowerCase() === cidadeNomeNormalizado.toLowerCase()
                   );
 
                   if (jaExiste) {
-                    alert('Esta cidade já foi adicionada');
+                    alert('Esta cidade já foi adicionada à sua lista');
                     return;
                   }
 
-                  // Adicionar a cidade
+                  // Buscar cidades similares
+                  const similares = buscarCidadesSimilares(novaCidadeEstado, cidadeNomeNormalizado);
+                  
+                  if (similares.length > 0) {
+                    const mensagemSimilares = similares.map((s, idx) => `${idx + 1}. ${s.cidade} (${Math.round(s.similaridade * 100)}% similar)`).join('\n');
+                    const confirmar = confirm(
+                      `Encontramos cidades similares:\n\n${mensagemSimilares}\n\n` +
+                      `Você digitou: "${cidadeNomeNormalizado}"\n\n` +
+                      `Deseja adicionar mesmo assim? (Clique em Cancelar se uma das cidades acima é a mesma que você quer)`
+                    );
+                    
+                    if (!confirmar) {
+                      return;
+                    }
+                  }
+
+                  // Verificar se já existe exatamente igual (padrão ou customizada)
+                  const todasCidadesEstado: string[] = [];
+                  if (estadosCidades[novaCidadeEstado as keyof typeof estadosCidades]) {
+                    todasCidadesEstado.push(...estadosCidades[novaCidadeEstado as keyof typeof estadosCidades].cidades);
+                  }
+                  cidadesCustomizadas
+                    .filter(c => c.estado === novaCidadeEstado)
+                    .forEach(c => todasCidadesEstado.push(c.cidade));
+
+                  const existeExata = todasCidadesEstado.some(
+                    c => c.toLowerCase() === cidadeNomeNormalizado.toLowerCase()
+                  );
+
+                  if (existeExata) {
+                    alert('Esta cidade já existe na lista. Use a lista padrão para adicioná-la.');
+                    return;
+                  }
+
+                  // Salvar cidade customizada no Firestore (se o usuário estiver logado)
+                  if (user) {
+                    try {
+                      await CidadeCustomizadaService.criarCidadeCustomizada(
+                        novaCidadeEstado,
+                        cidadeNomeNormalizado,
+                        user.uid
+                      );
+                      // Recarregar cidades customizadas
+                      await loadCidadesCustomizadas();
+                    } catch (error) {
+                      console.error('Erro ao salvar cidade customizada:', error);
+                      alert('Erro ao salvar cidade. Tentando adicionar localmente...');
+                    }
+                  }
+
+                  // Adicionar a cidade ao perfil do médico
                   setPerfilMedico({
                     ...perfilMedico,
-                    cidades: [...perfilMedico.cidades, { estado: novaCidadeEstado, cidade: novaCidadeNome }]
+                    cidades: [...perfilMedico.cidades, { estado: novaCidadeEstado, cidade: cidadeNomeNormalizado }]
                   });
 
                   setShowModalNovaCidade(false);

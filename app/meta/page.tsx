@@ -20,6 +20,7 @@ import { Medico } from '@/types/medico';
 import { estadosCidades, estadosList } from '@/data/cidades-brasil';
 import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
 import { SolicitacaoMedico, MOTIVOS_DESISTENCIA } from '@/types/solicitacaoMedico';
+import { CidadeCustomizadaService } from '@/services/cidadeCustomizadaService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 import { getLabRange, Sex } from '@/types/labRanges';
@@ -111,6 +112,22 @@ export default function MetaPage() {
   const [showModalDesistir, setShowModalDesistir] = useState(false);
   const [solicitacaoParaDesistir, setSolicitacaoParaDesistir] = useState<SolicitacaoMedico | null>(null);
   const [motivoDesistencia, setMotivoDesistencia] = useState('');
+  const [cidadesCustomizadas, setCidadesCustomizadas] = useState<{ estado: string; cidade: string }[]>([]);
+
+  // Carregar cidades customizadas
+  useEffect(() => {
+    const loadCidadesCustomizadas = async () => {
+      try {
+        const customizadas = await CidadeCustomizadaService.getAllCidadesCustomizadas();
+        setCidadesCustomizadas(
+          customizadas.map(c => ({ estado: c.estado, cidade: c.cidade }))
+        );
+      } catch (error) {
+        console.error('Erro ao carregar cidades customizadas:', error);
+      }
+    };
+    loadCidadesCustomizadas();
+  }, []);
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -2843,11 +2860,24 @@ export default function MetaPage() {
                     disabled={!estadoBuscaMedico}
                   >
                     <option value="">Selecione a cidade</option>
-                    {estadoBuscaMedico && estadosCidades[estadoBuscaMedico as keyof typeof estadosCidades].cidades.map((cidade) => (
-                      <option key={cidade} value={cidade}>
-                        {cidade}
-                      </option>
-                    ))}
+                    {estadoBuscaMedico && (() => {
+                      // Combinar cidades padrão e customizadas
+                      const cidadesPadrao = estadosCidades[estadoBuscaMedico as keyof typeof estadosCidades]?.cidades || [];
+                      const cidadesCustomEstado = cidadesCustomizadas
+                        .filter(c => c.estado === estadoBuscaMedico)
+                        .map(c => c.cidade);
+                      
+                      const todasCidades = [...new Set([...cidadesPadrao, ...cidadesCustomEstado])].sort();
+                      
+                      return todasCidades.map((cidade) => {
+                        const isCustomizada = cidadesCustomEstado.includes(cidade);
+                        return (
+                          <option key={cidade} value={cidade}>
+                            {cidade} {isCustomizada ? '(Customizada)' : ''}
+                          </option>
+                        );
+                      });
+                    })()}
                   </select>
                 </div>
               </div>
