@@ -2696,6 +2696,181 @@ export default function MetaPage() {
         );
       }
 
+      case 'medicos': {
+        // Função para buscar médicos
+        const buscarMedicos = async () => {
+          if (!estadoBuscaMedico || !cidadeBuscaMedico) {
+            alert('Por favor, selecione estado e cidade');
+            return;
+          }
+
+          setLoadingMedicos(true);
+          try {
+            // Buscar todos os médicos ativos
+            const todosMedicos = await MedicoService.getAllMedicos();
+            
+            // Filtrar por cidade
+            const medicosFiltrados = todosMedicos.filter(medico => {
+              return medico.cidades.some(c => 
+                c.estado === estadoBuscaMedico && c.cidade === cidadeBuscaMedico
+              );
+            });
+
+            setMedicos(medicosFiltrados);
+          } catch (error) {
+            console.error('Erro ao buscar médicos:', error);
+            alert('Erro ao buscar médicos');
+          } finally {
+            setLoadingMedicos(false);
+          }
+        };
+
+        // Função para abrir modal de médico
+        const abrirModalMedico = (medico: Medico) => {
+          setMedicoSelecionado(medico);
+          setShowModalMedico(true);
+        };
+
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Encontrar um Médico</h2>
+              <button
+                onClick={() => setActiveMenu('estatisticas')}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Filtros */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Estado *
+                  </label>
+                  <select
+                    value={estadoBuscaMedico}
+                    onChange={(e) => {
+                      setEstadoBuscaMedico(e.target.value);
+                      setCidadeBuscaMedico('');
+                    }}
+                    className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="">Selecione o estado</option>
+                    {estadosList.map((estado) => (
+                      <option key={estado.sigla} value={estado.sigla}>
+                        {estado.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cidade *
+                  </label>
+                  <select
+                    value={cidadeBuscaMedico}
+                    onChange={(e) => setCidadeBuscaMedico(e.target.value)}
+                    className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    disabled={!estadoBuscaMedico}
+                  >
+                    <option value="">Selecione a cidade</option>
+                    {estadoBuscaMedico && estadosCidades[estadoBuscaMedico as keyof typeof estadosCidades].cidades.map((cidade) => (
+                      <option key={cidade} value={cidade}>
+                        {cidade}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={buscarMedicos}
+                disabled={loadingMedicos || !estadoBuscaMedico || !cidadeBuscaMedico}
+                className="mt-4 w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loadingMedicos ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    Buscando...
+                  </>
+                ) : (
+                  <>
+                    <Stethoscope size={20} />
+                    Buscar Médicos
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Lista de Médicos */}
+            {medicos.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {medicos.length} médico(s) encontrado(s)
+                </h3>
+                {medicos.map((medico) => (
+                  <div key={medico.id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-xl font-bold text-gray-900">
+                          {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                        </h4>
+                        <p className="text-gray-600 mt-1">
+                          CRM-{medico.crm.estado} {medico.crm.numero}
+                        </p>
+                        <p className="text-gray-600 mt-2">
+                          📍 {medico.localizacao.endereco}
+                        </p>
+                        {medico.telefone && (
+                          <p className="text-gray-600 mt-2">
+                            📞 {medico.telefone}
+                          </p>
+                        )}
+                        <div className="mt-3">
+                          <p className="text-sm font-medium text-gray-700">Cidades atendidas:</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {medico.cidades.map((c, idx) => (
+                              <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                                {c.cidade}/{c.estado}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => abrirModalMedico(medico)}
+                        className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+                      >
+                        Solicitar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loadingMedicos && estadoBuscaMedico && cidadeBuscaMedico && medicos.length === 0 && (
+              <div className="bg-white p-8 rounded-lg shadow text-center">
+                <Stethoscope className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum médico encontrado</h3>
+                <p className="text-gray-500">Não há médicos disponíveis nesta cidade.</p>
+              </div>
+            )}
+
+            {!estadoBuscaMedico && !cidadeBuscaMedico && (
+              <div className="bg-white p-8 rounded-lg shadow text-center">
+                <Stethoscope className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Busque por localização</h3>
+                <p className="text-gray-500">Selecione estado e cidade para encontrar médicos próximos.</p>
+              </div>
+            )}
+          </div>
+        );
+      }
 
       default:
         return null;
@@ -3674,6 +3849,116 @@ export default function MetaPage() {
                   {loading ? 'Enviando...' : 'Enviar'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Solicitação de Médico */}
+      {showModalMedico && medicoSelecionado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Solicitar Médico</h3>
+              <button
+                onClick={() => {
+                  setShowModalMedico(false);
+                  setMedicoSelecionado(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="text-lg font-bold text-gray-900 mb-3">
+                  {medicoSelecionado.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoSelecionado.nome}
+                </h4>
+                
+                <div className="space-y-2 text-sm text-gray-700">
+                  <p>
+                    <span className="font-semibold">CRM:</span> {medicoSelecionado.crm.estado}-{medicoSelecionado.crm.numero}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Localização:</span> {medicoSelecionado.localizacao.endereco}
+                  </p>
+                  {medicoSelecionado.telefone && (
+                    <p>
+                      <span className="font-semibold">Telefone:</span> {medicoSelecionado.telefone}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Cidades atendidas:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {medicoSelecionado.cidades.map((c, idx) => (
+                      <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                        {c.cidade}/{c.estado}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-900">
+                  Ao enviar esta solicitação, o médico receberá uma notificação. Você poderá acompanhar o status da solicitação em suas notificações.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowModalMedico(false);
+                  setMedicoSelecionado(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!user || !medicoSelecionado) return;
+
+                  // Verificar se já tem solicitação ativa
+                  const solicitacoesExistentes = await SolicitacaoMedicoService.getSolicitacoesPorPaciente(user.email || '');
+                  const hasActiveSolicitation = solicitacoesExistentes.some(s => 
+                    s.status === 'pendente' || s.status === 'aceita'
+                  );
+
+                  if (hasActiveSolicitation) {
+                    alert('Você já possui uma solicitação ativa ou aceita. Cancele a solicitação anterior antes de fazer uma nova.');
+                    setShowModalMedico(false);
+                    setMedicoSelecionado(null);
+                    return;
+                  }
+
+                  try {
+                    await SolicitacaoMedicoService.criarSolicitacao({
+                      pacienteId: paciente?.id,
+                      pacienteEmail: user.email || '',
+                      pacienteNome: user.displayName || paciente?.nome || 'Paciente',
+                      medicoId: medicoSelecionado.id,
+                      medicoNome: medicoSelecionado.nome,
+                      status: 'pendente'
+                    });
+
+                    alert('Solicitação enviada com sucesso! O médico será notificado.');
+                    setShowModalMedico(false);
+                    setMedicoSelecionado(null);
+                  } catch (error) {
+                    console.error('Erro ao solicitar médico:', error);
+                    alert('Erro ao enviar solicitação');
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Confirmar Solicitação
+              </button>
             </div>
           </div>
         </div>
