@@ -111,11 +111,16 @@ export class SolicitacaoMedicoService {
    */
   static async aceitarSolicitacao(solicitacaoId: string, observacoes?: string): Promise<void> {
     try {
-      await updateDoc(doc(db, 'solicitacoes_medico', solicitacaoId), {
+      const updateData: any = {
         status: 'aceita',
-        aceitaEm: new Date(),
-        observacoes: observacoes || undefined
-      });
+        aceitaEm: new Date()
+      };
+
+      if (observacoes) {
+        updateData.observacoes = observacoes;
+      }
+
+      await updateDoc(doc(db, 'solicitacoes_medico', solicitacaoId), updateData);
     } catch (error) {
       console.error('Erro ao aceitar solicitação:', error);
       throw error;
@@ -127,11 +132,16 @@ export class SolicitacaoMedicoService {
    */
   static async rejeitarSolicitacao(solicitacaoId: string, observacoes?: string): Promise<void> {
     try {
-      await updateDoc(doc(db, 'solicitacoes_medico', solicitacaoId), {
+      const updateData: any = {
         status: 'rejeitada',
-        rejeitadaEm: new Date(),
-        observacoes: observacoes || undefined
-      });
+        rejeitadaEm: new Date()
+      };
+
+      if (observacoes) {
+        updateData.observacoes = observacoes;
+      }
+
+      await updateDoc(doc(db, 'solicitacoes_medico', solicitacaoId), updateData);
     } catch (error) {
       console.error('Erro ao rejeitar solicitação:', error);
       throw error;
