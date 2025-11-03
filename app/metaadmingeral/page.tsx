@@ -1310,106 +1310,132 @@ export default function MetaAdminGeralPage() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      case 'usuarios':
+      case 'medicos':
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Usuários do Firebase Authentication</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Médicos</h2>
             </div>
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Nome/Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Verificado
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Criado em
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {firebaseUsers.map((user) => {
-                    // Buscar o role do usuário no Firestore
-                    const userRole = users.find(u => u.uid === user.uid)?.role || 'user';
-                    
-                    return (
-                      <tr key={user.uid}>
+            {loadingMedicos ? (
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Carregando médicos...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nome
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        CRM
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Telefone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Verificação
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Data Cadastro
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {medicos.map((medico) => (
+                      <tr key={medico.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          <div>
-                            <div className="font-medium">{user.displayName || user.email}</div>
-                            {user.displayName && (
-                              <div className="text-gray-500 text-xs">{user.email}</div>
-                            )}
-                          </div>
+                          {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          CRM {medico.crm.estado} {medico.crm.numero}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {medico.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {medico.telefone || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {medico.isVerificado ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center">
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Verificado
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Não Verificado
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span className={`px-2 py-1 text-xs rounded-full ${
-                            userRole === 'admin' 
-                              ? 'bg-red-100 text-red-800' 
-                              : userRole === 'residente'
-                              ? 'bg-blue-100 text-blue-800'
-                              : userRole === 'recepcao'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {userRole === 'admin' ? 'Admin' : 
-                             userRole === 'residente' ? 'Residente' :
-                             userRole === 'recepcao' ? 'Recepção' : 'User'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            user.emailVerified 
+                            medico.status === 'ativo'
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {user.emailVerified ? 'Verificado' : 'Não verificado'}
+                            {medico.status === 'ativo' ? 'Ativo' : 'Inativo'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            user.disabled 
-                              ? 'bg-red-100 text-red-800' 
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {user.disabled ? 'Desabilitado' : 'Ativo'}
-                          </span>
+                          {medico.dataCadastro ? new Date(medico.dataCadastro).toLocaleDateString('pt-BR') : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {user.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString('pt-BR') : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <button
-                            onClick={() => handleEditUser(user)}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
-                          >
-                            Editar
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleToggleVerificacaoMedico(medico.id, medico.isVerificado || false)}
+                              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                medico.isVerificado
+                                  ? 'bg-orange-600 text-white hover:bg-orange-700'
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}
+                            >
+                              {medico.isVerificado ? 'Desverificar' : 'Verificar'}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Tem certeza que deseja excluir o médico ${medico.nome}? Esta ação não pode ser desfeita.`)) {
+                                  try {
+                                    await MedicoService.deleteMedico(medico.id);
+                                    await loadMedicos();
+                                    setMessage('Médico excluído com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao excluir médico:', error);
+                                    setMessage('Erro ao excluir médico');
+                                  }
+                                }
+                              }}
+                              className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
+                            >
+                              Excluir
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {firebaseUsers.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <p>Nenhum usuário encontrado no Firebase Authentication</p>
-                </div>
-              )}
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+                {medicos.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Nenhum médico encontrado</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
 
@@ -2318,551 +2344,185 @@ export default function MetaAdminGeralPage() {
                 );
 
       case 'estatisticas': {
-        // Calcular escalas filtradas baseado no período selecionado
-        const agora = new Date();
-        let dataInicio: Date;
-        let dataFim: Date;
+        // Calcular estatísticas de médicos
+        const totalMedicos = medicos.length;
+        const medicosVerificados = medicos.filter(m => m.isVerificado).length;
+        const medicosNaoVerificados = totalMedicos - medicosVerificados;
+        const totalPacientes = pacientes.length;
 
-        switch (filtroPeriodo) {
-          case 'semana':
-            dataInicio = new Date(agora);
-            dataInicio.setDate(agora.getDate() - agora.getDay() + 1);
-            dataInicio.setHours(0, 0, 0, 0);
-            
-            dataFim = new Date(dataInicio);
-            dataFim.setDate(dataInicio.getDate() + 6);
-            dataFim.setHours(23, 59, 59, 999);
-            break;
-          
-          case 'mes':
-            dataInicio = new Date(agora.getFullYear(), agora.getMonth(), 1);
-            dataInicio.setHours(0, 0, 0, 0);
-            
-            dataFim = new Date(agora.getFullYear(), agora.getMonth() + 1, 0);
-            dataFim.setHours(23, 59, 59, 999);
-            break;
-          
-          case 'ano':
-            dataInicio = new Date(agora.getFullYear(), 0, 1);
-            dataInicio.setHours(0, 0, 0, 0);
-            
-            dataFim = new Date(agora.getFullYear(), 11, 31);
-            dataFim.setHours(23, 59, 59, 999);
-            break;
-          
-          default:
-            dataInicio = new Date(agora);
-            dataInicio.setDate(agora.getDate() - agora.getDay() + 1);
-            dataInicio.setHours(0, 0, 0, 0);
-            
-            dataFim = new Date(dataInicio);
-            dataFim.setDate(dataInicio.getDate() + 6);
-            dataFim.setHours(23, 59, 59, 999);
-        }
+        // Calcular abandonos por motivo
+        const abandonosPorMotivo: Record<string, number> = {};
+        pacientes.forEach(paciente => {
+          if (paciente.motivoAbandono) {
+            abandonosPorMotivo[paciente.motivoAbandono] = (abandonosPorMotivo[paciente.motivoAbandono] || 0) + 1;
+          }
+        });
+        const rankingAbandonos = Object.entries(abandonosPorMotivo)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10);
 
-        const escalasFiltradas = escalas.filter(escala => {
-          const dataInicioEscala = new Date(escala.dataInicio);
-          return dataInicioEscala >= dataInicio && dataInicioEscala <= dataFim;
+        // Calcular ranking de médicos por número de pacientes
+        const rankingMedicos: Record<string, {
+          medico: Medico;
+          pendente: number;
+          emTratamento: number;
+          concluido: number;
+          abandono: number;
+          total: number;
+        }> = {};
+
+        pacientes.forEach(paciente => {
+          const medicoId = paciente.medicoResponsavelId;
+          if (medicoId) {
+            if (!rankingMedicos[medicoId]) {
+              const medico = medicos.find(m => m.id === medicoId);
+              if (medico) {
+                rankingMedicos[medicoId] = {
+                  medico,
+                  pendente: 0,
+                  emTratamento: 0,
+                  concluido: 0,
+                  abandono: 0,
+                  total: 0
+                };
+              }
+            }
+            if (rankingMedicos[medicoId]) {
+              const status = paciente.statusTratamento || 'pendente';
+              if (status === 'pendente') rankingMedicos[medicoId].pendente++;
+              else if (status === 'em_tratamento') rankingMedicos[medicoId].emTratamento++;
+              else if (status === 'concluido') rankingMedicos[medicoId].concluido++;
+              else if (status === 'abandono') rankingMedicos[medicoId].abandono++;
+              rankingMedicos[medicoId].total++;
+            }
+          }
         });
 
-        const estatisticas = calcularEstatisticasDetalhadas(escalasFiltradas);
-        
+        const rankingMedicosOrdenado = Object.values(rankingMedicos)
+          .sort((a, b) => b.total - a.total);
+
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Estatísticas Detalhadas</h2>
-              <div className="flex items-center space-x-4">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setFiltroPeriodo('semana')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      filtroPeriodo === 'semana'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Semana
-                  </button>
-                  <button
-                    onClick={() => setFiltroPeriodo('mes')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      filtroPeriodo === 'mes'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Mês
-                  </button>
-                  <button
-                    onClick={() => setFiltroPeriodo('ano')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      filtroPeriodo === 'ano'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Ano
-                  </button>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {filtroPeriodo === 'semana' && 'Semana atual'}
-                  {filtroPeriodo === 'mes' && 'Mês atual'}
-                  {filtroPeriodo === 'ano' && 'Ano atual'}
-                </div>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Estatísticas</h2>
             </div>
 
             {/* Cards de resumo */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-white p-6 rounded-lg shadow">
                 <div className="flex items-center">
-                  <Users className="h-8 w-8 text-green-600" />
+                  <Stethoscope className="h-8 w-8 text-green-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total de Usuários</p>
-                    <p className="text-2xl font-semibold text-gray-900">{users.length}</p>
+                    <p className="text-sm font-medium text-gray-500">Total de Médicos</p>
+                    <p className="text-2xl font-semibold text-gray-900">{totalMedicos}</p>
                   </div>
                 </div>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
                 <div className="flex items-center">
-                  <UserPlus className="h-8 w-8 text-blue-600" />
+                  <ShieldCheck className="h-8 w-8 text-blue-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Residentes</p>
-                    <p className="text-2xl font-semibold text-gray-900">{residentes.length}</p>
+                    <p className="text-sm font-medium text-gray-500">Médicos Verificados</p>
+                    <p className="text-2xl font-semibold text-gray-900">{medicosVerificados}</p>
                   </div>
                 </div>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
                 <div className="flex items-center">
-                  <MapPin className="h-8 w-8 text-purple-600" />
+                  <Shield className="h-8 w-8 text-orange-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Locais</p>
-                    <p className="text-2xl font-semibold text-gray-900">{locais.length}</p>
+                    <p className="text-sm font-medium text-gray-500">Médicos não Verificados</p>
+                    <p className="text-2xl font-semibold text-gray-900">{medicosNaoVerificados}</p>
                   </div>
                 </div>
               </div>
               <div className="bg-white p-6 rounded-lg shadow">
                 <div className="flex items-center">
-                  <Settings className="h-8 w-8 text-orange-600" />
+                  <Users className="h-8 w-8 text-purple-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Serviços</p>
-                    <p className="text-2xl font-semibold text-gray-900">{servicos.length}</p>
+                    <p className="text-sm font-medium text-gray-500">Total de Pacientes</p>
+                    <p className="text-2xl font-semibold text-gray-900">{totalPacientes}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Somatórios por nível */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              {/* R1 Somatório */}
-              <div className="bg-blue-50 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-blue-900">R1 - Total</h3>
-                  <span className="px-2 py-1 bg-blue-200 text-blue-800 text-xs font-medium rounded-full">
-                    {estatisticas.totalResidentes.R1} residentes
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-blue-700">Manhã:</span>
-                    <span className="font-semibold text-blue-900">{estatisticas.somatoriosPorNivel.R1.manha}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-blue-700">Tarde:</span>
-                    <span className="font-semibold text-blue-900">{estatisticas.somatoriosPorNivel.R1.tarde}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-blue-700">Folgas:</span>
-                    <span className="font-semibold text-green-600">{estatisticas.somatoriosPorNivel.R1.folgas}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-blue-200 pt-2">
-                    <span className="text-sm font-medium text-blue-800">Total:</span>
-                    <span className="text-lg font-bold text-blue-900">{estatisticas.somatoriosPorNivel.R1.total}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* R2 Somatório */}
-              <div className="bg-green-50 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-green-900">R2 - Total</h3>
-                  <span className="px-2 py-1 bg-green-200 text-green-800 text-xs font-medium rounded-full">
-                    {estatisticas.totalResidentes.R2} residentes
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-green-700">Manhã:</span>
-                    <span className="font-semibold text-green-900">{estatisticas.somatoriosPorNivel.R2.manha}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-green-700">Tarde:</span>
-                    <span className="font-semibold text-green-900">{estatisticas.somatoriosPorNivel.R2.tarde}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-green-700">Folgas:</span>
-                    <span className="font-semibold text-green-600">{estatisticas.somatoriosPorNivel.R2.folgas}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-green-200 pt-2">
-                    <span className="text-sm font-medium text-green-800">Total:</span>
-                    <span className="text-lg font-bold text-green-900">{estatisticas.somatoriosPorNivel.R2.total}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* R3 Somatório */}
-              <div className="bg-purple-50 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-purple-900">R3 - Total</h3>
-                  <span className="px-2 py-1 bg-purple-200 text-purple-800 text-xs font-medium rounded-full">
-                    {estatisticas.totalResidentes.R3} residentes
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-purple-700">Manhã:</span>
-                    <span className="font-semibold text-purple-900">{estatisticas.somatoriosPorNivel.R3.manha}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-purple-700">Tarde:</span>
-                    <span className="font-semibold text-purple-900">{estatisticas.somatoriosPorNivel.R3.tarde}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-purple-700">Folgas:</span>
-                    <span className="font-semibold text-green-600">{estatisticas.somatoriosPorNivel.R3.folgas}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-purple-200 pt-2">
-                    <span className="text-sm font-medium text-purple-800">Total:</span>
-                    <span className="text-lg font-bold text-purple-900">{estatisticas.somatoriosPorNivel.R3.total}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Estatísticas por nível */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* R1 */}
+            {/* Ranking de abandonos por motivo */}
+            {rankingAbandonos.length > 0 && (
               <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">R1 ({estatisticas.totalResidentes.R1})</h3>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                    {estatisticas.totalResidentes.R1} residentes
-                  </span>
-                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ranking de Abandonos por Motivo</h3>
                 <div className="space-y-3">
-                  {Object.keys(estatisticas.servicosPorResidente.R1).length > 0 ? (
-                    Object.entries(estatisticas.servicosPorResidente.R1).map(([nome, servicos]) => {
-                      const folgas = estatisticas.folgasPorResidente.R1[nome] || 0;
-                      return (
-                        <div key={nome} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium text-gray-900">{nome}</p>
-                            <p className="text-sm text-gray-500">
-                              {servicos.manha} manhã • {servicos.tarde} tarde
-                              {folgas > 0 && <span className="text-green-600 ml-2">• {folgas} folga{folgas > 1 ? 's' : ''}</span>}
-                            </p>
-                          </div>
-                          <span className="text-lg font-semibold text-blue-600">{servicos.total}</span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-gray-500 text-sm">Nenhum serviço atribuído</p>
-                  )}
+                  {rankingAbandonos.map(([motivo, quantidade]: [string, number], index: number) => (
+                    <div key={motivo} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                          index === 0 ? 'bg-yellow-500 text-white' :
+                          index === 1 ? 'bg-gray-400 text-white' :
+                          index === 2 ? 'bg-orange-500 text-white' :
+                          'bg-gray-200 text-gray-700'
+                        }`}>
+                          {index + 1}
+                        </span>
+                        <span className="font-medium text-gray-900">{motivo}</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-900">{quantidade}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
+            )}
 
-              {/* R2 */}
+            {/* Ranking de médicos por número de pacientes */}
+            {rankingMedicosOrdenado.length > 0 && (
               <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">R2 ({estatisticas.totalResidentes.R2})</h3>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                    {estatisticas.totalResidentes.R2} residentes
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {Object.keys(estatisticas.servicosPorResidente.R2).length > 0 ? (
-                    Object.entries(estatisticas.servicosPorResidente.R2).map(([nome, servicos]) => {
-                      const folgas = estatisticas.folgasPorResidente.R2[nome] || 0;
-                      return (
-                        <div key={nome} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium text-gray-900">{nome}</p>
-                            <p className="text-sm text-gray-500">
-                              {servicos.manha} manhã • {servicos.tarde} tarde
-                              {folgas > 0 && <span className="text-green-600 ml-2">• {folgas} folga{folgas > 1 ? 's' : ''}</span>}
-                            </p>
-                          </div>
-                          <span className="text-lg font-semibold text-green-600">{servicos.total}</span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-gray-500 text-sm">Nenhum serviço atribuído</p>
-                  )}
-                </div>
-              </div>
-
-              {/* R3 */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">R3 ({estatisticas.totalResidentes.R3})</h3>
-                  <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
-                    {estatisticas.totalResidentes.R3} residentes
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {Object.keys(estatisticas.servicosPorResidente.R3).length > 0 ? (
-                    Object.entries(estatisticas.servicosPorResidente.R3).map(([nome, servicos]) => {
-                      const folgas = estatisticas.folgasPorResidente.R3[nome] || 0;
-                      return (
-                        <div key={nome} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium text-gray-900">{nome}</p>
-                            <p className="text-sm text-gray-500">
-                              {servicos.manha} manhã • {servicos.tarde} tarde
-                              {folgas > 0 && <span className="text-green-600 ml-2">• {folgas} folga{folgas > 1 ? 's' : ''}</span>}
-                            </p>
-                          </div>
-                          <span className="text-lg font-semibold text-purple-600">{servicos.total}</span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-gray-500 text-sm">Nenhum serviço atribuído</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Brechas nas escalas */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Brechas nas Escalas - {filtroPeriodo === 'semana' ? 'Semana Atual' : filtroPeriodo === 'mes' ? 'Mês Atual' : 'Ano Atual'} (Por Turno)
-              </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* R1 Brechas */}
-                <div>
-                  <h4 className="text-md font-medium text-blue-600 mb-3">R1 - Turnos sem serviços</h4>
-                  {Object.keys(estatisticas.brechasPorNivel.R1).length > 0 ? (
-                    <div className="space-y-2">
-                      {Object.entries(estatisticas.brechasPorNivel.R1).map(([nome, turnos]) => (
-                        <div key={nome} className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="font-medium text-red-800">{nome}</p>
-                          <div className="text-sm text-red-600 mt-1">
-                            {turnos.map(({ dia, turno }) => (
-                              <span key={`${dia}-${turno}`} className="inline-block mr-2 mb-1 px-2 py-1 bg-red-100 rounded text-xs">
-                                {dia.charAt(0).toUpperCase() + dia.slice(1)} - {turno === 'manha' ? 'Manhã' : 'Tarde'}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ranking de Médicos por Número de Pacientes</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posição</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Médico</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pendente</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Em Tratamento</th>
+                                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Concluído</th>
+                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Abandono</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {rankingMedicosOrdenado.map((item, index) => (
+                        <tr key={item.medico.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center inline-block ${
+                              index === 0 ? 'bg-yellow-500 text-white' :
+                              index === 1 ? 'bg-gray-400 text-white' :
+                              index === 2 ? 'bg-orange-500 text-white' :
+                              'bg-gray-200 text-gray-700'
+                            }`}>
+                              {index + 1}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {item.medico.genero === 'F' ? 'Dra.' : 'Dr.'} {item.medico.nome}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{item.pendente}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-blue-600 font-medium">{item.emTratamento}</td>
+                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-green-600 font-medium">{item.concluido}</td>
+                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-red-600 font-medium">{item.abandono}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900">{item.total}</td>
+                        </tr>
                       ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">Todos os R1 têm serviços em todos os turnos</p>
-                  )}
-                </div>
-
-                {/* R2 Brechas */}
-                <div>
-                  <h4 className="text-md font-medium text-green-600 mb-3">R2 - Turnos sem serviços</h4>
-                  {Object.keys(estatisticas.brechasPorNivel.R2).length > 0 ? (
-                    <div className="space-y-2">
-                      {Object.entries(estatisticas.brechasPorNivel.R2).map(([nome, turnos]) => (
-                        <div key={nome} className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="font-medium text-red-800">{nome}</p>
-                          <div className="text-sm text-red-600 mt-1">
-                            {turnos.map(({ dia, turno }) => (
-                              <span key={`${dia}-${turno}`} className="inline-block mr-2 mb-1 px-2 py-1 bg-red-100 rounded text-xs">
-                                {dia.charAt(0).toUpperCase() + dia.slice(1)} - {turno === 'manha' ? 'Manhã' : 'Tarde'}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">Todos os R2 têm serviços em todos os turnos</p>
-                  )}
-                </div>
-
-                {/* R3 Brechas */}
-                <div>
-                  <h4 className="text-md font-medium text-purple-600 mb-3">R3 - Turnos sem serviços</h4>
-                  {Object.keys(estatisticas.brechasPorNivel.R3).length > 0 ? (
-                    <div className="space-y-2">
-                      {Object.entries(estatisticas.brechasPorNivel.R3).map(([nome, turnos]) => (
-                        <div key={nome} className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="font-medium text-red-800">{nome}</p>
-                          <div className="text-sm text-red-600 mt-1">
-                            {turnos.map(({ dia, turno }) => (
-                              <span key={`${dia}-${turno}`} className="inline-block mr-2 mb-1 px-2 py-1 bg-red-100 rounded text-xs">
-                                {dia.charAt(0).toUpperCase() + dia.slice(1)} - {turno === 'manha' ? 'Manhã' : 'Tarde'}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">Todos os R3 têm serviços em todos os turnos</p>
-                  )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Tabela de Serviços por Residente */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribuição de Serviços por Residente</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-2 py-2 text-left font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
-                        Serviço
-                      </th>
-                      <th className="px-2 py-2 text-center font-medium text-gray-500 uppercase tracking-wider">
-                        Local
-                      </th>
-                      <th className="px-2 py-2 text-center font-medium text-blue-600 uppercase tracking-wider border-l-2 border-blue-300">
-                        R1
-                      </th>
-                      {residentes
-                        .filter(r => r.nivel === 'R1')
-                        .map(residente => (
-                          <th key={residente.id} className="px-1 py-2 text-center font-medium text-blue-600 text-xs">
-                            {residente.nome}
-                          </th>
-                        ))}
-                      <th className="px-2 py-2 text-center font-medium text-green-600 uppercase tracking-wider border-l-2 border-green-300">
-                        R2
-                      </th>
-                      {residentes
-                        .filter(r => r.nivel === 'R2')
-                        .map(residente => (
-                          <th key={residente.id} className="px-1 py-2 text-center font-medium text-green-600 text-xs">
-                            {residente.nome}
-                          </th>
-                        ))}
-                      <th className="px-2 py-2 text-center font-medium text-purple-600 uppercase tracking-wider border-l-2 border-purple-300">
-                        R3
-                      </th>
-                      {residentes
-                        .filter(r => r.nivel === 'R3')
-                        .map(residente => (
-                          <th key={residente.id} className="px-1 py-2 text-center font-medium text-purple-600 text-xs">
-                            {residente.nome}
-                          </th>
-                        ))}
-                      <th className="px-2 py-2 text-center font-medium text-gray-500 uppercase tracking-wider border-l-2 border-gray-300">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {servicos
-                      .map(servico => {
-                        const local = locais.find(l => l.id === servico.localId);
-                        return { servico, local };
-                      })
-                      .sort((a, b) => {
-                        // Primeiro ordena por local (alfabético)
-                        const localA = a.local?.nome || 'ZZZ';
-                        const localB = b.local?.nome || 'ZZZ';
-                        if (localA !== localB) {
-                          return localA.localeCompare(localB);
-                        }
-                        // Se o local for igual, ordena por serviço (alfabético)
-                        return a.servico.nome.localeCompare(b.servico.nome);
-                      })
-                      .map(({ servico, local }, index) => {
-                        const servicoResidentes = new Set<string>();
-                        
-                        // Contar quantas vezes cada residente aparece neste serviço
-                        const contagemResidentes: Record<string, number> = {};
-                        
-                        escalasFiltradas.forEach(escala => {
-                          Object.values(escala.dias).forEach(dia => {
-                            if (Array.isArray(dia)) {
-                              dia.forEach(servicoDia => {
-                                if (servicoDia.servicoId === servico.id) {
-                                  servicoDia.residentes.forEach(email => {
-                                    const residente = residentes.find(r => r.email === email);
-                                    if (residente) {
-                                      servicoResidentes.add(residente.nome);
-                                      contagemResidentes[residente.nome] = (contagemResidentes[residente.nome] || 0) + 1;
-                                    }
-                                  });
-                                }
-                              });
-                            }
-                          });
-                        });
-
-                        const totalServicos = Object.values(contagemResidentes).reduce((sum, count) => sum + count, 0);
-
-                        // Calcular totais por nível
-                        const totalR1 = residentes
-                          .filter(r => r.nivel === 'R1')
-                          .reduce((sum, residente) => sum + (contagemResidentes[residente.nome] || 0), 0);
-                        
-                        const totalR2 = residentes
-                          .filter(r => r.nivel === 'R2')
-                          .reduce((sum, residente) => sum + (contagemResidentes[residente.nome] || 0), 0);
-                        
-                        const totalR3 = residentes
-                          .filter(r => r.nivel === 'R3')
-                          .reduce((sum, residente) => sum + (contagemResidentes[residente.nome] || 0), 0);
-
-                        return (
-                          <tr key={servico.id} className={`hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <td className={`px-2 py-2 text-sm font-medium text-gray-900 sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                              {servico.nome}
-                            </td>
-                            <td className="px-2 py-2 text-sm text-black text-center">
-                              {local?.nome || 'N/A'}
-                            </td>
-                            <td className="px-2 py-2 text-center font-semibold text-blue-600 border-l-2 border-blue-300">
-                              {totalR1}
-                            </td>
-                            {residentes
-                              .filter(r => r.nivel === 'R1')
-                              .map(residente => (
-                                <td key={residente.id} className="px-1 py-2 text-center text-xs text-black">
-                                  {contagemResidentes[residente.nome] || 0}
-                                </td>
-                              ))}
-                            <td className="px-2 py-2 text-center font-semibold text-green-600 border-l-2 border-green-300">
-                              {totalR2}
-                            </td>
-                            {residentes
-                              .filter(r => r.nivel === 'R2')
-                              .map(residente => (
-                                <td key={residente.id} className="px-1 py-2 text-center text-xs text-black">
-                                  {contagemResidentes[residente.nome] || 0}
-                                </td>
-                              ))}
-                            <td className="px-2 py-2 text-center font-semibold text-purple-600 border-l-2 border-purple-300">
-                              {totalR3}
-                            </td>
-                            {residentes
-                              .filter(r => r.nivel === 'R3')
-                              .map(residente => (
-                                <td key={residente.id} className="px-1 py-2 text-center text-xs text-black">
-                                  {contagemResidentes[residente.nome] || 0}
-                                </td>
-                              ))}
-                            <td className="px-2 py-2 text-center font-semibold text-black border-l-2 border-gray-300">
-                              {totalServicos}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
+            {rankingMedicosOrdenado.length === 0 && (
+              <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+                Nenhum médico encontrado com pacientes cadastrados.
               </div>
-            </div>
+            )}
           </div>
         );
       }

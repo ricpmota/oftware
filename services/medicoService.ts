@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Medico } from '@/types/medico';
 
@@ -154,6 +154,16 @@ export class MedicoService {
       );
     } catch (error) {
       console.error('Erro ao buscar médicos por cidade:', error);
+      throw error;
+    }
+  }
+
+  // Deletar médico
+  static async deleteMedico(medicoId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'medicos', medicoId));
+    } catch (error) {
+      console.error('Erro ao deletar médico:', error);
       throw error;
     }
   }
