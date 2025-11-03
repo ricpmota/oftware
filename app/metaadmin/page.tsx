@@ -7315,22 +7315,7 @@ export default function MetaAdminPage() {
 
               {pastaAtiva === 4 && (
                 <div className="space-y-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Exames Laboratoriais</h3>
-                    <button
-                      onClick={() => {
-                        setShowAdicionarExameModal(true);
-                        // Inicializar novo exame com a estrutura vazia
-                        setNovoExameData({
-                          dataColeta: new Date().toISOString().split('T')[0]
-                        });
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
-                    >
-                      <Plus size={16} />
-                      Adicionar Exames
-                    </button>
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Exames Laboratoriais</h3>
                   
                   {/* Mapeamento entre campos do paciente e chaves de labRanges */}
                   {(() => {
@@ -7437,40 +7422,55 @@ export default function MetaAdminPage() {
                     
                     return (
                       <div className="space-y-6">
-                        {/* Seletor de Data */}
-                        <div className="border border-gray-200 rounded-lg p-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Selecionar Exame por Data
-                          </label>
-                          <select
-                            value={dataSelecionada}
-                            onChange={(e) => {
-                              setExameDataSelecionada(e.target.value);
+                        {/* Seletor de Data e Botão Adicionar lado a lado */}
+                        <div className="flex items-end gap-3">
+                          <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Selecionar Exame por Data
+                            </label>
+                            <select
+                              value={dataSelecionada}
+                              onChange={(e) => {
+                                setExameDataSelecionada(e.target.value);
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                            >
+                              {examesOrdenados.map((exame, idx) => {
+                                const dataExame = safeDateToString(exame.dataColeta);
+                                // Formatar para exibição
+                                let dataFormatada = '';
+                                if (dataExame) {
+                                  try {
+                                    const d = new Date(dataExame);
+                                    if (!isNaN(d.getTime())) {
+                                      dataFormatada = d.toLocaleDateString('pt-BR');
+                                    }
+                                  } catch {}
+                                }
+                                return (
+                                  <option key={idx} value={dataExame}>
+                                    {dataFormatada}
+                                  </option>
+                                );
+                              })}
+                              {examesOrdenados.length === 0 && (
+                                <option value="">Nenhum exame cadastrado</option>
+                              )}
+                            </select>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setShowAdicionarExameModal(true);
+                              // Inicializar novo exame com a estrutura vazia
+                              setNovoExameData({
+                                dataColeta: new Date().toISOString().split('T')[0]
+                              });
                             }}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 whitespace-nowrap"
                           >
-                            {examesOrdenados.map((exame, idx) => {
-                              const dataExame = safeDateToString(exame.dataColeta);
-                              // Formatar para exibição
-                              let dataFormatada = '';
-                              if (dataExame) {
-                                try {
-                                  const d = new Date(dataExame);
-                                  if (!isNaN(d.getTime())) {
-                                    dataFormatada = d.toLocaleDateString('pt-BR');
-                                  }
-                                } catch {}
-                              }
-                              return (
-                                <option key={idx} value={dataExame}>
-                                  {idx === 0 ? '🏥 Basal' : '📅'} {dataFormatada}
-                                </option>
-                              );
-                            })}
-                            {examesOrdenados.length === 0 && (
-                              <option value="">Nenhum exame cadastrado</option>
-                            )}
-                          </select>
+                            <Plus size={16} />
+                            Adicionar Exames
+                          </button>
                         </div>
                         
                         {/* Renderizar cada seção lado a lado */}
