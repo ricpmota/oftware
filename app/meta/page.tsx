@@ -93,6 +93,7 @@ export default function MetaPage() {
   
   // Estados para exames
   const [exameDataSelecionada, setExameDataSelecionada] = useState('');
+  const [showSeletorFlutuanteExames, setShowSeletorFlutuanteExames] = useState(false);
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -982,45 +983,10 @@ export default function MetaPage() {
 
         return (
           <div>
-            {/* Seletor de Data - Fixo no topo */}
-            <div className="sticky top-0 z-10 bg-white p-4 border-b border-gray-200 shadow-sm -mx-3 lg:-mx-4">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Exames Laboratoriais</h2>
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selecionar Exame por Data
-                  </label>
-                  <select
-                    value={dataSelecionada}
-                    onChange={(e) => {
-                      setExameDataSelecionada(e.target.value);
-                    }}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
-                  >
-                    {examesOrdenados.map((exame, idx) => {
-                      const dataExame = safeDateToString(exame.dataColeta);
-                      let dataFormatada = '';
-                      if (dataExame) {
-                        try {
-                          const d = new Date(dataExame);
-                          if (!isNaN(d.getTime())) {
-                            dataFormatada = d.toLocaleDateString('pt-BR');
-                          }
-                        } catch {}
-                      }
-                      return (
-                        <option key={idx} value={dataExame}>
-                          {dataFormatada}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Exames Laboratoriais</h2>
             
             {/* Exibição dos exames */}
-            <div className="space-y-6 pb-4 mt-4">
+            <div className="space-y-6 pb-4">
               {todosOsCampos.map((secao, idxSecao) => (
                 <div key={idxSecao} className="border border-gray-200 rounded-lg p-4">
                   <h4 className="font-semibold text-gray-800 mb-4">{secao.section}</h4>
@@ -2746,6 +2712,103 @@ export default function MetaPage() {
 
         </div>
       </div>
+
+      {/* Botão Flutuante para Selecionar Data dos Exames */}
+      {(() => {
+        const examesFlutuante = paciente?.examesLaboratoriais || [];
+        
+        if (activeMenu !== 'exames' || examesFlutuante.length === 0) {
+          return null;
+        }
+        
+        const safeDateToStringFlutuante = (date: any): string => {
+          if (!date) return '';
+          try {
+            let d: Date;
+            if (date instanceof Date) {
+              d = date;
+            } else if (typeof date === 'string') {
+              d = new Date(date);
+            } else if (date.toDate) {
+              d = date.toDate();
+            } else {
+              d = new Date(date);
+            }
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+          } catch {
+            return '';
+          }
+        };
+        
+        const examesOrdenadosFlutuante = [...examesFlutuante].sort((a, b) => {
+          const dateA = safeDateToStringFlutuante(a.dataColeta);
+          const dateB = safeDateToStringFlutuante(b.dataColeta);
+          return dateB.localeCompare(dateA);
+        }).filter(e => safeDateToStringFlutuante(e.dataColeta));
+        
+        const dataInicialFlutuante = examesOrdenadosFlutuante.length > 0 
+          ? safeDateToStringFlutuante(examesOrdenadosFlutuante[0].dataColeta)
+          : '';
+        
+        const dataSelecionadaFlutuante = exameDataSelecionada || dataInicialFlutuante;
+        
+        return (
+          <>
+            {/* Botão flutuante */}
+            <button
+              onClick={() => setShowSeletorFlutuanteExames(!showSeletorFlutuanteExames)}
+              className="fixed bottom-20 right-4 bg-green-600 text-white rounded-full w-14 h-14 shadow-lg hover:bg-green-700 transition-colors flex items-center justify-center z-40"
+            >
+              <Calendar className="w-6 h-6" />
+            </button>
+            
+            {/* Seletor flutuante */}
+            {showSeletorFlutuanteExames && (
+              <div className="fixed bottom-32 right-4 bg-white rounded-lg shadow-xl p-4 z-40 border border-gray-200 w-64">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-medium text-gray-700">
+                    Selecionar Exame
+                  </label>
+                  <button
+                    onClick={() => setShowSeletorFlutuanteExames(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <select
+                  value={dataSelecionadaFlutuante}
+                  onChange={(e) => {
+                    setExameDataSelecionada(e.target.value);
+                    setShowSeletorFlutuanteExames(false);
+                  }}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 text-sm"
+                >
+                  {examesOrdenadosFlutuante.map((exame, idx) => {
+                    const dataExame = safeDateToStringFlutuante(exame.dataColeta);
+                    let dataFormatada = '';
+                    if (dataExame) {
+                      try {
+                        const d = new Date(dataExame);
+                        if (!isNaN(d.getTime())) {
+                          dataFormatada = d.toLocaleDateString('pt-BR');
+                        }
+                      } catch {}
+                    }
+                    
+                    return (
+                      <option key={idx} value={dataExame}>
+                        {dataFormatada}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Modal de Mensagens */}
       {showMensagensModal && (
