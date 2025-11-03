@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -19,6 +19,9 @@ import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
+import { getLabRange, Sex } from '@/types/labRanges';
+import LabRangeBar from '@/components/LabRangeBar';
+import TrendLine from '@/components/TrendLine';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -87,6 +90,9 @@ export default function MetaPage() {
   
   // Estados para médico responsável
   const [medicoResponsavel, setMedicoResponsavel] = useState<Medico | null>(null);
+  
+  // Estados para exames
+  const [exameDataSelecionada, setExameDataSelecionada] = useState('');
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -260,7 +266,7 @@ export default function MetaPage() {
           console.error('Erro ao carregar médico:', error);
           setMedicoResponsavel(null);
         }
-      } else {
+              } else {
         setMedicoResponsavel(null);
       }
     } catch (error) {
@@ -613,7 +619,7 @@ export default function MetaPage() {
           if (baseHbA1c && expectedWeek?.doseMg) {
             if (s.weekIndex === 1) {
               previsto = baseHbA1c;
-            } else {
+                    } else {
               previsto = predictHbA1c({
                 baselineHbA1c: baseHbA1c,
                 weekIndex: s.weekIndex,
@@ -674,7 +680,7 @@ export default function MetaPage() {
                 </div>
               </div>
             </div>
-
+            
             {/* Gráficos - Últimas 4 Semanas (Real vs Previsto) */}
             {semanasTratamento > 0 && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -735,8 +741,8 @@ export default function MetaPage() {
                     {(() => {
                       const domainMin = Math.max(0, baseCircAbdominal - 20);
                       const domainMax = baseCircAbdominal + 20;
-                      
-                      return (
+
+                        return (
                         <div className="h-64">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={circData}>
@@ -796,8 +802,8 @@ export default function MetaPage() {
                       const range = maxValue - minValue;
                       const domainMin = Math.max(0, minValue - range * 0.2);
                       const domainMax = maxValue + range * 0.2;
-                      
-                      return (
+
+                        return (
                         <div className="h-64">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={hba1cData}>
@@ -851,10 +857,224 @@ export default function MetaPage() {
                         </div>
                       );
                     })()}
-                  </div>
+              </div>
                 )}
+            </div>
+            )}
+          </div>
+        );
+      }
+
+      case 'exames': {
+        const exames = paciente?.examesLaboratoriais || [];
+        
+        // Função helper para converter data de forma segura
+        const safeDateToString = (date: any): string => {
+          if (!date) return '';
+          try {
+            let d: Date;
+            if (date instanceof Date) {
+              d = date;
+            } else if (typeof date === 'string') {
+              d = new Date(date);
+            } else if (date.toDate) {
+              d = date.toDate();
+            } else {
+              d = new Date(date);
+            }
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+          } catch {
+            return '';
+          }
+        };
+        
+        // Ordenar exames por data (mais recente primeiro)
+        const examesOrdenados = [...exames].sort((a, b) => {
+          const dateA = safeDateToString(a.dataColeta);
+          const dateB = safeDateToString(b.dataColeta);
+          return dateB.localeCompare(dateA);
+        }).filter(e => safeDateToString(e.dataColeta));
+        
+        // Inicializar data selecionada com o exame mais recente (se não estiver definida)
+        const dataInicial = examesOrdenados.length > 0 
+          ? safeDateToString(examesOrdenados[0].dataColeta)
+          : '';
+        
+        const dataSelecionada = exameDataSelecionada || dataInicial;
+        
+        // Encontrar exame da data selecionada
+        const exameSelecionado = exames.find(e => {
+          const dataExame = safeDateToString(e.dataColeta);
+          return dataExame === dataSelecionada;
+        }) || examesOrdenados[0] || {};
+        
+        // Preparar dados para gráfico de linha (todos os exames ao longo do tempo)
+        const dadosGrafico = examesOrdenados.map(exame => {
+          const dataExame = safeDateToString(exame.dataColeta);
+          return {
+            data: dataExame,
+            glicemiaJejum: exame.glicemiaJejum || null,
+            hemoglobinaGlicada: exame.hemoglobinaGlicada || null,
+            ureia: exame.ureia || null,
+            creatinina: exame.creatinina || null,
+            taxaFiltracaoGlomerular: exame.taxaFiltracaoGlomerular || null,
+            tgp: exame.tgp || null,
+            tgo: exame.tgo || null,
+            amilase: exame.amilase || null,
+            lipase: exame.lipase || null,
+            colesterolTotal: exame.colesterolTotal || null,
+            ldl: exame.ldl || null,
+            hdl: exame.hdl || null,
+            triglicerides: exame.triglicerides || null,
+            tsh: exame.tsh || null,
+            calcitonina: exame.calcitonina || null
+          };
+        }).reverse();
+        
+        const pacienteSex = paciente?.dadosIdentificacao?.sexoBiologico as Sex;
+        
+        // Definir todos os campos de exame para renderizar
+        const todosOsCampos = [
+          { section: 'Metabolismo Glicídico', fields: [
+            { key: 'fastingGlucose', label: 'Glicemia de Jejum', field: 'glicemiaJejum' },
+            { key: 'hba1c', label: 'Hemoglobina Glicada (HbA1c)', field: 'hemoglobinaGlicada' }
+          ]},
+          { section: 'Função Renal', fields: [
+            { key: 'urea', label: 'Uréia', field: 'ureia' },
+            { key: 'creatinine', label: 'Creatinina', field: 'creatinina' },
+            { key: 'egfr', label: 'Taxa de Filtração Glomerular (eGFR)', field: 'taxaFiltracaoGlomerular' }
+          ]},
+          { section: 'Função Hepática e Biliar', fields: [
+            { key: 'alt', label: 'TGP (ALT)', field: 'tgp' },
+            { key: 'ast', label: 'TGO (AST)', field: 'tgo' },
+            { key: 'ggt', label: 'GGT', field: 'ggt' },
+            { key: 'alp', label: 'Fosfatase Alcalina', field: 'fosfataseAlcalina' }
+          ]},
+          { section: 'Pâncreas', fields: [
+            { key: 'amylase', label: 'Amilase', field: 'amilase' },
+            { key: 'lipase', label: 'Lipase', field: 'lipase' }
+          ]},
+          { section: 'Perfil Lipídico', fields: [
+            { key: 'cholTotal', label: 'Colesterol Total', field: 'colesterolTotal' },
+            { key: 'ldl', label: 'LDL', field: 'ldl' },
+            { key: 'hdl', label: 'HDL', field: 'hdl' },
+            { key: 'tg', label: 'Triglicerídeos', field: 'triglicerides' }
+          ]},
+          { section: 'Tireóide / Rastreio MEN2', fields: [
+            { key: 'tsh', label: 'TSH', field: 'tsh' },
+            { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina' }
+          ]}
+        ];
+
+        if (exames.length === 0) {
+                                return (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900">Exames Laboratoriais</h2>
+              <div className="bg-white p-8 rounded-lg shadow text-center">
+                <FlaskConical className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum exame registrado</h3>
+                <p className="text-gray-500">Seus exames laboratoriais aparecerão aqui.</p>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Exames Laboratoriais</h2>
+            
+            {/* Seletor de Data - Fixo no topo */}
+            <div className="sticky top-0 z-10 bg-white p-4 border-b border-gray-200 shadow-sm">
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Selecionar Exame por Data
+                  </label>
+                  <select
+                    value={dataSelecionada}
+                    onChange={(e) => {
+                      setExameDataSelecionada(e.target.value);
+                    }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                  >
+                    {examesOrdenados.map((exame, idx) => {
+                      const dataExame = safeDateToString(exame.dataColeta);
+                      let dataFormatada = '';
+                      if (dataExame) {
+                        try {
+                          const d = new Date(dataExame);
+                          if (!isNaN(d.getTime())) {
+                            dataFormatada = d.toLocaleDateString('pt-BR');
+                          }
+                        } catch {}
+                      }
+                      return (
+                        <option key={idx} value={dataExame}>
+                          {dataFormatada}
+                        </option>
+                      );
+                    })}
+                  </select>
+                      </div>
+                    </div>
+                </div>
+            
+            {/* Exibição dos exames */}
+            <div className="space-y-6 pb-4">
+              {todosOsCampos.map((secao, idxSecao) => (
+                <div key={idxSecao} className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-4">{secao.section}</h4>
+                  
+                  {secao.fields.map((campo) => {
+                    const range = getLabRange(campo.key as any, pacienteSex);
+                    if (!range) return null;
+                    
+                    const value = exameSelecionado[campo.field as keyof typeof exameSelecionado] as number | undefined;
+                    
+                    return (
+                      <div key={campo.field} className="grid grid-cols-1 gap-4 mb-4 last:mb-0">
+                        {/* Input e LabRangeBar */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {range.label}
+                          </label>
+                          <div className="text-lg font-semibold text-gray-900 mb-2">
+                            {value || '-'}
+                            {value && range.unit && ` ${range.unit}`}
+                          </div>
+                          <LabRangeBar range={range} value={value || null} />
+                        </div>
+                        
+                        {/* Gráfico de evolução */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Evolução Temporal
+                          </label>
+                          {dadosGrafico.length > 0 && dadosGrafico.some(d => d[campo.field as keyof typeof d[0]] !== null) ? (
+                            <TrendLine
+                              data={dadosGrafico}
+                              dataKeys={[
+                                { key: campo.field, name: range.label, stroke: '#10b981', dot: true }
+                              ]}
+                              xKey="data"
+                              height={150}
+                              xAxisLabel="Data"
+                              yAxisLabel={range.unit || ''}
+                              formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)}` : 'N/A'}
+                            />
+                          ) : (
+                            <div className="h-[150px] flex items-center justify-center border border-gray-200 rounded-md bg-gray-50">
+                              <p className="text-xs text-gray-500">Sem dados históricos</p>
               </div>
             )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         );
       }
@@ -2377,6 +2597,19 @@ export default function MetaPage() {
             </button>
 
             <button
+              onClick={() => setActiveMenu('exames')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeMenu === 'exames'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={sidebarCollapsed ? 'Exames' : ''}
+            >
+              <FlaskConical className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+              {!sidebarCollapsed && 'Exames'}
+            </button>
+
+            <button
               onClick={() => setActiveMenu('escalas')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeMenu === 'escalas'
@@ -2498,6 +2731,18 @@ export default function MetaPage() {
           >
             <BarChart3 className="w-5 h-5 mb-1" />
             <span className="text-xs font-medium">Estatísticas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('exames')}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+              activeMenu === 'exames'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <FlaskConical className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Exames</span>
           </button>
 
         </div>
