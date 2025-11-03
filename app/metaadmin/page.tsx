@@ -37,6 +37,8 @@ import KpiCard from '@/components/KpiCard';
 import TrendLine from '@/components/TrendLine';
 import StackedBars from '@/components/StackedBars';
 import { CidadeCustomizadaService } from '@/services/cidadeCustomizadaService';
+import { MonjauroService, MonjauroPreco } from '@/services/monjauroService';
+import { ShoppingCart, Minus, Pill } from 'lucide-react';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -136,6 +138,11 @@ export default function MetaAdminPage() {
   const [pastaAtiva, setPastaAtiva] = useState<number>(1);
   const [graficoAtivoPasta6, setGraficoAtivoPasta6] = useState<'peso' | 'circunferencia' | 'hba1c'>('peso');
   const [indicadorAtivoPasta9, setIndicadorAtivoPasta9] = useState<'paciente' | 'adesao'>('paciente');
+
+  // Estados para Monjauro (carrinho de compras)
+  const [monjauroPrecos, setMonjauroPrecos] = useState<MonjauroPreco[]>([]);
+  const [loadingMonjauroPrecos, setLoadingMonjauroPrecos] = useState(false);
+  const [carrinho, setCarrinho] = useState<{ tipo: string; quantidade: number; preco: number }[]>([]);
   // Estados para Pasta 4 (Exames Laboratoriais)
   const [exameDataSelecionada, setExameDataSelecionada] = useState<string>('');
   const [showAdicionarExameModal, setShowAdicionarExameModal] = useState(false);
@@ -906,6 +913,58 @@ export default function MetaAdminPage() {
     }
   }, [user, medicoPerfil]);
 
+  // Função para carregar preços do Monjauro
+  const loadMonjauroPrecos = useCallback(async () => {
+    setLoadingMonjauroPrecos(true);
+    try {
+      const precosData = await MonjauroService.getPrecos();
+      setMonjauroPrecos(precosData);
+    } catch (error) {
+      console.error('Erro ao carregar preços do Monjauro:', error);
+    } finally {
+      setLoadingMonjauroPrecos(false);
+    }
+  }, []);
+
+  // Funções para gerenciar carrinho
+  const adicionarAoCarrinho = (tipo: string, preco: number) => {
+    setCarrinho(prev => {
+      const itemExistente = prev.find(item => item.tipo === tipo);
+      if (itemExistente) {
+        return prev.map(item =>
+          item.tipo === tipo
+            ? { ...item, quantidade: item.quantidade + 1 }
+            : item
+        );
+      }
+      return [...prev, { tipo, quantidade: 1, preco }];
+    });
+  };
+
+  const removerDoCarrinho = (tipo: string) => {
+    setCarrinho(prev => prev.filter(item => item.tipo !== tipo));
+  };
+
+  const atualizarQuantidade = (tipo: string, quantidade: number) => {
+    if (quantidade <= 0) {
+      removerDoCarrinho(tipo);
+      return;
+    }
+    setCarrinho(prev =>
+      prev.map(item =>
+        item.tipo === tipo ? { ...item, quantidade } : item
+      )
+    );
+  };
+
+  const calcularTotal = () => {
+    return carrinho.reduce((total, item) => total + item.preco * item.quantidade, 0);
+  };
+
+  const limparCarrinho = () => {
+    setCarrinho([]);
+  };
+
   // Função para criar novo paciente
   const handleCriarPaciente = async () => {
     if (!user || !medicoPerfil) {
@@ -1073,6 +1132,12 @@ export default function MetaAdminPage() {
       loadMedicoPerfil();
     }
   }, [user, activeMenu, loadMedicoPerfil]);
+
+  useEffect(() => {
+    if (activeMenu === 'monjauro') {
+      loadMonjauroPrecos();
+    }
+  }, [activeMenu, loadMonjauroPrecos]);
 
   useEffect(() => {
     if (user && medicoPerfil && activeMenu === 'pacientes') {
@@ -4210,6 +4275,186 @@ export default function MetaAdminPage() {
         );
       }
 
+      case 'monjauro': {
+        const tiposMonjauro = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
+        const totalCarrinho = calcularTotal();
+        const itensNoCarrinho = carrinho.length;
+
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Monjauro - Compras</h2>
+              {itensNoCarrinho > 0 && (
+                <button
+                  onClick={limparCarrinho}
+                  className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                >
+                  Limpar Carrinho
+                </button>
+              )}
+            </div>
+
+            {loadingMonjauroPrecos ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Lista de Produtos */}
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="bg-white shadow rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Produtos Disponíveis</h3>
+                    <div className="space-y-3">
+                      {tiposMonjauro.map((tipo) => {
+                        const preco = monjauroPrecos.find(p => p.tipo === tipo);
+                        const itemNoCarrinho = carrinho.find(item => item.tipo === tipo);
+
+                        return (
+                          <div
+                            key={tipo}
+                            className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 transition-colors"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <Pill className="h-8 w-8 text-green-600" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">Monjauro {tipo}</p>
+                                {preco ? (
+                                  <p className="text-lg font-bold text-green-600">
+                                    R$ {preco.preco.toFixed(2).replace('.', ',')}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-gray-500">Preço não disponível</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              {itemNoCarrinho ? (
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={() => atualizarQuantidade(tipo, itemNoCarrinho.quantidade - 1)}
+                                    className="p-1 rounded-md hover:bg-gray-200 transition-colors"
+                                  >
+                                    <Minus className="h-4 w-4 text-gray-600" />
+                                  </button>
+                                  <span className="text-sm font-medium text-gray-900 w-8 text-center">
+                                    {itemNoCarrinho.quantidade}
+                                  </span>
+                                  <button
+                                    onClick={() => atualizarQuantidade(tipo, itemNoCarrinho.quantidade + 1)}
+                                    className="p-1 rounded-md hover:bg-gray-200 transition-colors"
+                                  >
+                                    <Plus className="h-4 w-4 text-gray-600" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => preco && adicionarAoCarrinho(tipo, preco.preco)}
+                                  disabled={!preco}
+                                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
+                                >
+                                  <ShoppingCart className="h-4 w-4 mr-1" />
+                                  Adicionar
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Carrinho de Compras */}
+                <div className="lg:col-span-1">
+                  <div className="bg-white shadow rounded-lg p-6 sticky top-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <ShoppingCart className="h-5 w-5 mr-2" />
+                        Carrinho
+                      </h3>
+                      {itensNoCarrinho > 0 && (
+                        <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                          {itensNoCarrinho}
+                        </span>
+                      )}
+                    </div>
+
+                    {carrinho.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <ShoppingCart className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                        <p className="text-sm">Seu carrinho está vazio</p>
+                        <p className="text-xs text-gray-400 mt-1">Adicione produtos para começar</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {carrinho.map((item) => (
+                            <div
+                              key={item.tipo}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                            >
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">Monjauro {item.tipo}</p>
+                                <p className="text-xs text-gray-500">
+                                  {item.quantidade}x R$ {item.preco.toFixed(2).replace('.', ',')}
+                                </p>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm font-semibold text-gray-900">
+                                  R$ {(item.preco * item.quantidade).toFixed(2).replace('.', ',')}
+                                </span>
+                                <button
+                                  onClick={() => removerDoCarrinho(item.tipo)}
+                                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                  title="Remover"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="border-t border-gray-200 pt-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-600">Subtotal</span>
+                            <span className="text-sm text-gray-900">
+                              R$ {totalCarrinho.toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-600">Frete</span>
+                            <span className="text-sm text-gray-500">A calcular</span>
+                          </div>
+                          <div className="border-t border-gray-200 pt-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-base font-bold text-gray-900">Total</span>
+                              <span className="text-xl font-bold text-green-600">
+                                R$ {totalCarrinho.toFixed(2).replace('.', ',')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            // TODO: Integrar com Stripe aqui
+                            alert('Integração com Stripe será implementada em breve!');
+                          }}
+                          className="w-full py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 transition-colors"
+                        >
+                          Finalizar Compra
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
       default:
         return null;
     }
@@ -4353,6 +4598,18 @@ export default function MetaAdminPage() {
               >
                 <MessageSquare size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Mensagens'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('monjauro')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'monjauro'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+                title={sidebarCollapsed ? 'Monjauro' : ''}
+              >
+                <Pill size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Monjauro'}
               </button>
             </nav>
 
@@ -10758,6 +11015,18 @@ export default function MetaAdminPage() {
                 {mensagensNaoLidasResidentes}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('monjauro')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'monjauro'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Pill className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Monjauro</span>
           </button>
         </div>
       </div>

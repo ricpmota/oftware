@@ -21,6 +21,7 @@ import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
+import { MonjauroService, MonjauroPreco } from '@/services/monjauroService';
 import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign } from 'lucide-react';
 
 export default function MetaAdminGeralPage() {
@@ -69,10 +70,11 @@ export default function MetaAdminGeralPage() {
   const [loadingPacientes, setLoadingPacientes] = useState(false);
   
   // Estados para Monjauro
-  const [monjauroPrecos, setMonjauroPrecos] = useState<{ tipo: string; preco: number }[]>([]);
+  const [monjauroPrecos, setMonjauroPrecos] = useState<MonjauroPreco[]>([]);
   const [editandoMonjauro, setEditandoMonjauro] = useState<{ tipo: string; preco: number } | null>(null);
   const [editandoMonjauroTipo, setEditandoMonjauroTipo] = useState<string | null>(null);
   const [precoEditandoMonjauro, setPrecoEditandoMonjauro] = useState<string>('0');
+  const [loadingMonjauro, setLoadingMonjauro] = useState(false);
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -401,6 +403,19 @@ export default function MetaAdminGeralPage() {
     }
   }, []);
 
+  // Função para carregar preços do Monjauro
+  const loadMonjauroPrecos = useCallback(async () => {
+    setLoadingMonjauro(true);
+    try {
+      const precosData = await MonjauroService.getPrecos();
+      setMonjauroPrecos(precosData);
+    } catch (error) {
+      console.error('Erro ao carregar preços do Monjauro:', error);
+    } finally {
+      setLoadingMonjauro(false);
+    }
+  }, []);
+
   // Função para verificar/desverificar médico
   const handleToggleVerificacaoMedico = async (medicoId: string, isVerificado: boolean) => {
     try {
@@ -610,6 +625,13 @@ export default function MetaAdminGeralPage() {
       loadMedicos(); // Precisa carregar médicos para mostrar o médico responsável
     }
   }, [activeMenu, loadPacientes, loadMedicos]);
+
+  // Carregar preços do Monjauro quando a página monjauro for ativada
+  useEffect(() => {
+    if (activeMenu === 'monjauro') {
+      loadMonjauroPrecos();
+    }
+  }, [activeMenu, loadMonjauroPrecos]);
 
   const handleAprovarTroca = async (trocaId: string) => {
     try {
@@ -1669,20 +1691,23 @@ export default function MetaAdminGeralPage() {
                 
                 const handleSalvarPrecoMonjauro = async (tipo: string, preco: number) => {
                   try {
-                    // Aqui você pode integrar com Firestore para salvar os preços
-                    // Por enquanto, vamos apenas atualizar o estado local
+                    // Salvar no Firestore
+                    await MonjauroService.updatePreco(tipo, preco);
+                    
+                    // Atualizar estado local
                     const novosPrecos = [...monjauroPrecos];
                     const index = novosPrecos.findIndex(p => p.tipo === tipo);
                     if (index >= 0) {
                       novosPrecos[index].preco = preco;
+                      novosPrecos[index].atualizadoEm = new Date();
                     } else {
-                      novosPrecos.push({ tipo, preco });
+                      novosPrecos.push({ tipo, preco, atualizadoEm: new Date() });
                     }
                     setMonjauroPrecos(novosPrecos);
                     setMessage(`Preço do Monjauro ${tipo} atualizado com sucesso!`);
                     
-                    // TODO: Integrar com Firestore para persistir os preços
-                    // await MonjauroService.updatePreco(tipo, preco);
+                    // Limpar mensagem após 3 segundos
+                    setTimeout(() => setMessage(''), 3000);
                   } catch (error) {
                     console.error('Erro ao salvar preço:', error);
                     setMessage('Erro ao salvar preço');
