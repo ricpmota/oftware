@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -1326,6 +1326,282 @@ export default function MetaPage() {
                 ))}
               </div>
             </div>
+          </div>
+        );
+      }
+
+      case 'perfil': {
+        if (!paciente) {
+          return (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900">Meu Perfil</h2>
+              <div className="bg-white p-8 rounded-lg shadow text-center">
+                <UserIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Dados não encontrados</h3>
+                <p className="text-gray-500">Seus dados aparecerão aqui.</p>
+              </div>
+            </div>
+          );
+        }
+        
+        const dados = paciente.dadosIdentificacao;
+        const clinicos = paciente.dadosClinicos;
+        const estiloVida = paciente.estiloVida;
+        
+        // Funções auxiliares para formatação
+        const formatarSexo = (sexo?: string) => {
+          return sexo === 'M' ? 'Masculino' : sexo === 'F' ? 'Feminino' : '-';
+        };
+        
+        const formatarPadraoAlimentar = (padrao?: string) => {
+          const padroes: { [key: string]: string } = {
+            'equilibrado': 'Alimentação Equilibrada',
+            'hiper_calorico_noturno': 'Hipercalórico Noturno',
+            'ultraprocessados': 'Alta Ingestão de Ultraprocessados',
+            'baixo_proteico': 'Baixo Teor Proteico',
+            'hiperproteico': 'Hiperproteico',
+            'jejum_intermitente': 'Jejum Intermitente',
+            'vegetariano_vegano': 'Vegetariano/Vegano'
+          };
+          return padroes[padrao || ''] || padrao || '-';
+        };
+        
+        const formatarFrequenciaAlimentar = (freq?: string) => {
+          return freq ? `${freq} refeições/dia` : '-';
+        };
+        
+        const formatarAtividadeFisica = (atividade?: string) => {
+          const atividades: { [key: string]: string } = {
+            'sedentario': 'Sedentário',
+            'leve': 'Leve (1–2x/sem)',
+            'moderada': 'Moderada (3–4x/sem)',
+            'intensa': 'Intensa (≥5x/sem)',
+            'profissional': 'Profissional ou Atleta'
+          };
+          return atividades[atividade || ''] || atividade || '-';
+        };
+        
+        const formatarUsoAlcool = (uso?: string) => {
+          const usos: { [key: string]: string } = {
+            'nao_consome': 'Não Consome',
+            'social': 'Social',
+            'frequente': 'Frequente',
+            'abuso': 'Abuso/Diário'
+          };
+          return usos[uso || ''] || uso || '-';
+        };
+        
+        const formatarTabagismo = (tabagismo?: string) => {
+          const tipos: { [key: string]: string } = {
+            'nunca_fumou': 'Nunca Fumou',
+            'ex_fumante_5': 'Ex-fumante (<5 anos)',
+            'ex_fumante_5plus': 'Ex-fumante (>5 anos)',
+            'fumante_10': 'Fumante Atual (≤10 cigarros/dia)',
+            'fumante_10plus': 'Fumante Atual (>10 cigarros/dia)'
+          };
+          return tipos[tabagismo || ''] || tabagismo || '-';
+        };
+        
+        const formatarEstresse = (estresse?: string) => {
+          const niveis: { [key: string]: string } = {
+            'baixo': 'Baixo',
+            'moderado': 'Moderado',
+            'elevado': 'Elevado',
+            'muito_elevado': 'Muito Elevado'
+          };
+          return niveis[estresse || ''] || estresse || '-';
+        };
+        
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Meu Perfil</h2>
+            
+            {/* Dados de Identificação */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados de Identificação</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Nome Completo</label>
+                  <p className="text-base font-semibold text-gray-900">{dados?.nomeCompleto || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">E-mail</label>
+                  <p className="text-base font-semibold text-gray-900">{paciente.email || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Telefone</label>
+                  <p className="text-base font-semibold text-gray-900">{dados?.telefone || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">CPF</label>
+                  <p className="text-base font-semibold text-gray-900">{dados?.cpf || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Data de Nascimento</label>
+                  <p className="text-base font-semibold text-gray-900">
+                    {dados?.dataNascimento 
+                      ? new Date(dados.dataNascimento).toLocaleDateString('pt-BR')
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Sexo Biológico</label>
+                  <p className="text-base font-semibold text-gray-900">{formatarSexo(dados?.sexoBiologico)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">CEP</label>
+                  <p className="text-base font-semibold text-gray-900">{dados?.cep || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Endereço</label>
+                  <p className="text-base font-semibold text-gray-900">
+                    {dados?.rua ? `${dados.rua}, ${dados.cidade}/${dados.estado}` : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Data de Cadastro</label>
+                  <p className="text-base font-semibold text-gray-900">
+                    {dados?.dataCadastro 
+                      ? new Date(dados.dataCadastro).toLocaleDateString('pt-BR')
+                      : '-'}
+                  </p>
+                </div>
+                {medicoResponsavel && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Médico Responsável</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Dados Clínicos */}
+            {clinicos && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados Clínicos da Anamnese</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Medidas Iniciais */}
+                  <div className="md:col-span-2">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Medidas Iniciais</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Peso</label>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {clinicos.medidasIniciais?.peso ? `${clinicos.medidasIniciais.peso} kg` : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Altura</label>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {clinicos.medidasIniciais?.altura ? `${clinicos.medidasIniciais.altura} cm` : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">IMC</label>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {clinicos.medidasIniciais?.imc 
+                            ? `${clinicos.medidasIniciais.imc.toFixed(1)} kg/m²` 
+                            : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Circunferência Abdominal</label>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {clinicos.medidasIniciais?.circunferenciaAbdominal 
+                            ? `${clinicos.medidasIniciais.circunferenciaAbdominal} cm` 
+                            : '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Diagnóstico Principal */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Diagnóstico Principal</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {clinicos.diagnosticoPrincipal?.tipo || '-'}
+                    </p>
+                  </div>
+                  
+                  {/* Tireoide */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">História Tireoidiana</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {clinicos.historiaTireoidiana?.tipo || '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Estilo de Vida */}
+            {estiloVida && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Estilo de Vida</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Padrão Alimentar</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formatarPadraoAlimentar(estiloVida.padraoAlimentar)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Frequência Alimentar</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formatarFrequenciaAlimentar(estiloVida.frequenciaAlimentar)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Ingestão de Líquidos</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {estiloVida.ingestaoLiquidos ? `${estiloVida.ingestaoLiquidos} L/dia` : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Atividade Física</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formatarAtividadeFisica(estiloVida.atividadeFisica?.intensidade)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Uso de Álcool</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formatarUsoAlcool(estiloVida.usoAlcool)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Tabagismo</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formatarTabagismo(estiloVida.tabagismo)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Sono</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {estiloVida.sono ? `${estiloVida.sono} h/noite` : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Estresse e Bem-estar</label>
+                    <p className="text-base font-semibold text-gray-900">
+                      {formatarEstresse(estiloVida.estresseEmocional?.nivel)}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Observações Clínicas */}
+                {estiloVida.observacoesClinicas && (
+                  <div className="mt-4">
+                    <label className="text-sm font-medium text-gray-500">Observações Clínicas</label>
+                    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 mt-2">
+                      {estiloVida.observacoesClinicas}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       }
@@ -2874,6 +3150,19 @@ export default function MetaPage() {
             </button>
 
             <button
+              onClick={() => setActiveMenu('perfil')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeMenu === 'perfil'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={sidebarCollapsed ? 'Perfil' : ''}
+            >
+              <UserIcon className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+              {!sidebarCollapsed && 'Meu Perfil'}
+            </button>
+
+            <button
               onClick={() => setActiveMenu('escalas')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeMenu === 'escalas'
@@ -3019,6 +3308,18 @@ export default function MetaPage() {
           >
             <FileText className="w-5 h-5 mb-1" />
             <span className="text-xs font-medium">Plano</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('perfil')}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+              activeMenu === 'perfil'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <UserIcon className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Perfil</span>
           </button>
 
         </div>
