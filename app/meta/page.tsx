@@ -981,11 +981,10 @@ export default function MetaPage() {
         }
 
         return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">Exames Laboratoriais</h2>
-            
+          <div>
             {/* Seletor de Data - Fixo no topo */}
-            <div className="sticky top-0 z-10 bg-white p-4 border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-10 bg-white p-4 border-b border-gray-200 shadow-sm -mx-3 lg:-mx-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Exames Laboratoriais</h2>
               <div className="flex items-end gap-3">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1021,7 +1020,7 @@ export default function MetaPage() {
             </div>
             
             {/* Exibição dos exames */}
-            <div className="space-y-6 pb-4">
+            <div className="space-y-6 pb-4 mt-4">
               {todosOsCampos.map((secao, idxSecao) => (
                 <div key={idxSecao} className="border border-gray-200 rounded-lg p-4">
                   <h4 className="font-semibold text-gray-800 mb-4">{secao.section}</h4>
