@@ -7556,6 +7556,10 @@ export default function MetaAdminPage() {
                                         xAxisLabel="Data"
                                         yAxisLabel={range.unit || ''}
                                         formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)}` : 'N/A'}
+                                        referenceLines={[
+                                          { value: range.min, label: `Min: ${range.min}`, stroke: '#ef4444', strokeDasharray: '5 5' },
+                                          { value: range.max, label: `Max: ${range.max}`, stroke: '#ef4444', strokeDasharray: '5 5' }
+                                        ]}
                                       />
                                     ) : (
                                       <div className="h-[150px] flex items-center justify-center border border-gray-200 rounded-md bg-gray-50">

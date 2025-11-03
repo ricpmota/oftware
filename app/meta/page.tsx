@@ -1027,6 +1027,10 @@ export default function MetaPage() {
                               xAxisLabel="Data"
                               yAxisLabel={range.unit || ''}
                               formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)}` : 'N/A'}
+                              referenceLines={[
+                                { value: range.min, label: `Min: ${range.min}`, stroke: '#ef4444', strokeDasharray: '5 5' },
+                                { value: range.max, label: `Max: ${range.max}`, stroke: '#ef4444', strokeDasharray: '5 5' }
+                              ]}
                             />
                           ) : (
                             <div className="h-[150px] flex items-center justify-center border border-gray-200 rounded-md bg-gray-50">
@@ -1127,17 +1131,6 @@ export default function MetaPage() {
           const hoje = new Date();
           hoje.setHours(0, 0, 0, 0);
           
-          // Debug: ver registros de evolução
-          if (evolucao.length > 0) {
-            console.log('Registros de evolução:', evolucao.map(e => ({ 
-              id: e.id, 
-              weekIndex: e.weekIndex, 
-              dataRegistro: e.dataRegistro,
-              doseAplicada: e.doseAplicada,
-              adherence: e.adherence
-            })));
-          }
-          
           // Criar 18 semanas de calendário (18 semanas = 18 doses)
           for (let semana = 0; semana < 18; semana++) {
             // Calcular data da dose como primeiraDose + (semana * 7 dias)
@@ -1152,12 +1145,6 @@ export default function MetaPage() {
               const dataRegistro = new Date(e.dataRegistro);
               dataRegistro.setHours(0, 0, 0, 0);
               const diffDias = Math.abs((dataRegistro.getTime() - dataDose.getTime()) / (1000 * 60 * 60 * 24));
-              
-              // Debug temporário
-              if (semana < 3) {
-                console.log(`Semana ${semana}, dataDose: ${dataDose.toISOString()}, dataRegistro: ${dataRegistro.toISOString()}, diff: ${diffDias}`);
-              }
-              
               return diffDias <= 1; // Tolerância de 1 dia
             });
             

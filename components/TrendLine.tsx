@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 interface TrendLineProps {
   data: any[];
@@ -13,6 +13,7 @@ interface TrendLineProps {
   domain?: [number | string, number | string];
   formatter?: (value: any) => string;
   labelFormatter?: (label: any) => string;
+  referenceLines?: { value: number; label?: string; stroke?: string; strokeDasharray?: string }[];
 }
 
 export default function TrendLine({
@@ -24,7 +25,8 @@ export default function TrendLine({
   xAxisLabel,
   domain,
   formatter,
-  labelFormatter
+  labelFormatter,
+  referenceLines
 }: TrendLineProps) {
   return (
     <div style={{ width: '100%', height }}>
@@ -50,6 +52,15 @@ export default function TrendLine({
             labelFormatter={labelFormatter}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
+          {referenceLines && referenceLines.map((refLine, idx) => (
+            <ReferenceLine
+              key={`ref-${idx}`}
+              y={refLine.value}
+              label={refLine.label ? { value: refLine.label, position: 'right' } : undefined}
+              stroke={refLine.stroke || '#94a3b8'}
+              strokeDasharray={refLine.strokeDasharray || '5 5'}
+            />
+          ))}
           {dataKeys.map((dk, idx) => (
             <Line
               key={idx}
