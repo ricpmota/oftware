@@ -142,30 +142,41 @@ export default function OftalmoPage() {
     );
   }
 
-  // Página de seleção após login
+    // Página de seleção após login
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: 'url(/icones/monjauro.jpeg)',
+        }}
+      >
+        {/* Overlay escuro para melhorar legibilidade */}
+        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+      </div>
+
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+      <div className="relative bg-white/90 backdrop-blur-sm shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">   
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <img 
-                src="/icones/oftware.png" 
-                alt="Oftware" 
+              <img
+                src="/icones/oftware.png"
+                alt="Oftware"
                 className="w-8 h-8 md:w-10 md:h-10"
               />
               <div className="hidden md:block">
-                <h1 className="text-xl font-bold text-gray-900">Oftware</h1>
-                <p className="text-sm text-gray-600">Sistema de Gestão Médica</p>
+                <h1 className="text-xl font-bold text-gray-900">Oftware</h1>    
+                <p className="text-sm text-gray-600">Sistema de Gestão Médica</p>                                                                             
               </div>
               <div className="md:hidden">
-                <h1 className="text-lg font-bold text-gray-900">Oftware</h1>
+                <h1 className="text-lg font-bold text-gray-900">Oftware</h1>    
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"                                                  
               title="Sair"
             >
               <LogOut size={20} />
@@ -175,36 +186,54 @@ export default function OftalmoPage() {
       </div>
 
       {/* Main Content */}
-      <div className="px-4 py-4">
-        {/* Cards Grid */}
-        <div className="grid grid-cols-1 gap-3 md:gap-4 md:max-w-full md:grid-cols-2">
-          {/* Médico */}
-          <button
-            onClick={() => router.push('/metaadmin')}
-            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
-          >
-            <div className="flex items-center mb-2">
-              <div className="bg-purple-100 p-2 rounded-lg">
-                <Stethoscope size={18} className="text-purple-600" />
+      <div className="relative min-h-[calc(100vh-80px)] flex items-center justify-center px-4 py-8 md:py-12">
+        {/* Cards Grid - Desktop: lado a lado, Mobile: centralizado e maior */}
+        <div className="w-full max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 lg:gap-12">
+            {/* Médico */}
+            <button
+              onClick={() => router.push('/metaadmin')}
+              className="group relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 md:p-10 hover:shadow-3xl hover:scale-105 transition-all duration-300 border border-white/20 transform hover:-translate-y-2"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-gradient-to-br from-purple-500 to-purple-700 p-6 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <Stethoscope size={48} className="text-white" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Médico</h3>
+                <p className="text-sm md:text-base text-gray-600 leading-relaxed">Tratamento de obesidade com Monjauro</p>
+                <div className="mt-6 flex items-center text-purple-600 font-medium group-hover:translate-x-2 transition-transform duration-300">
+                  <span className="text-sm md:text-base">Acessar</span>
+                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
-              <h3 className="ml-3 text-base font-semibold text-gray-900">Médico</h3>
-            </div>
-            <p className="text-xs text-gray-600">Tratamento de obesidade com Monjauro</p>
-          </button>
+              {/* Efeito de brilho no hover */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-400/0 via-purple-400/20 to-purple-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            </button>
 
-          {/* Paciente */}
-          <button
-            onClick={() => router.push('/meta')}
-            className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all border border-gray-200"
-          >
-            <div className="flex items-center mb-2">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <UserCheck size={18} className="text-orange-600" />
+            {/* Paciente */}
+            <button
+              onClick={() => router.push('/meta')}
+              className="group relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 md:p-10 hover:shadow-3xl hover:scale-105 transition-all duration-300 border border-white/20 transform hover:-translate-y-2"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-2xl mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <UserCheck size={48} className="text-white" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Paciente</h3>
+                <p className="text-sm md:text-base text-gray-600 leading-relaxed">Acompanhamento Monjauro</p>
+                <div className="mt-6 flex items-center text-orange-600 font-medium group-hover:translate-x-2 transition-transform duration-300">
+                  <span className="text-sm md:text-base">Acessar</span>
+                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
-              <h3 className="ml-3 text-base font-semibold text-gray-900">Paciente</h3>
-            </div>
-            <p className="text-xs text-gray-600">Acompanhamento Monjauro</p>
-          </button>
+              {/* Efeito de brilho no hover */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-400/0 via-orange-400/20 to-orange-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            </button>
+          </div>
         </div>
       </div>
     </div>
