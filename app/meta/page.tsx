@@ -20,7 +20,7 @@ import { Medico } from '@/types/medico';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 import { getLabRange, Sex } from '@/types/labRanges';
-import LabRangeBar from '@/components/LabRangeBar';
+import { LabRangeBar } from '@/components/LabRangeBar';
 import TrendLine from '@/components/TrendLine';
 
 export default function MetaPage() {

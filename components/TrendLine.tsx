@@ -5,13 +5,14 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 interface TrendLineProps {
   data: any[];
-  dataKeys: { key: string; name: string; stroke: string; strokeWidth?: number; dot?: boolean; strokeDasharray?: string }[];
+  dataKeys: { key: string; name: string; stroke: string; strokeWidth?: number; dot?: boolean; strokeDasharray?: string; legendType?: 'line' | 'square' | 'circle' | 'cross' | 'diamond' | 'star' | 'triangle' | 'wye' | undefined }[];
   xKey: string;
   height?: number;
   yAxisLabel?: string;
   xAxisLabel?: string;
   domain?: [number | string, number | string];
   formatter?: (value: any) => string;
+  labelFormatter?: (label: any) => string;
 }
 
 export default function TrendLine({
@@ -22,7 +23,8 @@ export default function TrendLine({
   yAxisLabel,
   xAxisLabel,
   domain,
-  formatter
+  formatter,
+  labelFormatter
 }: TrendLineProps) {
   return (
     <div style={{ width: '100%', height }}>
@@ -32,6 +34,12 @@ export default function TrendLine({
           <XAxis 
             dataKey={xKey}
             label={xAxisLabel ? { value: xAxisLabel, position: 'bottom', offset: -5, style: { textAnchor: 'middle' } } : undefined}
+            tickFormatter={(tickItem) => {
+              if (typeof tickItem === 'string' && tickItem.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                return new Date(tickItem).toLocaleDateString('pt-BR');
+              }
+              return tickItem;
+            }}
           />
           <YAxis 
             label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
@@ -39,6 +47,7 @@ export default function TrendLine({
           />
           <Tooltip 
             formatter={formatter}
+            labelFormatter={labelFormatter}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
           {dataKeys.map((dk, idx) => (
@@ -51,6 +60,7 @@ export default function TrendLine({
               name={dk.name}
               dot={dk.dot !== false ? { r: 4 } : false}
               strokeDasharray={dk.strokeDasharray}
+              legendType={dk.legendType}
             />
           ))}
         </LineChart>
