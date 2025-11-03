@@ -291,6 +291,7 @@ export default function MetaPage() {
       console.log('Carregando paciente para email:', user.email);
       const pacienteData = await PacienteService.getPacienteByEmail(user.email);
       console.log('Paciente encontrado:', pacienteData ? pacienteData.nome : 'nenhum');
+      console.log('Status do tratamento:', pacienteData?.statusTratamento);
       setPaciente(pacienteData);
       
       // Carregar dados do médico responsável
@@ -304,6 +305,7 @@ export default function MetaPage() {
           setMedicoResponsavel(null);
         }
               } else {
+        console.log('Paciente não tem médico responsável vinculado');
         setMedicoResponsavel(null);
       }
     } catch (error) {
@@ -4294,6 +4296,14 @@ export default function MetaPage() {
               <button
                 onClick={async () => {
                   if (!user || !medicoSelecionado) return;
+
+                  // Bloquear se paciente está em tratamento
+                  if (paciente?.statusTratamento === 'em_tratamento') {
+                    alert(`Você já está sendo acompanhado por ${medicoResponsavel?.genero === 'F' ? 'Dra.' : 'Dr.'} ${medicoResponsavel?.nome}. Não é possível solicitar um novo médico durante o tratamento.`);
+                    setShowModalMedico(false);
+                    setMedicoSelecionado(null);
+                    return;
+                  }
 
                   // Verificar se já tem solicitação ativa
                   const solicitacoesExistentes = await SolicitacaoMedicoService.getSolicitacoesPorPaciente(user.email || '');
