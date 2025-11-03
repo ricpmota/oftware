@@ -2,6 +2,31 @@ import { collection, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setD
 import { db } from '@/lib/firebase';
 import { Medico } from '@/types/medico';
 
+/**
+ * Remove valores undefined recursivamente de um objeto (Firestore não aceita undefined)
+ */
+function removeUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefined(item));
+  }
+  
+  if (typeof obj === 'object' && obj.constructor === Object) {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = removeUndefined(value);
+      }
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
 export class MedicoService {
   // Criar ou atualizar perfil do médico
   static async createOrUpdateMedico(medico: Omit<Medico, 'id'>): Promise<string> {
@@ -13,17 +38,19 @@ export class MedicoService {
       if (!existingSnapshot.empty) {
         // Atualizar médico existente
         const existingDoc = existingSnapshot.docs[0];
-        await updateDoc(doc(db, 'medicos', existingDoc.id), {
+        const medicoData = removeUndefined({
           ...medico,
           dataCadastro: new Date()
         });
+        await updateDoc(doc(db, 'medicos', existingDoc.id), medicoData);
         return existingDoc.id;
       } else {
         // Criar novo médico
-        const docRef = await addDoc(collection(db, 'medicos'), {
+        const medicoData = removeUndefined({
           ...medico,
           dataCadastro: new Date()
         });
+        const docRef = await addDoc(collection(db, 'medicos'), medicoData);
         return docRef.id;
       }
     } catch (error) {
