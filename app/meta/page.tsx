@@ -1119,6 +1119,9 @@ export default function MetaPage() {
             startDate.setDate(startDate.getDate() + 1);
           }
           
+          // Obter dose inicial do plano
+          const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
+          
           const calendario = [];
           const hoje = new Date();
           hoje.setHours(0, 0, 0, 0);
@@ -1128,25 +1131,46 @@ export default function MetaPage() {
             const dataDose = new Date(startDate);
             dataDose.setDate(startDate.getDate() + (semana * 7));
             
-            // Encontrar dose aplicada neste dia
-            const doseAplicada = evolucao.find(e => {
+            // Calcular dose planejada baseada no esquema de titulação (aumento de 2.5mg a cada 4 semanas)
+            const dosePlanejada = doseInicial + (Math.floor(semana / 4) * 2.5);
+            
+            // Encontrar registro de evolução para esta data (com tolerância de ±1 dia)
+            const registroEvolucao = evolucao.find(e => {
               const dataRegistro = new Date(e.dataRegistro);
               dataRegistro.setHours(0, 0, 0, 0);
-              return dataRegistro.getTime() === dataDose.getTime();
+              const diffDias = Math.abs((dataRegistro.getTime() - dataDose.getTime()) / (1000 * 60 * 60 * 24));
+              return diffDias <= 1; // Tolerância de 1 dia
             });
             
-            const status = dataDose < hoje 
-              ? (doseAplicada ? 'tomada' : 'perdida')
-              : dataDose.getTime() === hoje.getTime()
-              ? 'hoje'
-              : 'futura';
+            // Determinar dose real (do registro ou planejada)
+            let doseReal = dosePlanejada;
+            if (registroEvolucao?.doseAplicada) {
+              doseReal = registroEvolucao.doseAplicada.quantidade || dosePlanejada;
+            }
+            
+            // Determinar status baseado em data e adesão
+            let status: 'tomada' | 'perdida' | 'hoje' | 'futura';
+            if (dataDose.getTime() === hoje.getTime()) {
+              status = 'hoje';
+            } else if (dataDose < hoje) {
+              // Dose no passado
+              if (registroEvolucao && registroEvolucao.adherence && registroEvolucao.adherence !== 'MISSED') {
+                status = 'tomada';
+              } else {
+                status = 'perdida';
+              }
+            } else {
+              status = 'futura';
+            }
             
             calendario.push({
               data: dataDose,
               semana: semana + 1,
-              dose: doseAplicada?.doseAplicada || planoTerapeutico?.currentDoseMg || 0,
+              dose: doseReal,
+              dosePlanejada,
               status,
-              adherence: doseAplicada?.adherence || null
+              adherence: registroEvolucao?.adherence || null,
+              localAplicacao: registroEvolucao?.localAplicacao || null
             });
           }
           
@@ -1245,6 +1269,16 @@ export default function MetaPage() {
                         <div className="text-xs text-gray-500">
                           Dose: {item.dose} mg
                         </div>
+                        {item.localAplicacao && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            Local: {item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
+                          </div>
+                        )}
+                        {item.adherence && item.status === 'tomada' && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {item.adherence === 'ON_TIME' ? '✓ Pontual' : item.adherence === 'LATE_<96H' ? '⚠ Atrasada' : ''}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
