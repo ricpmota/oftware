@@ -81,6 +81,8 @@ export default function MetaAdminPage() {
     crmNumero: '',
     crmEstado: '',
     endereco: '',
+    cep: '',
+    pontoReferencia: '',
     telefone: '',
     genero: '' as 'M' | 'F' | '',
     cidades: [] as { estado: string; cidade: string }[]
@@ -215,6 +217,8 @@ export default function MetaAdminPage() {
           crmNumero: medico.crm.numero,
           crmEstado: medico.crm.estado,
           endereco: medico.localizacao.endereco,
+          cep: medico.localizacao.cep || '',
+          pontoReferencia: medico.localizacao.pontoReferencia || '',
           telefone: medico.telefone || '',
           genero: medico.genero || '',
           cidades: medico.cidades
@@ -254,7 +258,9 @@ export default function MetaAdminPage() {
           estado: perfilMedico.crmEstado
         },
         localizacao: {
-          endereco: perfilMedico.endereco
+          endereco: perfilMedico.endereco,
+          cep: perfilMedico.cep || undefined,
+          pontoReferencia: perfilMedico.pontoReferencia || undefined
         },
         cidades: perfilMedico.cidades,
         status: 'ativo' as const
@@ -1780,10 +1786,45 @@ export default function MetaAdminPage() {
                       />
                     </div>
 
-                    {/* Endereço */}
+                    {/* CEP e Endereço */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        CEP
+                      </label>
+                      <input
+                        type="text"
+                        value={perfilMedico.cep}
+                        onChange={async (e) => {
+                          const cep = e.target.value.replace(/\D/g, '');
+                          setPerfilMedico({ ...perfilMedico, cep: cep });
+                          
+                          // Buscar endereço pelo CEP
+                          if (cep.length === 8) {
+                            try {
+                              const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                              const data = await response.json();
+                              if (!data.erro && data.logradouro) {
+                                const enderecoCompleto = `${data.logradouro}, ${data.bairro} - ${data.localidade}/${data.uf}`;
+                                setPerfilMedico({
+                                  ...perfilMedico,
+                                  cep: cep,
+                                  endereco: enderecoCompleto
+                                });
+                              }
+                            } catch (error) {
+                              console.error('Erro ao buscar CEP:', error);
+                            }
+                          }
+                        }}
+                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        placeholder="00000-000"
+                        maxLength={9}
+                      />
+                    </div>
+
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Endereço Completo *
+                        Endereço de Atendimento *
                       </label>
                       <input
                         type="text"
@@ -1792,6 +1833,20 @@ export default function MetaAdminPage() {
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         placeholder="Ex: Rua Exemplo, 123 - Bairro - Cidade/UF"
                         required
+                      />
+                    </div>
+
+                    {/* Ponto de Referência */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Ponto de Referência
+                      </label>
+                      <input
+                        type="text"
+                        value={perfilMedico.pontoReferencia}
+                        onChange={(e) => setPerfilMedico({ ...perfilMedico, pontoReferencia: e.target.value })}
+                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        placeholder="Ex: Próximo ao Shopping Center, ao lado da farmácia"
                       />
                     </div>
 

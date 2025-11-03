@@ -2883,14 +2883,41 @@ export default function MetaPage() {
                         <div className="space-y-2">
                           <div className="flex items-start gap-2">
                             <span className="text-lg mt-0.5">📍</span>
-                            <p className="text-base text-gray-700 leading-relaxed">
-                              {medico.localizacao.endereco}
-                            </p>
+                            <div className="flex-1">
+                              <p className="text-base text-gray-700 leading-relaxed mb-1">
+                                {medico.localizacao.endereco}
+                              </p>
+                              {medico.localizacao.pontoReferencia && (
+                                <p className="text-sm text-gray-500 italic">
+                                  Ref.: {medico.localizacao.pontoReferencia}
+                                </p>
+                              )}
+                              <a
+                                href={`https://maps.google.com/?q=${encodeURIComponent(medico.localizacao.endereco)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sm text-green-600 hover:text-green-700 font-medium mt-1"
+                              >
+                                <span>🗺️</span>
+                                Abrir no mapa
+                              </a>
+                            </div>
                           </div>
                           {medico.telefone && (
                             <div className="flex items-center gap-2">
                               <span className="text-lg">📞</span>
-                              <p className="text-base text-gray-700">{medico.telefone}</p>
+                              <div className="flex items-center gap-3">
+                                <p className="text-base text-gray-700">{medico.telefone}</p>
+                                <a
+                                  href={`https://wa.me/55${medico.telefone.replace(/\D/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                                >
+                                  <span>💬</span>
+                                  WhatsApp
+                                </a>
+                              </div>
                             </div>
                           )}
                         </div>

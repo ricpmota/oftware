@@ -11,6 +11,8 @@ export interface Medico {
   };
   localizacao: {
     endereco: string;
+    cep?: string;
+    pontoReferencia?: string;
     lat?: number;
     lng?: number;
   };
