@@ -19,7 +19,9 @@ import { MensagemService } from '@/services/mensagemService';
 import { Mensagem, MensagemResidenteParaAdmin } from '@/types/mensagem';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
-import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck } from 'lucide-react';
+import { PacienteService } from '@/services/pacienteService';
+import { PacienteCompleto } from '@/types/obesidade';
+import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign } from 'lucide-react';
 
 export default function MetaAdminGeralPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -61,6 +63,14 @@ export default function MetaAdminGeralPage() {
   // Estados para médicos
   const [medicos, setMedicos] = useState<Medico[]>([]);
   const [loadingMedicos, setLoadingMedicos] = useState(false);
+  
+  // Estados para pacientes
+  const [pacientes, setPacientes] = useState<PacienteCompleto[]>([]);
+  const [loadingPacientes, setLoadingPacientes] = useState(false);
+  
+  // Estados para Monjauro
+  const [monjauroPrecos, setMonjauroPrecos] = useState<{ tipo: string; preco: number }[]>([]);
+  const [editandoMonjauro, setEditandoMonjauro] = useState<{ tipo: string; preco: number } | null>(null);
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -376,6 +386,19 @@ export default function MetaAdminGeralPage() {
     }
   }, []);
 
+  // Função para carregar pacientes
+  const loadPacientes = useCallback(async () => {
+    setLoadingPacientes(true);
+    try {
+      const pacientesData = await PacienteService.getAllPacientes();
+      setPacientes(pacientesData);
+    } catch (error) {
+      console.error('Erro ao carregar pacientes:', error);
+    } finally {
+      setLoadingPacientes(false);
+    }
+  }, []);
+
   // Função para verificar/desverificar médico
   const handleToggleVerificacaoMedico = async (medicoId: string, isVerificado: boolean) => {
     try {
@@ -562,6 +585,29 @@ export default function MetaAdminGeralPage() {
       loadMedicos();
     }
   }, [activeMenu, loadMedicos]);
+
+  // Carregar médicos e pacientes sempre que o menu estatísticas for ativado
+  useEffect(() => {
+    if (activeMenu === 'estatisticas') {
+      loadMedicos();
+      loadPacientes();
+    }
+  }, [activeMenu, loadMedicos, loadPacientes]);
+
+  // Carregar médicos quando a página medicos for ativada
+  useEffect(() => {
+    if (activeMenu === 'medicos') {
+      loadMedicos();
+    }
+  }, [activeMenu, loadMedicos]);
+
+  // Carregar pacientes quando a página pacientes for ativada
+  useEffect(() => {
+    if (activeMenu === 'pacientes') {
+      loadPacientes();
+      loadMedicos(); // Precisa carregar médicos para mostrar o médico responsável
+    }
+  }, [activeMenu, loadPacientes, loadMedicos]);
 
   const handleAprovarTroca = async (trocaId: string) => {
     try {
@@ -3932,110 +3978,40 @@ export default function MetaAdminGeralPage() {
                 {!sidebarCollapsed && 'Estatísticas'}
               </button>
               <button
-                onClick={() => setActiveMenu('usuarios')}
+                onClick={() => setActiveMenu('medicos')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'usuarios'
+                  activeMenu === 'medicos'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Usuários' : ''}
+                title={sidebarCollapsed ? 'Médicos' : ''}
+              >
+                <Stethoscope size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Médicos'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('pacientes')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'pacientes'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+                title={sidebarCollapsed ? 'Pacientes' : ''}
               >
                 <Users size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Usuários'}
+                {!sidebarCollapsed && 'Pacientes'}
               </button>
               <button
-                onClick={() => setActiveMenu('residentes')}
+                onClick={() => setActiveMenu('monjauro')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'residentes'
+                  activeMenu === 'monjauro'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Residentes' : ''}
+                title={sidebarCollapsed ? 'Monjauro' : ''}
               >
-                <UserCheck size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Residentes'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('locais')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'locais'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Locais' : ''}
-              >
-                <Building size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Locais'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('servicos')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'servicos'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Serviços' : ''}
-              >
-                <Wrench size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Serviços'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('escalas')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'escalas'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Escalas' : ''}
-              >
-                <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Escalas'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('criar-escala')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'criar-escala'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Criar Escala' : ''}
-              >
-                <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Criar Escala'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('troca')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors relative ${
-                  activeMenu === 'troca'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Troca' : ''}
-              >
-                <RefreshCw size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Aprovar Trocas'}
-                {notificacoesTroca > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {notificacoesTroca > 9 ? '9+' : notificacoesTroca}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveMenu('ferias')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors relative ${
-                  activeMenu === 'ferias'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Férias' : ''}
-              >
-                <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Gerenciar Férias'}
-                {feriasPendentes.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {feriasPendentes.length > 9 ? '9+' : feriasPendentes.length}
-                  </span>
-                )}
+                <Pill size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Monjauro'}
               </button>
               
               <button
