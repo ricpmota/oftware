@@ -2073,6 +2073,11 @@ export default function MetaAdminPage() {
                           {solicitacao.status === 'rejeitada' && 'Rejeitada'}
                           {solicitacao.status === 'desistiu' && 'Desistiu'}
                         </span>
+                        {solicitacao.status === 'desistiu' && solicitacao.motivoDesistencia && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            Motivo: {solicitacao.motivoDesistencia}
+                          </p>
+                        )}
                       </div>
                       {solicitacao.status === 'pendente' && (
                         <div className="flex items-center space-x-2">

@@ -56,7 +56,8 @@ export class SolicitacaoMedicoService {
           aceitaEm: data.aceitaEm?.toDate(),
           rejeitadaEm: data.rejeitadaEm?.toDate(),
           desistiuEm: data.desistiuEm?.toDate(),
-          observacoes: data.observacoes
+          observacoes: data.observacoes,
+          motivoDesistencia: data.motivoDesistencia
         } as SolicitacaoMedico;
       });
 
@@ -94,7 +95,8 @@ export class SolicitacaoMedicoService {
           aceitaEm: data.aceitaEm?.toDate(),
           rejeitadaEm: data.rejeitadaEm?.toDate(),
           desistiuEm: data.desistiuEm?.toDate(),
-          observacoes: data.observacoes
+          observacoes: data.observacoes,
+          motivoDesistencia: data.motivoDesistencia
         } as SolicitacaoMedico;
       });
 
@@ -151,12 +153,18 @@ export class SolicitacaoMedicoService {
   /**
    * Marcar como desistiu (paciente desistiu)
    */
-  static async desistirSolicitacao(solicitacaoId: string): Promise<void> {
+  static async desistirSolicitacao(solicitacaoId: string, motivoDesistencia?: string): Promise<void> {
     try {
-      await updateDoc(doc(db, 'solicitacoes_medico', solicitacaoId), {
+      const updateData: any = {
         status: 'desistiu',
         desistiuEm: new Date()
-      });
+      };
+
+      if (motivoDesistencia) {
+        updateData.motivoDesistencia = motivoDesistencia;
+      }
+
+      await updateDoc(doc(db, 'solicitacoes_medico', solicitacaoId), updateData);
     } catch (error) {
       console.error('Erro ao marcar como desistiu:', error);
       throw error;

@@ -19,7 +19,7 @@ import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { estadosCidades, estadosList } from '@/data/cidades-brasil';
 import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
-import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
+import { SolicitacaoMedico, MOTIVOS_DESISTENCIA } from '@/types/solicitacaoMedico';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 import { getLabRange, Sex } from '@/types/labRanges';
@@ -108,6 +108,9 @@ export default function MetaPage() {
   const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<SolicitacaoMedico[]>([]);
   const [loadingMinhasSolicitacoes, setLoadingMinhasSolicitacoes] = useState(false);
   const [abaAtivaMedicos, setAbaAtivaMedicos] = useState<'buscar' | 'solicitacoes'>('buscar');
+  const [showModalDesistir, setShowModalDesistir] = useState(false);
+  const [solicitacaoParaDesistir, setSolicitacaoParaDesistir] = useState<SolicitacaoMedico | null>(null);
+  const [motivoDesistencia, setMotivoDesistencia] = useState('');
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -2959,19 +2962,11 @@ export default function MetaPage() {
                             {solicitacao.status === 'desistiu' && 'Desistiu'}
                           </span>
                         </div>
-                        {solicitacao.status === 'pendente' && (
+                        {(solicitacao.status === 'pendente' || solicitacao.status === 'aceita') && (
                           <button
-                            onClick={async () => {
-                              if (!confirm('Tem certeza que deseja desistir desta solicitação?')) return;
-                              try {
-                                await SolicitacaoMedicoService.desistirSolicitacao(solicitacao.id);
-                                await loadMinhasSolicitacoes();
-                                await loadPaciente();
-                                alert('Solicitação cancelada.');
-                              } catch (error) {
-                                console.error('Erro ao cancelar solicitação:', error);
-                                alert('Erro ao cancelar solicitação');
-                              }
+                            onClick={() => {
+                              setSolicitacaoParaDesistir(solicitacao);
+                              setShowModalDesistir(true);
                             }}
                             className="ml-4 px-3 py-1 text-xs text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition-colors"
                           >
@@ -4057,6 +4052,9 @@ export default function MetaPage() {
                       status: 'pendente'
                     });
 
+                    // Atualizar listas
+                    await loadMinhasSolicitacoes();
+
                     alert('Solicitação enviada com sucesso! O médico será notificado.');
                     setShowModalMedico(false);
                     setMedicoSelecionado(null);
@@ -4068,6 +4066,93 @@ export default function MetaPage() {
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
               >
                 Confirmar Solicitação
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Desistência */}
+      {showModalDesistir && solicitacaoParaDesistir && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Desistir da Solicitação</h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-700">
+                Você está prestes a desistir da solicitação de atendimento com <strong>{solicitacaoParaDesistir.medicoNome}</strong>.
+              </p>
+              <p className="text-sm text-gray-600">
+                Esta ação irá cancelar o vínculo com este médico. Você poderá solicitar novamente no futuro.
+              </p>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Motivo da desistência *
+                </label>
+                <select
+                  value={motivoDesistencia}
+                  onChange={(e) => setMotivoDesistencia(e.target.value)}
+                  className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="">Selecione um motivo</option>
+                  {MOTIVOS_DESISTENCIA.map((motivo) => (
+                    <option key={motivo} value={motivo}>
+                      {motivo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                * Seus dados serão compartilhados com o médico para melhorar o atendimento.
+              </p>
+            </div>
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowModalDesistir(false);
+                  setSolicitacaoParaDesistir(null);
+                  setMotivoDesistencia('');
+                }}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!motivoDesistencia) {
+                    alert('Por favor, selecione um motivo da desistência.');
+                    return;
+                  }
+
+                  try {
+                    await SolicitacaoMedicoService.desistirSolicitacao(solicitacaoParaDesistir.id, motivoDesistencia);
+                    
+                    // Se estava aceita, excluir o registro do paciente
+                    if (solicitacaoParaDesistir.status === 'aceita' && paciente?.id) {
+                      await PacienteService.deletePaciente(paciente.id);
+                      setPaciente(null);
+                    }
+                    
+                    // Atualizar listas
+                    await loadMinhasSolicitacoes();
+                    await loadPaciente();
+                    
+                    alert('Solicitação cancelada com sucesso.');
+                    setShowModalDesistir(false);
+                    setSolicitacaoParaDesistir(null);
+                    setMotivoDesistencia('');
+                  } catch (error) {
+                    console.error('Erro ao cancelar solicitação:', error);
+                    alert('Erro ao cancelar solicitação');
+                  }
+                }}
+                disabled={!motivoDesistencia}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Confirmar Desistência
               </button>
             </div>
           </div>

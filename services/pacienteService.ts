@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PacienteCompleto } from '@/types/obesidade';
 
@@ -393,6 +393,16 @@ export class PacienteService {
       });
     } catch (error) {
       console.error('Erro ao buscar pacientes:', error);
+      throw error;
+    }
+  }
+
+  // Deletar paciente
+  static async deletePaciente(pacienteId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'pacientes_completos', pacienteId));
+    } catch (error) {
+      console.error('Erro ao deletar paciente:', error);
       throw error;
     }
   }

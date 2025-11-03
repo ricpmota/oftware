@@ -11,5 +11,15 @@ export interface SolicitacaoMedico {
   rejeitadaEm?: Date; // Data de rejeição (se rejeitada)
   desistiuEm?: Date; // Data de desistência (se desistiu)
   observacoes?: string; // Observações do médico ou paciente
+  motivoDesistencia?: string; // Motivo da desistência
 }
+
+// Motivos pré-definidos para desistência
+export const MOTIVOS_DESISTENCIA = [
+  'Preço alto',
+  'Falta de confiança',
+  'Distância longe',
+  'Atendimento lento',
+  'Outro motivo'
+] as const;
 
