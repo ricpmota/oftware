@@ -17,6 +17,9 @@ import { PacienteCompleto } from '@/types/obesidade';
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
+import { estadosCidades, estadosList } from '@/data/cidades-brasil';
+import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
+import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictHbA1c, predictWaistCircumference } from '@/utils/expectedCurve';
 import { getLabRange, Sex } from '@/types/labRanges';
@@ -94,6 +97,14 @@ export default function MetaPage() {
   // Estados para exames
   const [exameDataSelecionada, setExameDataSelecionada] = useState('');
   const [showSeletorFlutuanteExames, setShowSeletorFlutuanteExames] = useState(false);
+  
+  // Estados para busca de médicos
+  const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [loadingMedicos, setLoadingMedicos] = useState(false);
+  const [estadoBuscaMedico, setEstadoBuscaMedico] = useState<string>('');
+  const [cidadeBuscaMedico, setCidadeBuscaMedico] = useState<string>('');
+  const [showModalMedico, setShowModalMedico] = useState(false);
+  const [medicoSelecionado, setMedicoSelecionado] = useState<Medico | null>(null);
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
