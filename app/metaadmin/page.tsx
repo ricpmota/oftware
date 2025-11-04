@@ -1166,7 +1166,7 @@ export default function MetaAdminPage() {
   }, [user, activeMenu, loadFeriasAdmin]);
 
   useEffect(() => {
-    if (user && activeMenu === 'calendario') {
+    if (user && activeMenu === 'mensagens') {
       loadMensagens();
       loadMensagensResidentes();
     }
@@ -3902,185 +3902,283 @@ export default function MetaAdminPage() {
         );
       }
 
-      case 'calendario': {
-        // Função para converter dia da semana
-        const diaSemanaNome = (dia: string) => {
-          const dias: { [key: string]: string } = {
-            seg: 'Segunda-feira',
-            ter: 'Terça-feira',
-            qua: 'Quarta-feira',
-            qui: 'Quinta-feira',
-            sex: 'Sexta-feira',
-            sab: 'Sábado',
-            dom: 'Domingo'
-          };
-          return dias[dia] || dia;
-        };
-
-        // Filtrar pacientes ativos em tratamento
-        const pacientesEmTratamento = pacientes.filter(p => p.statusTratamento === 'em_tratamento');
-        
-        // Função para obter próximas aplicações de um paciente
-        const obterProximasAplicacoes = (paciente: PacienteCompleto) => {
-          const planoTerapeutico = paciente.planoTerapeutico;
-          if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
-            return [];
-          }
-
-          const diasSemana: { [key: string]: number } = {
-            dom: 0,
-            seg: 1,
-            ter: 2,
-            qua: 3,
-            qui: 4,
-            sex: 5,
-            sab: 6
-          };
-
-          const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
-          const primeiraDose = new Date(planoTerapeutico.startDate);
-          primeiraDose.setHours(0, 0, 0, 0);
-          while (primeiraDose.getDay() !== diaDesejado) {
-            primeiraDose.setDate(primeiraDose.getDate() + 1);
-          }
-
-          const aplicacoes: Array<{ data: Date; semana: number; dose: number; pacienteNome: string; pacienteId: string }> = [];
-          const hoje = new Date();
-          hoje.setHours(0, 0, 0, 0);
-          
-          const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
-
-          // Criar próximas 8 semanas (2 meses) de aplicações futuras
-          for (let semana = 0; semana < 8; semana++) {
-            const dataDose = new Date(primeiraDose);
-            dataDose.setDate(primeiraDose.getDate() + (semana * 7));
-            
-            // Só incluir aplicações futuras
-            if (dataDose >= hoje) {
-              const dose = Math.min(15, doseInicial + (Math.floor(semana / 4) * 2.5));
-              aplicacoes.push({
-                data: dataDose,
-                semana: semana + 1,
-                dose,
-                pacienteNome: paciente.nome,
-                pacienteId: paciente.id || ''
-              });
-            }
-          }
-
-          return aplicacoes;
-        };
-
-        // Coletar todas as próximas aplicações de todos os pacientes
-        const todasAplicacoes = pacientesEmTratamento.flatMap(obterProximasAplicacoes);
-        
-        // Ordenar por data
-        todasAplicacoes.sort((a, b) => a.data.getTime() - b.data.getTime());
-
+      case 'mensagens': {
         return (
           <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Calendário de Aplicações</h2>
-              <button
-                onClick={() => loadPacientes()}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center"
-              >
-                <RefreshCw size={20} className="mr-2" />
-                Atualizar
-              </button>
+              <h2 className="text-2xl font-bold text-gray-900">Mensagens</h2>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => MensagemService.testarMensagens()}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                >
+                  <RefreshCw size={20} className="mr-2" />
+                  Testar
+                </button>
+                <button
+                  onClick={() => setShowEnviarMensagem(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center"
+                >
+                  <Plus size={20} className="mr-2" />
+                  Nova Mensagem
+                </button>
+              </div>
             </div>
 
-                        {todasAplicacoes.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg">
-                <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 mb-2">Nenhuma aplicação agendada</h4>
-                <p className="text-gray-500">As próximas aplicações dos seus pacientes em tratamento aparecerão aqui.</p>
+            <div className="space-y-6">
+              {/* Abas */}
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTabMensagens('enviadas')}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTabMensagens === 'enviadas'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Enviadas
+                </button>
+                <button
+                  onClick={() => setActiveTabMensagens('recebidas')}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTabMensagens === 'recebidas'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Recebidas
+                  {mensagensNaoLidasResidentes > 0 && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      {mensagensNaoLidasResidentes}
+                    </span>
+                  )}
+                </button>
               </div>
-            ) : (
-              <div className="space-y-4">
 
-                              {todasAplicacoes.map((aplicacao, idx) => {
-                  const hoje = new Date();
-                  hoje.setHours(0, 0, 0, 0);
-                  const dataAplicacao = new Date(aplicacao.data);
-                  dataAplicacao.setHours(0, 0, 0, 0);
-                  const diasRestantes = Math.ceil((dataAplicacao.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-                  const isHoje = diasRestantes === 0;
-                  const isProximaSemana = diasRestantes > 0 && diasRestantes <= 7;
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`bg-white border rounded-lg p-4 shadow-sm transition-colors ${
-                        isHoje
-                          ? 'border-blue-500 bg-blue-50'
-                          : isProximaSemana
-                          ? 'border-yellow-400 bg-yellow-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => {
-                        const paciente = pacientes.find(p => p.id === aplicacao.pacienteId);
-                        if (paciente) {
-                          setPacienteEditando(paciente);
-                          setShowModalEditar(true);
-                        }
-                      }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                                <Pill className="text-green-600" size={24} />
-                              </div>
+              {/* Conteúdo das abas */}
+              {activeTabMensagens === 'enviadas' ? (
+                loadingMensagens ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                  </div>
+                ) : mensagens.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                    <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Nenhuma mensagem enviada</h4>
+                    <p className="text-gray-500">Suas mensagens enviadas para os residentes aparecerão aqui.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {mensagens.map((mensagem) => (
+                      <div 
+                        key={mensagem.id} 
+                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer transition-colors hover:border-gray-300"
+                        onClick={() => handleVisualizarMensagemEnviada(mensagem)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">{mensagem.titulo}</h3>
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm text-gray-500">
+                              {mensagem.criadoEm.toLocaleDateString('pt-BR')} às {mensagem.criadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </div>
-                            <div className="flex-1">
-                              <h4 className="text-lg font-semibold text-gray-900">{aplicacao.pacienteNome}</h4>
-                              <p className="text-sm text-gray-600">
-                                Semana {aplicacao.semana} • {dataAplicacao.toLocaleDateString('pt-BR')} ({diaSemanaNome(aplicacao.data.toLocaleDateString('pt-BR', { weekday: 'short' }).toLowerCase().substring(0, 3))})
-                              </p>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletarMensagem(mensagem.id);
+                              }}
+                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                              title="Deletar mensagem"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 mb-3 line-clamp-2">{mensagem.mensagem}</p>
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <span>
+                            Para: {mensagem.destinatarios === 'todos' ? 'Todos os residentes' : `${mensagem.residentesSelecionados.length} residente(s) selecionado(s)`}
+                          </span>
+                          {mensagem.enviadoEm && (
+                            <span className="text-green-600">
+                              ✓ Enviada em {mensagem.enviadoEm.toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                loadingMensagensResidentes ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : mensagensResidentes.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                    <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">Nenhuma mensagem recebida</h4>
+                    <p className="text-gray-500">Mensagens dos residentes aparecerão aqui.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {mensagensResidentes.map((mensagem) => (
+                      <div 
+                        key={mensagem.id} 
+                        className={`bg-white border rounded-lg p-4 shadow-sm cursor-pointer transition-colors ${
+                          mensagem.lida 
+                            ? 'border-gray-200 hover:border-gray-300' 
+                            : 'border-blue-200 bg-blue-50 hover:border-blue-300'
+                        }`}
+                        onClick={() => handleVisualizarMensagem(mensagem)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h4 className="text-lg font-semibold text-gray-900">{mensagem.titulo}</h4>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span className="text-sm text-gray-600">
+                                De: {mensagem.anonima ? 'Anônimo' : mensagem.residenteNome}
+                              </span>
+                              {mensagem.anonima && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                  Anônimo
+                                </span>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-4 mt-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-700">Dose:</span>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-semibold">
-                                {aplicacao.dose} mg
-                              </span>
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm text-gray-500">
+                              {mensagem.criadoEm.toLocaleDateString('pt-BR')} às {mensagem.criadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </div>
-                            {isHoje && (
-                              <span className="px-2 py-1 bg-blue-600 text-white rounded-md text-xs font-medium">
-                                Hoje
-                              </span>
-                            )}
-                            {!isHoje && diasRestantes > 0 && (
-                              <span className="text-sm text-gray-600">
-                                {diasRestantes === 1 ? 'Amanhã' : `Em ${diasRestantes} dias`}
+                            {!mensagem.lida && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Nova
                               </span>
                             )}
                           </div>
                         </div>
+                        <p className="text-gray-700 mb-3 line-clamp-2">{mensagem.mensagem}</p>
+                        {mensagem.lida && mensagem.lidaEm && (
+                          <div className="text-xs text-gray-500">
+                            Lida em {mensagem.lidaEm.toLocaleDateString('pt-BR')} às {mensagem.lidaEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Modal para enviar nova mensagem */}
+            {showEnviarMensagem && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Nova Mensagem</h3>
+                    <button
+                      onClick={() => setShowEnviarMensagem(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-black mb-1">
+                        Título *
+                      </label>
+                      <input
+                        type="text"
+                        value={novaMensagem.titulo}
+                        onChange={(e) => setNovaMensagem({ ...novaMensagem, titulo: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+                        placeholder="Digite o título da mensagem"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-black mb-1">
+                        Mensagem *
+                      </label>
+                      <textarea
+                        value={novaMensagem.mensagem}
+                        onChange={(e) => setNovaMensagem({ ...novaMensagem, mensagem: e.target.value })}
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
+                        placeholder="Digite sua mensagem"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-black mb-2">
+                        Destinatários
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center text-black">
+                          <input
+                            type="radio"
+                            name="destinatarios"
+                            value="todos"
+                            checked={novaMensagem.destinatarios === 'todos'}
+                            onChange={(e) => setNovaMensagem({ ...novaMensagem, destinatarios: e.target.value as 'todos' | 'especificos' })}
+                            className="mr-2"
+                          />
+                          Todos os residentes
+                        </label>
+                        <label className="flex items-center text-black">
+                          <input
+                            type="radio"
+                            name="destinatarios"
+                            value="especificos"
+                            checked={novaMensagem.destinatarios === 'especificos'}
+                            onChange={(e) => setNovaMensagem({ ...novaMensagem, destinatarios: e.target.value as 'todos' | 'especificos' })}
+                            className="mr-2"
+                          />
+                          Residentes específicos
+                        </label>
                       </div>
                     </div>
-                                    );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      }
 
-      case 'monjauro': {
-        const tiposMonjauro = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
-        const totalCarrinho = calcularTotal();
+                    {novaMensagem.destinatarios === 'especificos' && (
+                      <div>
+                        <label className="block text-sm font-medium text-black mb-2">
+                          Selecionar Residentes
+                        </label>
+                        <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
+                          {residentes.map((residente) => (
+                            <label key={residente.email} className="flex items-center py-1 text-black">
+                              <input
+                                type="checkbox"
+                                checked={novaMensagem.residentesSelecionados.includes(residente.email)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNovaMensagem({
+                                      ...novaMensagem,
+                                      residentesSelecionados: [...novaMensagem.residentesSelecionados, residente.email]
+                                    });
+                                  } else {
+                                    setNovaMensagem({
+                                      ...novaMensagem,
+                                      residentesSelecionados: novaMensagem.residentesSelecionados.filter(email => email !== residente.email)
+                                    });
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              {residente.nome} ({residente.email})
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-        return (
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Lista de Produtos */}
-              <div className="lg:col-span-2 space-y-4">
-                <div className="bg-white shadow rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Produtos Disponíveis</h3>
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <button
+                        onClick={() => setShowEnviarMensagem(false)}
+                        className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                      >
+                        Cancelar
                       </button>
                       <button
                         onClick={handleEnviarMensagem}
@@ -4545,17 +4643,17 @@ export default function MetaAdminPage() {
                 <Users size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Pacientes'}
               </button>
-                            <button
-                onClick={() => setActiveMenu('calendario')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${                                              
-                  activeMenu === 'calendario'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500' 
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'     
+              <button
+                onClick={() => setActiveMenu('mensagens')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'mensagens'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Calendário' : ''}
+                title={sidebarCollapsed ? 'Mensagens' : ''}
               >
-                                  <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                  {!sidebarCollapsed && 'Calendário'}
+                <MessageSquare size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Mensagens'}
               </button>
               <button
                 onClick={() => setActiveMenu('monjauro')}
@@ -9624,191 +9722,6 @@ export default function MetaAdminPage() {
                       </div>
                     );
                   })()}
-                  
-                  {/* Histórico de Medicações */}
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Medicações</h3>
-                    {(() => {
-                      const planoTerapeutico = pacienteEditando?.planoTerapeutico;
-                      const evolucao = pacienteEditando?.evolucaoSeguimento || [];
-                      
-                      // Função para converter dia da semana
-                      const diaSemanaNome = (dia: string) => {
-                        const dias: { [key: string]: string } = {
-                          seg: 'Segunda-feira',
-                          ter: 'Terça-feira',
-                          qua: 'Quarta-feira',
-                          qui: 'Quinta-feira',
-                          sex: 'Sexta-feira',
-                          sab: 'Sábado',
-                          dom: 'Domingo'
-                        };
-                        return dias[dia] || dia;
-                      };
-                      
-                      // Função para criar calendário de doses
-                      const criarCalendarioDoses = () => {
-                        if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
-                          return [];
-                        }
-
-                        const diasSemana: { [key: string]: number } = {
-                          dom: 0,
-                          seg: 1,
-                          ter: 2,
-                          qua: 3,
-                          qui: 4,
-                          sex: 5,
-                          sab: 6
-                        };
-
-                        const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
-
-                        // Ajustar primeira dose para o dia da semana correto
-                        const primeiraDose = new Date(planoTerapeutico.startDate);
-                        primeiraDose.setHours(0, 0, 0, 0);
-                        while (primeiraDose.getDay() !== diaDesejado) {
-                          primeiraDose.setDate(primeiraDose.getDate() + 1);
-                        }
-
-                        // Obter dose inicial do plano
-                        const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
-
-                        const calendario = [];
-                        const hoje = new Date();
-                        hoje.setHours(0, 0, 0, 0);
-
-                        // Criar 18 semanas de calendário (18 semanas = 18 doses)
-                        for (let semana = 0; semana < 18; semana++) {
-                          // Calcular data da dose como primeiraDose + (semana * 7 dias)
-                          const dataDose = new Date(primeiraDose);
-                          dataDose.setDate(primeiraDose.getDate() + (semana * 7));
-
-                          // Calcular dose planejada baseada no esquema de titulação (aumento de 2.5mg a cada 4 semanas)
-                          const dosePlanejada = Math.min(15, doseInicial + (Math.floor(semana / 4) * 2.5));
-
-                          // Encontrar registro de evolução para esta data (com tolerância de ±1 dia)
-                          const registroEvolucao = evolucao.find(e => {
-                            const dataRegistro = new Date(e.dataRegistro);
-                            dataRegistro.setHours(0, 0, 0, 0);
-                            const diffDias = Math.abs((dataRegistro.getTime() - dataDose.getTime()) / (1000 * 60 * 60 * 24));
-                            return diffDias <= 1; // Tolerância de 1 dia
-                          });
-
-                          // Determinar dose real (do registro ou planejada)
-                          let doseReal = dosePlanejada;
-                          if (registroEvolucao?.doseAplicada) {
-                            doseReal = registroEvolucao.doseAplicada.quantidade || dosePlanejada;
-                          }
-
-                          // Determinar status baseado em data e adesão
-                          let status: 'tomada' | 'perdida' | 'hoje' | 'futura';
-                          if (dataDose.getTime() === hoje.getTime()) {
-                            status = 'hoje';
-                          } else if (dataDose < hoje) {
-                            // Dose no passado
-                            if (registroEvolucao && registroEvolucao.adherence && registroEvolucao.adherence !== 'MISSED') {
-                              status = 'tomada';
-                            } else {
-                              status = 'perdida';
-                            }
-                          } else {
-                            status = 'futura';
-                          }
-
-                          calendario.push({
-                            data: dataDose,
-                            semana: semana + 1,
-                            dose: doseReal,
-                            dosePlanejada,
-                            status,
-                            adherence: registroEvolucao?.adherence || null,
-                            localAplicacao: registroEvolucao?.localAplicacao || null
-                          });
-                        }
-
-                        return calendario;
-                      };
-
-                      const calendario = criarCalendarioDoses();
-
-                      if (calendario.length === 0) {
-                        return (
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                            <p className="text-sm text-gray-600">Nenhum plano terapêutico cadastrado ainda.</p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="bg-white border border-gray-200 rounded-lg p-4">
-                          <div className="space-y-3 max-h-96 overflow-y-auto">
-                            {calendario.map((item, idx) => (
-                              <div
-                                key={idx}
-                                className={`flex items-center justify-between p-3 rounded-md border ${
-                                  item.status === 'tomada'
-                                    ? 'bg-green-50 border-green-200'
-                                    : item.status === 'perdida'
-                                    ? 'bg-red-50 border-red-200'
-                                    : item.status === 'hoje'
-                                    ? 'bg-blue-50 border-blue-200'
-                                    : 'bg-gray-50 border-gray-200'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="w-16 text-center">
-                                    <div className="text-xs text-gray-500">Semana</div>
-                                    <div className="text-lg font-bold text-gray-900">{item.semana}</div>
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="text-sm text-gray-600">
-                                      {item.data.toLocaleDateString('pt-BR')} ({diaSemanaNome(planoTerapeutico?.injectionDayOfWeek || 'seg')})
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      Dose: {item.dose} mg
-                                    </div>
-                                    {item.localAplicacao && (
-                                      <div className="text-xs text-gray-400 mt-1">
-                                        Local: {item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
-                                      </div>
-                                    )}
-                                    {item.adherence && item.status === 'tomada' && (
-                                      <div className="text-xs text-gray-400 mt-1">
-                                        {item.adherence === 'ON_TIME' ? '✓ Pontual' : item.adherence === 'LATE_<96H' ? '⚠ Atrasada' : ''}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  {item.status === 'tomada' && (
-                                    <span className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
-                                      ✓ Tomada
-                                    </span>
-                                  )}
-                                  {item.status === 'perdida' && (
-                                    <span className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full">
-                                      ✗ Perdida
-                                    </span>
-                                  )}
-                                  {item.status === 'hoje' && (
-                                    <span className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
-                                      Hoje
-                                    </span>
-                                  )}
-                                  {item.status === 'futura' && (
-                                    <span className="px-3 py-1 bg-gray-400 text-white text-xs font-medium rounded-full">
-                                      Futura
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
                 </div>
               )}
 
@@ -11173,16 +11086,21 @@ export default function MetaAdminPage() {
             <span className="text-xs font-medium">Pacientes</span>
           </button>
 
-                    <button
-            onClick={() => setActiveMenu('calendario')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors relative whitespace-nowrap ${                                       
-              activeMenu === 'calendario'
+          <button
+            onClick={() => setActiveMenu('mensagens')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors relative whitespace-nowrap ${
+              activeMenu === 'mensagens'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-                        <Calendar className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Calendário</span>
+            <MessageSquare className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Mensagens</span>
+            {mensagensNaoLidasResidentes > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {mensagensNaoLidasResidentes}
+              </span>
+            )}
           </button>
 
           <button
