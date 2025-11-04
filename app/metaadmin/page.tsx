@@ -9722,6 +9722,244 @@ export default function MetaAdminPage() {
                       </div>
                     );
                   })()}
+
+                  {/* Histórico de Medicações */}
+                  <div className="mt-8 border-t border-gray-200 pt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Medicações</h3>
+                    {(() => {
+                      const planoTerapeutico = pacienteEditando?.planoTerapeutico;
+                      const evolucao = pacienteEditando?.evolucaoSeguimento || [];
+
+                      // Função auxiliar para nome do dia da semana
+                      const diaSemanaNome = (data: Date) => {
+                        const dias: { [key: number]: string } = {
+                          0: 'Domingo',
+                          1: 'Segunda-feira',
+                          2: 'Terça-feira',
+                          3: 'Quarta-feira',
+                          4: 'Quinta-feira',
+                          5: 'Sexta-feira',
+                          6: 'Sábado'
+                        };
+                        return dias[data.getDay()] || '';
+                      };
+
+                      // Função para criar calendário de doses
+                      const criarCalendarioDoses = () => {
+                        if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
+                          return [];
+                        }
+
+                        const diasSemana: { [key: string]: number } = {
+                          dom: 0,
+                          seg: 1,
+                          ter: 2,
+                          qua: 3,
+                          qui: 4,
+                          sex: 5,
+                          sab: 6
+                        };
+
+                        const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
+
+                        // Ajustar primeira dose para o dia da semana correto
+                        const primeiraDose = new Date(planoTerapeutico.startDate);
+                        primeiraDose.setHours(0, 0, 0, 0);
+                        while (primeiraDose.getDay() !== diaDesejado) {
+                          primeiraDose.setDate(primeiraDose.getDate() + 1);
+                        }
+
+                        // Obter dose inicial do plano
+                        const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
+
+                        const calendario = [];
+                        const hoje = new Date();
+                        hoje.setHours(0, 0, 0, 0);
+
+                        // Criar 18 semanas de calendário (18 semanas = 18 doses)
+                        for (let semana = 0; semana < 18; semana++) {
+                          // Calcular data da dose como primeiraDose + (semana * 7 dias)
+                          const dataDose = new Date(primeiraDose);
+                          dataDose.setDate(primeiraDose.getDate() + (semana * 7));
+
+                          // Calcular dose planejada baseada no esquema de titulação (aumento de 2.5mg a cada 4 semanas)
+                          const dosePlanejada = doseInicial + (Math.floor(semana / 4) * 2.5);
+
+                          // Encontrar registro de evolução para esta data (com tolerância de ±1 dia)
+                          const registroEvolucao = evolucao.find(e => {
+                            const dataRegistro = new Date(e.dataRegistro);
+                            dataRegistro.setHours(0, 0, 0, 0);
+                            const diffDias = Math.abs((dataRegistro.getTime() - dataDose.getTime()) / (1000 * 60 * 60 * 24));
+                            return diffDias <= 1; // Tolerância de 1 dia
+                          });
+
+                          // Determinar dose real (do registro ou planejada)
+                          let doseReal = dosePlanejada;
+                          if (registroEvolucao?.doseAplicada) {
+                            doseReal = registroEvolucao.doseAplicada.quantidade || dosePlanejada;
+                          }
+
+                          // Determinar status baseado em data e adesão
+                          let status: 'tomada' | 'perdida' | 'hoje' | 'futura';
+                          if (dataDose.getTime() === hoje.getTime()) {
+                            status = 'hoje';
+                          } else if (dataDose < hoje) {
+                            // Dose no passado
+                            if (registroEvolucao && registroEvolucao.adherence && registroEvolucao.adherence !== 'MISSED') {
+                              status = 'tomada';
+                            } else {
+                              status = 'perdida';
+                            }
+                          } else {
+                            status = 'futura';
+                          }
+
+                          calendario.push({
+                            data: dataDose,
+                            semana: semana + 1,
+                            dose: doseReal,
+                            dosePlanejada,
+                            status,
+                            adherence: registroEvolucao?.adherence || null,
+                            localAplicacao: registroEvolucao?.localAplicacao || null
+                          });
+                        }
+
+                        return calendario;
+                      };
+
+                      const calendario = criarCalendarioDoses();
+
+                      if (!planoTerapeutico || !planoTerapeutico.startDate || !planoTerapeutico.injectionDayOfWeek) {
+                        return (
+                          <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                            <Pill size={48} className="mx-auto text-gray-400 mb-4" />
+                            <p className="text-gray-600">Plano terapêutico não configurado</p>
+                            <p className="text-sm text-gray-500 mt-2">Configure a data de início e o dia da semana da aplicação no plano terapêutico.</p>
+                          </div>
+                        );
+                      }
+
+                      // Separar aplicações passadas e futuras
+                      const hoje = new Date();
+                      hoje.setHours(0, 0, 0, 0);
+                      const aplicacoesPassadas = calendario.filter(item => item.data < hoje && item.status !== 'futura');
+                      const aplicacoesFuturas = calendario.filter(item => item.data >= hoje || item.status === 'futura');
+
+                      return (
+                        <div className="space-y-6">
+                          {/* Aplicações Passadas */}
+                          {aplicacoesPassadas.length > 0 && (
+                            <div>
+                              <h4 className="text-md font-semibold text-gray-700 mb-3">Aplicações Realizadas</h4>
+                              <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {aplicacoesPassadas.map((item, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`flex items-center justify-between p-3 rounded-md border ${
+                                      item.status === 'tomada'
+                                        ? 'bg-green-50 border-green-200'
+                                        : 'bg-red-50 border-red-200'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-16 text-center">
+                                        <div className="text-xs text-gray-500">Semana</div>
+                                        <div className="text-lg font-bold text-gray-900">{item.semana}</div>
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="text-sm text-gray-600">
+                                          {item.data.toLocaleDateString('pt-BR')} ({diaSemanaNome(planoTerapeutico.injectionDayOfWeek)})
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          Dose: {item.dose} mg
+                                        </div>
+                                        {item.localAplicacao && (
+                                          <div className="text-xs text-gray-400 mt-1">
+                                            Local: {item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
+                                          </div>
+                                        )}
+                                        {item.adherence && item.status === 'tomada' && (
+                                          <div className="text-xs text-gray-400 mt-1">
+                                            {item.adherence === 'ON_TIME' ? '✓ Pontual' : item.adherence === 'LATE_<96H' ? '⚠ Atrasada' : ''}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      {item.status === 'tomada' && (
+                                        <span className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
+                                          ✓ Tomada
+                                        </span>
+                                      )}
+                                      {item.status === 'perdida' && (
+                                        <span className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full">
+                                          ✗ Perdida
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Próximas Aplicações */}
+                          {aplicacoesFuturas.length > 0 && (
+                            <div>
+                              <h4 className="text-md font-semibold text-gray-700 mb-3">Próximas Aplicações</h4>
+                              <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {aplicacoesFuturas.map((item, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`flex items-center justify-between p-3 rounded-md border ${
+                                      item.status === 'hoje'
+                                        ? 'bg-blue-50 border-blue-200'
+                                        : 'bg-gray-50 border-gray-200'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-16 text-center">
+                                        <div className="text-xs text-gray-500">Semana</div>
+                                        <div className="text-lg font-bold text-gray-900">{item.semana}</div>
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="text-sm text-gray-600">
+                                          {item.data.toLocaleDateString('pt-BR')} ({diaSemanaNome(item.data)})
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          Dose planejada: {item.dosePlanejada} mg
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      {item.status === 'hoje' && (
+                                        <span className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
+                                          Hoje
+                                        </span>
+                                      )}
+                                      {item.status === 'futura' && (
+                                        <span className="px-3 py-1 bg-gray-400 text-white text-xs font-medium rounded-full">
+                                          Futura
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {calendario.length === 0 && (
+                            <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                              <Pill size={48} className="mx-auto text-gray-400 mb-4" />
+                              <p className="text-gray-600">Nenhuma aplicação registrada</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
 
