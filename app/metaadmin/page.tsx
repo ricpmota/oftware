@@ -9731,7 +9731,12 @@ export default function MetaAdminPage() {
                       const evolucao = pacienteEditando?.evolucaoSeguimento || [];
 
                       // Função auxiliar para nome do dia da semana
-                      const diaSemanaNome = (data: Date) => {
+                      const diaSemanaNome = (data: Date | string) => {
+                        // Converter para Date se for string ou Timestamp
+                        const dataObj = data instanceof Date ? data : new Date(data);
+                        if (isNaN(dataObj.getTime())) {
+                          return '';
+                        }
                         const dias: { [key: number]: string } = {
                           0: 'Domingo',
                           1: 'Segunda-feira',
@@ -9741,7 +9746,7 @@ export default function MetaAdminPage() {
                           5: 'Sexta-feira',
                           6: 'Sábado'
                         };
-                        return dias[data.getDay()] || '';
+                        return dias[dataObj.getDay()] || '';
                       };
 
                       // Função para criar calendário de doses
@@ -9763,7 +9768,11 @@ export default function MetaAdminPage() {
                         const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
 
                         // Ajustar primeira dose para o dia da semana correto
-                        const primeiraDose = new Date(planoTerapeutico.startDate);
+                        // Converter startDate para Date se for Timestamp ou string
+                        const startDateValue = planoTerapeutico.startDate;
+                        const primeiraDose = startDateValue instanceof Date 
+                          ? new Date(startDateValue)
+                          : new Date(startDateValue as any);
                         primeiraDose.setHours(0, 0, 0, 0);
                         while (primeiraDose.getDay() !== diaDesejado) {
                           primeiraDose.setDate(primeiraDose.getDate() + 1);
@@ -9787,7 +9796,11 @@ export default function MetaAdminPage() {
 
                           // Encontrar registro de evolução para esta data (com tolerância de ±1 dia)
                           const registroEvolucao = evolucao.find(e => {
-                            const dataRegistro = new Date(e.dataRegistro);
+                            if (!e.dataRegistro) return false;
+                            const dataRegistro = e.dataRegistro instanceof Date 
+                              ? new Date(e.dataRegistro)
+                              : new Date(e.dataRegistro as any);
+                            if (isNaN(dataRegistro.getTime())) return false;
                             dataRegistro.setHours(0, 0, 0, 0);
                             const diffDias = Math.abs((dataRegistro.getTime() - dataDose.getTime()) / (1000 * 60 * 60 * 24));
                             return diffDias <= 1; // Tolerância de 1 dia
@@ -9843,8 +9856,14 @@ export default function MetaAdminPage() {
                       // Separar aplicações passadas e futuras
                       const hoje = new Date();
                       hoje.setHours(0, 0, 0, 0);
-                      const aplicacoesPassadas = calendario.filter(item => item.data < hoje && item.status !== 'futura');
-                      const aplicacoesFuturas = calendario.filter(item => item.data >= hoje || item.status === 'futura');
+                      const aplicacoesPassadas = calendario.filter(item => {
+                        const dataItem = item.data instanceof Date ? item.data : new Date(item.data as any);
+                        return !isNaN(dataItem.getTime()) && dataItem < hoje && item.status !== 'futura';
+                      });
+                      const aplicacoesFuturas = calendario.filter(item => {
+                        const dataItem = item.data instanceof Date ? item.data : new Date(item.data as any);
+                        return !isNaN(dataItem.getTime()) && (dataItem >= hoje || item.status === 'futura');
+                      });
 
                       return (
                         <div className="space-y-6">
@@ -9853,53 +9872,63 @@ export default function MetaAdminPage() {
                             <div>
                               <h4 className="text-md font-semibold text-gray-700 mb-3">Aplicações Realizadas</h4>
                               <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {aplicacoesPassadas.map((item, idx) => (
-                                  <div
-                                    key={idx}
-                                    className={`flex items-center justify-between p-3 rounded-md border ${
-                                      item.status === 'tomada'
-                                        ? 'bg-green-50 border-green-200'
-                                        : 'bg-red-50 border-red-200'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-16 text-center">
-                                        <div className="text-xs text-gray-500">Semana</div>
-                                        <div className="text-lg font-bold text-gray-900">{item.semana}</div>
+                                {aplicacoesPassadas.map((item, idx) => {
+                                  // Garantir que item.data seja sempre Date
+                                  const dataItem = item.data instanceof Date 
+                                    ? item.data 
+                                    : new Date(item.data as any);
+                                  const dataFormatada = !isNaN(dataItem.getTime()) 
+                                    ? dataItem.toLocaleDateString('pt-BR') 
+                                    : 'Data inválida';
+                                  
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`flex items-center justify-between p-3 rounded-md border ${
+                                        item.status === 'tomada'
+                                          ? 'bg-green-50 border-green-200'
+                                          : 'bg-red-50 border-red-200'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-16 text-center">
+                                          <div className="text-xs text-gray-500">Semana</div>
+                                          <div className="text-lg font-bold text-gray-900">{item.semana}</div>
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="text-sm text-gray-600">
+                                            {dataFormatada} ({diaSemanaNome(dataItem)})
+                                          </div>
+                                          <div className="text-xs text-gray-500">
+                                            Dose: {item.dose} mg
+                                          </div>
+                                          {item.localAplicacao && (
+                                            <div className="text-xs text-gray-400 mt-1">
+                                              Local: {item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
+                                            </div>
+                                          )}
+                                          {item.adherence && item.status === 'tomada' && (
+                                            <div className="text-xs text-gray-400 mt-1">
+                                              {item.adherence === 'ON_TIME' ? '✓ Pontual' : item.adherence === 'LATE_<96H' ? '⚠ Atrasada' : ''}
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="flex-1">
-                                        <div className="text-sm text-gray-600">
-                                          {item.data.toLocaleDateString('pt-BR')} ({diaSemanaNome(planoTerapeutico.injectionDayOfWeek)})
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                          Dose: {item.dose} mg
-                                        </div>
-                                        {item.localAplicacao && (
-                                          <div className="text-xs text-gray-400 mt-1">
-                                            Local: {item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
-                                          </div>
+                                      <div className="text-right">
+                                        {item.status === 'tomada' && (
+                                          <span className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
+                                            ✓ Tomada
+                                          </span>
                                         )}
-                                        {item.adherence && item.status === 'tomada' && (
-                                          <div className="text-xs text-gray-400 mt-1">
-                                            {item.adherence === 'ON_TIME' ? '✓ Pontual' : item.adherence === 'LATE_<96H' ? '⚠ Atrasada' : ''}
-                                          </div>
+                                        {item.status === 'perdida' && (
+                                          <span className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full">
+                                            ✗ Perdida
+                                          </span>
                                         )}
                                       </div>
                                     </div>
-                                    <div className="text-right">
-                                      {item.status === 'tomada' && (
-                                        <span className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-full">
-                                          ✓ Tomada
-                                        </span>
-                                      )}
-                                      {item.status === 'perdida' && (
-                                        <span className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full">
-                                          ✗ Perdida
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -9909,24 +9938,33 @@ export default function MetaAdminPage() {
                             <div>
                               <h4 className="text-md font-semibold text-gray-700 mb-3">Próximas Aplicações</h4>
                               <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {aplicacoesFuturas.map((item, idx) => (
-                                  <div
-                                    key={idx}
-                                    className={`flex items-center justify-between p-3 rounded-md border ${
-                                      item.status === 'hoje'
-                                        ? 'bg-blue-50 border-blue-200'
-                                        : 'bg-gray-50 border-gray-200'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-16 text-center">
-                                        <div className="text-xs text-gray-500">Semana</div>
-                                        <div className="text-lg font-bold text-gray-900">{item.semana}</div>
-                                      </div>
-                                      <div className="flex-1">
-                                        <div className="text-sm text-gray-600">
-                                          {item.data.toLocaleDateString('pt-BR')} ({diaSemanaNome(item.data)})
+                                {aplicacoesFuturas.map((item, idx) => {
+                                  // Garantir que item.data seja sempre Date
+                                  const dataItem = item.data instanceof Date 
+                                    ? item.data 
+                                    : new Date(item.data as any);
+                                  const dataFormatada = !isNaN(dataItem.getTime()) 
+                                    ? dataItem.toLocaleDateString('pt-BR') 
+                                    : 'Data inválida';
+                                  
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`flex items-center justify-between p-3 rounded-md border ${
+                                        item.status === 'hoje'
+                                          ? 'bg-blue-50 border-blue-200'
+                                          : 'bg-gray-50 border-gray-200'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-16 text-center">
+                                          <div className="text-xs text-gray-500">Semana</div>
+                                          <div className="text-lg font-bold text-gray-900">{item.semana}</div>
                                         </div>
+                                        <div className="flex-1">
+                                          <div className="text-sm text-gray-600">
+                                            {dataFormatada} ({diaSemanaNome(dataItem)})
+                                          </div>
                                         <div className="text-xs text-gray-500">
                                           Dose planejada: {item.dosePlanejada} mg
                                         </div>
@@ -9945,7 +9983,8 @@ export default function MetaAdminPage() {
                                       )}
                                     </div>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
