@@ -143,6 +143,17 @@ export default function MetaAdminPage() {
   const [monjauroPrecos, setMonjauroPrecos] = useState<MonjauroPreco[]>([]);
   const [loadingMonjauroPrecos, setLoadingMonjauroPrecos] = useState(false);
   const [carrinho, setCarrinho] = useState<{ tipo: string; quantidade: number; preco: number }[]>([]);
+  
+  // Estados para calendário de aplicações
+  const [mesCalendario, setMesCalendario] = useState(new Date());
+  const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
+  const [aplicacoesDiaSelecionado, setAplicacoesDiaSelecionado] = useState<Array<{
+    paciente: PacienteCompleto;
+    semana: number;
+    dose: number;
+    localAplicacao: string;
+  }>>([]);
+  
   // Estados para Pasta 4 (Exames Laboratoriais)
   const [exameDataSelecionada, setExameDataSelecionada] = useState<string>('');
   const [showAdicionarExameModal, setShowAdicionarExameModal] = useState(false);
@@ -1152,6 +1163,12 @@ export default function MetaAdminPage() {
       loadSolicitacoesMedico();
     }
   }, [user, medicoPerfil, activeMenu, loadPacientes, loadSolicitacoesMedico]);
+
+  useEffect(() => {
+    if (user && medicoPerfil && activeMenu === 'calendario') {
+      loadPacientes();
+    }
+  }, [user, medicoPerfil, activeMenu, loadPacientes]);
 
   useEffect(() => {
     if (user && activeMenu === 'troca') {
@@ -4331,6 +4348,369 @@ export default function MetaAdminPage() {
         );
       }
 
+      case 'calendario': {
+        // Função para calcular aplicações de um paciente
+        const calcularAplicacoesPaciente = (paciente: PacienteCompleto, mesInicio: Date, mesFim: Date) => {
+          const aplicacoes: Array<{
+            data: Date;
+            paciente: PacienteCompleto;
+            semana: number;
+            dose: number;
+            localAplicacao: string;
+          }> = [];
+
+          const planoTerapeutico = paciente.planoTerapeutico;
+          if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
+            return aplicacoes;
+          }
+
+          const diasSemana: { [key: string]: number } = {
+            dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6
+          };
+
+          const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
+          const startDateValue = planoTerapeutico.startDate;
+          const primeiraDose = startDateValue instanceof Date 
+            ? new Date(startDateValue)
+            : new Date(startDateValue as any);
+          primeiraDose.setHours(0, 0, 0, 0);
+          
+          // Ajustar para o dia da semana correto
+          while (primeiraDose.getDay() !== diaDesejado) {
+            primeiraDose.setDate(primeiraDose.getDate() + 1);
+          }
+
+          const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
+          const evolucao = paciente.evolucaoSeguimento || [];
+          
+          // Locais de aplicação em rotação
+          const locais = ['abdome', 'coxa', 'braco'];
+          
+          // Calcular aplicações para os próximos 18 meses
+          for (let semana = 0; semana < 78; semana++) { // 18 meses = ~78 semanas
+            const dataDose = new Date(primeiraDose);
+            dataDose.setDate(primeiraDose.getDate() + (semana * 7));
+
+            // Verificar se está no intervalo do mês do calendário
+            if (dataDose >= mesInicio && dataDose <= mesFim) {
+              const dosePlanejada = doseInicial + (Math.floor(semana / 4) * 2.5);
+              
+              // Encontrar aplicação da semana anterior para rotação do local
+              const dataSemanaAnterior = new Date(dataDose);
+              dataSemanaAnterior.setDate(dataDose.getDate() - 7);
+              
+              // Buscar aplicação exata da semana anterior (tolerância de ±1 dia)
+              const aplicacaoSemanaAnterior = evolucao.find(e => {
+                const dataRegistro = e.dataRegistro instanceof Date 
+                  ? new Date(e.dataRegistro)
+                  : new Date(e.dataRegistro as any);
+                const diffDias = Math.abs((dataRegistro.getTime() - dataSemanaAnterior.getTime()) / (1000 * 60 * 60 * 24));
+                return diffDias <= 1; // Tolerância de 1 dia
+              });
+
+              // Se não encontrar da semana anterior, buscar última aplicação registrada
+              let ultimoLocalAplicado = aplicacaoSemanaAnterior?.localAplicacao;
+              
+              if (!ultimoLocalAplicado) {
+                const ultimaAplicacao = evolucao
+                  .filter(e => {
+                    const dataRegistro = e.dataRegistro instanceof Date 
+                      ? new Date(e.dataRegistro)
+                      : new Date(e.dataRegistro as any);
+                    return dataRegistro < dataDose;
+                  })
+                  .sort((a, b) => {
+                    const dataA = a.dataRegistro instanceof Date 
+                      ? new Date(a.dataRegistro)
+                      : new Date(a.dataRegistro as any);
+                    const dataB = b.dataRegistro instanceof Date 
+                      ? new Date(b.dataRegistro)
+                      : new Date(b.dataRegistro as any);
+                    return dataB.getTime() - dataA.getTime();
+                  })[0];
+                ultimoLocalAplicado = ultimaAplicacao?.localAplicacao;
+              }
+
+              let localIndex = 0;
+              if (ultimoLocalAplicado) {
+                const ultimoLocalIndex = locais.indexOf(ultimoLocalAplicado);
+                if (ultimoLocalIndex >= 0) {
+                  // Rotacionar: próximo local (nunca igual ao anterior)
+                  localIndex = (ultimoLocalIndex + 1) % locais.length;
+                }
+              }
+
+              aplicacoes.push({
+                data: dataDose,
+                paciente,
+                semana: semana + 1,
+                dose: dosePlanejada,
+                localAplicacao: locais[localIndex]
+              });
+            }
+          }
+
+          return aplicacoes;
+        };
+
+        // Função para obter aplicações do mês
+        const obterAplicacoesMes = () => {
+          const ano = mesCalendario.getFullYear();
+          const mes = mesCalendario.getMonth();
+          const mesInicio = new Date(ano, mes, 1);
+          const mesFim = new Date(ano, mes + 1, 0);
+          mesFim.setHours(23, 59, 59);
+
+          const todasAplicacoes: Array<{
+            data: Date;
+            paciente: PacienteCompleto;
+            semana: number;
+            dose: number;
+            localAplicacao: string;
+          }> = [];
+
+          pacientes
+            .filter(p => p.statusTratamento === 'em_tratamento')
+            .forEach(paciente => {
+              const aplicacoes = calcularAplicacoesPaciente(paciente, mesInicio, mesFim);
+              todasAplicacoes.push(...aplicacoes);
+            });
+
+          return todasAplicacoes;
+        };
+
+        // Função para renderizar calendário
+        const renderizarCalendario = () => {
+          const ano = mesCalendario.getFullYear();
+          const mes = mesCalendario.getMonth();
+          const aplicacoes = obterAplicacoesMes();
+
+          // Primeiro dia do mês
+          const primeiroDia = new Date(ano, mes, 1);
+          const ultimoDia = new Date(ano, mes + 1, 0);
+          
+          // Dia da semana do primeiro dia (0 = domingo, 6 = sábado)
+          const diaSemanaPrimeiro = primeiroDia.getDay();
+          
+          // Número de dias no mês
+          const diasNoMes = ultimoDia.getDate();
+          
+          // Array para os dias do calendário
+          const dias: (Date | null)[] = [];
+          
+          // Adicionar dias vazios antes do primeiro dia
+          for (let i = 0; i < diaSemanaPrimeiro; i++) {
+            dias.push(null);
+          }
+          
+          // Adicionar dias do mês
+          for (let dia = 1; dia <= diasNoMes; dia++) {
+            dias.push(new Date(ano, mes, dia));
+          }
+
+          const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+          const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+          const mudarMes = (direcao: 'anterior' | 'proximo') => {
+            const novoMes = new Date(mesCalendario);
+            if (direcao === 'anterior') {
+              novoMes.setMonth(mes - 1);
+            } else {
+              novoMes.setMonth(mes + 1);
+            }
+            setMesCalendario(novoMes);
+            setDiaSelecionado(null);
+          };
+
+          const handleDiaClick = (data: Date | null) => {
+            if (!data) return;
+            
+            const aplicacoesDoDia = aplicacoes.filter(a => {
+              const dataAplicacao = a.data;
+              return dataAplicacao.getDate() === data.getDate() &&
+                     dataAplicacao.getMonth() === data.getMonth() &&
+                     dataAplicacao.getFullYear() === data.getFullYear();
+            });
+
+            setDiaSelecionado(data);
+            setAplicacoesDiaSelecionado(aplicacoesDoDia);
+          };
+
+          return (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Calendário de Aplicações</h2>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => mudarMes('anterior')}
+                    className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span className="text-lg font-semibold text-gray-900">
+                    {meses[mes]} {ano}
+                  </span>
+                  <button
+                    onClick={() => mudarMes('proximo')}
+                    className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setMesCalendario(new Date())}
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  >
+                    Hoje
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="grid grid-cols-7 border-b border-gray-200">
+                  {diasSemana.map(dia => (
+                    <div key={dia} className="p-3 text-center text-sm font-semibold text-gray-700 bg-gray-50">
+                      {dia}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7">
+                  {dias.map((dia, index) => {
+                    const aplicacoesDoDia = dia ? aplicacoes.filter(a => {
+                      const dataAplicacao = a.data;
+                      return dataAplicacao.getDate() === dia.getDate() &&
+                             dataAplicacao.getMonth() === dia.getMonth() &&
+                             dataAplicacao.getFullYear() === dia.getFullYear();
+                    }) : [];
+
+                    const hoje = new Date();
+                    const eHoje = dia && dia.getDate() === hoje.getDate() &&
+                                  dia.getMonth() === hoje.getMonth() &&
+                                  dia.getFullYear() === hoje.getFullYear();
+
+                    return (
+                      <div
+                        key={index}
+                        onClick={() => handleDiaClick(dia)}
+                        className={`min-h-24 border border-gray-200 p-2 cursor-pointer transition-colors ${
+                          dia === null
+                            ? 'bg-gray-50'
+                            : eHoje
+                            ? 'bg-blue-50 hover:bg-blue-100'
+                            : aplicacoesDoDia.length > 0
+                            ? 'bg-green-50 hover:bg-green-100'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        {dia && (
+                          <>
+                            <div className={`text-sm font-medium mb-1 ${
+                              eHoje ? 'text-blue-600' : 'text-gray-700'
+                            }`}>
+                              {dia.getDate()}
+                            </div>
+                            {aplicacoesDoDia.length > 0 && (
+                              <div className="space-y-1">
+                                {aplicacoesDoDia.slice(0, 3).map((aplicacao, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="text-xs bg-green-600 text-white px-2 py-1 rounded truncate"
+                                    title={aplicacao.paciente.nome}
+                                  >
+                                    {aplicacao.paciente.nome}
+                                  </div>
+                                ))}
+                                {aplicacoesDoDia.length > 3 && (
+                                  <div className="text-xs text-gray-600 font-medium">
+                                    +{aplicacoesDoDia.length - 3} mais
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Modal de detalhes do dia */}
+              {diaSelecionado && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                      <h3 className="text-xl font-bold text-gray-900">
+                        Aplicações - {diaSelecionado.toLocaleDateString('pt-BR', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setDiaSelecionado(null);
+                          setAplicacoesDiaSelecionado([]);
+                        }}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X size={24} />
+                      </button>
+                    </div>
+                    <div className="p-6">
+                      {aplicacoesDiaSelecionado.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">
+                          Nenhuma aplicação agendada para este dia.
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          {aplicacoesDiaSelecionado.map((aplicacao, idx) => (
+                            <div
+                              key={idx}
+                              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="text-lg font-semibold text-gray-900">
+                                  {aplicacao.paciente.nome}
+                                </h4>
+                                <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+                                  Semana {aplicacao.semana}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 mt-3">
+                                <div>
+                                  <span className="text-sm text-gray-500">Dose:</span>
+                                  <span className="ml-2 text-sm font-medium text-gray-900">
+                                    {aplicacao.dose} mg
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-sm text-gray-500">Local de Aplicação:</span>
+                                  <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
+                                    {aplicacao.localAplicacao === 'abdome' ? 'Abdome' : 
+                                     aplicacao.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        return renderizarCalendario();
+      }
+
       case 'monjauro': {
         const tiposMonjauro = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
         const totalCarrinho = calcularTotal();
@@ -4642,6 +5022,18 @@ export default function MetaAdminPage() {
               >
                 <Users size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Pacientes'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('calendario')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'calendario'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+                title={sidebarCollapsed ? 'Calendário' : ''}
+              >
+                <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Calendário'}
               </button>
               <button
                 onClick={() => setActiveMenu('mensagens')}
