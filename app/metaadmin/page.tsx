@@ -4638,19 +4638,58 @@ export default function MetaAdminPage() {
                 </div>
               </div>
 
-              {/* Modal de detalhes do dia */}
+              {/* Detalhes do dia selecionado abaixo do calendário */}
               {diaSelecionado && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                    <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                      <h3 className="text-xl font-bold text-gray-900">
-                        Aplicações - {diaSelecionado.toLocaleDateString('pt-BR', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
-                      </h3>
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Aplicações - {diaSelecionado.toLocaleDateString('pt-BR', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      {/* Link para adicionar ao Google Calendar */}
+                      {user?.email && aplicacoesDiaSelecionado.length > 0 && (() => {
+                        // Formatar data para Google Calendar (YYYYMMDDTHHMMSSZ)
+                        const dataInicio = new Date(diaSelecionado);
+                        dataInicio.setHours(8, 0, 0, 0); // 8h da manhã
+                        const dataFim = new Date(diaSelecionado);
+                        dataFim.setHours(18, 0, 0, 0); // 6h da tarde
+                        
+                        const formatarDataGoogle = (data: Date) => {
+                          const ano = data.getFullYear();
+                          const mes = String(data.getMonth() + 1).padStart(2, '0');
+                          const dia = String(data.getDate()).padStart(2, '0');
+                          const hora = String(data.getHours()).padStart(2, '0');
+                          const minuto = String(data.getMinutes()).padStart(2, '0');
+                          return `${ano}${mes}${dia}T${hora}${minuto}00Z`;
+                        };
+                        
+                        const dataInicioStr = formatarDataGoogle(dataInicio);
+                        const dataFimStr = formatarDataGoogle(dataFim);
+                        
+                        const detalhes = aplicacoesDiaSelecionado
+                          .map(a => `${a.paciente.nome} - Semana ${a.semana} - ${a.dose}mg - Local: ${a.localAplicacao === 'abdome' ? 'Abdome' : a.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}`)
+                          .join('%0A');
+                        
+                        const titulo = `Aplicações Monjauro - ${diaSelecionado.toLocaleDateString('pt-BR')}`;
+                        const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicioStr}/${dataFimStr}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`;
+                        
+                        return (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                          >
+                            <Calendar size={16} />
+                            Adicionar ao Google Calendar
+                          </a>
+                        );
+                      })()}
                       <button
                         onClick={() => {
                           setDiaSelecionado(null);
@@ -4661,47 +4700,45 @@ export default function MetaAdminPage() {
                         <X size={24} />
                       </button>
                     </div>
-                    <div className="p-6">
-                      {aplicacoesDiaSelecionado.length === 0 ? (
-                        <p className="text-gray-500 text-center py-8">
-                          Nenhuma aplicação agendada para este dia.
-                        </p>
-                      ) : (
-                        <div className="space-y-4">
-                          {aplicacoesDiaSelecionado.map((aplicacao, idx) => (
-                            <div
-                              key={idx}
-                              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="text-lg font-semibold text-gray-900">
-                                  {aplicacao.paciente.nome}
-                                </h4>
-                                <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                                  Semana {aplicacao.semana}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4 mt-3">
-                                <div>
-                                  <span className="text-sm text-gray-500">Dose:</span>
-                                  <span className="ml-2 text-sm font-medium text-gray-900">
-                                    {aplicacao.dose} mg
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-sm text-gray-500">Local de Aplicação:</span>
-                                  <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
-                                    {aplicacao.localAplicacao === 'abdome' ? 'Abdome' : 
-                                     aplicacao.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                   </div>
+                  {aplicacoesDiaSelecionado.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">
+                      Nenhuma aplicação agendada para este dia.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {aplicacoesDiaSelecionado.map((aplicacao, idx) => (
+                        <div
+                          key={idx}
+                          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="text-lg font-semibold text-gray-900">
+                              {aplicacao.paciente.nome}
+                            </h4>
+                            <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+                              Semana {aplicacao.semana}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-3">
+                            <div>
+                              <span className="text-sm text-gray-500">Dose:</span>
+                              <span className="ml-2 text-sm font-medium text-gray-900">
+                                {aplicacao.dose} mg
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-gray-500">Local de Aplicação:</span>
+                              <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
+                                {aplicacao.localAplicacao === 'abdome' ? 'Abdome' : 
+                                 aplicacao.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -5035,7 +5072,8 @@ export default function MetaAdminPage() {
                 <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Calendário'}
               </button>
-              <button
+              {/* Mensagens desativado - mantido para possível uso futuro */}
+              {/* <button
                 onClick={() => setActiveMenu('mensagens')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'mensagens'
@@ -5046,7 +5084,7 @@ export default function MetaAdminPage() {
               >
                 <MessageSquare size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Mensagens'}
-              </button>
+              </button> */}
               <button
                 onClick={() => setActiveMenu('monjauro')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
