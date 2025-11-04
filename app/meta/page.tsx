@@ -115,6 +115,9 @@ export default function MetaPage() {
   const [showModalAbandono, setShowModalAbandono] = useState(false);
   const [motivoAbandono, setMotivoAbandono] = useState('');
   const [cidadesCustomizadas, setCidadesCustomizadas] = useState<{ estado: string; cidade: string }[]>([]);
+  const [todosMedicosDisponiveis, setTodosMedicosDisponiveis] = useState<Medico[]>([]);
+  const [estadosDisponiveis, setEstadosDisponiveis] = useState<string[]>([]);
+  const [cidadesDisponiveis, setCidadesDisponiveis] = useState<{ estado: string; cidade: string }[]>([]);
 
   // Carregar cidades customizadas
   useEffect(() => {
@@ -532,6 +535,42 @@ export default function MetaPage() {
       loadMensagensEnviadas();
     }
   }, [user, loadData, loadTrocas, loadFerias, loadMensagens, loadMensagensEnviadas]);
+
+  // Carregar todos os médicos e extrair estados/cidades disponíveis quando entrar na página Médicos
+  useEffect(() => {
+    const loadMedicosDisponiveis = async () => {
+      if (user && activeMenu === 'medicos' && abaAtivaMedicos === 'buscar') {
+        try {
+          const todosMedicos = await MedicoService.getAllMedicos();
+          setTodosMedicosDisponiveis(todosMedicos);
+
+          // Extrair estados únicos onde existem médicos
+          const estadosComMedicos = new Set<string>();
+          const cidadesComMedicos: { estado: string; cidade: string }[] = [];
+
+          todosMedicos.forEach(medico => {
+            medico.cidades.forEach(cidade => {
+              estadosComMedicos.add(cidade.estado);
+              // Adicionar cidade se ainda não existir para este estado
+              if (!cidadesComMedicos.some(c => c.estado === cidade.estado && c.cidade === cidade.cidade)) {
+                cidadesComMedicos.push({
+                  estado: cidade.estado,
+                  cidade: cidade.cidade
+                });
+              }
+            });
+          });
+
+          setEstadosDisponiveis(Array.from(estadosComMedicos).sort());
+          setCidadesDisponiveis(cidadesComMedicos);
+        } catch (error) {
+          console.error('Erro ao carregar médicos disponíveis:', error);
+        }
+      }
+    };
+
+    loadMedicosDisponiveis();
+  }, [user, activeMenu, abaAtivaMedicos]);
 
   // Carregar solicitações quando entrar na página Médicos
   useEffect(() => {
@@ -2854,15 +2893,18 @@ export default function MetaPage() {
                     onChange={(e) => {
                       setEstadoBuscaMedico(e.target.value);
                       setCidadeBuscaMedico('');
+                      setMedicos([]);
                     }}
                     className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                   >
                     <option value="">Selecione o estado</option>
-                    {estadosList.map((estado) => (
-                      <option key={estado.sigla} value={estado.sigla}>
-                        {estado.nome}
-                      </option>
-                    ))}
+                    {estadosList
+                      .filter(estado => estadosDisponiveis.includes(estado.sigla))
+                      .map((estado) => (
+                        <option key={estado.sigla} value={estado.sigla}>
+                          {estado.nome}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -2874,25 +2916,25 @@ export default function MetaPage() {
                     value={cidadeBuscaMedico}
                     onChange={async (e) => {
                       setCidadeBuscaMedico(e.target.value);
-                      // Buscar automaticamente quando selecionar cidade
+                                            // Buscar automaticamente quando selecionar cidade        
                       if (e.target.value && estadoBuscaMedico) {
                         setLoadingMedicos(true);
                         try {
-                          const todosMedicos = await MedicoService.getAllMedicos();
-                          const medicosFiltrados = todosMedicos.filter(medico => {
-                            return medico.cidades.some(c => 
-                              c.estado === estadoBuscaMedico && c.cidade === e.target.value
+                          // Usar a lista já carregada de médicos disponíveis
+                          const medicosFiltrados = todosMedicosDisponiveis.filter(medico => {                                                                              
+                            return medico.cidades.some(c =>
+                              c.estado === estadoBuscaMedico && c.cidade === e.target.value                                                                     
                             );
                           });
-                          // Ordenar: verificados primeiro, depois alfabético
-                          const medicosOrdenados = medicosFiltrados.sort((a, b) => {
-                            if (a.isVerificado && !b.isVerificado) return -1;
-                            if (!a.isVerificado && b.isVerificado) return 1;
+                          // Ordenar: verificados primeiro, depois alfabético  
+                          const medicosOrdenados = medicosFiltrados.sort((a, b) => {                                                                            
+                            if (a.isVerificado && !b.isVerificado) return -1;   
+                            if (!a.isVerificado && b.isVerificado) return 1;    
                             return a.nome.localeCompare(b.nome);
                           });
                           setMedicos(medicosOrdenados);
                         } catch (error) {
-                          console.error('Erro ao buscar médicos:', error);
+                          console.error('Erro ao buscar médicos:', error);     
                           alert('Erro ao buscar médicos');
                         } finally {
                           setLoadingMedicos(false);
@@ -2904,15 +2946,13 @@ export default function MetaPage() {
                   >
                     <option value="">Selecione a cidade</option>
                     {estadoBuscaMedico && (() => {
-                      // Combinar cidades padrão e customizadas
-                      const cidadesPadrao = estadosCidades[estadoBuscaMedico as keyof typeof estadosCidades]?.cidades || [];
-                      const cidadesCustomEstado = cidadesCustomizadas
+                      // Filtrar apenas cidades onde existem médicos cadastrados para este estado
+                      const cidadesComMedicosNoEstado = cidadesDisponiveis
                         .filter(c => c.estado === estadoBuscaMedico)
-                        .map(c => c.cidade);
+                        .map(c => c.cidade)
+                        .sort();
                       
-                      const todasCidades = [...new Set([...cidadesPadrao, ...cidadesCustomEstado])].sort();
-                      
-                      return todasCidades.map((cidade) => (
+                      return cidadesComMedicosNoEstado.map((cidade) => (
                         <option key={cidade} value={cidade}>
                           {cidade}
                         </option>
