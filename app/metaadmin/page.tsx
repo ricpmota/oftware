@@ -4538,9 +4538,9 @@ export default function MetaAdminPage() {
 
           return (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">Calendário de Aplicações</h2>
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Calendário de Aplicações</h2>
+                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                   <button
                     onClick={() => mudarMes('anterior')}
                     className="p-2 hover:bg-gray-100 rounded-md transition-colors"
@@ -4549,7 +4549,7 @@ export default function MetaAdminPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  <span className="text-lg font-semibold text-gray-900">
+                  <span className="text-sm sm:text-lg font-semibold text-gray-900 flex-1 text-center sm:flex-none">
                     {meses[mes]} {ano}
                   </span>
                   <button
@@ -4562,7 +4562,7 @@ export default function MetaAdminPage() {
                   </button>
                   <button
                     onClick={() => setMesCalendario(new Date())}
-                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                    className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors whitespace-nowrap"
                   >
                     Hoje
                   </button>
@@ -4572,7 +4572,7 @@ export default function MetaAdminPage() {
               <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="grid grid-cols-7 border-b border-gray-200">
                   {diasSemana.map(dia => (
-                    <div key={dia} className="p-3 text-center text-sm font-semibold text-gray-700 bg-gray-50">
+                    <div key={dia} className="p-2 sm:p-3 text-center text-xs sm:text-sm font-semibold text-gray-700 bg-gray-50">
                       {dia}
                     </div>
                   ))}
@@ -4595,7 +4595,7 @@ export default function MetaAdminPage() {
                       <div
                         key={index}
                         onClick={() => handleDiaClick(dia)}
-                        className={`min-h-24 border border-gray-200 p-2 cursor-pointer transition-colors ${
+                        className={`min-h-16 sm:min-h-24 border border-gray-200 p-1 sm:p-2 cursor-pointer transition-colors ${
                           dia === null
                             ? 'bg-gray-50'
                             : eHoje
@@ -4607,25 +4607,25 @@ export default function MetaAdminPage() {
                       >
                         {dia && (
                           <>
-                            <div className={`text-sm font-medium mb-1 ${
+                            <div className={`text-xs sm:text-sm font-medium mb-1 ${
                               eHoje ? 'text-blue-600' : 'text-gray-700'
                             }`}>
                               {dia.getDate()}
                             </div>
                             {aplicacoesDoDia.length > 0 && (
-                              <div className="space-y-1">
-                                {aplicacoesDoDia.slice(0, 3).map((aplicacao, idx) => (
+                              <div className="space-y-0.5 sm:space-y-1">
+                                {aplicacoesDoDia.slice(0, 2).map((aplicacao, idx) => (
                                   <div
                                     key={idx}
-                                    className="text-xs bg-green-600 text-white px-2 py-1 rounded truncate"
+                                    className="text-[10px] sm:text-xs bg-green-600 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded truncate"
                                     title={aplicacao.paciente.nome}
                                   >
                                     {aplicacao.paciente.nome}
                                   </div>
                                 ))}
-                                {aplicacoesDoDia.length > 3 && (
-                                  <div className="text-xs text-gray-600 font-medium">
-                                    +{aplicacoesDoDia.length - 3} mais
+                                {aplicacoesDoDia.length > 2 && (
+                                  <div className="text-[10px] sm:text-xs text-gray-600 font-medium">
+                                    +{aplicacoesDoDia.length - 2} mais
                                   </div>
                                 )}
                               </div>
@@ -4640,9 +4640,9 @@ export default function MetaAdminPage() {
 
               {/* Detalhes do dia selecionado abaixo do calendário */}
               {diaSelecionado && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-gray-900">
+                <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
                       Aplicações - {diaSelecionado.toLocaleDateString('pt-BR', { 
                         weekday: 'long', 
                         year: 'numeric', 
@@ -4650,7 +4650,7 @@ export default function MetaAdminPage() {
                         day: 'numeric' 
                       })}
                     </h3>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                       {/* Link para adicionar ao Google Calendar */}
                       {user?.email && aplicacoesDiaSelecionado.length > 0 && (() => {
                         // Formatar data para Google Calendar (YYYYMMDDTHHMMSSZ)
@@ -4683,10 +4683,10 @@ export default function MetaAdminPage() {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                            className="px-3 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 flex-1 sm:flex-none justify-center"
                           >
-                            <Calendar size={16} />
-                            Adicionar ao Google Calendar
+                            <Calendar size={14} className="sm:w-4 sm:h-4" />
+                            <span className="whitespace-nowrap">Adicionar ao Google Calendar</span>
                           </a>
                         );
                       })()}
@@ -4695,9 +4695,9 @@ export default function MetaAdminPage() {
                           setDiaSelecionado(null);
                           setAplicacoesDiaSelecionado([]);
                         }}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 hover:text-gray-600 p-1"
                       >
-                        <X size={24} />
+                        <X size={20} className="sm:w-6 sm:h-6" />
                       </button>
                     </div>
                   </div>
@@ -11851,6 +11851,19 @@ export default function MetaAdminPage() {
           </button>
 
           <button
+            onClick={() => setActiveMenu('calendario')}
+            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeMenu === 'calendario'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Calendar className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Calendário</span>
+          </button>
+
+          {/* Mensagens desativado no mobile também */}
+          {/* <button
             onClick={() => setActiveMenu('mensagens')}
             className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors relative whitespace-nowrap ${
               activeMenu === 'mensagens'
@@ -11865,7 +11878,7 @@ export default function MetaAdminPage() {
                 {mensagensNaoLidasResidentes}
               </span>
             )}
-          </button>
+          </button> */}
 
           <button
             onClick={() => setActiveMenu('monjauro')}
