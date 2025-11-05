@@ -8662,7 +8662,10 @@ export default function MetaAdminPage() {
                               onChange={(e) => {
                                 setExameDataSelecionada(e.target.value);
                               }}
-                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                              disabled={examesOrdenados.length === 0}
+                              className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 ${
+                                examesOrdenados.length === 0 ? 'bg-gray-100 cursor-not-allowed' : ''
+                              }`}
                             >
                               {examesOrdenados.map((exame, idx) => {
                                 const dataExame = safeDateToString(exame.dataColeta);
@@ -8702,6 +8705,38 @@ export default function MetaAdminPage() {
                           </button>
                         </div>
                         
+                        {/* Mensagem quando não há exames cadastrados */}
+                        {examesOrdenados.length === 0 && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0">
+                                <AlertCircle className="w-6 h-6 text-amber-600" />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-lg font-semibold text-amber-900 mb-2">
+                                  Nenhum exame cadastrado
+                                </h4>
+                                <p className="text-sm text-amber-800 mb-4">
+                                  Para cadastrar exames laboratoriais, clique no botão <strong>"Adicionar Exames"</strong> acima.
+                                  Não é possível editar valores de exames antes de criar um registro de exame.
+                                </p>
+                                <button
+                                  onClick={() => {
+                                    setShowAdicionarExameModal(true);
+                                    setNovoExameData({
+                                      dataColeta: new Date().toISOString().split('T')[0]
+                                    });
+                                  }}
+                                  className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 flex items-center gap-2 inline-flex"
+                                >
+                                  <Plus size={16} />
+                                  Adicionar Primeiro Exame
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
                         {/* Renderizar cada seção lado a lado */}
                         {todosOsCampos.map((secao, idxSecao) => (
                           <div key={idxSecao} className="border border-gray-200 rounded-lg p-4">
@@ -8726,6 +8761,11 @@ export default function MetaAdminPage() {
                                       step="0.1"
                                       value={value || ''}
                                       onChange={(e) => {
+                                        // Não permitir edição se não houver exames cadastrados
+                                        if (examesOrdenados.length === 0) {
+                                          return;
+                                        }
+                                        
                                         const numValue = parseFloat(e.target.value) || 0;
                                         const examesAtualizados = [...(pacienteEditando?.examesLaboratoriais || [])];
                                         
@@ -8735,25 +8775,42 @@ export default function MetaAdminPage() {
                                           return dataExame === dataSelecionada;
                                         });
                                         
+                                        // Só permitir edição se o exame já existir
                                         if (indexExame === -1) {
-                                          examesAtualizados.push({
-                                            id: 'temp-' + Date.now(),
-                                            dataColeta: new Date(dataSelecionada),
-                                            [campo.field]: numValue
-                                          });
-                                        } else {
-                                          examesAtualizados[indexExame] = {
-                                            ...examesAtualizados[indexExame],
-                                            [campo.field]: numValue
-                                          };
+                                          // Não criar novo exame aqui - deve usar o botão "Adicionar Exames"
+                                          return;
                                         }
+                                        
+                                        examesAtualizados[indexExame] = {
+                                          ...examesAtualizados[indexExame],
+                                          [campo.field]: numValue
+                                        };
                                         setPacienteEditando({
                                           ...pacienteEditando!,
                                           examesLaboratoriais: examesAtualizados
                                         });
                                       }}
-                                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2"
-                                      placeholder={`${range.min}-${range.max} ${range.unit}`}
+                                      disabled={examesOrdenados.length === 0 || !dataSelecionada}
+                                      className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 mb-2 ${
+                                        examesOrdenados.length === 0 || !dataSelecionada
+                                          ? 'bg-gray-100 cursor-not-allowed'
+                                          : ''
+                                      }`}
+                                      placeholder={examesOrdenados.length === 0 
+                                        ? 'Adicione um exame primeiro' 
+                                        : `${range.min}-${range.max} ${range.unit}`
+                                      }
+                                      onClick={() => {
+                                        // Se não houver exames, focar no botão de adicionar
+                                        if (examesOrdenados.length === 0) {
+                                          // Mostrar um alerta visual
+                                          const button = document.querySelector('button[class*="bg-blue-600"]');
+                                          if (button) {
+                                            (button as HTMLElement).focus();
+                                            (button as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                          }
+                                        }
+                                      }}
                                     />
                                     <LabRangeBar range={range} value={value || null} />
                                     
