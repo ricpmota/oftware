@@ -2332,17 +2332,40 @@ export default function MetaAdminPage() {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button
-                                onClick={() => {
-                                  setPacienteEditando(paciente);
-                                  setShowEditarPacienteModal(true);
-                                  setPastaAtiva(1);
-                                }}
-                                className="text-green-600 hover:text-green-900 mr-4 flex items-center"
-                              >
-                                <Edit size={16} className="mr-1" />
-                                Editar
-                              </button>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => {
+                                    setPacienteEditando(paciente);
+                                    setShowEditarPacienteModal(true);
+                                    setPastaAtiva(1);
+                                  }}
+                                  className="text-green-600 hover:text-green-900 flex items-center"
+                                >
+                                  <Edit size={16} className="mr-1" />
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`Tem certeza que deseja excluir o paciente "${paciente.nome}"? Esta ação não pode ser desfeita.`)) {
+                                      setLoadingPacientes(true);
+                                      try {
+                                        await PacienteService.deletePaciente(paciente.id);
+                                        await loadPacientes();
+                                        setMessage('Paciente excluído com sucesso!');
+                                      } catch (error) {
+                                        console.error('Erro ao excluir paciente:', error);
+                                        setMessage('Erro ao excluir paciente');
+                                      } finally {
+                                        setLoadingPacientes(false);
+                                      }
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-900 flex items-center"
+                                >
+                                  <Trash2 size={16} className="mr-1" />
+                                  Excluir
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -2383,15 +2406,37 @@ export default function MetaAdminPage() {
                           <span className="text-gray-900">{paciente.dataCadastro?.toLocaleDateString('pt-BR') || '-'}</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          alert('Para uma melhor experiência de edição, recomendamos usar a versão desktop. Por favor, acesse pelo computador para editar os dados completos do paciente.');
-                        }}
-                        className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
-                      >
-                        <Edit size={16} className="mr-2" />
-                        Editar (Recomendado no Desktop)
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            alert('Para uma melhor experiência de edição, recomendamos usar a versão desktop. Por favor, acesse pelo computador para editar os dados completos do paciente.');
+                          }}
+                          className="flex-1 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                        >
+                          <Edit size={16} className="mr-2" />
+                          Editar
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Tem certeza que deseja excluir o paciente "${paciente.nome}"? Esta ação não pode ser desfeita.`)) {
+                              setLoadingPacientes(true);
+                              try {
+                                await PacienteService.deletePaciente(paciente.id);
+                                await loadPacientes();
+                                setMessage('Paciente excluído com sucesso!');
+                              } catch (error) {
+                                console.error('Erro ao excluir paciente:', error);
+                                setMessage('Erro ao excluir paciente');
+                              } finally {
+                                setLoadingPacientes(false);
+                              }
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
