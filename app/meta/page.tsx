@@ -656,7 +656,8 @@ export default function MetaPage() {
         const baselineWeight = primeiroRegistro?.peso || medidasIniciais?.peso || 0;
         
         const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
-        const totalSemanasGrafico = 18;
+        // Usar número de semanas do plano terapêutico (padrão: 18)
+        const totalSemanasGrafico = planoTerapeutico?.numeroSemanasTratamento || 18;
         
         const expectedCurve = buildExpectedCurveDoseDrivenAnchored({
           baselineWeightKg: baselineWeight,
@@ -1260,14 +1261,54 @@ export default function MetaPage() {
           const hoje = new Date();
           hoje.setHours(0, 0, 0, 0);
           
-          // Criar 18 semanas de calendário (18 semanas = 18 doses)
-          for (let semana = 0; semana < 18; semana++) {
+          // Obter número de semanas do tratamento (padrão: 18)
+          const numeroSemanas = planoTerapeutico?.numeroSemanasTratamento || 18;
+          
+          // Função para calcular dose considerando atrasos de 4+ dias (reinicia ciclo)
+          const calcularDoseComAtrasos = (semanaIndex: number) => {
+            let semanasDesdeUltimoCiclo = semanaIndex;
+            
+            // Verificar se houve atraso de 4+ dias em aplicações anteriores
+            for (let s = 0; s < semanaIndex; s++) {
+              const dataPrevista = new Date(primeiraDose);
+              dataPrevista.setDate(primeiraDose.getDate() + (s * 7));
+              
+              // Buscar registro correspondente
+              const registro = evolucao.find(e => {
+                if (!e.dataRegistro) return false;
+                const dataRegistro = new Date(e.dataRegistro);
+                if (isNaN(dataRegistro.getTime())) return false;
+                dataRegistro.setHours(0, 0, 0, 0);
+                const diffDias = Math.abs((dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
+                return diffDias <= 1; // Tolerância de 1 dia
+              });
+              
+              // Se encontrou registro e houve atraso de 4+ dias
+              if (registro && registro.dataRegistro) {
+                const dataRegistro = new Date(registro.dataRegistro);
+                dataRegistro.setHours(0, 0, 0, 0);
+                const diffDias = (dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
+                
+                // Se atraso de 4 dias ou mais, reiniciar ciclo a partir dessa semana
+                if (diffDias >= 4) {
+                  semanasDesdeUltimoCiclo = semanaIndex - s - 1;
+                  break; // Usar o primeiro atraso encontrado como referência
+                }
+              }
+            }
+            
+            // Calcular dose: aumento de 2.5mg a cada 4 semanas desde o último ciclo
+            return doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
+          };
+          
+          // Criar calendário baseado no número de semanas definido
+          for (let semana = 0; semana < numeroSemanas; semana++) {
             // Calcular data da dose como primeiraDose + (semana * 7 dias)
             const dataDose = new Date(primeiraDose);
             dataDose.setDate(primeiraDose.getDate() + (semana * 7));
             
-            // Calcular dose planejada baseada no esquema de titulação (aumento de 2.5mg a cada 4 semanas)
-            const dosePlanejada = doseInicial + (Math.floor(semana / 4) * 2.5);
+            // Calcular dose planejada considerando atrasos (reinicia ciclo se atraso >= 4 dias)
+            const dosePlanejada = calcularDoseComAtrasos(semana);
             
             // Encontrar registro de evolução para esta data (com tolerância de ±1 dia)
             const registroEvolucao = evolucao.find(e => {

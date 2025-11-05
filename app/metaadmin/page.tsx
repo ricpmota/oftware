@@ -4383,17 +4383,62 @@ export default function MetaAdminPage() {
           const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
           const evolucao = paciente.evolucaoSeguimento || [];
           
+          // Obter número de semanas do tratamento (padrão: 18)
+          const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
+          
           // Locais de aplicação em rotação
           const locais = ['abdome', 'coxa', 'braco'];
           
-          // Calcular aplicações para os próximos 18 meses
-          for (let semana = 0; semana < 78; semana++) { // 18 meses = ~78 semanas
+          // Função para calcular dose considerando atrasos de 4+ dias (reinicia ciclo)
+          const calcularDoseComAtrasos = (semanaIndex: number) => {
+            let semanasDesdeUltimoCiclo = semanaIndex;
+            
+            // Verificar se houve atraso de 4+ dias em aplicações anteriores
+            for (let s = 0; s < semanaIndex; s++) {
+              const dataPrevista = new Date(primeiraDose);
+              dataPrevista.setDate(primeiraDose.getDate() + (s * 7));
+              
+              // Buscar registro correspondente
+              const registro = evolucao.find(e => {
+                if (!e.dataRegistro) return false;
+                const dataRegistro = e.dataRegistro instanceof Date 
+                  ? new Date(e.dataRegistro)
+                  : new Date(e.dataRegistro as any);
+                if (isNaN(dataRegistro.getTime())) return false;
+                dataRegistro.setHours(0, 0, 0, 0);
+                const diffDias = Math.abs((dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
+                return diffDias <= 1; // Tolerância de 1 dia
+              });
+              
+              // Se encontrou registro e houve atraso de 4+ dias
+              if (registro && registro.dataRegistro) {
+                const dataRegistro = registro.dataRegistro instanceof Date 
+                  ? new Date(registro.dataRegistro)
+                  : new Date(registro.dataRegistro as any);
+                dataRegistro.setHours(0, 0, 0, 0);
+                const diffDias = (dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
+                
+                // Se atraso de 4 dias ou mais, reiniciar ciclo a partir dessa semana
+                if (diffDias >= 4) {
+                  semanasDesdeUltimoCiclo = semanaIndex - s - 1;
+                  break; // Usar o primeiro atraso encontrado como referência
+                }
+              }
+            }
+            
+            // Calcular dose: aumento de 2.5mg a cada 4 semanas desde o último ciclo
+            return doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
+          };
+          
+          // Calcular aplicações baseado no número de semanas do tratamento
+          for (let semana = 0; semana < numeroSemanas; semana++) {
             const dataDose = new Date(primeiraDose);
             dataDose.setDate(primeiraDose.getDate() + (semana * 7));
 
             // Verificar se está no intervalo do mês do calendário
             if (dataDose >= mesInicio && dataDose <= mesFim) {
-              const dosePlanejada = doseInicial + (Math.floor(semana / 4) * 2.5);
+              // Calcular dose planejada considerando atrasos (reinicia ciclo se atraso >= 4 dias)
+              const dosePlanejada = calcularDoseComAtrasos(semana);
               
               // Encontrar aplicação da semana anterior para rotação do local
               const dataSemanaAnterior = new Date(dataDose);
@@ -4650,8 +4695,52 @@ export default function MetaAdminPage() {
                         day: 'numeric' 
                       })}
                     </h3>
-                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                      {/* Link para adicionar ao Google Calendar */}
+                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto flex-wrap">
+                      {/* Botão para adicionar todas as aplicações do mês ao Google Calendar */}
+                      {user?.email && (() => {
+                        const todasAplicacoes = obterAplicacoesMes();
+                        const formatarDataGoogle = (data: Date) => {
+                          const ano = data.getFullYear();
+                          const mes = String(data.getMonth() + 1).padStart(2, '0');
+                          const dia = String(data.getDate()).padStart(2, '0');
+                          const hora = String(8).padStart(2, '0'); // 8h da manhã
+                          return `${ano}${mes}${dia}T${hora}0000Z`;
+                        };
+                        
+                        const formatarDataFimGoogle = (data: Date) => {
+                          const ano = data.getFullYear();
+                          const mes = String(data.getMonth() + 1).padStart(2, '0');
+                          const dia = String(data.getDate()).padStart(2, '0');
+                          const hora = String(9).padStart(2, '0'); // 9h da manhã (1 hora de duração)
+                          return `${ano}${mes}${dia}T${hora}0000Z`;
+                        };
+                        
+                        const adicionarTodasAplicacoesMes = () => {
+                          todasAplicacoes.forEach((aplicacao, index) => {
+                            setTimeout(() => {
+                              const dataInicio = formatarDataGoogle(aplicacao.data);
+                              const dataFim = formatarDataFimGoogle(aplicacao.data);
+                              const localNome = aplicacao.localAplicacao === 'abdome' ? 'Abdome' : aplicacao.localAplicacao === 'coxa' ? 'Coxa' : 'Braço';
+                              const titulo = `${aplicacao.paciente.nome} - Monjauro Semana ${aplicacao.semana}`;
+                              const detalhes = `Aplicação de Monjauro%0A%0APaciente: ${aplicacao.paciente.nome}%0ASemana: ${aplicacao.semana}%0ADose: ${aplicacao.dose}mg%0ALocal: ${localNome}`;
+                              const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicio}/${dataFim}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`;
+                              window.open(url, '_blank');
+                            }, index * 500); // Delay de 500ms entre cada abertura
+                          });
+                        };
+                        
+                        return todasAplicacoes.length > 0 ? (
+                          <button
+                            onClick={adicionarTodasAplicacoesMes}
+                            className="px-3 sm:px-4 py-2 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 flex-1 sm:flex-none justify-center"
+                          >
+                            <Calendar size={14} className="sm:w-4 sm:h-4" />
+                            <span className="whitespace-nowrap">Adicionar Mês Inteiro ({todasAplicacoes.length})</span>
+                          </button>
+                        ) : null;
+                      })()}
+                      
+                      {/* Link para adicionar apenas o dia selecionado ao Google Calendar */}
                       {user?.email && aplicacoesDiaSelecionado.length > 0 && (() => {
                         // Formatar data para Google Calendar (YYYYMMDDTHHMMSSZ)
                         const dataInicio = new Date(diaSelecionado);
@@ -4686,7 +4775,7 @@ export default function MetaAdminPage() {
                             className="px-3 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 flex-1 sm:flex-none justify-center"
                           >
                             <Calendar size={14} className="sm:w-4 sm:h-4" />
-                            <span className="whitespace-nowrap">Adicionar ao Google Calendar</span>
+                            <span className="whitespace-nowrap">Adicionar Este Dia</span>
                           </a>
                         );
                       })()}
@@ -8928,6 +9017,33 @@ export default function MetaAdminPage() {
                           <option value="dom">Domingo</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Número de semanas do tratamento *
+                          <span className="text-xs text-gray-500 ml-2">(padrão: 18, pode ser ampliado depois)</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="200"
+                          value={pacienteEditando?.planoTerapeutico?.numeroSemanasTratamento || 18}
+                          onChange={(e) => {
+                            const valor = parseInt(e.target.value) || 18;
+                            setPacienteEditando({
+                              ...pacienteEditando!,
+                              planoTerapeutico: {
+                                ...pacienteEditando?.planoTerapeutico,
+                                numeroSemanasTratamento: valor
+                              }
+                            });
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Defina a duração inicial do tratamento. Após finalizar essas semanas, você poderá ampliar o tratamento adicionando mais semanas.
+                        </p>
+                      </div>
                       <div className="md:col-span-2">
                         <label className="flex items-center">
                           <input
@@ -9528,8 +9644,8 @@ export default function MetaAdminPage() {
                     // Usar modelo dose-driven anchored: schedule sugerido de titulação com âncoras clínicas
                     const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
                     
-                    // Calcular semanas totais: fixo em 18 semanas
-                    const totalSemanasGrafico = 18;
+                    // Calcular semanas totais: usar número de semanas do plano terapêutico (padrão: 18)
+                    const totalSemanasGrafico = planoTerapeutico?.numeroSemanasTratamento || 18;
                     
                     const expectedCurve = buildExpectedCurveDoseDrivenAnchored({
                       baselineWeightKg: baselineWeight,
@@ -10268,18 +10384,62 @@ export default function MetaAdminPage() {
                         // Obter dose inicial do plano
                         const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
 
+                        // Obter número de semanas do tratamento (padrão: 18)
+                        const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
+
                         const calendario = [];
                         const hoje = new Date();
                         hoje.setHours(0, 0, 0, 0);
 
-                        // Criar 18 semanas de calendário (18 semanas = 18 doses)
-                        for (let semana = 0; semana < 18; semana++) {
+                        // Função para calcular dose considerando atrasos de 4+ dias (reinicia ciclo)
+                        const calcularDoseComAtrasos = (semanaIndex: number) => {
+                          let semanasDesdeUltimoCiclo = semanaIndex;
+                          
+                          // Verificar se houve atraso de 4+ dias em aplicações anteriores
+                          for (let s = 0; s < semanaIndex; s++) {
+                            const dataPrevista = new Date(primeiraDose);
+                            dataPrevista.setDate(primeiraDose.getDate() + (s * 7));
+                            
+                            // Buscar registro correspondente
+                            const registro = evolucao.find(e => {
+                              if (!e.dataRegistro) return false;
+                              const dataRegistro = e.dataRegistro instanceof Date 
+                                ? new Date(e.dataRegistro)
+                                : new Date(e.dataRegistro as any);
+                              if (isNaN(dataRegistro.getTime())) return false;
+                              dataRegistro.setHours(0, 0, 0, 0);
+                              const diffDias = Math.abs((dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
+                              return diffDias <= 1; // Tolerância de 1 dia
+                            });
+                            
+                            // Se encontrou registro e houve atraso de 4+ dias
+                            if (registro && registro.dataRegistro) {
+                              const dataRegistro = registro.dataRegistro instanceof Date 
+                                ? new Date(registro.dataRegistro)
+                                : new Date(registro.dataRegistro as any);
+                              dataRegistro.setHours(0, 0, 0, 0);
+                              const diffDias = (dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
+                              
+                              // Se atraso de 4 dias ou mais, reiniciar ciclo a partir dessa semana
+                              if (diffDias >= 4) {
+                                semanasDesdeUltimoCiclo = semanaIndex - s - 1;
+                                break; // Usar o primeiro atraso encontrado como referência
+                              }
+                            }
+                          }
+                          
+                          // Calcular dose: aumento de 2.5mg a cada 4 semanas desde o último ciclo
+                          return doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
+                        };
+
+                        // Criar calendário baseado no número de semanas definido
+                        for (let semana = 0; semana < numeroSemanas; semana++) {
                           // Calcular data da dose como primeiraDose + (semana * 7 dias)
                           const dataDose = new Date(primeiraDose);
                           dataDose.setDate(primeiraDose.getDate() + (semana * 7));
 
-                          // Calcular dose planejada baseada no esquema de titulação (aumento de 2.5mg a cada 4 semanas)
-                          const dosePlanejada = doseInicial + (Math.floor(semana / 4) * 2.5);
+                          // Calcular dose planejada considerando atrasos (reinicia ciclo se atraso >= 4 dias)
+                          const dosePlanejada = calcularDoseComAtrasos(semana);
 
                           // Encontrar registro de evolução para esta data (com tolerância de ±1 dia)
                           const registroEvolucao = evolucao.find(e => {
@@ -10354,6 +10514,73 @@ export default function MetaAdminPage() {
 
                       return (
                         <div className="space-y-6">
+                          {/* Botão para adicionar todo o tratamento ao Google Calendar */}
+                          {aplicacoesFuturas.length > 0 && user?.email && (() => {
+                            const formatarDataGoogle = (data: Date) => {
+                              const ano = data.getFullYear();
+                              const mes = String(data.getMonth() + 1).padStart(2, '0');
+                              const dia = String(data.getDate()).padStart(2, '0');
+                              const hora = String(8).padStart(2, '0'); // 8h da manhã
+                              return `${ano}${mes}${dia}T${hora}0000Z`;
+                            };
+                            
+                            const formatarDataFimGoogle = (data: Date) => {
+                              const ano = data.getFullYear();
+                              const mes = String(data.getMonth() + 1).padStart(2, '0');
+                              const dia = String(data.getDate()).padStart(2, '0');
+                              const hora = String(9).padStart(2, '0'); // 9h da manhã (1 hora de duração)
+                              return `${ano}${mes}${dia}T${hora}0000Z`;
+                            };
+                            
+                            // Criar URLs para todas as aplicações futuras
+                            const eventosGoogle = aplicacoesFuturas.map(item => {
+                              const dataItem = item.data instanceof Date ? item.data : new Date(item.data as any);
+                              const dataInicio = formatarDataGoogle(dataItem);
+                              const dataFim = formatarDataFimGoogle(dataItem);
+                              const localNome = item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço';
+                              const titulo = `Monjauro - Semana ${item.semana} - ${item.dose}mg`;
+                              const detalhes = `Aplicação de Monjauro%0A%0ASemana: ${item.semana}%0ADose: ${item.dose}mg%0ALocal: ${localNome}%0APaciente: ${pacienteEditando?.nome || 'Paciente'}`;
+                              
+                              return {
+                                url: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicio}/${dataFim}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`,
+                                data: dataItem,
+                                semana: item.semana,
+                                dose: item.dose,
+                                local: localNome
+                              };
+                            });
+                            
+                            const adicionarTodosEventos = () => {
+                              eventosGoogle.forEach((evento, index) => {
+                                setTimeout(() => {
+                                  window.open(evento.url, '_blank');
+                                }, index * 500); // Delay de 500ms entre cada abertura para evitar bloqueio
+                              });
+                            };
+                            
+                            return (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                                      Adicionar Tratamento ao Google Calendar
+                                    </h4>
+                                    <p className="text-xs text-blue-700">
+                                      {aplicacoesFuturas.length} aplicação(ões) futura(s) serão adicionadas ao seu calendário
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={adicionarTodosEventos}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                  >
+                                    <Calendar size={16} />
+                                    Adicionar Todas
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           {/* Aplicações Passadas */}
                           {aplicacoesPassadas.length > 0 && (
                             <div>

@@ -243,6 +243,7 @@ export interface PlanoTerapeutico {
   injectionDayOfWeek?: 'seg' | 'ter' | 'qua' | 'qui' | 'sex' | 'sab' | 'dom';
   responsibleDoctorId?: string;
   consentSigned?: boolean;
+  numeroSemanasTratamento?: number; // Número de semanas do tratamento (padrão: 18, pode ser ampliado)
   
   // 5.2 Dose e titulação
   currentDoseMg?: 2.5 | 5 | 7.5 | 10 | 12.5 | 15;
