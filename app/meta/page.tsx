@@ -3045,27 +3045,25 @@ export default function MetaPage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-base font-semibold text-gray-900 truncate">
-                                  {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
-                                </h4>
-                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                                  medico.isVerificado
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}>
-                                  {medico.isVerificado ? (
-                                    <>
-                                      <ShieldCheck className="h-3 w-3" />
-                                      Verificado
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Shield className="h-3 w-3" />
-                                      Não Verificado
-                                    </>
-                                  )}
-                                </div>
+                              <h4 className="text-base font-semibold text-gray-900 mb-1">
+                                {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                              </h4>
+                              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                medico.isVerificado
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-red-100 text-red-700'
+                              }`}>
+                                {medico.isVerificado ? (
+                                  <>
+                                    <ShieldCheck className="h-3 w-3" />
+                                    Verificado
+                                  </>
+                                ) : (
+                                  <>
+                                    <Shield className="h-3 w-3" />
+                                    Não Verificado
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>

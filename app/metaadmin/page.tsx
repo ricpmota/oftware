@@ -1057,50 +1057,82 @@ export default function MetaAdminPage() {
     if (!medicoPerfil) return;
     
     try {
-      // Criar paciente automaticamente
-      const pacienteData = {
-        userId: solicitacao.pacienteEmail + '_' + Date.now(), // ID temporário
-        email: solicitacao.pacienteEmail,
-        nome: solicitacao.pacienteNome,
-        medicoResponsavelId: medicoPerfil.id!,
-        dadosIdentificacao: {
-          nomeCompleto: solicitacao.pacienteNome,
-          email: solicitacao.pacienteEmail,
-          dataCadastro: new Date()
-        },
-        dadosClinicos: {
-          comorbidades: {}
-        },
-        estiloVida: {},
-        examesLaboratoriais: [],
-        planoTerapeutico: {
-          metas: {}
-        },
-        evolucaoSeguimento: [],
-        alertas: [],
-        comunicacao: {
-          mensagens: [],
-          anexos: [],
-          logsAuditoria: []
-        },
-        indicadores: {
-          tempoEmTratamento: {
-            dias: 0,
-            semanas: 0
-          },
-          adesaoMedia: 0,
-          incidenciaEfeitosAdversos: {
-            total: 0,
-            grave: 0,
-            moderado: 0,
-            leve: 0
+      // Verificar se já existe paciente com este email
+      const pacienteExistente = await PacienteService.getPacienteByEmail(solicitacao.pacienteEmail);
+      
+      if (pacienteExistente) {
+        // Se paciente já existe e já tem médico responsável diferente
+        if (pacienteExistente.medicoResponsavelId && pacienteExistente.medicoResponsavelId !== medicoPerfil.id) {
+          const medicoAnterior = await MedicoService.getMedicoById(pacienteExistente.medicoResponsavelId);
+          const nomeMedicoAnterior = medicoAnterior ? `${medicoAnterior.genero === 'F' ? 'Dra.' : 'Dr.'} ${medicoAnterior.nome}` : 'outro médico';
+          
+          const confirmar = confirm(
+            `Este paciente já está sendo acompanhado por ${nomeMedicoAnterior}. ` +
+            `Ao aceitar esta solicitação, você se tornará o médico responsável. ` +
+            `Deseja continuar?`
+          );
+          
+          if (!confirmar) {
+            return;
           }
-        },
-        status: 'ativo' as const,
-        statusTratamento: 'pendente' as const
-      };
+        }
+        
+        // Atualizar paciente existente com novo médico responsável
+        const pacienteAtualizado: PacienteCompleto = {
+          ...pacienteExistente,
+          medicoResponsavelId: medicoPerfil.id!,
+          nome: solicitacao.pacienteNome // Atualizar nome se necessário
+        };
+        
+        await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+        setMessage('Solicitação aceita! Paciente atualizado com sucesso.');
+      } else {
+        // Criar novo paciente
+        const pacienteData = {
+          userId: solicitacao.pacienteEmail + '_' + Date.now(), // ID temporário
+          email: solicitacao.pacienteEmail,
+          nome: solicitacao.pacienteNome,
+          medicoResponsavelId: medicoPerfil.id!,
+          dadosIdentificacao: {
+            nomeCompleto: solicitacao.pacienteNome,
+            email: solicitacao.pacienteEmail,
+            dataCadastro: new Date()
+          },
+          dadosClinicos: {
+            comorbidades: {}
+          },
+          estiloVida: {},
+          examesLaboratoriais: [],
+          planoTerapeutico: {
+            metas: {}
+          },
+          evolucaoSeguimento: [],
+          alertas: [],
+          comunicacao: {
+            mensagens: [],
+            anexos: [],
+            logsAuditoria: []
+          },
+          indicadores: {
+            tempoEmTratamento: {
+              dias: 0,
+              semanas: 0
+            },
+            adesaoMedia: 0,
+            incidenciaEfeitosAdversos: {
+              total: 0,
+              grave: 0,
+              moderado: 0,
+              leve: 0
+            }
+          },
+          status: 'ativo' as const,
+          statusTratamento: 'pendente' as const
+        };
 
-      await PacienteService.createOrUpdatePaciente(pacienteData);
+        await PacienteService.createOrUpdatePaciente(pacienteData);
+        setMessage('Solicitação aceita! Paciente criado com sucesso.');
+      }
       
       // Cancelar todas as outras solicitações pendentes do paciente
       await SolicitacaoMedicoService.cancelarSolicitacoesPendentesPaciente(solicitacao.pacienteEmail);
@@ -1111,8 +1143,6 @@ export default function MetaAdminPage() {
       // Recarregar dados
       await loadSolicitacoesMedico();
       await loadPacientes();
-      
-      setMessage('Solicitação aceita! Paciente criado com sucesso.');
     } catch (error) {
       console.error('Erro ao aceitar solicitação:', error);
       alert('Erro ao aceitar solicitação');
