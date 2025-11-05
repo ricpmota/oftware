@@ -3048,21 +3048,28 @@ export default function MetaPage() {
                               <h4 className="text-base font-semibold text-gray-900 mb-1">
                                 {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
                               </h4>
-                              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                medico.isVerificado
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-red-100 text-red-700'
-                              }`}>
-                                {medico.isVerificado ? (
-                                  <>
-                                    <ShieldCheck className="h-3 w-3" />
-                                    Verificado
-                                  </>
-                                ) : (
-                                  <>
-                                    <Shield className="h-3 w-3" />
-                                    Não Verificado
-                                  </>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  medico.isVerificado
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {medico.isVerificado ? (
+                                    <>
+                                      <ShieldCheck className="h-3 w-3" />
+                                      Verificado
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Shield className="h-3 w-3" />
+                                      Não Verificado
+                                    </>
+                                  )}
+                                </div>
+                                {paciente?.statusTratamento === 'em_tratamento' && (
+                                  <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                                    Bloqueado
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -3082,7 +3089,7 @@ export default function MetaPage() {
                                 disabled
                                 className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium"
                               >
-                                Em Tratamento
+                                Bloqueado
                               </button>
                             ) : (
                               <button
