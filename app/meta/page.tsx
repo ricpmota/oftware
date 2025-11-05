@@ -3044,11 +3044,11 @@ export default function MetaPage() {
                                 <Shield className="h-5 w-5 text-red-600" />
                               )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-base font-semibold text-gray-900 mb-1">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <h4 className="text-base font-semibold text-gray-900 mb-1 truncate">
                                 {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
                               </h4>
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                                   medico.isVerificado
                                     ? 'bg-green-100 text-green-700'
@@ -3080,21 +3080,21 @@ export default function MetaPage() {
                             {temPendenteOuAceita ? (
                               <button
                                 disabled
-                                className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium"
+                                className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium whitespace-nowrap"
                               >
                                 ⏳ Aguardando
                               </button>
                             ) : paciente?.statusTratamento === 'em_tratamento' ? (
                               <button
                                 disabled
-                                className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium"
+                                className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium whitespace-nowrap"
                               >
-                                Bloqueado
+                                Indisponível
                               </button>
                             ) : (
                               <button
                                 onClick={() => abrirModalMedico(medico)}
-                                className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs font-medium"
+                                className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs font-medium whitespace-nowrap"
                               >
                                 Solicitar
                               </button>
