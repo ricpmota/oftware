@@ -396,6 +396,16 @@ function MetaAdminPageContent() {
     loadCidadesCustomizadas();
   }, [loadCidadesCustomizadas]);
 
+  // Função para formatar nome da cidade: primeira letra maiúscula, demais minúsculas
+  const formatarNomeCidade = (nome: string): string => {
+    return nome
+      .trim()
+      .toLowerCase()
+      .split(' ')
+      .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1))
+      .join(' ');
+  };
+
   // Função para adicionar cidade
   const handleAdicionarCidade = () => {
     if (!estadoSelecionado || !cidadeSelecionada) {
@@ -403,8 +413,10 @@ function MetaAdminPageContent() {
       return;
     }
 
+    const cidadeFormatada = formatarNomeCidade(cidadeSelecionada);
+
     const cidadeJaExiste = perfilMedico.cidades.some(
-      c => c.estado === estadoSelecionado && c.cidade === cidadeSelecionada
+      c => c.estado === estadoSelecionado && c.cidade.toLowerCase() === cidadeFormatada.toLowerCase()
     );
 
     if (cidadeJaExiste) {
@@ -414,7 +426,7 @@ function MetaAdminPageContent() {
 
     setPerfilMedico({
       ...perfilMedico,
-      cidades: [...perfilMedico.cidades, { estado: estadoSelecionado, cidade: cidadeSelecionada }]
+      cidades: [...perfilMedico.cidades, { estado: estadoSelecionado, cidade: cidadeFormatada }]
     });
     setEstadoSelecionado('');
     setCidadeSelecionada('');
@@ -1092,7 +1104,11 @@ function MetaAdminPageContent() {
         const pacienteAtualizado: PacienteCompleto = {
           ...pacienteExistente,
           medicoResponsavelId: medicoPerfil.id!,
-          nome: solicitacao.pacienteNome // Atualizar nome se necessário
+          nome: solicitacao.pacienteNome, // Atualizar nome se necessário
+          dadosIdentificacao: {
+            ...pacienteExistente.dadosIdentificacao,
+            telefone: solicitacao.pacienteTelefone || pacienteExistente.dadosIdentificacao?.telefone
+          }
         };
         
         await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
@@ -1107,6 +1123,7 @@ function MetaAdminPageContent() {
           dadosIdentificacao: {
             nomeCompleto: solicitacao.pacienteNome,
             email: solicitacao.pacienteEmail,
+            telefone: solicitacao.pacienteTelefone,
             dataCadastro: new Date()
           },
           dadosClinicos: {
@@ -2608,6 +2625,11 @@ function MetaAdminPageContent() {
                       <div className="flex-1">
                         <h4 className="text-base font-medium text-gray-900">{solicitacao.pacienteNome}</h4>
                         <p className="text-sm text-gray-500">{solicitacao.pacienteEmail}</p>
+                        {solicitacao.pacienteTelefone && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            <span className="font-semibold">Telefone:</span> {solicitacao.pacienteTelefone}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-400 mt-1">
                           Solicitado em: {solicitacao.criadoEm?.toLocaleDateString('pt-BR')}
                         </p>
@@ -12447,7 +12469,7 @@ function MetaAdminPageContent() {
                     return;
                   }
 
-                  const cidadeNomeNormalizado = novaCidadeNome.trim();
+                  const cidadeNomeNormalizado = formatarNomeCidade(novaCidadeNome);
 
                   // Verificar se a cidade já foi adicionada nas cidades do médico
                   const jaExiste = perfilMedico.cidades.some(

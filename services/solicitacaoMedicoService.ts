@@ -22,6 +22,10 @@ export class SolicitacaoMedicoService {
         solicitacaoData.pacienteId = solicitacao.pacienteId;
       }
 
+      if (solicitacao.pacienteTelefone) {
+        solicitacaoData.pacienteTelefone = solicitacao.pacienteTelefone;
+      }
+
       const docRef = await addDoc(collection(db, 'solicitacoes_medico'), solicitacaoData);
       return docRef.id;
     } catch (error) {
@@ -49,6 +53,7 @@ export class SolicitacaoMedicoService {
           pacienteId: data.pacienteId,
           pacienteEmail: data.pacienteEmail || '',
           pacienteNome: data.pacienteNome || '',
+          pacienteTelefone: data.pacienteTelefone,
           medicoId: data.medicoId || '',
           medicoNome: data.medicoNome || '',
           status: data.status || 'pendente',
@@ -88,6 +93,7 @@ export class SolicitacaoMedicoService {
           pacienteId: data.pacienteId,
           pacienteEmail: data.pacienteEmail || '',
           pacienteNome: data.pacienteNome || '',
+          pacienteTelefone: data.pacienteTelefone,
           medicoId: data.medicoId || '',
           medicoNome: data.medicoNome || '',
           status: data.status || 'pendente',

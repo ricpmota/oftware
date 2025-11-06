@@ -106,6 +106,7 @@ export default function MetaPage() {
   const [cidadeBuscaMedico, setCidadeBuscaMedico] = useState<string>('');
   const [showModalMedico, setShowModalMedico] = useState(false);
   const [medicoSelecionado, setMedicoSelecionado] = useState<Medico | null>(null);
+  const [telefonePaciente, setTelefonePaciente] = useState<string>('');
   const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<SolicitacaoMedico[]>([]);
   const [loadingMinhasSolicitacoes, setLoadingMinhasSolicitacoes] = useState(false);
   const [abaAtivaMedicos, setAbaAtivaMedicos] = useState<'buscar' | 'solicitacoes' | 'meu-medico'>('buscar');
@@ -4355,6 +4356,7 @@ export default function MetaPage() {
                 onClick={() => {
                   setShowModalMedico(false);
                   setMedicoSelecionado(null);
+                  setTelefonePaciente('');
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -4394,6 +4396,24 @@ export default function MetaPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Seu número de telefone *
+                </label>
+                <input
+                  type="tel"
+                  value={telefonePaciente}
+                  onChange={(e) => setTelefonePaciente(e.target.value)}
+                  placeholder="(00) 00000-0000"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  O médico usará este número para entrar em contato com você
+                </p>
+              </div>
+            </div>
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-900">
                   Ao enviar esta solicitação, o médico receberá uma notificação. Você poderá acompanhar o status da solicitação em suas notificações.
@@ -4406,6 +4426,7 @@ export default function MetaPage() {
                 onClick={() => {
                   setShowModalMedico(false);
                   setMedicoSelecionado(null);
+                  setTelefonePaciente('');
                 }}
                 className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
@@ -4415,11 +4436,18 @@ export default function MetaPage() {
                 onClick={async () => {
                   if (!user || !medicoSelecionado) return;
 
+                  // Validar telefone
+                  if (!telefonePaciente.trim()) {
+                    alert('Por favor, informe seu número de telefone para que o médico possa entrar em contato.');
+                    return;
+                  }
+
                   // Bloquear se paciente está em tratamento
                   if (paciente?.statusTratamento === 'em_tratamento') {
                     alert(`Você já está sendo acompanhado por ${medicoResponsavel?.genero === 'F' ? 'Dra.' : 'Dr.'} ${medicoResponsavel?.nome}. Não é possível solicitar um novo médico durante o tratamento.`);
                     setShowModalMedico(false);
                     setMedicoSelecionado(null);
+                    setTelefonePaciente('');
                     return;
                   }
 
@@ -4433,6 +4461,7 @@ export default function MetaPage() {
                     alert('Você já possui uma solicitação ativa ou aceita. Cancele a solicitação anterior antes de fazer uma nova.');
                     setShowModalMedico(false);
                     setMedicoSelecionado(null);
+                    setTelefonePaciente('');
                     return;
                   }
 
@@ -4441,6 +4470,7 @@ export default function MetaPage() {
                       pacienteId: paciente?.id,
                       pacienteEmail: user.email || '',
                       pacienteNome: user.displayName || paciente?.nome || 'Paciente',
+                      pacienteTelefone: telefonePaciente.trim(),
                       medicoId: medicoSelecionado.id,
                       medicoNome: medicoSelecionado.nome,
                       status: 'pendente'
@@ -4452,6 +4482,7 @@ export default function MetaPage() {
                     alert('Solicitação enviada com sucesso! O médico será notificado.');
                     setShowModalMedico(false);
                     setMedicoSelecionado(null);
+                    setTelefonePaciente('');
                   } catch (error) {
                     console.error('Erro ao solicitar médico:', error);
                     alert('Erro ao enviar solicitação');

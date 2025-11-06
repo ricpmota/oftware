@@ -3,6 +3,7 @@ export interface SolicitacaoMedico {
   pacienteId?: string; // ID do paciente se existir
   pacienteEmail: string; // Email do paciente que fez a solicitação
   pacienteNome: string; // Nome do paciente
+  pacienteTelefone?: string; // Telefone do paciente
   medicoId: string; // ID do médico
   medicoNome: string; // Nome do médico
   status: 'pendente' | 'aceita' | 'rejeitada' | 'desistiu'; // Status da solicitação
