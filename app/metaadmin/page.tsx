@@ -2157,10 +2157,10 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilCompleto.cep}
+                        value={perfilMedico.cep}
                         onChange={async (e) => {
                           const cep = e.target.value.replace(/\D/g, '');
-                          setPerfilMedico({ ...perfilCompleto, cep: cep });
+                          setPerfilMedico({ ...perfilMedico, cep: cep });
                           
                           // Buscar endereço pelo CEP
                           if (cep.length === 8) {
@@ -2170,7 +2170,7 @@ function MetaAdminPageContent() {
                               if (!data.erro && data.logradouro) {
                                 const enderecoCompleto = `${data.logradouro}, ${data.bairro} - ${data.localidade}/${data.uf}`;
                                 setPerfilMedico({
-                                  ...perfilCompleto,
+                                  ...perfilMedico,
                                   cep: cep,
                                   endereco: enderecoCompleto
                                 });
@@ -2192,8 +2192,8 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilCompleto.endereco}
-                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, endereco: e.target.value })}
+                        value={perfilMedico.endereco}
+                        onChange={(e) => setPerfilMedico({ ...perfilMedico, endereco: e.target.value })}
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         placeholder="Ex: Rua Exemplo, 123 - Bairro - Cidade/UF"
                         required
@@ -2207,8 +2207,8 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilCompleto.pontoReferencia}
-                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, pontoReferencia: e.target.value })}
+                        value={perfilMedico.pontoReferencia}
+                        onChange={(e) => setPerfilMedico({ ...perfilMedico, pontoReferencia: e.target.value })}
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         placeholder="Ex: Próximo ao Shopping Center, ao lado da farmácia"
                       />
@@ -2220,8 +2220,8 @@ function MetaAdminPageContent() {
                         Gênero
                       </label>
                       <select
-                        value={perfilCompleto.genero}
-                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, genero: e.target.value as 'M' | 'F' | '' })}
+                        value={perfilMedico.genero}
+                        onChange={(e) => setPerfilMedico({ ...perfilMedico, genero: e.target.value as 'M' | 'F' | '' })}
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                       >
                         <option value="">Selecione</option>
@@ -2300,11 +2300,11 @@ function MetaAdminPageContent() {
                       </div>
 
                       {/* Lista de Cidades Adicionadas */}
-                      {perfilCompleto.cidades.length > 0 && (
+                      {perfilMedico.cidades.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-sm text-gray-600 font-medium">Cidades adicionadas:</p>
                           <div className="flex flex-wrap gap-2">
-                            {perfilCompleto.cidades.map((cidade, index) => (
+                            {perfilMedico.cidades.map((cidade, index) => (
                               <span
                                 key={index}
                                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
@@ -2323,7 +2323,7 @@ function MetaAdminPageContent() {
                         </div>
                       )}
                       
-                      {perfilCompleto.cidades.length === 0 && (
+                      {perfilMedico.cidades.length === 0 && (
                         <p className="text-sm text-gray-500">Nenhuma cidade adicionada ainda</p>
                       )}
                     </div>
