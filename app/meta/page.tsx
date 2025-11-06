@@ -1536,18 +1536,28 @@ export default function MetaPage() {
                           onClick={async () => {
                             if (!user?.email || !paciente?.id) return;
                             setLoadingGoogleCalendar(true);
+                            setMensagemCalendar('');
+                            setTipoMensagemCalendar('');
                             try {
                               const response = await fetch(`/api/google-calendar/auth?userId=${paciente.id}&email=${encodeURIComponent(user.email)}&tipo=paciente`);
+                              
+                              if (!response.ok) {
+                                const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+                                throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+                              }
+                              
                               const data = await response.json();
                               if (data.authUrl) {
                                 window.location.href = data.authUrl;
                               } else {
-                                setMensagemCalendar('Erro ao obter URL de autorização. Tente novamente.');
+                                const errorMsg = data.error || 'Erro ao obter URL de autorização. Verifique se GOOGLE_CLIENT_ID está configurado.';
+                                setMensagemCalendar(errorMsg);
                                 setTipoMensagemCalendar('error');
                               }
                             } catch (error) {
                               console.error('Erro ao autorizar Google Calendar:', error);
-                              setMensagemCalendar('Erro ao autorizar Google Calendar. Tente novamente.');
+                              const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao autorizar Google Calendar';
+                              setMensagemCalendar(`Erro: ${errorMessage}. Verifique se GOOGLE_CLIENT_ID está configurado no Vercel.`);
                               setTipoMensagemCalendar('error');
                             } finally {
                               setLoadingGoogleCalendar(false);
