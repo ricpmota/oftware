@@ -249,7 +249,7 @@ function MetaAdminPageContent() {
         console.log('Médico carregado:', medico);
         setMedicoPerfil(medico);
         setPerfilMedico({
-          nome: medico.nome || '',
+          nome: medico.nome || user.displayName || '',
           crmNumero: medico.crm.numero,
           crmEstado: medico.crm.estado,
           endereco: medico.localizacao.endereco,
