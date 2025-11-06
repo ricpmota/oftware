@@ -14,6 +14,7 @@ import { MensagemService } from '@/services/mensagemService';
 import { MensagemResidente, MensagemResidenteParaAdmin } from '@/types/mensagem';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
+import { GoogleCalendarService } from '@/services/googleCalendarService';
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
@@ -107,6 +108,11 @@ export default function MetaPage() {
   const [showModalMedico, setShowModalMedico] = useState(false);
   const [medicoSelecionado, setMedicoSelecionado] = useState<Medico | null>(null);
   const [telefonePaciente, setTelefonePaciente] = useState<string>('');
+  
+  // Estados para Google Calendar
+  const [googleCalendarAutorizado, setGoogleCalendarAutorizado] = useState(false);
+  const [loadingGoogleCalendar, setLoadingGoogleCalendar] = useState(false);
+  const [sincronizandoCalendar, setSincronizandoCalendar] = useState(false);
   const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<SolicitacaoMedico[]>([]);
   const [loadingMinhasSolicitacoes, setLoadingMinhasSolicitacoes] = useState(false);
   const [abaAtivaMedicos, setAbaAtivaMedicos] = useState<'buscar' | 'solicitacoes' | 'meu-medico'>('buscar');
@@ -358,6 +364,19 @@ export default function MetaPage() {
     }
   }, [user?.email]);
 
+  // Verificar autorização do Google Calendar
+  const verificarAutorizacaoGoogleCalendar = useCallback(async () => {
+    if (!paciente?.id || !user?.email) return;
+    
+    try {
+      const autorizado = await GoogleCalendarService.isAutorizado(paciente.id);
+      setGoogleCalendarAutorizado(autorizado);
+    } catch (error) {
+      console.error('Erro ao verificar autorização Google Calendar:', error);
+      setGoogleCalendarAutorizado(false);
+    }
+  }, [paciente?.id, user?.email]);
+
   // Carregar dados do paciente e mensagens quando o usuário estiver logado
   useEffect(() => {
     if (user && user.email) {
@@ -365,6 +384,30 @@ export default function MetaPage() {
       loadMensagensPacienteAtual();
     }
   }, [user, loadPaciente, loadMensagensPacienteAtual]);
+
+  // Verificar autorização do Google Calendar quando o paciente for carregado
+  useEffect(() => {
+    if (paciente?.id && user?.email) {
+      verificarAutorizacaoGoogleCalendar();
+    }
+  }, [paciente?.id, user?.email, verificarAutorizacaoGoogleCalendar]);
+
+  // Verificar callback do Google Calendar
+  useEffect(() => {
+    const checkCalendarCallback = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const calendarSync = urlParams.get('calendar_sync');
+      
+      if (calendarSync === 'success' && paciente?.id) {
+        setGoogleCalendarAutorizado(true);
+        // Limpar parâmetro da URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    };
+    
+    checkCalendarCallback();
+  }, [paciente?.id]);
 
   const loadTrocas = useCallback(async () => {
     if (!user) return;
@@ -1376,6 +1419,84 @@ export default function MetaPage() {
             
             {/* Informações do Plano */}
             <div className="bg-white rounded-lg shadow p-6 space-y-4">
+              {/* Botão de Google Calendar */}
+              {user?.email && paciente && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                        Sincronização com Google Calendar
+                      </h4>
+                      <p className="text-xs text-blue-700">
+                        {googleCalendarAutorizado 
+                          ? 'Suas aplicações estão sincronizadas. Novos eventos serão adicionados automaticamente.'
+                          : 'Autorize o acesso ao Google Calendar para sincronizar todas as datas de aplicação automaticamente.'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!googleCalendarAutorizado ? (
+                        <button
+                          onClick={async () => {
+                            if (!user?.email || !paciente?.id) return;
+                            setLoadingGoogleCalendar(true);
+                            try {
+                              const response = await fetch(`/api/google-calendar/auth?userId=${paciente.id}&email=${encodeURIComponent(user.email)}`);
+                              const data = await response.json();
+                              if (data.authUrl) {
+                                window.location.href = data.authUrl;
+                              }
+                            } catch (error) {
+                              console.error('Erro ao autorizar Google Calendar:', error);
+                              alert('Erro ao autorizar Google Calendar');
+                            } finally {
+                              setLoadingGoogleCalendar(false);
+                            }
+                          }}
+                          disabled={loadingGoogleCalendar}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                        >
+                          <Calendar size={16} />
+                          {loadingGoogleCalendar ? 'Verificando...' : 'Autorizar Google Calendar'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={async () => {
+                            if (!paciente?.id) return;
+                            setSincronizandoCalendar(true);
+                            try {
+                              const response = await fetch('/api/google-calendar/sync', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  userId: paciente.id,
+                                  tipo: 'paciente'
+                                }),
+                              });
+                              const data = await response.json();
+                              if (data.success) {
+                                alert(`Sincronização concluída! ${data.eventsCreated} eventos criados.`);
+                              } else {
+                                alert(`Erro ao sincronizar: ${data.error}`);
+                              }
+                            } catch (error) {
+                              console.error('Erro ao sincronizar Google Calendar:', error);
+                              alert('Erro ao sincronizar eventos');
+                            } finally {
+                              setSincronizandoCalendar(false);
+                            }
+                          }}
+                          disabled={sincronizandoCalendar}
+                          className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                        >
+                          <RefreshCw size={16} className={sincronizandoCalendar ? 'animate-spin' : ''} />
+                          {sincronizandoCalendar ? 'Sincronizando...' : 'Sincronizar Agora'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Data de Início</label>
