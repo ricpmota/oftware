@@ -113,6 +113,8 @@ export default function MetaPage() {
   const [googleCalendarAutorizado, setGoogleCalendarAutorizado] = useState(false);
   const [loadingGoogleCalendar, setLoadingGoogleCalendar] = useState(false);
   const [sincronizandoCalendar, setSincronizandoCalendar] = useState(false);
+  const [mensagemCalendar, setMensagemCalendar] = useState<string>('');
+  const [tipoMensagemCalendar, setTipoMensagemCalendar] = useState<'success' | 'error' | ''>('');
 
   // Função para formatar nome do médico (2 primeiros + último)
   const formatarNomeMedico = (nome: string): string => {
@@ -404,19 +406,76 @@ export default function MetaPage() {
 
   // Verificar callback do Google Calendar
   useEffect(() => {
-    const checkCalendarCallback = () => {
+    const checkCalendarCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const calendarSync = urlParams.get('calendar_sync');
+      const error = urlParams.get('error');
       
       if (calendarSync === 'success' && paciente?.id) {
-        setGoogleCalendarAutorizado(true);
-        // Limpar parâmetro da URL
+        // Verificar autorização novamente para garantir
+        try {
+          const autorizado = await GoogleCalendarService.isAutorizado(paciente.id);
+          setGoogleCalendarAutorizado(autorizado);
+          
+          if (autorizado) {
+            // Sincronizar automaticamente após autorização
+            setSincronizandoCalendar(true);
+            try {
+              const response = await fetch('/api/google-calendar/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: paciente.id,
+                  tipo: 'paciente'
+                }),
+              });
+              const data = await response.json();
+              if (data.success) {
+                setMensagemCalendar(`Autorização realizada com sucesso! ${data.eventsCreated || 0} eventos foram adicionados ao seu Google Calendar.`);
+                setTipoMensagemCalendar('success');
+              } else {
+                setMensagemCalendar(`Autorização realizada, mas houve um erro ao sincronizar: ${data.error || 'Erro desconhecido'}`);
+                setTipoMensagemCalendar('error');
+              }
+            } catch (error) {
+              console.error('Erro ao sincronizar após autorização:', error);
+              setMensagemCalendar('Autorização realizada, mas houve um erro ao sincronizar os eventos.');
+              setTipoMensagemCalendar('error');
+            } finally {
+              setSincronizandoCalendar(false);
+            }
+          }
+          
+          // Limpar parâmetro da URL
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+          
+          // Limpar mensagem após 10 segundos
+          setTimeout(() => {
+            setMensagemCalendar('');
+            setTipoMensagemCalendar('');
+          }, 10000);
+        } catch (error) {
+          console.error('Erro ao verificar autorização após callback:', error);
+          setMensagemCalendar('Erro ao verificar autorização. Tente novamente.');
+          setTipoMensagemCalendar('error');
+        }
+      } else if (error) {
+        setMensagemCalendar('Erro ao autorizar Google Calendar. Tente novamente.');
+        setTipoMensagemCalendar('error');
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
+        
+        setTimeout(() => {
+          setMensagemCalendar('');
+          setTipoMensagemCalendar('');
+        }, 10000);
       }
     };
     
-    checkCalendarCallback();
+    if (paciente?.id) {
+      checkCalendarCallback();
+    }
   }, [paciente?.id]);
 
   const loadTrocas = useCallback(async () => {
@@ -1432,6 +1491,28 @@ export default function MetaPage() {
               {/* Botão de Google Calendar */}
               {user?.email && paciente && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  {/* Mensagem de feedback */}
+                  {mensagemCalendar && (
+                    <div className={`mb-4 p-3 rounded-md ${
+                      tipoMensagemCalendar === 'success' 
+                        ? 'bg-green-100 border border-green-400 text-green-800' 
+                        : 'bg-red-100 border border-red-400 text-red-800'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{mensagemCalendar}</p>
+                        <button
+                          onClick={() => {
+                            setMensagemCalendar('');
+                            setTipoMensagemCalendar('');
+                          }}
+                          className="ml-4 text-current opacity-70 hover:opacity-100"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex-1">
                       <h4 className="text-sm font-semibold text-blue-900 mb-1">
@@ -1442,6 +1523,12 @@ export default function MetaPage() {
                           ? 'Suas aplicações estão sincronizadas. Novos eventos serão adicionados automaticamente.'
                           : 'Autorize o acesso ao Google Calendar para sincronizar todas as datas de aplicação automaticamente.'}
                       </p>
+                      {sincronizandoCalendar && (
+                        <p className="text-xs text-blue-600 mt-2 flex items-center gap-2">
+                          <RefreshCw size={12} className="animate-spin" />
+                          Sincronizando eventos...
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {!googleCalendarAutorizado ? (
@@ -1450,14 +1537,18 @@ export default function MetaPage() {
                             if (!user?.email || !paciente?.id) return;
                             setLoadingGoogleCalendar(true);
                             try {
-                              const response = await fetch(`/api/google-calendar/auth?userId=${paciente.id}&email=${encodeURIComponent(user.email)}`);
+                              const response = await fetch(`/api/google-calendar/auth?userId=${paciente.id}&email=${encodeURIComponent(user.email)}&tipo=paciente`);
                               const data = await response.json();
                               if (data.authUrl) {
                                 window.location.href = data.authUrl;
+                              } else {
+                                setMensagemCalendar('Erro ao obter URL de autorização. Tente novamente.');
+                                setTipoMensagemCalendar('error');
                               }
                             } catch (error) {
                               console.error('Erro ao autorizar Google Calendar:', error);
-                              alert('Erro ao autorizar Google Calendar');
+                              setMensagemCalendar('Erro ao autorizar Google Calendar. Tente novamente.');
+                              setTipoMensagemCalendar('error');
                             } finally {
                               setLoadingGoogleCalendar(false);
                             }
@@ -1473,6 +1564,8 @@ export default function MetaPage() {
                           onClick={async () => {
                             if (!paciente?.id) return;
                             setSincronizandoCalendar(true);
+                            setMensagemCalendar('');
+                            setTipoMensagemCalendar('');
                             try {
                               const response = await fetch('/api/google-calendar/sync', {
                                 method: 'POST',
@@ -1484,15 +1577,25 @@ export default function MetaPage() {
                               });
                               const data = await response.json();
                               if (data.success) {
-                                alert(`Sincronização concluída! ${data.eventsCreated} eventos criados.`);
+                                setMensagemCalendar(`Sincronização concluída! ${data.eventsCreated || 0} eventos foram adicionados ao seu Google Calendar.`);
+                                setTipoMensagemCalendar('success');
+                                // Atualizar verificação
+                                await verificarAutorizacaoGoogleCalendar();
                               } else {
-                                alert(`Erro ao sincronizar: ${data.error}`);
+                                setMensagemCalendar(`Erro ao sincronizar: ${data.error || 'Erro desconhecido'}`);
+                                setTipoMensagemCalendar('error');
                               }
                             } catch (error) {
                               console.error('Erro ao sincronizar Google Calendar:', error);
-                              alert('Erro ao sincronizar eventos');
+                              setMensagemCalendar('Erro ao sincronizar eventos. Tente novamente.');
+                              setTipoMensagemCalendar('error');
                             } finally {
                               setSincronizandoCalendar(false);
+                              // Limpar mensagem após 10 segundos
+                              setTimeout(() => {
+                                setMensagemCalendar('');
+                                setTipoMensagemCalendar('');
+                              }, 10000);
                             }
                           }}
                           disabled={sincronizandoCalendar}

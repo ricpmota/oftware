@@ -5,6 +5,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get('userId');
     const email = searchParams.get('email');
+    const tipo = searchParams.get('tipo') || 'medico'; // Padrão: medico
     const redirectUri = searchParams.get('redirectUri') || `${request.nextUrl.origin}/api/google-calendar/callback`;
 
     if (!userId || !email) {
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.set('scope', scopes);
     authUrl.searchParams.set('access_type', 'offline');
     authUrl.searchParams.set('prompt', 'consent');
-    authUrl.searchParams.set('state', JSON.stringify({ userId, email }));
+    authUrl.searchParams.set('state', JSON.stringify({ userId, email, tipo }));
 
     return NextResponse.json({ authUrl: authUrl.toString() });
   } catch (error) {

@@ -8,12 +8,20 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
 
     if (!code || !state) {
+      // Tentar detectar tipo do state se disponível
+      let redirectPath = '/metaadmin';
+      try {
+        const parsed = JSON.parse(state || '{}');
+        if (parsed.tipo === 'paciente') {
+          redirectPath = '/meta';
+        }
+      } catch {}
       return NextResponse.redirect(
-        new URL('/metaadmin?error=authorization_failed', request.nextUrl.origin)
+        new URL(`${redirectPath}?error=authorization_failed`, request.nextUrl.origin)
       );
     }
 
-    const { userId, email } = JSON.parse(state);
+    const { userId, email, tipo } = JSON.parse(state);
 
     // Trocar código por token
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -21,8 +29,15 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${request.nextUrl.origin}/api/google-calendar/callback`;
 
     if (!clientId || !clientSecret) {
+      let redirectPath = '/metaadmin';
+      try {
+        const parsed = JSON.parse(state || '{}');
+        if (parsed.tipo === 'paciente') {
+          redirectPath = '/meta';
+        }
+      } catch {}
       return NextResponse.redirect(
-        new URL('/metaadmin?error=config_error', request.nextUrl.origin)
+        new URL(`${redirectPath}?error=config_error`, request.nextUrl.origin)
       );
     }
 
@@ -43,8 +58,9 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const error = await tokenResponse.text();
       console.error('Erro ao obter token:', error);
+      const redirectPath = tipo === 'paciente' ? '/meta' : '/metaadmin';
       return NextResponse.redirect(
-        new URL('/metaadmin?error=token_error', request.nextUrl.origin)
+        new URL(`${redirectPath}?error=token_error`, request.nextUrl.origin)
       );
     }
 
@@ -64,15 +80,25 @@ export async function GET(request: NextRequest) {
       sincronizadoEm: new Date()
     });
 
-    // Redirecionar de volta para a página com sucesso
+    // Redirecionar de volta para a página correta com sucesso
+    const redirectPath = tipo === 'paciente' ? '/meta' : '/metaadmin';
     return NextResponse.redirect(
-      new URL('/metaadmin?calendar_sync=success', request.nextUrl.origin)
+      new URL(`${redirectPath}?calendar_sync=success`, request.nextUrl.origin)
     );
   } catch (error) {
     console.error('Erro no callback do Google Calendar:', error);
-    return NextResponse.redirect(
-      new URL('/metaadmin?error=callback_error', request.nextUrl.origin)
-    );
+    // Tentar detectar o tipo pelo userId ou redirecionar para metaadmin por padrão
+    try {
+      const { tipo } = JSON.parse(state || '{}');
+      const redirectPath = tipo === 'paciente' ? '/meta' : '/metaadmin';
+      return NextResponse.redirect(
+        new URL(`${redirectPath}?error=callback_error`, request.nextUrl.origin)
+      );
+    } catch {
+      return NextResponse.redirect(
+        new URL('/metaadmin?error=callback_error', request.nextUrl.origin)
+      );
+    }
   }
 }
 
