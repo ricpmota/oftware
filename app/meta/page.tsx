@@ -3179,36 +3179,51 @@ export default function MetaPage() {
                           {/* Nome, Status e Botões */}
                           <div className="flex-1 min-w-0">
                             {/* Nome e Badges de Status */}
-                            <div className="flex items-start justify-between gap-3 mb-2">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-base font-semibold text-gray-900 mb-1 break-words">
-                                  {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {formatarNomeMedico(medico.nome)}
-                                </h4>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    medico.isVerificado
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}>
-                                    {medico.isVerificado ? (
-                                      <>
-                                        <ShieldCheck className="h-3 w-3" />
-                                        Verificado
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Shield className="h-3 w-3" />
-                                        Não Verificado
-                                      </>
-                                    )}
-                                  </div>
-                                  {paciente?.statusTratamento === 'em_tratamento' && (
-                                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
-                                      Bloqueado
-                                    </span>
+                            <div className="mb-2">
+                              <h4 className="text-base font-semibold text-gray-900 mb-1 break-words">
+                                {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {formatarNomeMedico(medico.nome)}
+                              </h4>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  medico.isVerificado
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {medico.isVerificado ? (
+                                    <>
+                                      <ShieldCheck className="h-3 w-3" />
+                                      Verificado
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Shield className="h-3 w-3" />
+                                      Não Verificado
+                                    </>
                                   )}
                                 </div>
+                                {paciente?.statusTratamento === 'em_tratamento' && (
+                                  <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                                    Bloqueado
+                                  </span>
+                                )}
                               </div>
+                            </div>
+
+                            {/* Botão Detalhes (esquerda) e Solicitar (direita) na mesma linha */}
+                            <div className="flex items-center justify-between gap-3">
+                              {/* Botão Detalhes - Canto Esquerdo */}
+                              <button
+                                onClick={toggleExpandir}
+                                className="flex items-center gap-1 px-2 py-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors text-sm font-medium"
+                                aria-label={isExpandido ? 'Recolher detalhes' : 'Expandir detalhes'}
+                              >
+                                <span>Detalhes</span>
+                                {isExpandido ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </button>
 
                               {/* Botão Solicitar - Canto Direito */}
                               <div className="flex-shrink-0">
@@ -3235,22 +3250,6 @@ export default function MetaPage() {
                                   </button>
                                 )}
                               </div>
-                            </div>
-
-                            {/* Botão Detalhes - Canto Esquerdo */}
-                            <div className="flex justify-start">
-                              <button
-                                onClick={toggleExpandir}
-                                className="flex items-center gap-1 px-2 py-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors text-sm font-medium"
-                                aria-label={isExpandido ? 'Recolher detalhes' : 'Expandir detalhes'}
-                              >
-                                <span>Detalhes</span>
-                                {isExpandido ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </button>
                             </div>
                           </div>
                         </div>
