@@ -81,7 +81,6 @@ function MetaAdminPageContent() {
   const [medicoPerfil, setMedicoPerfil] = useState<Medico | null>(null);
   const [loadingPerfil, setLoadingPerfil] = useState(false);
   const [perfilMedico, setPerfilMedico] = useState({
-    nome: '',
     crmNumero: '',
     crmEstado: '',
     endereco: '',
@@ -249,7 +248,6 @@ function MetaAdminPageContent() {
         console.log('Médico carregado:', medico);
         setMedicoPerfil(medico);
         setPerfilMedico({
-          nome: medico.nome || user?.displayName || '',
           crmNumero: medico.crm.numero,
           crmEstado: medico.crm.estado,
           endereco: medico.localizacao.endereco,
@@ -262,18 +260,6 @@ function MetaAdminPageContent() {
         return medico;
       } else {
         console.log('Nenhum médico encontrado para user.uid:', user.uid);
-        // Inicializar com valores padrão quando não há médico
-        setPerfilMedico({
-          nome: user?.displayName || '',
-          crmNumero: '',
-          crmEstado: '',
-          endereco: '',
-          cep: '',
-          pontoReferencia: '',
-          telefone: '',
-          genero: '',
-          cidades: []
-        });
         return null;
       }
     } catch (error) {
@@ -288,12 +274,6 @@ function MetaAdminPageContent() {
   const handleSalvarPerfil = async () => {
     if (!user) return;
     
-    // Validar campos obrigatórios
-    if (!medicoPerfil?.isVerificado && !perfilMedico.nome?.trim()) {
-      alert('Por favor, preencha o nome completo');
-      return;
-    }
-    
     if (!perfilMedico.crmNumero || !perfilMedico.crmEstado || !perfilMedico.endereco) {
       alert('Por favor, preencha todos os campos obrigatórios');
       return;
@@ -301,15 +281,14 @@ function MetaAdminPageContent() {
 
     setLoadingPerfil(true);
     try {
-      // Se estiver verificado, manter os valores originais de nome, CRM e estado do CRM
-      const nomeFinal = medicoPerfil?.isVerificado ? medicoPerfil.nome : (perfilMedico.nome || user.displayName || 'Médico');
+      // Se estiver verificado, manter os valores originais de CRM e estado do CRM
       const crmNumeroFinal = medicoPerfil?.isVerificado ? medicoPerfil.crm.numero : perfilMedico.crmNumero;
       const crmEstadoFinal = medicoPerfil?.isVerificado ? medicoPerfil.crm.estado : perfilMedico.crmEstado;
       
       const medicoData = {
         userId: user.uid,
         email: user.email || '',
-        nome: nomeFinal,
+        nome: medicoPerfil?.nome || user.displayName || 'Médico',
         genero: perfilMedico.genero || undefined,
         telefone: perfilMedico.telefone || undefined,
         crm: {
