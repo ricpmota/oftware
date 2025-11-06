@@ -2093,8 +2093,9 @@ function MetaAdminPageContent() {
   const renderContent = () => {
     switch (activeMenu) {
       case 'meu-perfil': {
-        const isVerificado = medicoPerfil?.isVerificado || false;
-        const nomeValue = perfilMedico?.nome || '';
+        // Definir variáveis de forma segura
+        const isVerificado = (medicoPerfil && medicoPerfil.isVerificado) ? true : false;
+        const nomeValue = (perfilMedico && perfilMedico.nome) ? perfilMedico.nome : '';
         
         return (
           <div className="space-y-6">
@@ -2125,8 +2126,10 @@ function MetaAdminPageContent() {
                         type="text"
                         value={nomeValue}
                         onChange={(e) => {
-                          if (!isVerificado && perfilMedico) {
-                            setPerfilMedico({ ...perfilMedico, nome: e.target.value });
+                          if (!isVerificado) {
+                            const novoPerfil = { ...perfilMedico };
+                            novoPerfil.nome = e.target.value;
+                            setPerfilMedico(novoPerfil);
                           }
                         }}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
