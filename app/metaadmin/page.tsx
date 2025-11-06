@@ -2071,7 +2071,7 @@ function MetaAdminPageContent() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      case 'meu-perfil':
+      case 'meu-perfil': {
         const isVerificado = medicoPerfil?.isVerificado || false;
         
         return (
