@@ -276,6 +276,12 @@ function MetaAdminPageContent() {
   const handleSalvarPerfil = async () => {
     if (!user) return;
     
+    // Validar campos obrigatórios
+    if (!medicoPerfil?.isVerificado && !perfilMedico.nome?.trim()) {
+      alert('Por favor, preencha o nome completo');
+      return;
+    }
+    
     if (!perfilMedico.crmNumero || !perfilMedico.crmEstado || !perfilMedico.endereco) {
       alert('Por favor, preencha todos os campos obrigatórios');
       return;
@@ -2102,13 +2108,13 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilMedico.nome}
+                        value={perfilMedico.nome || ''}
                         onChange={(e) => setPerfilMedico({ ...perfilMedico, nome: e.target.value })}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
                           medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
                         }`}
                         placeholder="Ex: Dr. João da Silva"
-                        disabled={medicoPerfil?.isVerificado}
+                        disabled={medicoPerfil?.isVerificado || false}
                         required={!medicoPerfil?.isVerificado}
                       />
                     </div>
