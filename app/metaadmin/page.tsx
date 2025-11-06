@@ -249,7 +249,7 @@ function MetaAdminPageContent() {
         console.log('Médico carregado:', medico);
         setMedicoPerfil(medico);
         setPerfilMedico({
-          nome: medico.nome || user.displayName || '',
+          nome: medico.nome || user?.displayName || '',
           crmNumero: medico.crm.numero,
           crmEstado: medico.crm.estado,
           endereco: medico.localizacao.endereco,
@@ -262,6 +262,18 @@ function MetaAdminPageContent() {
         return medico;
       } else {
         console.log('Nenhum médico encontrado para user.uid:', user.uid);
+        // Inicializar com valores padrão quando não há médico
+        setPerfilMedico({
+          nome: user?.displayName || '',
+          crmNumero: '',
+          crmEstado: '',
+          endereco: '',
+          cep: '',
+          pontoReferencia: '',
+          telefone: '',
+          genero: '',
+          cidades: []
+        });
         return null;
       }
     } catch (error) {
