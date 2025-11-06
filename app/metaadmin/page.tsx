@@ -2072,7 +2072,7 @@ function MetaAdminPageContent() {
   const renderContent = () => {
     switch (activeMenu) {
       case 'meu-perfil': {
-        const isVerificado = medicoPerfil?.isVerificado || false;
+        const isVerificado = Boolean(medicoPerfil?.isVerificado);
         
         return (
           <div className="space-y-6">
