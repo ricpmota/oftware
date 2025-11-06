@@ -2072,8 +2072,7 @@ function MetaAdminPageContent() {
   const renderContent = () => {
     switch (activeMenu) {
       case 'meu-perfil': {
-        const isVerificado = Boolean(medicoPerfil?.isVerificado);
-        
+        // Usar diretamente medicoPerfil?.isVerificado para evitar problemas de inicialização
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -2103,10 +2102,10 @@ function MetaAdminPageContent() {
                         value={perfilMedico.crmNumero}
                         onChange={(e) => setPerfilMedico({ ...perfilMedico, crmNumero: e.target.value })}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
-                          isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
                         }`}
                         placeholder="Ex: 12345"
-                        disabled={isVerificado}
+                        disabled={medicoPerfil?.isVerificado || false}
                         required
                       />
                     </div>
@@ -2114,7 +2113,7 @@ function MetaAdminPageContent() {
                     {/* CRM Estado */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Estado * {isVerificado && (
+                        CRM Estado * {medicoPerfil?.isVerificado && (
                           <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
                         )}
                       </label>
@@ -2122,9 +2121,9 @@ function MetaAdminPageContent() {
                         value={perfilMedico.crmEstado}
                         onChange={(e) => setPerfilMedico({ ...perfilMedico, crmEstado: e.target.value })}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
-                          isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
                         }`}
-                        disabled={isVerificado}
+                        disabled={medicoPerfil?.isVerificado || false}
                         required
                       >
                         <option value="">Selecione o estado</option>
