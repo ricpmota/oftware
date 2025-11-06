@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { UserService } from '@/services/userService';
@@ -38,7 +38,8 @@ import TrendLine from '@/components/TrendLine';
 import StackedBars from '@/components/StackedBars';
 import { CidadeCustomizadaService } from '@/services/cidadeCustomizadaService';
 import { MonjauroService, MonjauroPreco } from '@/services/monjauroService';
-import { ShoppingCart, Minus, Pill } from 'lucide-react';
+import { GoogleCalendarService } from '@/services/googleCalendarService';
+import { ShoppingCart, Minus, Pill, Calendar, RefreshCw } from 'lucide-react';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -141,6 +142,16 @@ export default function MetaAdminPage() {
 
   // Estados para Monjauro (carrinho de compras)
   const [monjauroPrecos, setMonjauroPrecos] = useState<MonjauroPreco[]>([]);
+  
+  // Estados para Google Calendar (médico)
+  const [googleCalendarAutorizado, setGoogleCalendarAutorizado] = useState(false);
+  const [loadingGoogleCalendar, setLoadingGoogleCalendar] = useState(false);
+  const [sincronizandoCalendar, setSincronizandoCalendar] = useState(false);
+  
+  // Estados para Google Calendar (paciente)
+  const [pacienteCalendarAutorizado, setPacienteCalendarAutorizado] = useState(false);
+  const [loadingPacienteCalendar, setLoadingPacienteCalendar] = useState(false);
+  const [sincronizandoPacienteCalendar, setSincronizandoPacienteCalendar] = useState(false);
   const [loadingMonjauroPrecos, setLoadingMonjauroPrecos] = useState(false);
   const [carrinho, setCarrinho] = useState<{ tipo: string; quantidade: number; preco: number }[]>([]);
   
@@ -195,6 +206,7 @@ export default function MetaAdminPage() {
   const [loadingMensagensPaciente, setLoadingMensagensPaciente] = useState(false);
   
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Form states
   const [newResidente, setNewResidente] = useState({ nome: '', nivel: 'R1' as 'R1' | 'R2' | 'R3', email: '', telefone: '' });
@@ -1143,6 +1155,29 @@ export default function MetaAdminPage() {
       // Recarregar dados
       await loadSolicitacoesMedico();
       await loadPacientes();
+      
+      // Sincronizar automaticamente com Google Calendar se autorizado
+      if (medicoPerfil?.id) {
+        const autorizado = await GoogleCalendarService.isAutorizado(medicoPerfil.id);
+        if (autorizado) {
+          try {
+            await fetch('/api/google-calendar/sync', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: medicoPerfil.id,
+                tipo: 'medico'
+              }),
+            });
+            // Não mostrar mensagem de sucesso para não poluir a interface
+          } catch (error) {
+            console.error('Erro ao sincronizar automaticamente:', error);
+            // Não mostrar erro ao usuário, apenas logar
+          }
+        }
+      }
     } catch (error) {
       console.error('Erro ao aceitar solicitação:', error);
       alert('Erro ao aceitar solicitação');
@@ -1197,8 +1232,97 @@ export default function MetaAdminPage() {
   useEffect(() => {
     if (user && medicoPerfil && activeMenu === 'calendario') {
       loadPacientes();
+      verificarAutorizacaoGoogleCalendar();
     }
-  }, [user, medicoPerfil, activeMenu, loadPacientes]);
+  }, [user, medicoPerfil, activeMenu, loadPacientes, verificarAutorizacaoGoogleCalendar]);
+
+  // Verificar autorização do Google Calendar do paciente quando pacienteEditando mudar
+  useEffect(() => {
+    if (pacienteEditando?.id) {
+      GoogleCalendarService.isAutorizado(pacienteEditando.id).then(setPacienteCalendarAutorizado);
+    } else {
+      setPacienteCalendarAutorizado(false);
+    }
+  }, [pacienteEditando?.id]);
+
+  // Verificar callback do Google Calendar
+  useEffect(() => {
+    if (searchParams) {
+      const calendarSync = searchParams.get('calendar_sync');
+      if (calendarSync === 'success' && medicoPerfil) {
+        setMessage('Google Calendar autorizado com sucesso!');
+        verificarAutorizacaoGoogleCalendar();
+        // Remover parâmetro da URL
+        router.replace('/metaadmin');
+      }
+    }
+  }, [searchParams, medicoPerfil, verificarAutorizacaoGoogleCalendar, router]);
+
+  // Verificar autorização do Google Calendar
+  const verificarAutorizacaoGoogleCalendar = useCallback(async () => {
+    if (!medicoPerfil?.id) return;
+    setLoadingGoogleCalendar(true);
+    try {
+      const autorizado = await GoogleCalendarService.isAutorizado(medicoPerfil.id);
+      setGoogleCalendarAutorizado(autorizado);
+    } catch (error) {
+      console.error('Erro ao verificar autorização do Google Calendar:', error);
+    } finally {
+      setLoadingGoogleCalendar(false);
+    }
+  }, [medicoPerfil]);
+
+  // Autorizar Google Calendar
+  const autorizarGoogleCalendar = async () => {
+    if (!user?.email || !medicoPerfil?.id) return;
+    
+    try {
+      const response = await fetch(`/api/google-calendar/auth?userId=${medicoPerfil.id}&email=${encodeURIComponent(user.email)}`);
+      const data = await response.json();
+      
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      } else {
+        alert('Erro ao gerar URL de autorização');
+      }
+    } catch (error) {
+      console.error('Erro ao autorizar Google Calendar:', error);
+      alert('Erro ao autorizar Google Calendar');
+    }
+  };
+
+  // Sincronizar eventos com Google Calendar
+  const sincronizarGoogleCalendar = async () => {
+    if (!medicoPerfil?.id) return;
+    
+    setSincronizandoCalendar(true);
+    try {
+      const response = await fetch('/api/google-calendar/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: medicoPerfil.id,
+          tipo: 'medico'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage(`Sincronização concluída! ${data.eventosCriados} eventos criados.`);
+        await verificarAutorizacaoGoogleCalendar();
+      } else {
+        alert(`Erro ao sincronizar: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar Google Calendar:', error);
+      alert('Erro ao sincronizar eventos com Google Calendar');
+    } finally {
+      setSincronizandoCalendar(false);
+    }
+  };
 
   useEffect(() => {
     if (user && activeMenu === 'troca') {
@@ -4658,6 +4782,61 @@ export default function MetaAdminPage() {
 
           return (
             <div className="space-y-6">
+              {/* Botão de autorização/sincronização Google Calendar */}
+              {user?.email && medicoPerfil && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                        Sincronização com Google Calendar
+                      </h3>
+                      <p className="text-xs text-blue-700">
+                        {googleCalendarAutorizado 
+                          ? 'Seus eventos estão sincronizados. Novos pacientes serão adicionados automaticamente.'
+                          : 'Autorize o acesso ao Google Calendar para sincronizar todos os eventos automaticamente.'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!googleCalendarAutorizado ? (
+                        <button
+                          onClick={autorizarGoogleCalendar}
+                          disabled={loadingGoogleCalendar}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                        >
+                          <Calendar size={16} />
+                          {loadingGoogleCalendar ? 'Verificando...' : 'Autorizar Google Calendar'}
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={sincronizarGoogleCalendar}
+                            disabled={sincronizandoCalendar}
+                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                          >
+                            <RefreshCw size={16} className={sincronizandoCalendar ? 'animate-spin' : ''} />
+                            {sincronizandoCalendar ? 'Sincronizando...' : 'Sincronizar Agora'}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (confirm('Deseja remover a autorização do Google Calendar?')) {
+                                if (medicoPerfil?.id) {
+                                  await GoogleCalendarService.removerAutorizacao(medicoPerfil.id);
+                                  setGoogleCalendarAutorizado(false);
+                                  setMessage('Autorização removida com sucesso.');
+                                }
+                              }
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors"
+                          >
+                            Remover
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Calendário de Aplicações</h2>
                 <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
@@ -10587,74 +10766,91 @@ export default function MetaAdminPage() {
                         return !isNaN(dataItem.getTime()) && (dataItem >= hoje || item.status === 'futura');
                       });
 
+                      // Funções para Google Calendar do paciente
+                      const autorizarPacienteCalendar = async () => {
+                        if (!user?.email || !pacienteEditando?.id) return;
+                        setLoadingPacienteCalendar(true);
+                        try {
+                          const response = await fetch(`/api/google-calendar/auth?userId=${pacienteEditando.id}&email=${encodeURIComponent(user.email)}`);
+                          const data = await response.json();
+                          if (data.authUrl) {
+                            window.location.href = data.authUrl;
+                          }
+                        } catch (error) {
+                          console.error('Erro ao autorizar Google Calendar:', error);
+                          alert('Erro ao autorizar Google Calendar');
+                        } finally {
+                          setLoadingPacienteCalendar(false);
+                        }
+                      };
+
+                      const sincronizarPacienteCalendar = async () => {
+                        if (!pacienteEditando?.id) return;
+                        setSincronizandoPacienteCalendar(true);
+                        try {
+                          const response = await fetch('/api/google-calendar/sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              userId: pacienteEditando.id,
+                              tipo: 'paciente'
+                            }),
+                          });
+                          const data = await response.json();
+                          if (data.success) {
+                            setMessage(`Sincronização concluída! ${data.eventosCriados} eventos criados.`);
+                            setPacienteCalendarAutorizado(true);
+                          } else {
+                            alert(`Erro ao sincronizar: ${data.error}`);
+                          }
+                        } catch (error) {
+                          console.error('Erro ao sincronizar Google Calendar:', error);
+                          alert('Erro ao sincronizar eventos');
+                        } finally {
+                          setSincronizandoPacienteCalendar(false);
+                        }
+                      };
+
                       return (
                         <div className="space-y-6">
-                          {/* Botão para adicionar todo o tratamento ao Google Calendar */}
-                          {aplicacoesFuturas.length > 0 && user?.email && (() => {
-                            const formatarDataGoogle = (data: Date) => {
-                              const ano = data.getFullYear();
-                              const mes = String(data.getMonth() + 1).padStart(2, '0');
-                              const dia = String(data.getDate()).padStart(2, '0');
-                              const hora = String(8).padStart(2, '0'); // 8h da manhã
-                              return `${ano}${mes}${dia}T${hora}0000Z`;
-                            };
-                            
-                            const formatarDataFimGoogle = (data: Date) => {
-                              const ano = data.getFullYear();
-                              const mes = String(data.getMonth() + 1).padStart(2, '0');
-                              const dia = String(data.getDate()).padStart(2, '0');
-                              const hora = String(9).padStart(2, '0'); // 9h da manhã (1 hora de duração)
-                              return `${ano}${mes}${dia}T${hora}0000Z`;
-                            };
-                            
-                            // Criar URLs para todas as aplicações futuras
-                            const eventosGoogle = aplicacoesFuturas.map(item => {
-                              const dataItem = item.data instanceof Date ? item.data : new Date(item.data as any);
-                              const dataInicio = formatarDataGoogle(dataItem);
-                              const dataFim = formatarDataFimGoogle(dataItem);
-                              const localNome = item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço';
-                              const titulo = `Monjauro - Semana ${item.semana} - ${item.dose}mg`;
-                              const detalhes = `Aplicação de Monjauro%0A%0ASemana: ${item.semana}%0ADose: ${item.dose}mg%0ALocal: ${localNome}%0APaciente: ${pacienteEditando?.nome || 'Paciente'}`;
-                              
-                              return {
-                                url: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicio}/${dataFim}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`,
-                                data: dataItem,
-                                semana: item.semana,
-                                dose: item.dose,
-                                local: localNome
-                              };
-                            });
-                            
-                            const adicionarTodosEventos = () => {
-                              eventosGoogle.forEach((evento, index) => {
-                                setTimeout(() => {
-                                  window.open(evento.url, '_blank');
-                                }, index * 500); // Delay de 500ms entre cada abertura para evitar bloqueio
-                              });
-                            };
-                            
-                            return (
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h4 className="text-sm font-semibold text-blue-900 mb-1">
-                                      Adicionar Tratamento ao Google Calendar
-                                    </h4>
-                                    <p className="text-xs text-blue-700">
-                                      {aplicacoesFuturas.length} aplicação(ões) futura(s) serão adicionadas ao seu calendário
-                                    </p>
-                                  </div>
-                                  <button
-                                    onClick={adicionarTodosEventos}
-                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-                                  >
-                                    <Calendar size={16} />
-                                    Adicionar Todas
-                                  </button>
+                          {/* Botão de autorização/sincronização Google Calendar para paciente */}
+                          {user?.email && pacienteEditando && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                                    Sincronização com Google Calendar
+                                  </h4>
+                                  <p className="text-xs text-blue-700">
+                                    {pacienteCalendarAutorizado 
+                                      ? 'Seus eventos estão sincronizados. Novos eventos serão adicionados automaticamente.'
+                                      : 'Autorize o acesso ao Google Calendar para sincronizar todos os eventos do seu tratamento automaticamente.'}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {!pacienteCalendarAutorizado ? (
+                                    <button
+                                      onClick={autorizarPacienteCalendar}
+                                      disabled={loadingPacienteCalendar}
+                                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                      <Calendar size={16} />
+                                      {loadingPacienteCalendar ? 'Verificando...' : 'Autorizar Google Calendar'}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={sincronizarPacienteCalendar}
+                                      disabled={sincronizandoPacienteCalendar}
+                                      className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                      <RefreshCw size={16} className={sincronizandoPacienteCalendar ? 'animate-spin' : ''} />
+                                      {sincronizandoPacienteCalendar ? 'Sincronizando...' : 'Sincronizar Agora'}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
-                            );
-                          })()}
+                            </div>
+                          )}
 
                           {/* Aplicações Passadas */}
                           {aplicacoesPassadas.length > 0 && (

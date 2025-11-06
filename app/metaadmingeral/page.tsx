@@ -69,6 +69,36 @@ export default function MetaAdminGeralPage() {
   const [pacientes, setPacientes] = useState<PacienteCompleto[]>([]);
   const [loadingPacientes, setLoadingPacientes] = useState(false);
   
+  // Estados para modais de edição
+  const [showEditarMedicoModal, setShowEditarMedicoModal] = useState(false);
+  const [medicoEditando, setMedicoEditando] = useState<Medico | null>(null);
+  const [dadosMedicoEditando, setDadosMedicoEditando] = useState({
+    nome: '',
+    email: '',
+    telefone: '',
+    genero: '' as 'M' | 'F' | '',
+    crmNumero: '',
+    crmEstado: '',
+    endereco: '',
+    cep: '',
+    pontoReferencia: ''
+  });
+  
+  const [showEditarPacienteModal, setShowEditarPacienteModal] = useState(false);
+  const [pacienteEditando, setPacienteEditando] = useState<PacienteCompleto | null>(null);
+  const [dadosPacienteEditando, setDadosPacienteEditando] = useState({
+    nomeCompleto: '',
+    email: '',
+    telefone: '',
+    cpf: '',
+    dataNascimento: '',
+    sexoBiologico: '' as 'M' | 'F' | 'Outro' | '',
+    rua: '',
+    cidade: '',
+    estado: '',
+    cep: ''
+  });
+  
   // Estados para Monjauro
   const [monjauroPrecos, setMonjauroPrecos] = useState<MonjauroPreco[]>([]);
   const [editandoMonjauro, setEditandoMonjauro] = useState<{ tipo: string; preco: number } | null>(null);
@@ -415,6 +445,87 @@ export default function MetaAdminGeralPage() {
       setLoadingMonjauro(false);
     }
   }, []);
+
+  // Função para salvar dados do médico editado
+  const handleSalvarMedico = async () => {
+    if (!medicoEditando) return;
+    
+    try {
+      setLoading(true);
+      const { id, ...medicoSemId } = medicoEditando;
+      const medicoData = {
+        ...medicoSemId,
+        nome: dadosMedicoEditando.nome,
+        email: dadosMedicoEditando.email,
+        telefone: dadosMedicoEditando.telefone || undefined,
+        genero: dadosMedicoEditando.genero || undefined,
+        crm: {
+          numero: dadosMedicoEditando.crmNumero,
+          estado: dadosMedicoEditando.crmEstado
+        },
+        localizacao: {
+          ...medicoEditando.localizacao,
+          endereco: dadosMedicoEditando.endereco,
+          cep: dadosMedicoEditando.cep || undefined,
+          pontoReferencia: dadosMedicoEditando.pontoReferencia || undefined
+        }
+      };
+      
+      await MedicoService.createOrUpdateMedico(medicoData);
+      await loadMedicos();
+      setShowEditarMedicoModal(false);
+      setMedicoEditando(null);
+      setMessage('Dados do médico atualizados com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar médico:', error);
+      setMessage('Erro ao salvar dados do médico');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função para salvar dados do paciente editado
+  const handleSalvarPaciente = async () => {
+    if (!pacienteEditando) return;
+    
+    try {
+      setLoading(true);
+      const pacienteData = {
+        ...pacienteEditando,
+        nome: dadosPacienteEditando.nomeCompleto,
+        email: dadosPacienteEditando.email,
+        dadosIdentificacao: {
+          ...pacienteEditando.dadosIdentificacao,
+          nomeCompleto: dadosPacienteEditando.nomeCompleto,
+          email: dadosPacienteEditando.email,
+          telefone: dadosPacienteEditando.telefone || undefined,
+          cpf: dadosPacienteEditando.cpf || undefined,
+          dataNascimento: dadosPacienteEditando.dataNascimento 
+            ? new Date(dadosPacienteEditando.dataNascimento)
+            : undefined,
+          sexoBiologico: dadosPacienteEditando.sexoBiologico || undefined,
+          endereco: {
+            rua: dadosPacienteEditando.rua || undefined,
+            cidade: dadosPacienteEditando.cidade || undefined,
+            estado: dadosPacienteEditando.estado || undefined,
+            cep: dadosPacienteEditando.cep || undefined
+          },
+          dataCadastro: pacienteEditando.dadosIdentificacao?.dataCadastro || new Date()
+        }
+      };
+      
+      await PacienteService.createOrUpdatePaciente(pacienteData);
+      await loadPacientes();
+      setShowEditarPacienteModal(false);
+      setPacienteEditando(null);
+      setMessage('Dados do paciente atualizados com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar paciente:', error);
+      setMessage('Erro ao salvar dados do paciente');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Função para verificar/desverificar médico
   const handleToggleVerificacaoMedico = async (medicoId: string, isVerificado: boolean) => {
@@ -1421,6 +1532,27 @@ export default function MetaAdminGeralPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex space-x-2">
                             <button
+                              onClick={() => {
+                                setMedicoEditando(medico);
+                                setDadosMedicoEditando({
+                                  nome: medico.nome,
+                                  email: medico.email,
+                                  telefone: medico.telefone || '',
+                                  genero: medico.genero || '',
+                                  crmNumero: medico.crm.numero,
+                                  crmEstado: medico.crm.estado,
+                                  endereco: medico.localizacao.endereco,
+                                  cep: medico.localizacao.cep || '',
+                                  pontoReferencia: medico.localizacao.pontoReferencia || ''
+                                });
+                                setShowEditarMedicoModal(true);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                            >
+                              <Edit size={14} className="mr-1" />
+                              Editar
+                            </button>
+                            <button
                               onClick={() => handleToggleVerificacaoMedico(medico.id, medico.isVerificado || false)}
                               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                                 medico.isVerificado
@@ -1531,6 +1663,9 @@ export default function MetaAdminGeralPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ações
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1578,6 +1713,35 @@ export default function MetaAdminGeralPage() {
                                paciente.statusTratamento === 'concluido' ? 'Concluído' :
                                paciente.statusTratamento === 'abandono' ? 'Abandono' : 'Pendente'}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button
+                              onClick={() => {
+                                setPacienteEditando(paciente);
+                                const dadosId = paciente.dadosIdentificacao || {} as any;
+                                setDadosPacienteEditando({
+                                  nomeCompleto: dadosId.nomeCompleto || paciente.nome || '',
+                                  email: dadosId.email || paciente.email || '',
+                                  telefone: dadosId.telefone || '',
+                                  cpf: dadosId.cpf || '',
+                                  dataNascimento: dadosId.dataNascimento 
+                                    ? (dadosId.dataNascimento instanceof Date 
+                                        ? dadosId.dataNascimento.toISOString().split('T')[0]
+                                        : new Date(dadosId.dataNascimento).toISOString().split('T')[0])
+                                    : '',
+                                  sexoBiologico: dadosId.sexoBiologico || '',
+                                  rua: dadosId.endereco?.rua || '',
+                                  cidade: dadosId.endereco?.cidade || '',
+                                  estado: dadosId.endereco?.estado || '',
+                                  cep: dadosId.endereco?.cep || ''
+                                });
+                                setShowEditarPacienteModal(true);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                            >
+                              <Edit size={14} className="mr-1" />
+                              Editar
+                            </button>
                           </td>
                         </tr>
                       );
@@ -4108,6 +4272,265 @@ export default function MetaAdminGeralPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição de Médico */}
+      {showEditarMedicoModal && medicoEditando && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Editar Dados do Médico</h3>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                    <input
+                      type="text"
+                      value={dadosMedicoEditando.nome}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, nome: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="email"
+                      value={dadosMedicoEditando.email}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, email: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <input
+                      type="tel"
+                      value={dadosMedicoEditando.telefone}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, telefone: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gênero</label>
+                    <select
+                      value={dadosMedicoEditando.genero}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, genero: e.target.value as 'M' | 'F' | '' })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CRM Número *</label>
+                    <input
+                      type="text"
+                      value={dadosMedicoEditando.crmNumero}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, crmNumero: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CRM Estado *</label>
+                    <input
+                      type="text"
+                      value={dadosMedicoEditando.crmEstado}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, crmEstado: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Endereço *</label>
+                    <input
+                      type="text"
+                      value={dadosMedicoEditando.endereco}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, endereco: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+                    <input
+                      type="text"
+                      value={dadosMedicoEditando.cep}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, cep: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ponto de Referência</label>
+                    <input
+                      type="text"
+                      value={dadosMedicoEditando.pontoReferencia}
+                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, pontoReferencia: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditarMedicoModal(false);
+                    setMedicoEditando(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSalvarMedico}
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição de Paciente */}
+      {showEditarPacienteModal && pacienteEditando && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Editar Dados de Identificação do Paciente</h3>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
+                    <input
+                      type="text"
+                      value={dadosPacienteEditando.nomeCompleto}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, nomeCompleto: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="email"
+                      value={dadosPacienteEditando.email}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, email: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <input
+                      type="tel"
+                      value={dadosPacienteEditando.telefone}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, telefone: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                    <input
+                      type="text"
+                      value={dadosPacienteEditando.cpf}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, cpf: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+                    <input
+                      type="date"
+                      value={dadosPacienteEditando.dataNascimento}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, dataNascimento: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sexo Biológico</label>
+                    <select
+                      value={dadosPacienteEditando.sexoBiologico}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, sexoBiologico: e.target.value as 'M' | 'F' | 'Outro' | '' })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rua</label>
+                    <input
+                      type="text"
+                      value={dadosPacienteEditando.rua}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, rua: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                    <input
+                      type="text"
+                      value={dadosPacienteEditando.cidade}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, cidade: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                    <input
+                      type="text"
+                      value={dadosPacienteEditando.estado}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, estado: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+                    <input
+                      type="text"
+                      value={dadosPacienteEditando.cep}
+                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, cep: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditarPacienteModal(false);
+                    setPacienteEditando(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSalvarPaciente}
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
