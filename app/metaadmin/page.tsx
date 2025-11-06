@@ -2419,7 +2419,6 @@ function MetaAdminPageContent() {
             )}
           </div>
         );
-      }
 
       case 'pacientes':
         return (
