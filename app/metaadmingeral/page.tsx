@@ -708,11 +708,6 @@ export default function MetaAdminGeralPage() {
     }
   }, [user, activeMenu, loadMensagens, loadMensagensResidentes]);
 
-  useEffect(() => {
-    if (activeMenu === 'verificar-medicos') {
-      loadMedicos();
-    }
-  }, [activeMenu, loadMedicos]);
 
   // Carregar médicos e pacientes sempre que o menu estatísticas for ativado
   useEffect(() => {
@@ -1460,36 +1455,37 @@ export default function MetaAdminGeralPage() {
               </div>
             ) : (
               <div className="bg-white shadow rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nome
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        CRM
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Telefone
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Verificação
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data Cadastro
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Nome
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          CRM
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Telefone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Verificação
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Data Cadastro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
                     {medicos.map((medico) => (
                       <tr key={medico.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1583,8 +1579,9 @@ export default function MetaAdminGeralPage() {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                </div>
                 {medicos.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <p>Nenhum médico encontrado</p>
@@ -3273,106 +3270,6 @@ export default function MetaAdminGeralPage() {
         );
       }
 
-      case 'verificar-medicos': {
-        return (
-          <div className="p-6">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Verificar Médicos</h2>
-              <p className="text-gray-600 mt-2">Gerencie a verificação dos médicos cadastrados</p>
-            </div>
-
-            {loadingMedicos ? (
-              <div className="bg-white shadow rounded-lg p-12 text-center">
-                <RefreshCw className="mx-auto h-12 w-12 text-gray-400 mb-4 animate-spin" />
-                <p className="text-gray-600">Carregando médicos...</p>
-              </div>
-            ) : medicos.length === 0 ? (
-              <div className="bg-white shadow rounded-lg p-6">
-                <div className="text-center py-12">
-                  <Stethoscope className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600">Nenhum médico cadastrado</p>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 text-sm font-medium text-gray-700">
-                    <div>Nome</div>
-                    <div>Email</div>
-                    <div>CRM</div>
-                    <div>Cidades</div>
-                    <div>Status</div>
-                    <div className="text-center">Ação</div>
-                  </div>
-                </div>
-                <div className="divide-y divide-gray-200">
-                  {medicos.map((medico) => (
-                    <div key={medico.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center text-sm">
-                        <div>
-                          <p className="font-medium text-gray-900">{medico.nome}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">{medico.email}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">
-                            {medico.crm.numero} - {medico.crm.estado}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">{medico.cidades.length} cidade(s)</p>
-                        </div>
-                        <div>
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            medico.isVerificado
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {medico.isVerificado ? (
-                              <>
-                                <ShieldCheck size={14} />
-                                Verificado
-                              </>
-                            ) : (
-                              <>
-                                <Shield size={14} />
-                                Não Verificado
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex justify-center">
-                          <button
-                            onClick={() => handleToggleVerificacaoMedico(medico.id, medico.isVerificado || false)}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center ${
-                              medico.isVerificado
-                                ? 'bg-yellow-600 text-white hover:bg-yellow-700'
-                                : 'bg-green-600 text-white hover:bg-green-700'
-                            }`}
-                          >
-                            {medico.isVerificado ? (
-                              <>
-                                <XCircle size={16} className="mr-2" />
-                                Desverificar
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle size={16} className="mr-2" />
-                                Verificar
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      }
 
       case 'mensagens': {
         return (
@@ -3918,19 +3815,6 @@ export default function MetaAdminGeralPage() {
               >
                 <Pill size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Monjauro'}
-              </button>
-              
-              <button
-                onClick={() => setActiveMenu('verificar-medicos')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'verificar-medicos'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-                title={sidebarCollapsed ? 'Verificar Médicos' : ''}
-              >
-                <Stethoscope size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Verificar Médicos'}
               </button>
               
               <button
