@@ -2127,9 +2127,17 @@ function MetaAdminPageContent() {
                         value={nomeValue}
                         onChange={(e) => {
                           if (!isVerificado) {
-                            const novoPerfil = { ...perfilMedico };
-                            novoPerfil.nome = e.target.value;
-                            setPerfilMedico(novoPerfil);
+                            setPerfilMedico({
+                              nome: e.target.value,
+                              crmNumero: perfilMedico.crmNumero || '',
+                              crmEstado: perfilMedico.crmEstado || '',
+                              endereco: perfilMedico.endereco || '',
+                              cep: perfilMedico.cep || '',
+                              pontoReferencia: perfilMedico.pontoReferencia || '',
+                              telefone: perfilMedico.telefone || '',
+                              genero: perfilMedico.genero || '',
+                              cidades: perfilMedico.cidades || []
+                            });
                           }
                         }}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
