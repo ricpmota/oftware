@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle, ShoppingCart, Minus, Pill } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -39,7 +39,6 @@ import StackedBars from '@/components/StackedBars';
 import { CidadeCustomizadaService } from '@/services/cidadeCustomizadaService';
 import { MonjauroService, MonjauroPreco } from '@/services/monjauroService';
 import { GoogleCalendarService } from '@/services/googleCalendarService';
-import { ShoppingCart, Minus, Pill, Calendar, RefreshCw } from 'lucide-react';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
