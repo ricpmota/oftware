@@ -113,6 +113,16 @@ export default function MetaPage() {
   const [googleCalendarAutorizado, setGoogleCalendarAutorizado] = useState(false);
   const [loadingGoogleCalendar, setLoadingGoogleCalendar] = useState(false);
   const [sincronizandoCalendar, setSincronizandoCalendar] = useState(false);
+
+  // Função para formatar nome do médico (2 primeiros + último)
+  const formatarNomeMedico = (nome: string): string => {
+    const partes = nome.trim().split(/\s+/);
+    if (partes.length <= 3) {
+      return nome; // Se tem 3 ou menos partes, retorna o nome completo
+    }
+    // Pega os 2 primeiros e o último
+    return `${partes[0]} ${partes[1]} ${partes[partes.length - 1]}`;
+  };
   const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<SolicitacaoMedico[]>([]);
   const [loadingMinhasSolicitacoes, setLoadingMinhasSolicitacoes] = useState(false);
   const [abaAtivaMedicos, setAbaAtivaMedicos] = useState<'buscar' | 'solicitacoes' | 'meu-medico'>('buscar');
@@ -3154,9 +3164,9 @@ export default function MetaPage() {
                     }`}>
                       {/* Header Compacto - Sempre Visível */}
                       <div className="p-4">
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                           {/* Lado Esquerdo: Nome e Status */}
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                               medico.isVerificado ? 'bg-green-50' : 'bg-red-50'
                             }`}>
@@ -3166,9 +3176,9 @@ export default function MetaPage() {
                                 <Shield className="h-5 w-5 text-red-600" />
                               )}
                             </div>
-                            <div className="flex-1 min-w-0 pr-2">
-                              <h4 className="text-base font-semibold text-gray-900 mb-1 truncate">
-                                {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-base font-semibold text-gray-900 mb-1 break-words">
+                                {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {formatarNomeMedico(medico.nome)}
                               </h4>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -3198,7 +3208,7 @@ export default function MetaPage() {
                           </div>
 
                           {/* Lado Direito: Botões */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
                             {temPendenteOuAceita ? (
                               <button
                                 disabled
