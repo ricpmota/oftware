@@ -3164,84 +3164,94 @@ export default function MetaPage() {
                     }`}>
                       {/* Header Compacto - Sempre Visível */}
                       <div className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                          {/* Lado Esquerdo: Nome e Status */}
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              medico.isVerificado ? 'bg-green-50' : 'bg-red-50'
-                            }`}>
-                              {medico.isVerificado ? (
-                                <ShieldCheck className="h-5 w-5 text-green-600" />
-                              ) : (
-                                <Shield className="h-5 w-5 text-red-600" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-base font-semibold text-gray-900 mb-1 break-words">
-                                {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {formatarNomeMedico(medico.nome)}
-                              </h4>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  medico.isVerificado
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}>
-                                  {medico.isVerificado ? (
-                                    <>
-                                      <ShieldCheck className="h-3 w-3" />
-                                      Verificado
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Shield className="h-3 w-3" />
-                                      Não Verificado
-                                    </>
+                        <div className="flex items-start gap-3">
+                          {/* Ícone de Status */}
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            medico.isVerificado ? 'bg-green-50' : 'bg-red-50'
+                          }`}>
+                            {medico.isVerificado ? (
+                              <ShieldCheck className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <Shield className="h-5 w-5 text-red-600" />
+                            )}
+                          </div>
+
+                          {/* Nome, Status e Botões */}
+                          <div className="flex-1 min-w-0">
+                            {/* Nome e Badges de Status */}
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-base font-semibold text-gray-900 mb-1 break-words">
+                                  {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {formatarNomeMedico(medico.nome)}
+                                </h4>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    medico.isVerificado
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {medico.isVerificado ? (
+                                      <>
+                                        <ShieldCheck className="h-3 w-3" />
+                                        Verificado
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Shield className="h-3 w-3" />
+                                        Não Verificado
+                                      </>
+                                    )}
+                                  </div>
+                                  {paciente?.statusTratamento === 'em_tratamento' && (
+                                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                                      Bloqueado
+                                    </span>
                                   )}
                                 </div>
-                                {paciente?.statusTratamento === 'em_tratamento' && (
-                                  <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
-                                    Bloqueado
-                                  </span>
+                              </div>
+
+                              {/* Botão Solicitar - Canto Direito */}
+                              <div className="flex-shrink-0">
+                                {temPendenteOuAceita ? (
+                                  <button
+                                    disabled
+                                    className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium whitespace-nowrap"
+                                  >
+                                    ⏳ Aguardando
+                                  </button>
+                                ) : paciente?.statusTratamento === 'em_tratamento' ? (
+                                  <button
+                                    disabled
+                                    className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium whitespace-nowrap"
+                                  >
+                                    Indisponível
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => abrirModalMedico(medico)}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs font-medium whitespace-nowrap"
+                                  >
+                                    Solicitar
+                                  </button>
                                 )}
                               </div>
                             </div>
-                          </div>
 
-                          {/* Lado Direito: Botões */}
-                          <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
-                            {temPendenteOuAceita ? (
+                            {/* Botão Detalhes - Canto Esquerdo */}
+                            <div className="flex justify-start">
                               <button
-                                disabled
-                                className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium whitespace-nowrap"
+                                onClick={toggleExpandir}
+                                className="flex items-center gap-1 px-2 py-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors text-sm font-medium"
+                                aria-label={isExpandido ? 'Recolher detalhes' : 'Expandir detalhes'}
                               >
-                                ⏳ Aguardando
+                                <span>Detalhes</span>
+                                {isExpandido ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
                               </button>
-                            ) : paciente?.statusTratamento === 'em_tratamento' ? (
-                              <button
-                                disabled
-                                className="px-3 py-1.5 bg-gray-400 text-white rounded-md cursor-not-allowed text-xs font-medium whitespace-nowrap"
-                              >
-                                Indisponível
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => abrirModalMedico(medico)}
-                                className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs font-medium whitespace-nowrap"
-                              >
-                                Solicitar
-                              </button>
-                            )}
-                            <button
-                              onClick={toggleExpandir}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                              aria-label={isExpandido ? 'Recolher detalhes' : 'Expandir detalhes'}
-                            >
-                              {isExpandido ? (
-                                <ChevronUp className="h-5 w-5" />
-                              ) : (
-                                <ChevronDown className="h-5 w-5" />
-                              )}
-                            </button>
+                            </div>
                           </div>
                         </div>
                       </div>
