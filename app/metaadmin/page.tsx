@@ -281,19 +281,15 @@ function MetaAdminPageContent() {
 
     setLoadingPerfil(true);
     try {
-      // Se estiver verificado, manter os valores originais de CRM e estado do CRM
-      const crmNumeroFinal = medicoPerfil?.isVerificado ? medicoPerfil.crm.numero : perfilMedico.crmNumero;
-      const crmEstadoFinal = medicoPerfil?.isVerificado ? medicoPerfil.crm.estado : perfilMedico.crmEstado;
-      
       const medicoData = {
         userId: user.uid,
         email: user.email || '',
-        nome: medicoPerfil?.nome || user.displayName || 'Médico',
+        nome: user.displayName || 'Médico',
         genero: perfilMedico.genero || undefined,
         telefone: perfilMedico.telefone || undefined,
         crm: {
-          numero: crmNumeroFinal,
-          estado: crmEstadoFinal
+          numero: perfilMedico.crmNumero,
+          estado: perfilMedico.crmEstado
         },
         localizacao: {
           endereco: perfilMedico.endereco,
@@ -2071,8 +2067,7 @@ function MetaAdminPageContent() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      case 'meu-perfil': {
-        // Usar diretamente medicoPerfil?.isVerificado para evitar problemas de inicialização
+      case 'meu-perfil':
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -2093,19 +2088,14 @@ function MetaAdminPageContent() {
                     {/* CRM Número */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Número * {medicoPerfil?.isVerificado && (
-                          <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
-                        )}
+                        CRM Número *
                       </label>
                       <input
                         type="text"
                         value={perfilMedico.crmNumero}
                         onChange={(e) => setPerfilMedico({ ...perfilMedico, crmNumero: e.target.value })}
-                        className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
-                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
-                        }`}
+                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         placeholder="Ex: 12345"
-                        disabled={medicoPerfil?.isVerificado || false}
                         required
                       />
                     </div>
@@ -2113,17 +2103,12 @@ function MetaAdminPageContent() {
                     {/* CRM Estado */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Estado * {medicoPerfil?.isVerificado && (
-                          <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
-                        )}
+                        CRM Estado *
                       </label>
                       <select
                         value={perfilMedico.crmEstado}
                         onChange={(e) => setPerfilMedico({ ...perfilMedico, crmEstado: e.target.value })}
-                        className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
-                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
-                        }`}
-                        disabled={medicoPerfil?.isVerificado || false}
+                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         required
                       >
                         <option value="">Selecione o estado</option>
@@ -2418,8 +2403,6 @@ function MetaAdminPageContent() {
             )}
           </div>
         );
-      }
-
       case 'pacientes':
         return (
           <div className="space-y-6">
