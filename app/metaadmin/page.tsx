@@ -2092,7 +2092,10 @@ function MetaAdminPageContent() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      case 'meu-perfil':
+      case 'meu-perfil': {
+        const isVerificado = medicoPerfil?.isVerificado || false;
+        const nomeValue = perfilMedico?.nome || '';
+        
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -2113,21 +2116,25 @@ function MetaAdminPageContent() {
                     {/* Nome - Primeira linha */}
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Nome Completo {!medicoPerfil?.isVerificado && '*'}
-                        {medicoPerfil?.isVerificado && (
+                        Nome Completo {!isVerificado && '*'}
+                        {isVerificado && (
                           <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
                         )}
                       </label>
                       <input
                         type="text"
-                        value={perfilMedico.nome || ''}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, nome: e.target.value })}
+                        value={nomeValue}
+                        onChange={(e) => {
+                          if (!isVerificado && perfilMedico) {
+                            setPerfilMedico({ ...perfilMedico, nome: e.target.value });
+                          }
+                        }}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
-                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                          isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
                         }`}
                         placeholder="Ex: Dr. João da Silva"
-                        disabled={medicoPerfil?.isVerificado || false}
-                        required={!medicoPerfil?.isVerificado}
+                        disabled={isVerificado}
+                        required={!isVerificado}
                       />
                     </div>
 
