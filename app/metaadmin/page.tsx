@@ -2067,7 +2067,7 @@ function MetaAdminPageContent() {
 
   const renderContent = () => {
     switch (activeMenu) {
-      case 'meu-perfil':
+      case 'meu-perfil': {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -2403,6 +2403,8 @@ function MetaAdminPageContent() {
             )}
           </div>
         );
+      }
+
       case 'pacientes':
         return (
           <div className="space-y-6">
