@@ -2093,9 +2093,22 @@ function MetaAdminPageContent() {
   const renderContent = () => {
     switch (activeMenu) {
       case 'meu-perfil': {
+        // Garantir que perfilMedico sempre tenha estrutura completa
+        const perfilCompleto = {
+          nome: perfilMedico.nome || '',
+          crmNumero: perfilMedico.crmNumero || '',
+          crmEstado: perfilMedico.crmEstado || '',
+          endereco: perfilMedico.endereco || '',
+          cep: perfilMedico.cep || '',
+          pontoReferencia: perfilMedico.pontoReferencia || '',
+          telefone: perfilMedico.telefone || '',
+          genero: perfilMedico.genero || '',
+          cidades: perfilMedico.cidades || []
+        };
+        
         // Definir variáveis de forma segura
-        const isVerificado = (medicoPerfil && medicoPerfil.isVerificado) ? true : false;
-        const nomeValue = (perfilMedico && perfilMedico.nome) ? perfilMedico.nome : '';
+        const isVerificado = medicoPerfil ? medicoPerfil.isVerificado === true : false;
+        const nomeValue = perfilCompleto.nome;
         
         return (
           <div className="space-y-6">
@@ -2128,15 +2141,8 @@ function MetaAdminPageContent() {
                         onChange={(e) => {
                           if (!isVerificado) {
                             setPerfilMedico({
-                              nome: e.target.value,
-                              crmNumero: perfilMedico.crmNumero || '',
-                              crmEstado: perfilMedico.crmEstado || '',
-                              endereco: perfilMedico.endereco || '',
-                              cep: perfilMedico.cep || '',
-                              pontoReferencia: perfilMedico.pontoReferencia || '',
-                              telefone: perfilMedico.telefone || '',
-                              genero: perfilMedico.genero || '',
-                              cidades: perfilMedico.cidades || []
+                              ...perfilCompleto,
+                              nome: e.target.value
                             });
                           }
                         }}
@@ -2158,13 +2164,13 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilMedico.crmNumero}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, crmNumero: e.target.value })}
+                        value={perfilCompleto.crmNumero}
+                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, crmNumero: e.target.value })}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
-                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                          isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
                         }`}
                         placeholder="Ex: 12345"
-                        disabled={medicoPerfil?.isVerificado}
+                        disabled={isVerificado}
                         required
                       />
                     </div>
@@ -2172,17 +2178,17 @@ function MetaAdminPageContent() {
                     {/* CRM Estado */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Estado * {medicoPerfil?.isVerificado && (
+                        CRM Estado * {isVerificado && (
                           <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
                         )}
                       </label>
                       <select
-                        value={perfilMedico.crmEstado}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, crmEstado: e.target.value })}
+                        value={perfilCompleto.crmEstado}
+                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, crmEstado: e.target.value })}
                         className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
-                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                          isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
                         }`}
-                        disabled={medicoPerfil?.isVerificado}
+                        disabled={isVerificado}
                         required
                       >
                         <option value="">Selecione o estado</option>
@@ -2201,8 +2207,8 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="tel"
-                        value={perfilMedico.telefone || ''}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, telefone: e.target.value })}
+                        value={perfilCompleto.telefone}
+                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, telefone: e.target.value })}
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         placeholder="Ex: (11) 98765-4321"
                       />
@@ -2215,10 +2221,10 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilMedico.cep}
+                        value={perfilCompleto.cep}
                         onChange={async (e) => {
                           const cep = e.target.value.replace(/\D/g, '');
-                          setPerfilMedico({ ...perfilMedico, cep: cep });
+                          setPerfilMedico({ ...perfilCompleto, cep: cep });
                           
                           // Buscar endereço pelo CEP
                           if (cep.length === 8) {
@@ -2228,7 +2234,7 @@ function MetaAdminPageContent() {
                               if (!data.erro && data.logradouro) {
                                 const enderecoCompleto = `${data.logradouro}, ${data.bairro} - ${data.localidade}/${data.uf}`;
                                 setPerfilMedico({
-                                  ...perfilMedico,
+                                  ...perfilCompleto,
                                   cep: cep,
                                   endereco: enderecoCompleto
                                 });
@@ -2250,8 +2256,8 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilMedico.endereco}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, endereco: e.target.value })}
+                        value={perfilCompleto.endereco}
+                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, endereco: e.target.value })}
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         placeholder="Ex: Rua Exemplo, 123 - Bairro - Cidade/UF"
                         required
@@ -2265,8 +2271,8 @@ function MetaAdminPageContent() {
                       </label>
                       <input
                         type="text"
-                        value={perfilMedico.pontoReferencia}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, pontoReferencia: e.target.value })}
+                        value={perfilCompleto.pontoReferencia}
+                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, pontoReferencia: e.target.value })}
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                         placeholder="Ex: Próximo ao Shopping Center, ao lado da farmácia"
                       />
@@ -2278,8 +2284,8 @@ function MetaAdminPageContent() {
                         Gênero
                       </label>
                       <select
-                        value={perfilMedico.genero}
-                        onChange={(e) => setPerfilMedico({ ...perfilMedico, genero: e.target.value as 'M' | 'F' | '' })}
+                        value={perfilCompleto.genero}
+                        onChange={(e) => setPerfilMedico({ ...perfilCompleto, genero: e.target.value as 'M' | 'F' | '' })}
                         className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                       >
                         <option value="">Selecione</option>
@@ -2358,11 +2364,11 @@ function MetaAdminPageContent() {
                       </div>
 
                       {/* Lista de Cidades Adicionadas */}
-                      {perfilMedico.cidades.length > 0 && (
+                      {perfilCompleto.cidades.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-sm text-gray-600 font-medium">Cidades adicionadas:</p>
                           <div className="flex flex-wrap gap-2">
-                            {perfilMedico.cidades.map((cidade, index) => (
+                            {perfilCompleto.cidades.map((cidade, index) => (
                               <span
                                 key={index}
                                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
@@ -2381,7 +2387,7 @@ function MetaAdminPageContent() {
                         </div>
                       )}
                       
-                      {perfilMedico.cidades.length === 0 && (
+                      {perfilCompleto.cidades.length === 0 && (
                         <p className="text-sm text-gray-500">Nenhuma cidade adicionada ainda</p>
                       )}
                     </div>
