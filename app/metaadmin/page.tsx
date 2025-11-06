@@ -4791,16 +4791,58 @@ export default function MetaAdminPage() {
                         };
                         
                         const adicionarTodasAplicacoesMes = () => {
+                          if (todasAplicacoes.length === 0) return;
+                          
+                          // Avisar o usuário sobre popups
+                          const confirmar = window.confirm(
+                            `Serão abertas ${todasAplicacoes.length} abas do Google Calendar.\n\n` +
+                            `IMPORTANTE: Permita popups para este site se solicitado pelo navegador.\n\n` +
+                            `Deseja continuar?`
+                          );
+                          
+                          if (!confirmar) return;
+                          
+                          let abertas = 0;
+                          let bloqueadas = 0;
+                          
                           todasAplicacoes.forEach((aplicacao, index) => {
                             setTimeout(() => {
-                              const dataInicio = formatarDataGoogle(aplicacao.data);
-                              const dataFim = formatarDataFimGoogle(aplicacao.data);
-                              const localNome = aplicacao.localAplicacao === 'abdome' ? 'Abdome' : aplicacao.localAplicacao === 'coxa' ? 'Coxa' : 'Braço';
-                              const titulo = `${aplicacao.paciente.nome} - Monjauro Semana ${aplicacao.semana}`;
-                              const detalhes = `Aplicação de Monjauro%0A%0APaciente: ${aplicacao.paciente.nome}%0ASemana: ${aplicacao.semana}%0ADose: ${aplicacao.dose}mg%0ALocal: ${localNome}`;
-                              const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicio}/${dataFim}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`;
-                              window.open(url, '_blank');
-                            }, index * 500); // Delay de 500ms entre cada abertura
+                              try {
+                                const dataInicio = formatarDataGoogle(aplicacao.data);
+                                const dataFim = formatarDataFimGoogle(aplicacao.data);
+                                const localNome = aplicacao.localAplicacao === 'abdome' ? 'Abdome' : aplicacao.localAplicacao === 'coxa' ? 'Coxa' : 'Braço';
+                                const titulo = `${aplicacao.paciente.nome} - Monjauro Semana ${aplicacao.semana}`;
+                                const detalhes = `Aplicação de Monjauro%0A%0APaciente: ${aplicacao.paciente.nome}%0ASemana: ${aplicacao.semana}%0ADose: ${aplicacao.dose}mg%0ALocal: ${localNome}`;
+                                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicio}/${dataFim}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`;
+                                
+                                const novaJanela = window.open(url, '_blank');
+                                
+                                // Verificar se a janela foi bloqueada
+                                if (!novaJanela || novaJanela.closed || typeof novaJanela.closed === 'undefined') {
+                                  bloqueadas++;
+                                } else {
+                                  abertas++;
+                                }
+                                
+                                // Feedback final após todas as tentativas
+                                if (index === todasAplicacoes.length - 1) {
+                                  setTimeout(() => {
+                                    if (bloqueadas > 0) {
+                                      alert(
+                                        `${abertas} evento(s) foram abertos com sucesso.\n` +
+                                        `${bloqueadas} evento(s) foram bloqueados pelo navegador.\n\n` +
+                                        `Para adicionar todos os eventos, permita popups para este site nas configurações do navegador.`
+                                      );
+                                    } else {
+                                      alert(`${abertas} evento(s) foram abertos com sucesso!`);
+                                    }
+                                  }, (todasAplicacoes.length * 500) + 1000);
+                                }
+                              } catch (error) {
+                                console.error('Erro ao abrir evento:', error);
+                                bloqueadas++;
+                              }
+                            }, index * 600); // Delay aumentado para 600ms
                           });
                         };
                         
@@ -10626,10 +10668,51 @@ export default function MetaAdminPage() {
                             });
                             
                             const adicionarTodosEventos = () => {
+                              if (eventosGoogle.length === 0) return;
+                              
+                              // Avisar o usuário sobre popups
+                              const confirmar = window.confirm(
+                                `Serão abertas ${eventosGoogle.length} abas do Google Calendar.\n\n` +
+                                `IMPORTANTE: Permita popups para este site se solicitado pelo navegador.\n\n` +
+                                `Deseja continuar?`
+                              );
+                              
+                              if (!confirmar) return;
+                              
+                              let abertas = 0;
+                              let bloqueadas = 0;
+                              
                               eventosGoogle.forEach((evento, index) => {
                                 setTimeout(() => {
-                                  window.open(evento.url, '_blank');
-                                }, index * 500); // Delay de 500ms entre cada abertura para evitar bloqueio
+                                  try {
+                                    const novaJanela = window.open(evento.url, '_blank');
+                                    
+                                    // Verificar se a janela foi bloqueada
+                                    if (!novaJanela || novaJanela.closed || typeof novaJanela.closed === 'undefined') {
+                                      bloqueadas++;
+                                    } else {
+                                      abertas++;
+                                    }
+                                    
+                                    // Feedback final após todas as tentativas
+                                    if (index === eventosGoogle.length - 1) {
+                                      setTimeout(() => {
+                                        if (bloqueadas > 0) {
+                                          alert(
+                                            `${abertas} evento(s) foram abertos com sucesso.\n` +
+                                            `${bloqueadas} evento(s) foram bloqueados pelo navegador.\n\n` +
+                                            `Para adicionar todos os eventos, permita popups para este site nas configurações do navegador.`
+                                          );
+                                        } else {
+                                          alert(`${abertas} evento(s) foram abertos com sucesso!`);
+                                        }
+                                      }, (eventosGoogle.length * 600) + 1000);
+                                    }
+                                  } catch (error) {
+                                    console.error('Erro ao abrir evento:', error);
+                                    bloqueadas++;
+                                  }
+                                }, index * 600); // Delay aumentado para 600ms
                               });
                             };
                             
