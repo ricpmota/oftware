@@ -81,6 +81,7 @@ function MetaAdminPageContent() {
   const [medicoPerfil, setMedicoPerfil] = useState<Medico | null>(null);
   const [loadingPerfil, setLoadingPerfil] = useState(false);
   const [perfilMedico, setPerfilMedico] = useState({
+    nome: '',
     crmNumero: '',
     crmEstado: '',
     endereco: '',
@@ -248,6 +249,7 @@ function MetaAdminPageContent() {
         console.log('Médico carregado:', medico);
         setMedicoPerfil(medico);
         setPerfilMedico({
+          nome: medico.nome || '',
           crmNumero: medico.crm.numero,
           crmEstado: medico.crm.estado,
           endereco: medico.localizacao.endereco,
@@ -281,15 +283,20 @@ function MetaAdminPageContent() {
 
     setLoadingPerfil(true);
     try {
+      // Se estiver verificado, manter os valores originais de nome, CRM e estado do CRM
+      const nomeFinal = medicoPerfil?.isVerificado ? medicoPerfil.nome : (perfilMedico.nome || user.displayName || 'Médico');
+      const crmNumeroFinal = medicoPerfil?.isVerificado ? medicoPerfil.crm.numero : perfilMedico.crmNumero;
+      const crmEstadoFinal = medicoPerfil?.isVerificado ? medicoPerfil.crm.estado : perfilMedico.crmEstado;
+      
       const medicoData = {
         userId: user.uid,
         email: user.email || '',
-        nome: user.displayName || 'Médico',
+        nome: nomeFinal,
         genero: perfilMedico.genero || undefined,
         telefone: perfilMedico.telefone || undefined,
         crm: {
-          numero: perfilMedico.crmNumero,
-          estado: perfilMedico.crmEstado
+          numero: crmNumeroFinal,
+          estado: crmEstadoFinal
         },
         localizacao: {
           endereco: perfilMedico.endereco,
@@ -2085,17 +2092,43 @@ function MetaAdminPageContent() {
               <div className="bg-white shadow rounded-lg p-6">
                 <form onSubmit={(e) => { e.preventDefault(); handleSalvarPerfil(); }}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Nome - Primeira linha */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nome Completo {!medicoPerfil?.isVerificado && '*'}
+                        {medicoPerfil?.isVerificado && (
+                          <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={perfilMedico.nome}
+                        onChange={(e) => setPerfilMedico({ ...perfilMedico, nome: e.target.value })}
+                        className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
+                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
+                        placeholder="Ex: Dr. João da Silva"
+                        disabled={medicoPerfil?.isVerificado}
+                        required={!medicoPerfil?.isVerificado}
+                      />
+                    </div>
+
                     {/* CRM Número */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Número *
+                        CRM Número * {medicoPerfil?.isVerificado && (
+                          <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
+                        )}
                       </label>
                       <input
                         type="text"
                         value={perfilMedico.crmNumero}
                         onChange={(e) => setPerfilMedico({ ...perfilMedico, crmNumero: e.target.value })}
-                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
+                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
                         placeholder="Ex: 12345"
+                        disabled={medicoPerfil?.isVerificado}
                         required
                       />
                     </div>
@@ -2103,12 +2136,17 @@ function MetaAdminPageContent() {
                     {/* CRM Estado */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        CRM Estado *
+                        CRM Estado * {medicoPerfil?.isVerificado && (
+                          <span className="text-xs text-gray-500 ml-2">(Não editável após verificação)</span>
+                        )}
                       </label>
                       <select
                         value={perfilMedico.crmEstado}
                         onChange={(e) => setPerfilMedico({ ...perfilMedico, crmEstado: e.target.value })}
-                        className="block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        className={`block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 ${
+                          medicoPerfil?.isVerificado ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
+                        disabled={medicoPerfil?.isVerificado}
                         required
                       >
                         <option value="">Selecione o estado</option>
