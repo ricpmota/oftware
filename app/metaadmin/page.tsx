@@ -2466,6 +2466,8 @@ function MetaAdminPageContent() {
             )}
           </div>
         );
+      }
+
       case 'pacientes':
         return (
           <div className="space-y-6">
