@@ -1543,20 +1543,25 @@ export default function MetaAdminGeralPage() {
                                 });
                                 setShowEditarMedicoModal(true);
                               }}
-                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                              title="Editar"
                             >
-                              <Edit size={14} className="mr-1" />
-                              Editar
+                              <Edit size={16} />
                             </button>
                             <button
                               onClick={() => handleToggleVerificacaoMedico(medico.id, medico.isVerificado || false)}
-                              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                              className={`p-2 rounded-md transition-colors flex items-center justify-center ${
                                 medico.isVerificado
                                   ? 'bg-orange-600 text-white hover:bg-orange-700'
                                   : 'bg-green-600 text-white hover:bg-green-700'
                               }`}
+                              title={medico.isVerificado ? 'Desverificar' : 'Verificar'}
                             >
-                              {medico.isVerificado ? 'Desverificar' : 'Verificar'}
+                              {medico.isVerificado ? (
+                                <XCircle size={16} />
+                              ) : (
+                                <ShieldCheck size={16} />
+                              )}
                             </button>
                             <button
                               onClick={async () => {
@@ -1571,9 +1576,10 @@ export default function MetaAdminGeralPage() {
                                   }
                                 }
                               }}
-                              className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
+                              className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                              title="Excluir"
                             >
-                              Excluir
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
