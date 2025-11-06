@@ -4412,7 +4412,6 @@ export default function MetaPage() {
                   O médico usará este número para entrar em contato com você
                 </p>
               </div>
-            </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-900">
