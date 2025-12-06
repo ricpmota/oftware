@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 
@@ -27,6 +27,33 @@ export class SolicitacaoMedicoService {
       }
 
       const docRef = await addDoc(collection(db, 'solicitacoes_medico'), solicitacaoData);
+      
+      // Enviar e-mail para o médico sobre o novo lead
+      try {
+        console.log('📧 Tentando enviar e-mail de novo lead médico...', {
+          solicitacaoId: docRef.id,
+          medicoId: solicitacao.medicoId,
+          pacienteNome: solicitacao.pacienteNome
+        });
+        
+        const emailResponse = await fetch('/api/send-email-novo-lead-medico', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ solicitacaoId: docRef.id }),
+        });
+
+        const emailResult = await emailResponse.json();
+        
+        if (!emailResponse.ok) {
+          console.error('❌ Erro ao enviar e-mail de novo lead médico:', emailResult);
+        } else {
+          console.log('✅ E-mail de novo lead médico enviado com sucesso:', emailResult);
+        }
+      } catch (emailError) {
+        console.error('❌ Erro ao enviar e-mail de novo lead médico:', emailError);
+        // Não bloquear o fluxo se o e-mail falhar
+      }
+      
       return docRef.id;
     } catch (error) {
       console.error('Erro ao criar solicitação:', error);
@@ -136,22 +163,15 @@ export class SolicitacaoMedicoService {
   }
 
   /**
-   * Rejeitar solicitação
+   * Rejeitar solicitação - deleta o documento da coleção
    */
   static async rejeitarSolicitacao(solicitacaoId: string, observacoes?: string): Promise<void> {
     try {
-      const updateData: any = {
-        status: 'rejeitada',
-        rejeitadaEm: new Date()
-      };
-
-      if (observacoes) {
-        updateData.observacoes = observacoes;
-      }
-
-      await updateDoc(doc(db, 'solicitacoes_medico', solicitacaoId), updateData);
+      // Deletar o documento da coleção solicitacoes_medico
+      await deleteDoc(doc(db, 'solicitacoes_medico', solicitacaoId));
+      console.log('✅ Solicitação deletada com sucesso');
     } catch (error) {
-      console.error('Erro ao rejeitar solicitação:', error);
+      console.error('Erro ao rejeitar/deletar solicitação:', error);
       throw error;
     }
   }
@@ -194,6 +214,95 @@ export class SolicitacaoMedicoService {
     } catch (error) {
       console.error('Erro ao cancelar solicitações pendentes:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Deletar todas as solicitações de um paciente (usado quando paciente abandona tratamento)
+   */
+  static async deletarSolicitacoesPaciente(pacienteEmail: string): Promise<void> {
+    try {
+      const solicitacoes = await this.getSolicitacoesPorPaciente(pacienteEmail);
+      
+      for (const solicitacao of solicitacoes) {
+        await deleteDoc(doc(db, 'solicitacoes_medico', solicitacao.id));
+      }
+    } catch (error) {
+      console.error('Erro ao deletar solicitações do paciente:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Buscar todas as solicitações pendentes
+   */
+  static async getAllSolicitacoesPendentes(): Promise<SolicitacaoMedico[]> {
+    try {
+      const q = query(
+        collection(db, 'solicitacoes_medico'),
+        where('status', '==', 'pendente')
+      );
+
+      const snapshot = await getDocs(q);
+      
+      const solicitacoes = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          pacienteId: data.pacienteId,
+          pacienteEmail: data.pacienteEmail || '',
+          pacienteNome: data.pacienteNome || '',
+          pacienteTelefone: data.pacienteTelefone,
+          medicoId: data.medicoId || '',
+          medicoNome: data.medicoNome || '',
+          status: data.status || 'pendente',
+          criadoEm: data.criadoEm?.toDate() || new Date(),
+          aceitaEm: data.aceitaEm?.toDate(),
+          rejeitadaEm: data.rejeitadaEm?.toDate(),
+          desistiuEm: data.desistiuEm?.toDate(),
+          observacoes: data.observacoes,
+          motivoDesistencia: data.motivoDesistencia
+        } as SolicitacaoMedico;
+      });
+
+      return solicitacoes;
+    } catch (error) {
+      console.error('Erro ao buscar solicitações pendentes:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Buscar todas as solicitações (qualquer status)
+   */
+  static async getAllSolicitacoes(): Promise<SolicitacaoMedico[]> {
+    try {
+      const snapshot = await getDocs(collection(db, 'solicitacoes_medico'));
+
+      const solicitacoes = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          pacienteId: data.pacienteId,
+          pacienteEmail: data.pacienteEmail || '',
+          pacienteNome: data.pacienteNome || '',
+          pacienteTelefone: data.pacienteTelefone,
+          medicoId: data.medicoId || '',
+          medicoNome: data.medicoNome || '',
+          status: data.status || 'pendente',
+          criadoEm: data.criadoEm?.toDate() || new Date(),
+          aceitaEm: data.aceitaEm?.toDate(),
+          rejeitadaEm: data.rejeitadaEm?.toDate(),
+          desistiuEm: data.desistiuEm?.toDate(),
+          observacoes: data.observacoes,
+          motivoDesistencia: data.motivoDesistencia
+        } as SolicitacaoMedico;
+      });
+
+      return solicitacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
+    } catch (error) {
+      console.error('Erro ao buscar todas as solicitações:', error);
+      return [];
     }
   }
 }

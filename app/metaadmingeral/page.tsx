@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, Target, Mail } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -21,8 +21,13 @@ import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
-import { MonjauroService, MonjauroPreco } from '@/services/monjauroService';
+import { TirzepatidaService, TirzepatidaPreco } from '@/services/tirzepatidaService';
 import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign } from 'lucide-react';
+import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
+import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
+import { LeadService } from '@/services/leadService';
+import { Lead, LeadStatus } from '@/types/lead';
+import EmailManagement from '@/components/EmailManagement';
 
 export default function MetaAdminGeralPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -68,6 +73,27 @@ export default function MetaAdminGeralPage() {
   // Estados para pacientes
   const [pacientes, setPacientes] = useState<PacienteCompleto[]>([]);
   const [loadingPacientes, setLoadingPacientes] = useState(false);
+  const [filtroBuscaPaciente, setFiltroBuscaPaciente] = useState('');
+  const [filtroMedicoPaciente, setFiltroMedicoPaciente] = useState<string>('todos');
+  const [filtroStatusPaciente, setFiltroStatusPaciente] = useState<string>('todos');
+  const [filtroRecomendacoesPaciente, setFiltroRecomendacoesPaciente] = useState<string>('todos');
+  
+  // Estados para solicitações pendentes
+  const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<SolicitacaoMedico[]>([]);
+  const [loadingSolicitacoes, setLoadingSolicitacoes] = useState(false);
+  
+  // Estados para leads
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [leadsError, setLeadsError] = useState<string | null>(null);
+  const [leadsByStatus, setLeadsByStatus] = useState<Record<LeadStatus, Lead[]>>({
+    nao_qualificado: [],
+    enviado_contato: [],
+    contato_feito: [],
+    qualificado: [],
+    excluido: [],
+  });
+  const [leadsQualificadosDesaparecidos, setLeadsQualificadosDesaparecidos] = useState<number>(0);
   
   // Estados para modais de edição
   const [showEditarMedicoModal, setShowEditarMedicoModal] = useState(false);
@@ -99,12 +125,12 @@ export default function MetaAdminGeralPage() {
     cep: ''
   });
   
-  // Estados para Monjauro
-  const [monjauroPrecos, setMonjauroPrecos] = useState<MonjauroPreco[]>([]);
-  const [editandoMonjauro, setEditandoMonjauro] = useState<{ tipo: string; preco: number } | null>(null);
-  const [editandoMonjauroTipo, setEditandoMonjauroTipo] = useState<string | null>(null);
-  const [precoEditandoMonjauro, setPrecoEditandoMonjauro] = useState<string>('0');
-  const [loadingMonjauro, setLoadingMonjauro] = useState(false);
+  // Estados para Tirzepatida
+  const [tirzepatidaPrecos, setTirzepatidaPrecos] = useState<TirzepatidaPreco[]>([]);
+  const [editandoTirzepatida, setEditandoTirzepatida] = useState<{ tipo: string; preco: number } | null>(null);
+  const [editandoTirzepatidaTipo, setEditandoTirzepatidaTipo] = useState<string | null>(null);
+  const [precoEditandoTirzepatida, setPrecoEditandoTirzepatida] = useState<string>('0');
+  const [loadingTirzepatida, setLoadingTirzepatida] = useState(false);
   
   // Estados para mensagens
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -433,16 +459,257 @@ export default function MetaAdminGeralPage() {
     }
   }, []);
 
-  // Função para carregar preços do Monjauro
-  const loadMonjauroPrecos = useCallback(async () => {
-    setLoadingMonjauro(true);
+  // Função para carregar solicitações pendentes
+  const loadSolicitacoesPendentes = useCallback(async () => {
+    setLoadingSolicitacoes(true);
     try {
-      const precosData = await MonjauroService.getPrecos();
-      setMonjauroPrecos(precosData);
+      const solicitacoesData = await SolicitacaoMedicoService.getAllSolicitacoesPendentes();
+      setSolicitacoesPendentes(solicitacoesData);
     } catch (error) {
-      console.error('Erro ao carregar preços do Monjauro:', error);
+      console.error('Erro ao carregar solicitações pendentes:', error);
     } finally {
-      setLoadingMonjauro(false);
+      setLoadingSolicitacoes(false);
+    }
+  }, []);
+
+  // Função para carregar leads (TODOS os usuários do Firebase Authentication)
+  const loadLeads = useCallback(async () => {
+    setLoadingLeads(true);
+    setLeadsError(null);
+    try {
+      // Buscar TODOS os usuários do Firebase Authentication via API
+      let allFirebaseUsers: any[] = [];
+      try {
+        console.log('🔍 Buscando usuários do Firebase Authentication via API...');
+        const response = await fetch('/api/users');
+        if (response.ok) {
+          const data = await response.json();
+          allFirebaseUsers = data.users || [];
+          console.log(`✅ ${allFirebaseUsers.length} usuários encontrados no Firebase Authentication`);
+        } else {
+          const errorText = await response.text();
+          console.error('⚠️ Erro na resposta da API:', response.status, errorText);
+          throw new Error(`API retornou status ${response.status}`);
+        }
+      } catch (apiError) {
+        console.error('❌ Erro ao buscar usuários via API:', apiError);
+        setLeadsError(`❌ Erro ao buscar usuários do Firebase Authentication: ${apiError instanceof Error ? apiError.message : 'Erro desconhecido'}. Verifique os logs do servidor.`);
+        allFirebaseUsers = [];
+      }
+      
+      // Buscar todas as solicitações de médico para filtrar
+      console.log('🔍 Buscando solicitações de médico para filtrar leads...');
+      const todasSolicitacoes = await SolicitacaoMedicoService.getAllSolicitacoes();
+      console.log(`✅ ${todasSolicitacoes.length} solicitações encontradas`);
+      
+      // Extrair emails únicos que já fizeram solicitação
+      const emailsComSolicitacao = new Set(
+        todasSolicitacoes
+          .map(s => s.pacienteEmail?.toLowerCase().trim())
+          .filter(Boolean)
+      );
+      console.log(`📊 ${emailsComSolicitacao.size} emails únicos com solicitação`);
+      
+      // Data mínima: 20/11/2025
+      const dataMinima = new Date('2025-11-20T00:00:00');
+      dataMinima.setHours(0, 0, 0, 0);
+      
+      // Buscar informações adicionais do Firestore
+      console.log('🔍 Buscando informações adicionais do Firestore...');
+      const [firestoreUsers, pacientesCompletos, medicosList] = await Promise.all([
+        UserService.getAllUsers().catch(() => []),
+        PacienteService.getAllPacientes().catch(() => []),
+        MedicoService.getAllMedicos().catch(() => [])
+      ]);
+      
+      console.log(`✅ ${firestoreUsers.length} usuários no Firestore`);
+      console.log(`✅ ${pacientesCompletos.length} pacientes completos`);
+      console.log(`✅ ${medicosList.length} médicos`);
+      
+      // Criar mapas para busca rápida
+      const firestoreUsersMap = new Map(firestoreUsers.map(u => [u.uid, u]));
+      const pacientesMap = new Map(pacientesCompletos.map(p => [p.userId || p.email?.toLowerCase(), p]));
+      const medicosMap = new Map(medicosList.map(m => [m.userId || m.email?.toLowerCase(), m]));
+      
+      // Filtrar usuários que NÃO têm solicitação E foram cadastrados a partir de 20/11/2025
+      const leadsFormatted = allFirebaseUsers
+        .map((user: any) => {
+          // Converter creationTime corretamente (pode ser string ou Date)
+          let createdAt: Date | undefined;
+          if (user.metadata?.creationTime) {
+            if (typeof user.metadata.creationTime === 'string') {
+              createdAt = new Date(user.metadata.creationTime);
+            } else if (user.metadata.creationTime instanceof Date) {
+              createdAt = user.metadata.creationTime;
+            } else if (user.metadata.creationTime.toDate) {
+              // Firestore Timestamp
+              createdAt = user.metadata.creationTime.toDate();
+            }
+          }
+          
+          const userEmail = (user.email || '').toLowerCase().trim();
+          const firestoreUser = firestoreUsersMap.get(user.uid);
+          const paciente = pacientesMap.get(user.uid) || pacientesMap.get(userEmail);
+          const medico = medicosMap.get(user.uid) || medicosMap.get(userEmail);
+          
+          return {
+            uid: user.uid,
+            email: user.email || 'Sem email',
+            name: user.displayName || firestoreUser?.name || user.email || 'Usuário sem nome',
+            createdAt: createdAt,
+            lastSignInTime: user.metadata?.lastSignInTime,
+            emailVerified: user.emailVerified,
+            temPerfilFirestore: !!firestoreUser,
+            temPerfilPaciente: !!paciente,
+            temPerfilMedico: !!medico,
+            role: firestoreUser?.role,
+            telefone: paciente?.dadosIdentificacao?.telefone || medico?.telefone,
+            cidade: paciente?.dadosIdentificacao?.endereco?.cidade || (medico?.cidades && medico.cidades.length > 0 ? medico.cidades[0].cidade : undefined),
+            estado: paciente?.dadosIdentificacao?.endereco?.estado || (medico?.cidades && medico.cidades.length > 0 ? medico.cidades[0].estado : undefined)
+          };
+        })
+        .filter((user) => {
+          // Filtrar apenas usuários que NÃO têm solicitação
+          const userEmail = user.email?.toLowerCase().trim();
+          if (!userEmail || userEmail === 'sem email') return false;
+          if (emailsComSolicitacao.has(userEmail)) return false;
+          
+          // Filtrar apenas usuários cadastrados a partir de 20/11/2025
+          if (!user.createdAt) return false;
+          const userCreatedAt = new Date(user.createdAt);
+          userCreatedAt.setHours(0, 0, 0, 0);
+          return userCreatedAt >= dataMinima;
+        });
+      
+      // Ordenar por data de criação (mais recente primeiro)
+      leadsFormatted.sort((a, b) => {
+        if (!a.createdAt && !b.createdAt) return 0;
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
+      
+      console.log(`📊 Total de leads (sem solicitação): ${leadsFormatted.length} de ${allFirebaseUsers.length} usuários`);
+      
+      // Buscar leads existentes no Firestore
+      const leadsExistentes = await LeadService.getAllLeads();
+      const leadsExistentesMap = new Map(leadsExistentes.map(l => [l.uid, l]));
+      
+      // Identificar leads qualificados que desapareceram (estavam qualificados mas não aparecem mais na lista filtrada)
+      const leadsQualificadosDesaparecidosCount = leadsExistentes.filter(lead => {
+        // Lead estava qualificado mas não aparece mais na lista filtrada (porque fez solicitação)
+        return lead.status === 'qualificado' && !leadsFormatted.find(l => l.uid === lead.uid);
+      }).length;
+      setLeadsQualificadosDesaparecidos(leadsQualificadosDesaparecidosCount);
+      
+      // Sincronizar: criar leads no Firestore se não existirem, ou atualizar dados
+      const leadsSincronizados: Lead[] = [];
+      for (const lead of leadsFormatted) {
+        const leadExistente = leadsExistentesMap.get(lead.uid);
+        
+        if (leadExistente) {
+          // Atualizar dados do lead existente (mas manter status)
+          const leadAtualizado: Lead = {
+            ...leadExistente,
+            email: lead.email,
+            name: lead.name,
+            createdAt: lead.createdAt,
+            lastSignInTime: lead.lastSignInTime,
+            emailVerified: lead.emailVerified,
+          };
+          await LeadService.createOrUpdateLead(leadAtualizado);
+          leadsSincronizados.push(leadAtualizado);
+        } else {
+          // Criar novo lead com status inicial
+          const novoLead: Omit<Lead, 'id'> = {
+            uid: lead.uid,
+            email: lead.email,
+            name: lead.name,
+            createdAt: lead.createdAt,
+            lastSignInTime: lead.lastSignInTime,
+            emailVerified: lead.emailVerified,
+            status: 'nao_qualificado',
+            dataStatus: new Date(),
+          };
+          const leadId = await LeadService.createOrUpdateLead(novoLead);
+          const leadComId = { ...novoLead, id: leadId } as Lead;
+          leadsSincronizados.push(leadComId);
+          
+          // Enviar e-mail de lead avulso para o gestor admin
+          try {
+            console.log('📧 Tentando enviar e-mail de lead avulso para ricpmota.med@gmail.com...', {
+              leadId,
+              leadNome: novoLead.name,
+              leadEmail: novoLead.email
+            });
+            
+            const emailResponse = await fetch('/api/send-email-lead-avulso', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                leadId: leadId,
+                leadNome: novoLead.name,
+                leadEmail: novoLead.email,
+              }),
+            });
+
+            const emailResult = await emailResponse.json();
+            
+            if (!emailResponse.ok) {
+              console.error('❌ Erro ao enviar e-mail de lead avulso:', emailResult);
+            } else {
+              console.log('✅ E-mail de lead avulso enviado com sucesso:', emailResult);
+            }
+          } catch (emailError) {
+            console.error('❌ Erro ao enviar e-mail de lead avulso:', emailError);
+            // Não bloquear o fluxo se o e-mail falhar
+          }
+        }
+      }
+      
+      // Organizar leads por status
+      const leadsPorStatus: Record<LeadStatus, Lead[]> = {
+        nao_qualificado: [],
+        enviado_contato: [],
+        contato_feito: [],
+        qualificado: [],
+        excluido: [],
+      };
+      
+      leadsSincronizados.forEach(lead => {
+        leadsPorStatus[lead.status].push(lead);
+      });
+      
+      // Ordenar cada coluna por data de status (mais recente primeiro)
+      Object.keys(leadsPorStatus).forEach(status => {
+        leadsPorStatus[status as LeadStatus].sort((a, b) => {
+          const dateA = a.dataStatus?.getTime() || 0;
+          const dateB = b.dataStatus?.getTime() || 0;
+          return dateB - dateA;
+        });
+      });
+      
+      setLeads(leadsSincronizados);
+      setLeadsByStatus(leadsPorStatus);
+    } catch (error) {
+      console.error('Erro ao carregar leads:', error);
+      setLeadsError('Erro ao carregar leads. Tente novamente.');
+      setMessage('Erro ao carregar leads. Tente novamente.');
+    } finally {
+      setLoadingLeads(false);
+    }
+  }, []);
+
+  // Função para carregar preços do Tirzepatida
+  const loadTirzepatidaPrecos = useCallback(async () => {
+    setLoadingTirzepatida(true);
+    try {
+      const precosData = await TirzepatidaService.getPrecos();
+      setTirzepatidaPrecos(precosData);
+    } catch (error) {
+      console.error('Erro ao carregar preços do Tirzepatida:', error);
+    } finally {
+      setLoadingTirzepatida(false);
     }
   }, []);
 
@@ -714,8 +981,9 @@ export default function MetaAdminGeralPage() {
     if (activeMenu === 'estatisticas') {
       loadMedicos();
       loadPacientes();
+      loadSolicitacoesPendentes();
     }
-  }, [activeMenu, loadMedicos, loadPacientes]);
+  }, [activeMenu, loadMedicos, loadPacientes, loadSolicitacoesPendentes]);
 
   // Carregar médicos quando a página medicos for ativada
   useEffect(() => {
@@ -732,12 +1000,19 @@ export default function MetaAdminGeralPage() {
     }
   }, [activeMenu, loadPacientes, loadMedicos]);
 
-  // Carregar preços do Monjauro quando a página monjauro for ativada
+  // Carregar preços do Tirzepatida quando a página tirzepatida for ativada
   useEffect(() => {
-    if (activeMenu === 'monjauro') {
-      loadMonjauroPrecos();
+    if (activeMenu === 'tirzepatida') {
+      loadTirzepatidaPrecos();
     }
-  }, [activeMenu, loadMonjauroPrecos]);
+  }, [activeMenu, loadTirzepatidaPrecos]);
+
+  // Carregar leads quando a página leads for ativada
+  useEffect(() => {
+    if (activeMenu === 'leads') {
+      loadLeads();
+    }
+  }, [activeMenu, loadLeads]);
 
   const handleAprovarTroca = async (trocaId: string) => {
     try {
@@ -1628,10 +1903,128 @@ export default function MetaAdminGeralPage() {
           return { dias, semanas, meses };
         };
 
+        // Filtrar pacientes
+        const pacientesFiltrados = pacientes.filter(paciente => {
+          // Filtro por busca (nome ou email)
+          const buscaLower = filtroBuscaPaciente.toLowerCase();
+          const matchBusca = !filtroBuscaPaciente || 
+            (paciente.dadosIdentificacao?.nomeCompleto || paciente.nome || '').toLowerCase().includes(buscaLower) ||
+            paciente.email.toLowerCase().includes(buscaLower);
+          
+          // Filtro por médico
+          const matchMedico = filtroMedicoPaciente === 'todos' || 
+            paciente.medicoResponsavelId === filtroMedicoPaciente ||
+            (filtroMedicoPaciente === 'sem_medico' && !paciente.medicoResponsavelId);
+          
+          // Filtro por status
+          const matchStatus = filtroStatusPaciente === 'todos' || 
+            paciente.statusTratamento === filtroStatusPaciente;
+          
+          // Filtro por recomendações
+          const matchRecomendacoes = filtroRecomendacoesPaciente === 'todos' ||
+            (filtroRecomendacoesPaciente === 'lidas' && paciente.recomendacoesLidas === true) ||
+            (filtroRecomendacoesPaciente === 'nao_lidas' && (paciente.recomendacoesLidas === false || paciente.recomendacoesLidas === undefined));
+          
+          return matchBusca && matchMedico && matchStatus && matchRecomendacoes;
+        });
+
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900">Pacientes</h2>
+              <div className="text-sm text-gray-500">
+                {pacientesFiltrados.length} de {pacientes.length} paciente{pacientes.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+
+            {/* Filtros e Busca */}
+            <div className="bg-white shadow rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Busca por nome/email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Buscar por Nome/Email
+                  </label>
+                  <input
+                    type="text"
+                    value={filtroBuscaPaciente}
+                    onChange={(e) => setFiltroBuscaPaciente(e.target.value)}
+                    placeholder="Digite nome ou email..."
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                {/* Filtro por Médico */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Médico Responsável
+                  </label>
+                  <select
+                    value={filtroMedicoPaciente}
+                    onChange={(e) => setFiltroMedicoPaciente(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="todos">Todos os médicos</option>
+                    <option value="sem_medico">Sem médico responsável</option>
+                    {medicos.map(medico => (
+                      <option key={medico.id} value={medico.id}>
+                        {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filtro por Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status do Tratamento
+                  </label>
+                  <select
+                    value={filtroStatusPaciente}
+                    onChange={(e) => setFiltroStatusPaciente(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="todos">Todos os status</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="em_tratamento">Em Tratamento</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="abandono">Abandono</option>
+                  </select>
+                </div>
+
+                {/* Filtro por Recomendações */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Recomendações
+                  </label>
+                  <select
+                    value={filtroRecomendacoesPaciente}
+                    onChange={(e) => setFiltroRecomendacoesPaciente(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="todos">Todas</option>
+                    <option value="lidas">Lidas</option>
+                    <option value="nao_lidas">Não Lidas</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Botão para limpar filtros */}
+              {(filtroBuscaPaciente || filtroMedicoPaciente !== 'todos' || filtroStatusPaciente !== 'todos' || filtroRecomendacoesPaciente !== 'todos') && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      setFiltroBuscaPaciente('');
+                      setFiltroMedicoPaciente('todos');
+                      setFiltroStatusPaciente('todos');
+                      setFiltroRecomendacoesPaciente('todos');
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300 transition-colors"
+                  >
+                    Limpar Filtros
+                  </button>
+                </div>
+              )}
             </div>
             {loadingPacientes ? (
               <div className="bg-white shadow rounded-lg p-6">
@@ -1645,6 +2038,9 @@ export default function MetaAdminGeralPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        #
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nome
                       </th>
@@ -1666,13 +2062,16 @@ export default function MetaAdminGeralPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Recomendações
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {pacientes.map((paciente) => {
+                    {pacientesFiltrados.map((paciente, index) => {
                       const medico = medicos.find(m => m.id === paciente.medicoResponsavelId);
                       const dosesAplicadas = calcularDosesAplicadas(paciente);
                       const tempoTratamento = calcularTempoTratamento(paciente);
@@ -1684,6 +2083,9 @@ export default function MetaAdminGeralPage() {
 
                       return (
                         <tr key={paciente.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                            {index + 1}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {paciente.dadosIdentificacao?.nomeCompleto || paciente.nome || 'N/A'}
                           </td>
@@ -1716,6 +2118,13 @@ export default function MetaAdminGeralPage() {
                                paciente.statusTratamento === 'concluido' ? 'Concluído' :
                                paciente.statusTratamento === 'abandono' ? 'Abandono' : 'Pendente'}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {paciente.recomendacoesLidas ? (
+                              <CheckCircle className="h-5 w-5 text-green-600 mx-auto" title="Recomendações lidas" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-red-600 mx-auto" title="Recomendações não lidas" />
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <button
@@ -1754,6 +2163,11 @@ export default function MetaAdminGeralPage() {
                 {pacientes.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <p>Nenhum paciente encontrado</p>
+                  </div>
+                )}
+                {pacientes.length > 0 && pacientesFiltrados.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Nenhum paciente encontrado com os filtros aplicados</p>
                   </div>
                 )}
               </div>
@@ -1853,16 +2267,177 @@ export default function MetaAdminGeralPage() {
           </div>
         );
 
-                            case 'monjauro':
-                const tiposMonjauro = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
-                
-                const handleSalvarPrecoMonjauro = async (tipo: string, preco: number) => {
+                            case 'leads':
+                const statusConfig: Record<LeadStatus, { label: string; color: string; bgColor: string }> = {
+                  nao_qualificado: { label: 'Não Qualificado', color: 'text-gray-700', bgColor: 'bg-gray-100' },
+                  enviado_contato: { label: 'Enviado Contato', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+                  contato_feito: { label: 'Contato Feito', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
+                  qualificado: { label: 'Qualificado', color: 'text-green-700', bgColor: 'bg-green-100' },
+                  excluido: { label: 'Excluído', color: 'text-red-700', bgColor: 'bg-red-100' },
+                };
+
+                const statusOrder: LeadStatus[] = ['nao_qualificado', 'enviado_contato', 'contato_feito', 'qualificado', 'excluido'];
+
+                const handleMoveLead = async (leadId: string, currentStatus: LeadStatus, direction: 'left' | 'right') => {
                   try {
-                    // Salvar no Firestore
-                    await MonjauroService.updatePreco(tipo, preco);
+                    const currentIndex = statusOrder.indexOf(currentStatus);
+                    let newStatus: LeadStatus;
+                    
+                    if (direction === 'right' && currentIndex < statusOrder.length - 1) {
+                      newStatus = statusOrder[currentIndex + 1];
+                    } else if (direction === 'left' && currentIndex > 0) {
+                      newStatus = statusOrder[currentIndex - 1];
+                    } else {
+                      return; // Não pode mover
+                    }
+
+                    await LeadService.updateLeadStatus(leadId, newStatus, user?.email || undefined);
                     
                     // Atualizar estado local
-                    const novosPrecos = [...monjauroPrecos];
+                    const updatedLeads = leads.map(l => 
+                      l.id === leadId ? { ...l, status: newStatus, dataStatus: new Date() } : l
+                    );
+                    
+                    const leadsPorStatus: Record<LeadStatus, Lead[]> = {
+                      nao_qualificado: [],
+                      enviado_contato: [],
+                      contato_feito: [],
+                      qualificado: [],
+                      excluido: [],
+                    };
+                    
+                    updatedLeads.forEach(lead => {
+                      leadsPorStatus[lead.status].push(lead);
+                    });
+                    
+                    Object.keys(leadsPorStatus).forEach(status => {
+                      leadsPorStatus[status as LeadStatus].sort((a, b) => {
+                        const dateA = a.dataStatus?.getTime() || 0;
+                        const dateB = b.dataStatus?.getTime() || 0;
+                        return dateB - dateA;
+                      });
+                    });
+                    
+                    setLeads(updatedLeads);
+                    setLeadsByStatus(leadsPorStatus);
+                  } catch (error) {
+                    console.error('Erro ao mover lead:', error);
+                    setMessage('Erro ao mover lead');
+                    setTimeout(() => setMessage(''), 3000);
+                  }
+                };
+
+                return (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-gray-900">Pipeline de Qualificação de Leads</h2>
+                      <button
+                        onClick={loadLeads}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Atualizar
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Use as setas para mover os leads entre os estágios do pipeline.
+                    </p>
+                    {loadingLeads ? (
+                      <div className="bg-white shadow rounded-lg p-6">
+                        <div className="text-center py-8">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                          <p className="mt-4 text-gray-600">Carregando leads...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto pb-4">
+                        <div className="flex gap-4 min-w-max">
+                          {statusOrder.map((status) => {
+                            const config = statusConfig[status];
+                            const leadsInStatus = leadsByStatus[status];
+                            const currentIndex = statusOrder.indexOf(status);
+                            
+                            return (
+                              <div key={status} className="flex-shrink-0 w-64 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className={`${config.bgColor} ${config.color} px-4 py-3 rounded-t-lg border-b border-gray-200`}>
+                                  <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-sm">{config.label}</h3>
+                                    <span className={`${config.color} text-xs font-medium bg-white px-2 py-1 rounded-full`}>
+                                      {leadsInStatus.length}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="p-3 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+                                  {leadsInStatus.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-400 text-sm">
+                                      Nenhum lead
+                                    </div>
+                                  ) : (
+                                    leadsInStatus.map((lead) => (
+                                      <div
+                                        key={lead.id}
+                                        className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
+                                      >
+                                        <div className="flex items-start justify-between mb-2">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 truncate">{lead.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{lead.email}</p>
+                                            {lead.createdAt && (
+                                              <p className="text-xs text-gray-400 mt-1">
+                                                {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-1 mt-2 pt-2 border-t border-gray-100">
+                                          <button
+                                            onClick={() => handleMoveLead(lead.id, lead.status, 'left')}
+                                            disabled={currentIndex === 0}
+                                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                                              currentIndex === 0
+                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                            }`}
+                                            title="Mover para esquerda"
+                                          >
+                                            ←
+                                          </button>
+                                          <button
+                                            onClick={() => handleMoveLead(lead.id, lead.status, 'right')}
+                                            disabled={currentIndex === statusOrder.length - 1}
+                                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                                              currentIndex === statusOrder.length - 1
+                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                            }`}
+                                            title="Mover para direita"
+                                          >
+                                            →
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+
+                            case 'tirzepatida':
+                const tiposTirzepatida = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
+                
+                const handleSalvarPrecoTirzepatida = async (tipo: string, preco: number) => {
+                  try {
+                    // Salvar no Firestore
+                    await TirzepatidaService.updatePreco(tipo, preco);
+                    
+                    // Atualizar estado local
+                    const novosPrecos = [...tirzepatidaPrecos];
                     const index = novosPrecos.findIndex(p => p.tipo === tipo);
                     if (index >= 0) {
                       novosPrecos[index].preco = preco;
@@ -1870,8 +2445,8 @@ export default function MetaAdminGeralPage() {
                     } else {
                       novosPrecos.push({ tipo, preco, atualizadoEm: new Date() });
                     }
-                    setMonjauroPrecos(novosPrecos);
-                    setMessage(`Preço do Monjauro ${tipo} atualizado com sucesso!`);
+                    setTirzepatidaPrecos(novosPrecos);
+                    setMessage(`Preço do Tirzepatida ${tipo} atualizado com sucesso!`);
                     
                     // Limpar mensagem após 3 segundos
                     setTimeout(() => setMessage(''), 3000);
@@ -1884,25 +2459,25 @@ export default function MetaAdminGeralPage() {
                 return (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-2xl font-bold text-gray-900">Precificação Monjauro</h2>
+                      <h2 className="text-2xl font-bold text-gray-900">Precificação Tirzepatida</h2>
                     </div>
                     <div className="bg-white shadow rounded-lg">
                       <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">Tipos de Monjauro</h3>
-                        <p className="text-sm text-gray-500 mt-1">Configure os preços dos diferentes tipos de Monjauro para que os médicos possam encomendar.</p>
+                        <h3 className="text-lg font-medium text-gray-900">Tipos de Tirzepatida</h3>
+                        <p className="text-sm text-gray-500 mt-1">Configure os preços dos diferentes tipos de Tirzepatida para que os médicos possam encomendar.</p>
                       </div>
                       <div className="px-6 py-4">
                         <div className="space-y-4">
-                          {tiposMonjauro.map((tipo) => {
-                            const precoAtual = monjauroPrecos.find(p => p.tipo === tipo);
-                            const editando = editandoMonjauroTipo === tipo;
+                          {tiposTirzepatida.map((tipo) => {
+                            const precoAtual = tirzepatidaPrecos.find(p => p.tipo === tipo);
+                            const editando = editandoTirzepatidaTipo === tipo;
 
                             return (
                               <div key={tipo} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                                 <div className="flex items-center space-x-4">
                                   <Pill className="h-6 w-6 text-green-600" />
                                   <div>
-                                    <p className="text-sm font-medium text-gray-900">Monjauro {tipo}</p>
+                                    <p className="text-sm font-medium text-gray-900">Tirzepatida {tipo}</p>
                                     {!editando && precoAtual && (
                                       <p className="text-xs text-gray-500">Preço atual: R$ {precoAtual.preco.toFixed(2).replace('.', ',')}</p>
                                     )}
@@ -1917,19 +2492,19 @@ export default function MetaAdminGeralPage() {
                                           type="number"
                                           step="0.01"
                                           min="0"
-                                          value={precoEditandoMonjauro}
-                                          onChange={(e) => setPrecoEditandoMonjauro(e.target.value)}
+                                          value={precoEditandoTirzepatida}
+                                          onChange={(e) => setPrecoEditandoTirzepatida(e.target.value)}
                                           className="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
                                           placeholder="0.00"
                                         />
                                       </div>
                                       <button
                                         onClick={() => {
-                                          const precoNum = parseFloat(precoEditandoMonjauro);
+                                          const precoNum = parseFloat(precoEditandoTirzepatida);
                                           if (!isNaN(precoNum) && precoNum >= 0) {
-                                            handleSalvarPrecoMonjauro(tipo, precoNum);
-                                            setEditandoMonjauroTipo(null);
-                                            setPrecoEditandoMonjauro('0');
+                                            handleSalvarPrecoTirzepatida(tipo, precoNum);
+                                            setEditandoTirzepatidaTipo(null);
+                                            setPrecoEditandoTirzepatida('0');
                                           }
                                         }}
                                         className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
@@ -1938,8 +2513,8 @@ export default function MetaAdminGeralPage() {
                                       </button>
                                       <button
                                         onClick={() => {
-                                          setPrecoEditandoMonjauro('0');
-                                          setEditandoMonjauroTipo(null);
+                                          setPrecoEditandoTirzepatida('0');
+                                          setEditandoTirzepatidaTipo(null);
                                         }}
                                         className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 transition-colors"
                                       >
@@ -1949,8 +2524,8 @@ export default function MetaAdminGeralPage() {
                                   ) : (
                                     <button
                                       onClick={() => {
-                                        setPrecoEditandoMonjauro(precoAtual?.preco?.toString() || '0');
-                                        setEditandoMonjauroTipo(tipo);
+                                        setPrecoEditandoTirzepatida(precoAtual?.preco?.toString() || '0');
+                                        setEditandoTirzepatidaTipo(tipo);
                                       }}
                                       className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center"
                                     >
@@ -2598,6 +3173,19 @@ export default function MetaAdminGeralPage() {
         const medicosVerificados = medicos.filter(m => m.isVerificado).length;
         const medicosNaoVerificados = totalMedicos - medicosVerificados;
         const totalPacientes = pacientes.length;
+        
+        // Estatísticas do pipeline de leads
+        const totalLeadsNaoQualificado = leadsByStatus.nao_qualificado.length;
+        const totalLeadsEnviadoContato = leadsByStatus.enviado_contato.length;
+        const totalLeadsContatoFeito = leadsByStatus.contato_feito.length;
+        const totalLeadsQualificado = leadsByStatus.qualificado.length;
+        const totalLeadsExcluido = leadsByStatus.excluido.length;
+        const totalLeadsAtivos = totalLeadsNaoQualificado + totalLeadsEnviadoContato + totalLeadsContatoFeito + totalLeadsQualificado;
+        
+        // Taxa de conversão: leads qualificados que desapareceram (encontraram médico) / total de leads não qualificados
+        const taxaConversao = totalLeadsNaoQualificado > 0 && leadsQualificadosDesaparecidos > 0
+          ? ((leadsQualificadosDesaparecidos / totalLeadsNaoQualificado) * 100).toFixed(1)
+          : '0.0';
 
         // Calcular abandonos por motivo
         const abandonosPorMotivo: Record<string, number> = {};
@@ -2617,37 +3205,46 @@ export default function MetaAdminGeralPage() {
           emTratamento: number;
           concluido: number;
           abandono: number;
+          solicitacoesPendentes: number;
           total: number;
         }> = {};
 
+        // Inicializar todos os médicos no ranking
+        medicos.forEach(medico => {
+          rankingMedicos[medico.id] = {
+            medico,
+            pendente: 0,
+            emTratamento: 0,
+            concluido: 0,
+            abandono: 0,
+            solicitacoesPendentes: 0,
+            total: 0
+          };
+        });
+
+        // Contar pacientes por médico
         pacientes.forEach(paciente => {
           const medicoId = paciente.medicoResponsavelId;
-          if (medicoId) {
-            if (!rankingMedicos[medicoId]) {
-              const medico = medicos.find(m => m.id === medicoId);
-              if (medico) {
-                rankingMedicos[medicoId] = {
-                  medico,
-                  pendente: 0,
-                  emTratamento: 0,
-                  concluido: 0,
-                  abandono: 0,
-                  total: 0
-                };
-              }
-            }
-            if (rankingMedicos[medicoId]) {
-              const status = paciente.statusTratamento || 'pendente';
-              if (status === 'pendente') rankingMedicos[medicoId].pendente++;
-              else if (status === 'em_tratamento') rankingMedicos[medicoId].emTratamento++;
-              else if (status === 'concluido') rankingMedicos[medicoId].concluido++;
-              else if (status === 'abandono') rankingMedicos[medicoId].abandono++;
-              rankingMedicos[medicoId].total++;
-            }
+          if (medicoId && rankingMedicos[medicoId]) {
+            const status = paciente.statusTratamento || 'pendente';
+            if (status === 'pendente') rankingMedicos[medicoId].pendente++;
+            else if (status === 'em_tratamento') rankingMedicos[medicoId].emTratamento++;
+            else if (status === 'concluido') rankingMedicos[medicoId].concluido++;
+            else if (status === 'abandono') rankingMedicos[medicoId].abandono++;
+            rankingMedicos[medicoId].total++;
+          }
+        });
+
+        // Contar solicitações pendentes por médico
+        solicitacoesPendentes.forEach(solicitacao => {
+          const medicoId = solicitacao.medicoId;
+          if (medicoId && rankingMedicos[medicoId]) {
+            rankingMedicos[medicoId].solicitacoesPendentes++;
           }
         });
 
         const rankingMedicosOrdenado = Object.values(rankingMedicos)
+          .filter(item => item.total > 0 || item.solicitacoesPendentes > 0)
           .sort((a, b) => b.total - a.total);
 
         return (
@@ -2696,6 +3293,53 @@ export default function MetaAdminGeralPage() {
               </div>
             </div>
 
+            {/* Pipeline de Leads */}
+            <div className="mt-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Pipeline de Leads</h3>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-sm font-medium text-gray-500">Não Qualificado</p>
+                  <p className="text-2xl font-semibold text-gray-700">{totalLeadsNaoQualificado}</p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="text-sm font-medium text-blue-700">Enviado Contato</p>
+                  <p className="text-2xl font-semibold text-blue-700">{totalLeadsEnviadoContato}</p>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <p className="text-sm font-medium text-yellow-700">Contato Feito</p>
+                  <p className="text-2xl font-semibold text-yellow-700">{totalLeadsContatoFeito}</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <p className="text-sm font-medium text-green-700">Qualificado</p>
+                  <p className="text-2xl font-semibold text-green-700">{totalLeadsQualificado}</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <p className="text-sm font-medium text-red-700">Excluído</p>
+                  <p className="text-2xl font-semibold text-red-700">{totalLeadsExcluido}</p>
+                </div>
+              </div>
+              
+              {/* Taxa de Conversão */}
+              {leadsQualificadosDesaparecidos > 0 && (
+                <div className="mt-4 bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-700">Taxa de Conversão</p>
+                      <p className="text-xs text-green-600 mt-1">
+                        Leads qualificados que encontraram médico
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-semibold text-green-700">{taxaConversao}%</p>
+                      <p className="text-xs text-green-600">
+                        {leadsQualificadosDesaparecidos} de {totalLeadsNaoQualificado}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Ranking de abandonos por motivo */}
             {rankingAbandonos.length > 0 && (
               <div className="bg-white rounded-lg shadow p-6">
@@ -2733,8 +3377,9 @@ export default function MetaAdminGeralPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Médico</th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pendente</th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Em Tratamento</th>
-                                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Concluído</th>
-                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Abandono</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Concluído</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Abandono</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitação Pendente</th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                       </tr>
                     </thead>
@@ -2756,8 +3401,9 @@ export default function MetaAdminGeralPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{item.pendente}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-blue-600 font-medium">{item.emTratamento}</td>
-                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-green-600 font-medium">{item.concluido}</td>
-                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-red-600 font-medium">{item.abandono}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-green-600 font-medium">{item.concluido}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-red-600 font-medium">{item.abandono}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-orange-600 font-medium">{item.solicitacoesPendentes}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900">{item.total}</td>
                         </tr>
                       ))}
@@ -3706,6 +4352,11 @@ export default function MetaAdminGeralPage() {
         );
       }
 
+      case 'emails':
+        return (
+          <EmailManagement leads={leads} />
+        );
+
       default:
         return null;
     }
@@ -3811,30 +4462,42 @@ export default function MetaAdminGeralPage() {
                 {!sidebarCollapsed && 'Pacientes'}
               </button>
               <button
-                onClick={() => setActiveMenu('monjauro')}
+                onClick={() => setActiveMenu('leads')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'monjauro'
+                  activeMenu === 'leads'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Monjauro' : ''}
+                title={sidebarCollapsed ? 'Leads' : ''}
+              >
+                <Target size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Leads'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('tirzepatida')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'tirzepatida'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+                title={sidebarCollapsed ? 'Tirzepatida' : ''}
               >
                 <Pill size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Monjauro'}
+                {!sidebarCollapsed && 'Tirzepatida'}
               </button>
-              
               <button
-                onClick={() => setActiveMenu('mensagens')}
+                onClick={() => setActiveMenu('emails')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'mensagens'
+                  activeMenu === 'emails'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Mensagens' : ''}
+                title={sidebarCollapsed ? 'E-mails' : ''}
               >
-                <MessageSquare size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Mensagens'}
+                <Mail size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'E-mails'}
               </button>
+              
             </nav>
 
             {/* Logout button */}
@@ -4427,10 +5090,10 @@ export default function MetaAdminGeralPage() {
 
       {/* Mobile Bottom Navigation - Fixed at bottom, no logout button */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
-        <div className="flex overflow-x-auto scrollbar-hide items-center py-2 px-2 space-x-1">
+        <div className="flex justify-between items-center py-2 px-2 w-full">
           <button
             onClick={() => setActiveMenu('estatisticas')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
               activeMenu === 'estatisticas'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
@@ -4442,7 +5105,7 @@ export default function MetaAdminGeralPage() {
 
           <button
             onClick={() => setActiveMenu('medicos')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
               activeMenu === 'medicos'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
@@ -4454,7 +5117,7 @@ export default function MetaAdminGeralPage() {
 
           <button
             onClick={() => setActiveMenu('pacientes')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
               activeMenu === 'pacientes'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
@@ -4465,32 +5128,39 @@ export default function MetaAdminGeralPage() {
           </button>
 
           <button
-            onClick={() => setActiveMenu('monjauro')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'monjauro'
+            onClick={() => setActiveMenu('tirzepatida')}
+            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
+              activeMenu === 'tirzepatida'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
             <Pill className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Monjauro</span>
+            <span className="text-xs font-medium">Tirzepatida</span>
           </button>
 
           <button
-            onClick={() => setActiveMenu('mensagens')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors relative whitespace-nowrap ${
-              activeMenu === 'mensagens'
+            onClick={() => setActiveMenu('leads')}
+            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
+              activeMenu === 'leads'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <MessageSquare className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Mensagens</span>
-            {mensagensNaoLidasResidentes > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                {mensagensNaoLidasResidentes}
-              </span>
-            )}
+            <Target className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Leads</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMenu('emails')}
+            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
+              activeMenu === 'emails'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Mail className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">E-mails</span>
           </button>
         </div>
       </div>
