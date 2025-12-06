@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle, ArrowRight, ArrowLeft, MessageCircle, Printer, Save } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -33,12 +33,18 @@ import { Info, AlertTriangle, AlertCircle, CheckCircle2, Send, Shield, ShieldChe
 import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
 import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
 import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
+import { LeadMedicoService } from '@/services/leadMedicoService';
+import { LeadMedico, LeadMedicoStatus } from '@/types/leadMedico';
 import KpiCard from '@/components/KpiCard';
 import TrendLine from '@/components/TrendLine';
 import StackedBars from '@/components/StackedBars';
 import { CidadeCustomizadaService } from '@/services/cidadeCustomizadaService';
-import { MonjauroService, MonjauroPreco } from '@/services/monjauroService';
-import { ShoppingCart, Minus, Pill } from 'lucide-react';
+import { TirzepatidaService, TirzepatidaPreco } from '@/services/tirzepatidaService';
+import { ShoppingCart, Minus, Pill, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import FAQChat from '@/components/FAQChat';
+import { PrescricaoService } from '@/services/prescricaoService';
+import { Prescricao, PrescricaoItem } from '@/types/prescricao';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -135,13 +141,71 @@ export default function MetaAdminPage() {
   });
   const [showEditarPacienteModal, setShowEditarPacienteModal] = useState(false);
   const [pacienteEditando, setPacienteEditando] = useState<PacienteCompleto | null>(null);
+  const [pacienteEditandoOriginal, setPacienteEditandoOriginal] = useState<PacienteCompleto | null>(null);
   const [pastaAtiva, setPastaAtiva] = useState<number>(1);
+  const [showConfirmarSaidaModal, setShowConfirmarSaidaModal] = useState(false);
+  const [acaoConfirmacaoSaida, setAcaoConfirmacaoSaida] = useState<{
+    onSairSemSalvar: () => void;
+    onSalvarESair: () => Promise<void>;
+  } | null>(null);
+  const [salvandoParaSair, setSalvandoParaSair] = useState(false);
+  
+  // Função helper para verificar se há alterações e mostrar modal se necessário
+  const verificarAlteracoesESair = async (
+    onSairSemAlteracoes: () => void,
+    onSalvar: () => Promise<void>
+  ) => {
+    const hasChanges = pacienteEditando && pacienteEditandoOriginal && 
+      JSON.stringify(pacienteEditando) !== JSON.stringify(pacienteEditandoOriginal);
+    
+    if (hasChanges) {
+      // Mostrar modal de confirmação
+      setAcaoConfirmacaoSaida({
+        onSairSemSalvar: onSairSemAlteracoes,
+        onSalvarESair: async () => {
+          await onSalvar();
+          onSairSemAlteracoes();
+        }
+      });
+      setShowConfirmarSaidaModal(true);
+    } else {
+      // Não há alterações, sair diretamente
+      onSairSemAlteracoes();
+    }
+  };
+  
+  const fecharModalSemSalvar = () => {
+    if (acaoConfirmacaoSaida) {
+      acaoConfirmacaoSaida.onSairSemSalvar();
+    }
+    setShowConfirmarSaidaModal(false);
+    setAcaoConfirmacaoSaida(null);
+  };
+  
+  const salvarESair = async () => {
+    if (!acaoConfirmacaoSaida) return;
+    
+    setSalvandoParaSair(true);
+    try {
+      await acaoConfirmacaoSaida.onSalvarESair();
+      setShowConfirmarSaidaModal(false);
+      setAcaoConfirmacaoSaida(null);
+    } catch (error) {
+      // Se houver erro, manter o modal aberto para o usuário decidir
+      console.error('Erro ao salvar:', error);
+    } finally {
+      setSalvandoParaSair(false);
+    }
+  };
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState<string>('');
+  const [modalType, setModalType] = useState<'success' | 'error'>('success');
   const [graficoAtivoPasta6, setGraficoAtivoPasta6] = useState<'peso' | 'circunferencia' | 'hba1c'>('peso');
   const [indicadorAtivoPasta9, setIndicadorAtivoPasta9] = useState<'paciente' | 'adesao'>('paciente');
 
-  // Estados para Monjauro (carrinho de compras)
-  const [monjauroPrecos, setMonjauroPrecos] = useState<MonjauroPreco[]>([]);
-  const [loadingMonjauroPrecos, setLoadingMonjauroPrecos] = useState(false);
+  // Estados para Tirzepatida (carrinho de compras)
+  const [tirzepatidaPrecos, setTirzepatidaPrecos] = useState<TirzepatidaPreco[]>([]);
+  const [loadingTirzepatidaPrecos, setLoadingTirzepatidaPrecos] = useState(false);
   const [carrinho, setCarrinho] = useState<{ tipo: string; quantidade: number; preco: number }[]>([]);
   
   // Estados para calendário de aplicações
@@ -153,10 +217,27 @@ export default function MetaAdminPage() {
     dose: number;
     localAplicacao: string;
   }>>([]);
+
+  // Estados para Prescrições (Pasta 9)
+  const [prescricoes, setPrescricoes] = useState<Prescricao[]>([]);
+  const [loadingPrescricoes, setLoadingPrescricoes] = useState(false);
+  const [prescricaoSelecionada, setPrescricaoSelecionada] = useState<Prescricao | null>(null);
+  const [prescricaoEditando, setPrescricaoEditando] = useState<Prescricao | null>(null);
+  const [novaPrescricao, setNovaPrescricao] = useState({
+    nome: '',
+    descricao: '',
+    itens: [] as PrescricaoItem[],
+    observacoes: ''
+  });
   
   // Estados para Pasta 4 (Exames Laboratoriais)
   const [exameDataSelecionada, setExameDataSelecionada] = useState<string>('');
   const [showAdicionarExameModal, setShowAdicionarExameModal] = useState(false);
+  const [indiceExameEditando, setIndiceExameEditando] = useState<number | null>(null);
+  const [dataSelecionadaModal, setDataSelecionadaModal] = useState<string>('');
+  const [showSolicitarExamesModal, setShowSolicitarExamesModal] = useState(false);
+  const [examesSelecionados, setExamesSelecionados] = useState<string[]>([]);
+  const [examesCustomizados, setExamesCustomizados] = useState<string[]>(['']);
   const [novoExameData, setNovoExameData] = useState<{
     dataColeta: string;
     [key: string]: any;
@@ -186,6 +267,18 @@ export default function MetaAdminPage() {
   // Estados para solicitações de pacientes
   const [solicitacoesMedico, setSolicitacoesMedico] = useState<SolicitacaoMedico[]>([]);
   const [loadingSolicitacoes, setLoadingSolicitacoes] = useState(false);
+  const [solicitacoesPendentesCount, setSolicitacoesPendentesCount] = useState(0);
+  
+  // Estados para leads médico
+  const [leadsMedico, setLeadsMedico] = useState<LeadMedico[]>([]);
+  const [loadingLeadsMedico, setLoadingLeadsMedico] = useState(false);
+  const [leadsByStatus, setLeadsByStatus] = useState<Record<LeadMedicoStatus, LeadMedico[]>>({
+    nao_qualificado: [],
+    enviado_contato: [],
+    contato_feito: [],
+    em_tratamento: [],
+    excluido: [],
+  });
   const [novaMensagemPaciente, setNovaMensagemPaciente] = useState({
     titulo: '',
     mensagem: '',
@@ -193,6 +286,9 @@ export default function MetaAdminPage() {
   });
   const [mensagensPaciente, setMensagensPaciente] = useState<PacienteMensagem[]>([]);
   const [loadingMensagensPaciente, setLoadingMensagensPaciente] = useState(false);
+  const [mensagensNaoLidasPacienteParaMedico, setMensagensNaoLidasPacienteParaMedico] = useState(0);
+  const [mensagensNaoLidasPorPaciente, setMensagensNaoLidasPorPaciente] = useState<Record<string, number>>({}); // Mensagens não lidas por paciente (pacienteId -> count)
+  const [abaAtivaMensagensAdmin, setAbaAtivaMensagensAdmin] = useState<'enviadas' | 'recebidas'>('recebidas'); // Aba ativa no histórico de mensagens
   
   const router = useRouter();
 
@@ -589,6 +685,8 @@ export default function MetaAdminPage() {
       setUserLoading(false);
       
       if (!user) {
+        // Se não estiver autenticado, redirecionar para a página principal
+        // O usuário será induzido a fazer login ao clicar nos botões
         router.push('/');
         return;
       }
@@ -771,22 +869,122 @@ export default function MetaAdminPage() {
 
   // Função para carregar mensagens do paciente (Pasta 8)
   const loadMensagensPaciente = useCallback(async () => {
-    if (!pacienteEditando?.email) return;
+    if (!pacienteEditando?.email || !medicoPerfil?.id || !pacienteEditando?.id) return;
     
     setLoadingMensagensPaciente(true);
     try {
-      console.log('Buscando mensagens para:', pacienteEditando.email);
-      const mensagensData = await PacienteMensagemService.getMensagensPaciente(pacienteEditando.email);
-      console.log('Mensagens encontradas:', mensagensData.length);
-      setMensagensPaciente(mensagensData.filter(m => !m.deletada));
-      console.log('Mensagens (não deletadas):', mensagensData.filter(m => !m.deletada).length);
+      console.log('📬 Buscando mensagens para:', {
+        pacienteEmail: pacienteEditando.email,
+        pacienteId: pacienteEditando.id,
+        medicoId: medicoPerfil.id
+      });
+      
+      // Carregar mensagens do paciente para o médico (RECEBIDAS pelo médico)
+      const mensagensPacienteParaMedico = await PacienteMensagemService.getMensagensPacienteParaMedico(
+        medicoPerfil.id,
+        pacienteEditando.email
+      );
+      
+      // VALIDAÇÃO ADICIONAL: Garantir que são realmente deste paciente e médico
+      const mensagensRecebidasValidadas = mensagensPacienteParaMedico.filter(m => {
+        const emailMatch = m.pacienteEmail === pacienteEditando.email;
+        const medicoMatch = String(m.medicoId) === String(medicoPerfil.id);
+        const pacienteIdMatch = !m.pacienteId || m.pacienteId === pacienteEditando.id;
+        const direcaoMatch = m.direcao === 'paciente_para_medico';
+        const notDeleted = !m.deletada;
+        
+        const isValid = emailMatch && medicoMatch && pacienteIdMatch && direcaoMatch && notDeleted;
+        if (!isValid) {
+          console.warn('⚠️ Mensagem recebida inválida filtrada:', {
+            id: m.id,
+            pacienteEmail: m.pacienteEmail,
+            medicoId: m.medicoId,
+            pacienteId: m.pacienteId,
+            direcao: m.direcao,
+            deletada: m.deletada
+          });
+        }
+        return isValid;
+      });
+      
+      console.log('📬 Mensagens RECEBIDAS (do paciente para o médico):', mensagensRecebidasValidadas.length, 'de', mensagensPacienteParaMedico.length);
+      
+      // Carregar mensagens do médico para o paciente (ENVIADAS pelo médico)
+      // Buscar todas as mensagens do paciente e filtrar apenas as enviadas por este médico
+      const todasMensagens = await PacienteMensagemService.getMensagensPaciente(pacienteEditando.email);
+      
+      // VALIDAÇÃO RIGOROSA: Apenas mensagens deste médico para este paciente específico
+      const mensagensMedicoParaPaciente = todasMensagens.filter(m => {
+        const emailMatch = m.pacienteEmail === pacienteEditando.email;
+        const medicoMatch = String(m.medicoId) === String(medicoPerfil.id);
+        const pacienteIdMatch = !m.pacienteId || m.pacienteId === pacienteEditando.id;
+        const direcaoMatch = m.direcao === 'medico_para_paciente' || !m.direcao;
+        const notDeleted = !m.deletada;
+        
+        const isValid = emailMatch && medicoMatch && pacienteIdMatch && direcaoMatch && notDeleted;
+        if (!isValid) {
+          console.warn('⚠️ Mensagem enviada inválida filtrada:', {
+            id: m.id,
+            pacienteEmail: m.pacienteEmail,
+            medicoId: m.medicoId,
+            pacienteId: m.pacienteId,
+            direcao: m.direcao,
+            deletada: m.deletada
+          });
+        }
+        return isValid;
+      });
+      
+      console.log('📬 Mensagens ENVIADAS (do médico para o paciente):', mensagensMedicoParaPaciente.length, 'de', todasMensagens.length);
+      
+      // Combinar e remover duplicatas por ID
+      const mensagensIds = new Set<string>();
+      const todasMensagensUnicas: PacienteMensagem[] = [];
+      
+      [...mensagensMedicoParaPaciente, ...mensagensRecebidasValidadas].forEach(msg => {
+        if (!mensagensIds.has(msg.id)) {
+          mensagensIds.add(msg.id);
+          todasMensagensUnicas.push(msg);
+        }
+      });
+      
+      // Ordenar por data
+      todasMensagensUnicas.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
+      
+      console.log('📬 Total de mensagens únicas encontradas:', todasMensagensUnicas.length);
+      console.log('📬 Mensagens por direção:', {
+        medico_para_paciente: todasMensagensUnicas.filter(m => m.direcao === 'medico_para_paciente' || !m.direcao).length,
+        paciente_para_medico: todasMensagensUnicas.filter(m => m.direcao === 'paciente_para_medico').length
+      });
+      
+      // Log detalhado para debug
+      todasMensagensUnicas.forEach(msg => {
+        console.log('📋 Mensagem:', {
+          id: msg.id,
+          titulo: msg.titulo,
+          direcao: msg.direcao,
+          pacienteEmail: msg.pacienteEmail,
+          pacienteId: msg.pacienteId,
+          medicoId: msg.medicoId,
+          criadoEm: msg.criadoEm
+        });
+      });
+      
+      setMensagensPaciente(todasMensagensUnicas);
+      
+      // Contar mensagens não lidas do paciente para o médico
+      const naoLidas = await PacienteMensagemService.contarMensagensNaoLidasPacienteParaMedico(
+        medicoPerfil.id,
+        pacienteEditando.email
+      );
+      setMensagensNaoLidasPacienteParaMedico(naoLidas);
     } catch (error) {
       console.error('Erro ao carregar mensagens do paciente:', error);
       setMensagensPaciente([]);
     } finally {
       setLoadingMensagensPaciente(false);
     }
-  }, [pacienteEditando?.email]);
+  }, [pacienteEditando?.email, pacienteEditando?.id, medicoPerfil?.id]);
 
   // Função para enviar mensagem ao paciente
   const handleEnviarMensagemPaciente = async () => {
@@ -802,11 +1000,15 @@ export default function MetaAdminPage() {
       const mensagemId = await PacienteMensagemService.criarMensagem({
         pacienteId: pacienteEditando.id,
         pacienteEmail: pacienteEditando.email,
+        medicoId: medicoPerfil.id,
+        medicoEmail: user.email,
         titulo: novaMensagemPaciente.titulo.trim(),
         mensagem: novaMensagemPaciente.mensagem.trim(),
         tipo: novaMensagemPaciente.tipo,
         lida: false,
-        criadoPor: user.email
+        criadoPor: user.email,
+        direcao: 'medico_para_paciente',
+        pacienteNome: pacienteEditando.nome
       });
       console.log('Mensagem criada com ID:', mensagemId);
       
@@ -900,6 +1102,25 @@ export default function MetaAdminPage() {
       const pacientesData = await PacienteService.getPacientesByMedico(medicoPerfil.id);
       console.log('Pacientes encontrados:', pacientesData);
       setPacientes(pacientesData);
+      
+      // Carregar mensagens não lidas para cada paciente
+      const mensagensNaoLidasMap: Record<string, number> = {};
+      for (const paciente of pacientesData) {
+        if (paciente.email) {
+          try {
+            const count = await PacienteMensagemService.contarMensagensNaoLidasPacienteParaMedico(
+              medicoPerfil.id,
+              paciente.email
+            );
+            if (count > 0) {
+              mensagensNaoLidasMap[paciente.id] = count;
+            }
+          } catch (error) {
+            console.error(`Erro ao contar mensagens não lidas para paciente ${paciente.id}:`, error);
+          }
+        }
+      }
+      setMensagensNaoLidasPorPaciente(mensagensNaoLidasMap);
     } catch (error) {
       console.error('Erro ao carregar pacientes:', error);
     } finally {
@@ -917,6 +1138,10 @@ export default function MetaAdminPage() {
       const solicitacoesData = await SolicitacaoMedicoService.getSolicitacoesPorMedico(medicoPerfil.id);
       console.log('Solicitações encontradas:', solicitacoesData);
       setSolicitacoesMedico(solicitacoesData);
+      
+      // Contar solicitações pendentes
+      const pendentes = solicitacoesData.filter(s => s.status === 'pendente').length;
+      setSolicitacoesPendentesCount(pendentes);
     } catch (error) {
       console.error('Erro ao carregar solicitações:', error);
     } finally {
@@ -924,16 +1149,223 @@ export default function MetaAdminPage() {
     }
   }, [user, medicoPerfil]);
 
-  // Função para carregar preços do Monjauro
-  const loadMonjauroPrecos = useCallback(async () => {
-    setLoadingMonjauroPrecos(true);
+  // Função para carregar leads do médico
+  const loadLeadsMedico = useCallback(async () => {
+    if (!user || !medicoPerfil) return;
+    
+    setLoadingLeadsMedico(true);
     try {
-      const precosData = await MonjauroService.getPrecos();
-      setMonjauroPrecos(precosData);
+      console.log('Carregando leads para médico ID:', medicoPerfil.id);
+      
+      // Buscar leads existentes no Firestore
+      const leadsExistentes = await LeadMedicoService.getLeadsByMedico(medicoPerfil.id);
+      console.log('Leads existentes encontrados:', leadsExistentes.length);
+      
+      // Buscar todas as solicitações deste médico
+      const todasSolicitacoes = await SolicitacaoMedicoService.getSolicitacoesPorMedico(medicoPerfil.id);
+      console.log('Solicitações encontradas:', todasSolicitacoes.length);
+      
+      // Buscar pacientes completos para enriquecer dados
+      const pacientesCompletos = await PacienteService.getAllPacientes();
+      const pacientesMap = new Map(pacientesCompletos.map(p => [p.userId || p.email?.toLowerCase(), p]));
+      
+      // Criar mapa de leads existentes por email
+      const leadsExistentesMap = new Map(leadsExistentes.map(l => [l.email.toLowerCase(), l]));
+      
+      // Processar solicitações e criar/atualizar leads
+      const leadsProcessados: LeadMedico[] = [];
+      
+      for (const solicitacao of todasSolicitacoes) {
+        const email = solicitacao.pacienteEmail.toLowerCase();
+        const paciente = pacientesMap.get(solicitacao.pacienteId || email);
+        
+        const leadExistente = leadsExistentesMap.get(email);
+        
+        if (leadExistente) {
+          // IMPORTANTE: Atualizar dados do lead existente (mas manter status)
+          // Seguir a mesma lógica do /metaadmingeral que funciona
+          const leadAtualizado: LeadMedico = {
+            ...leadExistente,
+            name: solicitacao.pacienteNome,
+            telefone: solicitacao.pacienteTelefone || paciente?.dadosIdentificacao?.telefone,
+            cidade: paciente?.dadosIdentificacao?.endereco?.cidade,
+            estado: paciente?.dadosIdentificacao?.endereco?.estado,
+            solicitacaoId: solicitacao.id,
+            // Preservar status e dataStatus exatamente como estão no Firestore
+            status: leadExistente.status,
+            dataStatus: leadExistente.dataStatus,
+          };
+          // Atualizar no Firestore (preservando o status)
+          await LeadMedicoService.createOrUpdateLead(leadAtualizado);
+          leadsProcessados.push(leadAtualizado);
+        } else {
+          // Criar novo lead - SEMPRE começa em "não qualificado"
+          const novoLead: Omit<LeadMedico, 'id'> = {
+            uid: solicitacao.pacienteId || email,
+            email: solicitacao.pacienteEmail,
+            name: solicitacao.pacienteNome,
+            telefone: solicitacao.pacienteTelefone || paciente?.dadosIdentificacao?.telefone,
+            cidade: paciente?.dadosIdentificacao?.endereco?.cidade,
+            estado: paciente?.dadosIdentificacao?.endereco?.estado,
+            createdAt: solicitacao.criadoEm,
+            emailVerified: true,
+            status: 'nao_qualificado', // SEMPRE começa em não qualificado
+            dataStatus: new Date(),
+            medicoId: medicoPerfil.id,
+            solicitacaoId: solicitacao.id,
+          };
+          const leadId = await LeadMedicoService.createOrUpdateLead(novoLead);
+          const leadComId = { ...novoLead, id: leadId } as LeadMedico;
+          leadsProcessados.push(leadComId);
+        }
+      }
+      
+      // Organizar leads por status
+          const leadsPorStatus: Record<LeadMedicoStatus, LeadMedico[]> = {
+            nao_qualificado: [],
+            enviado_contato: [],
+            contato_feito: [],
+            em_tratamento: [],
+            excluido: [],
+          };
+      
+      leadsProcessados.forEach(lead => {
+        // Migrar leads com status 'aprovado' (removido) para 'enviado_contato'
+        if ((lead.status as any) === 'aprovado') {
+          lead.status = 'enviado_contato';
+          lead.dataStatus = new Date();
+          // Atualizar no Firestore
+          LeadMedicoService.updateLeadStatus(lead.id, 'enviado_contato', user?.email || undefined).catch(console.error);
+        }
+        leadsPorStatus[lead.status].push(lead);
+      });
+      
+      // Ordenar cada coluna por data de status (mais recente primeiro)
+      Object.keys(leadsPorStatus).forEach(status => {
+        leadsPorStatus[status as LeadMedicoStatus].sort((a, b) => {
+          const dateA = a.dataStatus?.getTime() || 0;
+          const dateB = b.dataStatus?.getTime() || 0;
+          return dateB - dateA;
+        });
+      });
+      
+      setLeadsMedico(leadsProcessados);
+      setLeadsByStatus(leadsPorStatus);
+      console.log('Leads processados:', leadsProcessados.length);
     } catch (error) {
-      console.error('Erro ao carregar preços do Monjauro:', error);
+      console.error('Erro ao carregar leads:', error);
     } finally {
-      setLoadingMonjauroPrecos(false);
+      setLoadingLeadsMedico(false);
+    }
+  }, [user, medicoPerfil]);
+
+  // Configuração dos status do pipeline (definida fora do case para uso em funções)
+  const statusConfigLeadMedico: Record<LeadMedicoStatus, { label: string; color: string; bgColor: string }> = {
+    nao_qualificado: { label: 'Não Qualificado', color: 'text-gray-700', bgColor: 'bg-gray-100' },
+    enviado_contato: { label: 'Enviado Contato', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
+    contato_feito: { label: 'Contato Feito', color: 'text-orange-700', bgColor: 'bg-orange-100' },
+    em_tratamento: { label: 'Em Tratamento', color: 'text-green-700', bgColor: 'bg-green-100' },
+    excluido: { label: 'Excluído', color: 'text-red-700', bgColor: 'bg-red-100' },
+  };
+
+  // Função para abrir mensagens do paciente a partir do lead
+  const handleAbrirMensagensLead = async (lead: LeadMedico) => {
+    try {
+      // Buscar paciente pelo email
+      const paciente = await PacienteService.getPacienteByEmail(lead.email);
+      if (paciente) {
+        // Abrir modal de edição do paciente
+        setPacienteEditando(paciente);
+        setPacienteEditandoOriginal(JSON.parse(JSON.stringify(paciente)));
+        setPastaAtiva(8); // Pasta 8 = Mensagens
+        setShowEditarPacienteModal(true);
+        // Mudar para o menu de pacientes para melhor contexto
+        setActiveMenu('pacientes');
+      } else {
+        setMessage(`Paciente não encontrado para o email ${lead.email}. O paciente precisa estar cadastrado para trocar mensagens.`);
+        setTimeout(() => setMessage(''), 5000);
+      }
+    } catch (error) {
+      console.error('Erro ao abrir mensagens do lead:', error);
+      setMessage('Erro ao abrir mensagens. Tente novamente.');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // Função para mover lead entre estágios
+  const handleMoveLeadMedico = async (leadId: string, currentStatus: LeadMedicoStatus, direction: 'left' | 'right') => {
+    try {
+      const statusOrder: LeadMedicoStatus[] = ['nao_qualificado', 'enviado_contato', 'contato_feito', 'em_tratamento', 'excluido'];
+      const currentIndex = statusOrder.indexOf(currentStatus);
+      let newStatus: LeadMedicoStatus;
+      
+      if (direction === 'right' && currentIndex < statusOrder.length - 1) {
+        newStatus = statusOrder[currentIndex + 1];
+      } else if (direction === 'left' && currentIndex > 0) {
+        newStatus = statusOrder[currentIndex - 1];
+      } else {
+        return; // Não pode mover
+      }
+
+      // Encontrar o lead para garantir que temos o ID correto (pode ser id ou uid)
+      const leadAtual = leadsMedico.find(l => l.id === leadId);
+      if (!leadAtual) {
+        console.error('Lead não encontrado:', leadId);
+        setMessage('Erro: Lead não encontrado.');
+        setTimeout(() => setMessage(''), 3000);
+        return;
+      }
+
+      // Usar o ID do documento (que pode ser o uid ou o doc.id)
+      const idParaAtualizar = leadAtual.id || leadAtual.uid;
+      console.log('Atualizando lead:', { leadId, idParaAtualizar, currentStatus, newStatus });
+      
+      await LeadMedicoService.updateLeadStatus(idParaAtualizar, newStatus, user?.email || undefined);
+      
+      // Atualizar estado local
+      const updatedLeads = leadsMedico.map(l => 
+        l.id === leadId ? { ...l, status: newStatus, dataStatus: new Date() } : l
+      );
+      
+          const leadsPorStatus: Record<LeadMedicoStatus, LeadMedico[]> = {
+            nao_qualificado: [],
+            enviado_contato: [],
+            contato_feito: [],
+            em_tratamento: [],
+            excluido: [],
+          };
+      
+      updatedLeads.forEach(lead => {
+        leadsPorStatus[lead.status].push(lead);
+      });
+      
+      Object.keys(leadsPorStatus).forEach(status => {
+        leadsPorStatus[status as LeadMedicoStatus].sort((a, b) => {
+          const dateA = a.dataStatus?.getTime() || 0;
+          const dateB = b.dataStatus?.getTime() || 0;
+          return dateB - dateA;
+        });
+      });
+      
+      setLeadsMedico(updatedLeads);
+      setLeadsByStatus(leadsPorStatus);
+    } catch (error) {
+      console.error('Erro ao mover lead:', error);
+      setMessage('Erro ao mover lead. Tente novamente.');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // Função para carregar preços do Tirzepatida
+  const loadTirzepatidaPrecos = useCallback(async () => {
+    setLoadingTirzepatidaPrecos(true);
+    try {
+      const precosData = await TirzepatidaService.getPrecos();
+      setTirzepatidaPrecos(precosData);
+    } catch (error) {
+      console.error('Erro ao carregar preços do Tirzepatida:', error);
+    } finally {
+      setLoadingTirzepatidaPrecos(false);
     }
   }, []);
 
@@ -1077,15 +1509,56 @@ export default function MetaAdminPage() {
           }
         }
         
+        // Verificar se o paciente estava em abandono
+        const estavaEmAbandono = pacienteExistente.statusTratamento === 'abandono';
+        
         // Atualizar paciente existente com novo médico responsável
         const pacienteAtualizado: PacienteCompleto = {
           ...pacienteExistente,
           medicoResponsavelId: medicoPerfil.id!,
-          nome: solicitacao.pacienteNome // Atualizar nome se necessário
+          nome: solicitacao.pacienteNome, // Atualizar nome se necessário
+          // Atualizar telefone se fornecido na solicitação
+          dadosIdentificacao: {
+            ...pacienteExistente.dadosIdentificacao,
+            telefone: solicitacao.pacienteTelefone || pacienteExistente.dadosIdentificacao?.telefone
+          },
+          // Se estava em abandono, voltar para em_tratamento e zerar dados do tratamento anterior
+          statusTratamento: estavaEmAbandono ? 'em_tratamento' as const : (pacienteExistente.statusTratamento || 'pendente' as const),
+          motivoAbandono: estavaEmAbandono ? undefined : pacienteExistente.motivoAbandono,
+          dataAbandono: estavaEmAbandono ? undefined : pacienteExistente.dataAbandono,
+          medicoResponsavelAnteriorId: estavaEmAbandono ? undefined : pacienteExistente.medicoResponsavelAnteriorId,
+          // Zerar dados do tratamento anterior se estava em abandono
+          evolucaoSeguimento: estavaEmAbandono ? [] : pacienteExistente.evolucaoSeguimento || [],
+          planoTerapeutico: estavaEmAbandono ? {
+            metas: {},
+            startDate: undefined,
+            lastDoseChangeAt: undefined,
+            nextReviewDate: undefined
+          } : pacienteExistente.planoTerapeutico || { metas: {} },
+          alertas: estavaEmAbandono ? [] : pacienteExistente.alertas || [],
+          indicadores: estavaEmAbandono ? {
+            tempoEmTratamento: {
+              dias: 0,
+              semanas: 0
+            },
+            adesaoMedia: 0,
+            incidenciaEfeitosAdversos: {
+              total: 0,
+              grave: 0,
+              moderado: 0,
+              leve: 0
+            }
+          } : pacienteExistente.indicadores || {
+            tempoEmTratamento: { dias: 0, semanas: 0 },
+            adesaoMedia: 0,
+            incidenciaEfeitosAdversos: { total: 0, grave: 0, moderado: 0, leve: 0 }
+          }
         };
         
         await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
-        setMessage('Solicitação aceita! Paciente atualizado com sucesso.');
+        setMessage(estavaEmAbandono 
+          ? 'Solicitação aceita! Paciente retornou ao tratamento. Dados anteriores foram zerados para iniciar novo tratamento.' 
+          : 'Solicitação aceita! Paciente atualizado com sucesso.');
       } else {
         // Criar novo paciente
         const pacienteData = {
@@ -1096,6 +1569,7 @@ export default function MetaAdminPage() {
           dadosIdentificacao: {
             nomeCompleto: solicitacao.pacienteNome,
             email: solicitacao.pacienteEmail,
+            telefone: solicitacao.pacienteTelefone,
             dataCadastro: new Date()
           },
           dadosClinicos: {
@@ -1140,9 +1614,34 @@ export default function MetaAdminPage() {
       // Aceitar a solicitação atual
       await SolicitacaoMedicoService.aceitarSolicitacao(solicitacao.id);
       
+      // Enviar e-mail de boas-vindas
+      try {
+        console.log('📧 Tentando enviar e-mail de boas-vindas para solicitação:', solicitacao.id);
+        
+        const emailResponse = await fetch('/api/send-email-solicitado-medico', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ solicitacaoId: solicitacao.id }),
+        });
+
+        const emailResult = await emailResponse.json();
+        
+        if (!emailResponse.ok) {
+          console.error('❌ Erro ao enviar e-mail de boas-vindas:', emailResult);
+        } else if (emailResult.jaEnviado) {
+          console.log('ℹ️ E-mail de boas-vindas já foi enviado anteriormente para esta solicitação');
+        } else {
+          console.log('✅ E-mail de boas-vindas enviado com sucesso:', emailResult);
+        }
+      } catch (emailError) {
+        console.error('❌ Erro ao enviar e-mail de boas-vindas:', emailError);
+        // Não bloquear o fluxo se o e-mail falhar
+      }
+      
       // Recarregar dados
       await loadSolicitacoesMedico();
       await loadPacientes();
+      await loadLeadsMedico(); // Recarregar leads para atualizar status
     } catch (error) {
       console.error('Erro ao aceitar solicitação:', error);
       alert('Erro ao aceitar solicitação');
@@ -1154,6 +1653,7 @@ export default function MetaAdminPage() {
     try {
       await SolicitacaoMedicoService.rejeitarSolicitacao(solicitacaoId);
       await loadSolicitacoesMedico();
+      await loadLeadsMedico(); // Recarregar leads para atualizar status
       setMessage('Solicitação rejeitada.');
     } catch (error) {
       console.error('Erro ao rejeitar solicitação:', error);
@@ -1178,14 +1678,64 @@ export default function MetaAdminPage() {
   useEffect(() => {
     if (user && medicoPerfil && activeMenu === 'estatisticas') {
       loadPacientes();
+      loadLeadsMedico();
     }
-  }, [user, medicoPerfil, activeMenu, loadPacientes]);
+  }, [user, medicoPerfil, activeMenu, loadPacientes, loadLeadsMedico]);
+
+  // Carregar prescrições quando a pasta 9 for ativada
+  useEffect(() => {
+    if (pastaAtiva === 9 && medicoPerfil) {
+      const loadPrescricoesAsync = async () => {
+        if (!medicoPerfil) return;
+        
+        try {
+          setLoadingPrescricoes(true);
+          
+          // Garantir que templates globais existam
+          await PrescricaoService.criarPrescricoesPadraoGlobais();
+          
+          // Buscar templates globais e prescrições do médico
+          const [templates, prescricoesMedico] = await Promise.all([
+            PrescricaoService.getPrescricoesTemplate(),
+            PrescricaoService.getPrescricoesByMedico(medicoPerfil.id)
+          ]);
+          
+          // Combinar templates e prescrições do médico (excluindo prescrições específicas de paciente)
+          const todasPrescricoes = [
+            ...templates,
+            ...prescricoesMedico.filter(p => !p.pacienteId) // Apenas prescrições gerais do médico
+          ];
+          
+          setPrescricoes(todasPrescricoes);
+          
+          // Selecionar automaticamente a primeira prescrição se não houver nenhuma selecionada
+          if (todasPrescricoes.length > 0) {
+            const primeira = todasPrescricoes[0];
+            setPrescricaoSelecionada(primeira);
+            setPrescricaoEditando(primeira);
+            setNovaPrescricao({
+              nome: primeira.nome,
+              descricao: primeira.descricao || '',
+              itens: primeira.itens || [],
+              observacoes: primeira.observacoes || ''
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao carregar prescrições:', error);
+        } finally {
+          setLoadingPrescricoes(false);
+        }
+      };
+      
+      loadPrescricoesAsync();
+    }
+  }, [pastaAtiva, medicoPerfil]);
 
   useEffect(() => {
-    if (activeMenu === 'monjauro') {
-      loadMonjauroPrecos();
+    if (activeMenu === 'tirzepatida') {
+      loadTirzepatidaPrecos();
     }
-  }, [activeMenu, loadMonjauroPrecos]);
+  }, [activeMenu, loadTirzepatidaPrecos]);
 
   useEffect(() => {
     if (user && medicoPerfil && activeMenu === 'pacientes') {
@@ -1282,6 +1832,49 @@ export default function MetaAdminPage() {
       setMessage('Erro ao rejeitar férias');
     }
   };
+
+  // Função para carregar prescrições
+  const loadPrescricoes = useCallback(async () => {
+    if (!medicoPerfil) return;
+    
+    try {
+      setLoadingPrescricoes(true);
+      
+      // Garantir que templates globais existam
+      await PrescricaoService.criarPrescricoesPadraoGlobais();
+      
+      // Buscar templates globais e prescrições do médico
+      const [templates, prescricoesMedico] = await Promise.all([
+        PrescricaoService.getPrescricoesTemplate(),
+        PrescricaoService.getPrescricoesByMedico(medicoPerfil.id)
+      ]);
+      
+      // Combinar templates e prescrições do médico (excluindo prescrições específicas de paciente)
+      const todasPrescricoes = [
+        ...templates,
+        ...prescricoesMedico.filter(p => !p.pacienteId) // Apenas prescrições gerais do médico
+      ];
+      
+      setPrescricoes(todasPrescricoes);
+      
+      // Selecionar automaticamente a primeira prescrição se não houver nenhuma selecionada
+      if (todasPrescricoes.length > 0) {
+        const primeira = todasPrescricoes[0];
+        setPrescricaoSelecionada(primeira);
+        setPrescricaoEditando(primeira);
+        setNovaPrescricao({
+          nome: primeira.nome,
+          descricao: primeira.descricao || '',
+          itens: primeira.itens,
+          observacoes: primeira.observacoes || ''
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar prescrições:', error);
+    } finally {
+      setLoadingPrescricoes(false);
+    }
+  }, [medicoPerfil]);
 
 
   const handleEditUser = (user: {
@@ -2331,7 +2924,15 @@ export default function MetaAdminPage() {
                         {pacientes.map((paciente) => (
                           <tr key={paciente.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">{paciente.nome}</div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-medium text-gray-900">{paciente.nome}</div>
+                                {mensagensNaoLidasPorPaciente[paciente.id] > 0 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800" title={`${mensagensNaoLidasPorPaciente[paciente.id]} mensagem(ns) não lida(s)`}>
+                                    <MessageSquare size={12} className="mr-1" />
+                                    {mensagensNaoLidasPorPaciente[paciente.id]}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-500">{paciente.email}</div>
@@ -2352,28 +2953,72 @@ export default function MetaAdminPage() {
                                   ? 'bg-green-100 text-green-800'
                                   : (paciente.statusTratamento || 'pendente') === 'concluido'
                                   ? 'bg-blue-100 text-blue-800'
+                                  : (paciente.statusTratamento || 'pendente') === 'abandono'
+                                  ? 'bg-red-100 text-red-800'
                                   : 'bg-yellow-100 text-yellow-800'
                               }`}>
                                 {(paciente.statusTratamento || 'pendente') === 'em_tratamento'
                                   ? 'Em Tratamento'
                                   : (paciente.statusTratamento || 'pendente') === 'concluido'
                                   ? 'Concluído'
+                                  : (paciente.statusTratamento || 'pendente') === 'abandono'
+                                  ? 'Abandono'
                                   : 'Pendente'}
                               </span>
+                              {paciente.statusTratamento === 'abandono' && paciente.motivoAbandono && (
+                                <div className="mt-1 text-xs text-gray-500">
+                                  Motivo: {paciente.motivoAbandono}
+                                </div>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => {
-                                    setPacienteEditando(paciente);
-                                    setShowEditarPacienteModal(true);
-                                    setPastaAtiva(1);
-                                  }}
-                                  className="text-green-600 hover:text-green-900 flex items-center"
-                                >
-                                  <Edit size={16} className="mr-1" />
-                                  Editar
-                                </button>
+                                {paciente.statusTratamento === 'abandono' ? (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        // Buscar paciente de pacientes_abandono
+                                        const pacienteAbandono = await PacienteService.getPacienteAbandonoById(paciente.id);
+                                        if (pacienteAbandono) {
+                                          setPacienteEditando(pacienteAbandono);
+                                          setPacienteEditandoOriginal(JSON.parse(JSON.stringify(pacienteAbandono))); // Deep copy
+                                          setShowEditarPacienteModal(true);
+                                          setPastaAtiva(1);
+                                        } else {
+                                          // Se não encontrou em pacientes_abandono, usar o paciente atual
+                                          setPacienteEditando(paciente);
+                                          setPacienteEditandoOriginal(JSON.parse(JSON.stringify(paciente))); // Deep copy
+                                          setShowEditarPacienteModal(true);
+                                          setPastaAtiva(1);
+                                        }
+                                      } catch (error) {
+                                        console.error('Erro ao carregar paciente:', error);
+                                        // Fallback: usar paciente atual
+                                        setPacienteEditando(paciente);
+                                        setPacienteEditandoOriginal(JSON.parse(JSON.stringify(paciente))); // Deep copy
+                                        setShowEditarPacienteModal(true);
+                                        setPastaAtiva(1);
+                                      }
+                                    }}
+                                    className="text-blue-600 hover:text-blue-900 flex items-center"
+                                  >
+                                    <FileText size={16} className="mr-1" />
+                                    Visualizar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setPacienteEditando(paciente);
+                                      setPacienteEditandoOriginal(JSON.parse(JSON.stringify(paciente))); // Deep copy
+                                      setShowEditarPacienteModal(true);
+                                      setPastaAtiva(1);
+                                    }}
+                                    className="text-green-600 hover:text-green-900 flex items-center"
+                                  >
+                                    <Edit size={16} className="mr-1" />
+                                    Editar
+                                  </button>
+                                )}
                                 <button
                                   onClick={async () => {
                                     if (confirm(`Tem certeza que deseja excluir o paciente "${paciente.nome}"? Esta ação não pode ser desfeita.`)) {
@@ -2409,7 +3054,15 @@ export default function MetaAdminPage() {
                     <div key={paciente.id} className="bg-white shadow rounded-lg p-4 border border-gray-200">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-semibold text-gray-900 truncate">{paciente.nome}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-semibold text-gray-900 truncate">{paciente.nome}</h3>
+                            {mensagensNaoLidasPorPaciente[paciente.id] > 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 flex-shrink-0" title={`${mensagensNaoLidasPorPaciente[paciente.id]} mensagem(ns) não lida(s)`}>
+                                <MessageSquare size={10} className="mr-1" />
+                                {mensagensNaoLidasPorPaciente[paciente.id]}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-500 truncate">{paciente.email}</p>
                         </div>
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ml-2 ${
@@ -2417,14 +3070,23 @@ export default function MetaAdminPage() {
                             ? 'bg-green-100 text-green-800'
                             : (paciente.statusTratamento || 'pendente') === 'concluido'
                             ? 'bg-blue-100 text-blue-800'
+                            : (paciente.statusTratamento || 'pendente') === 'abandono'
+                            ? 'bg-red-100 text-red-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
                           {(paciente.statusTratamento || 'pendente') === 'em_tratamento'
                             ? 'Em Tratamento'
                             : (paciente.statusTratamento || 'pendente') === 'concluido'
                             ? 'Concluído'
+                            : (paciente.statusTratamento || 'pendente') === 'abandono'
+                            ? 'Abandono'
                             : 'Pendente'}
                         </span>
+                        {paciente.statusTratamento === 'abandono' && paciente.motivoAbandono && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Motivo: {paciente.motivoAbandono}
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-1 mb-3">
                         <div className="flex items-center text-sm text-gray-600">
@@ -2437,15 +3099,49 @@ export default function MetaAdminPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            alert('Para uma melhor experiência de edição, recomendamos usar a versão desktop. Por favor, acesse pelo computador para editar os dados completos do paciente.');
-                          }}
-                          className="flex-1 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
-                        >
-                          <Edit size={16} className="mr-2" />
-                          Editar
-                        </button>
+                        {paciente.statusTratamento === 'abandono' ? (
+                          <button
+                            onClick={async () => {
+                              try {
+                                // Buscar paciente de pacientes_abandono
+                                const pacienteAbandono = await PacienteService.getPacienteAbandonoById(paciente.id);
+                                if (pacienteAbandono) {
+                                  setPacienteEditando(pacienteAbandono);
+                                  setPacienteEditandoOriginal(JSON.parse(JSON.stringify(pacienteAbandono))); // Deep copy
+                                  setShowEditarPacienteModal(true);
+                                  setPastaAtiva(1);
+                                } else {
+                                  // Se não encontrou em pacientes_abandono, usar o paciente atual
+                                  setPacienteEditando(paciente);
+                                  setPacienteEditandoOriginal(JSON.parse(JSON.stringify(paciente))); // Deep copy
+                                  setShowEditarPacienteModal(true);
+                                  setPastaAtiva(1);
+                                }
+                              } catch (error) {
+                                console.error('Erro ao carregar paciente:', error);
+                                // Fallback: usar paciente atual
+                                setPacienteEditando(paciente);
+                                setPacienteEditandoOriginal(JSON.parse(JSON.stringify(paciente))); // Deep copy
+                                setShowEditarPacienteModal(true);
+                                setPastaAtiva(1);
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                          >
+                            <FileText size={16} className="mr-2" />
+                            Visualizar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              alert('Para uma melhor experiência de edição, recomendamos usar a versão desktop. Por favor, acesse pelo computador para editar os dados completos do paciente.');
+                            }}
+                            className="flex-1 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                          >
+                            <Edit size={16} className="mr-2" />
+                            Editar
+                          </button>
+                        )}
                         <button
                           onClick={async () => {
                             if (confirm(`Tem certeza que deseja excluir o paciente "${paciente.nome}"? Esta ação não pode ser desfeita.`)) {
@@ -2476,15 +3172,24 @@ export default function MetaAdminPage() {
             {/* Lista de Solicitações */}
             {solicitacoesMedico.length > 0 && (
               <div className="bg-white shadow rounded-lg overflow-hidden mt-6">
-                <div className="px-6 py-4 border-b border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-gray-900">Solicitações de Pacientes</h3>
-            </div>
+                  <button
+                    onClick={() => loadSolicitacoesMedico()}
+                    disabled={loadingSolicitacoes}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Atualizar solicitações"
+                  >
+                    <RefreshCw size={16} className={loadingSolicitacoes ? 'animate-spin' : ''} />
+                    <span className="hidden sm:inline">Atualizar</span>
+                  </button>
+                </div>
                 <div className="divide-y divide-gray-200">
                   {solicitacoesMedico.map((solicitacao) => (
-                    <div key={solicitacao.id} className="px-6 py-4 flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-base font-medium text-gray-900">{solicitacao.pacienteNome}</h4>
-                        <p className="text-sm text-gray-500">{solicitacao.pacienteEmail}</p>
+                    <div key={solicitacao.id} className="px-4 md:px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm md:text-base font-medium text-gray-900 truncate">{solicitacao.pacienteNome}</h4>
+                        <p className="text-xs md:text-sm text-gray-500 truncate">{solicitacao.pacienteEmail}</p>
                         <p className="text-xs text-gray-400 mt-1">
                           Solicitado em: {solicitacao.criadoEm?.toLocaleDateString('pt-BR')}
                         </p>
@@ -2509,20 +3214,20 @@ export default function MetaAdminPage() {
                         )}
                       </div>
                       {solicitacao.status === 'pendente' && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2 md:gap-2 flex-shrink-0">
                           <button
                             onClick={() => handleRejeitarSolicitacao(solicitacao.id)}
-                            className="px-4 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition-colors flex items-center"
+                            className="px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm text-red-600 border border-red-600 rounded-md hover:bg-red-50 transition-colors flex items-center justify-center flex-1 md:flex-none min-w-0"
                           >
-                            <X size={16} className="mr-1" />
-                            Rejeitar
+                            <X size={14} className="md:mr-1 flex-shrink-0" />
+                            <span className="hidden sm:inline">Rejeitar</span>
                           </button>
                           <button
                             onClick={() => handleAceitarSolicitacao(solicitacao)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center"
+                            className="px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center flex-1 md:flex-none min-w-0"
                           >
-                            <CheckCircle2 size={16} className="mr-1" />
-                            Aceitar
+                            <CheckCircle2 size={14} className="md:mr-1 flex-shrink-0" />
+                            <span className="hidden sm:inline">Aceitar</span>
                           </button>
                         </div>
                       )}
@@ -3444,54 +4149,263 @@ export default function MetaAdminPage() {
         const pacientesPendentes = pacientes.filter(p => p.statusTratamento === 'pendente').length;
         const pacientesEmTratamento = pacientes.filter(p => p.statusTratamento === 'em_tratamento').length;
         const pacientesConcluidos = pacientes.filter(p => p.statusTratamento === 'concluido').length;
+        const pacientesAbandono = pacientes.filter(p => p.statusTratamento === 'abandono').length;
+        
+        // Calcular ranking de motivos de abandono
+        const motivosAbandono: Record<string, number> = {};
+        pacientes.filter(p => p.statusTratamento === 'abandono' && p.motivoAbandono).forEach(p => {
+          const motivo = p.motivoAbandono || 'Não informado';
+          motivosAbandono[motivo] = (motivosAbandono[motivo] || 0) + 1;
+        });
+        const rankingMotivos = Object.entries(motivosAbandono)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5); // Top 5 motivos
+        
+        // Estatísticas do pipeline de leads
+        const totalLeadsNaoQualificado = leadsByStatus.nao_qualificado.length;
+        const totalLeadsEnviadoContato = leadsByStatus.enviado_contato.length;
+        const totalLeadsContatoFeito = leadsByStatus.contato_feito.length;
+        const totalLeadsEmTratamento = leadsByStatus.em_tratamento.length;
+        const totalLeadsExcluido = leadsByStatus.excluido.length;
+        const totalLeadsAtivos = totalLeadsNaoQualificado + totalLeadsEnviadoContato + totalLeadsContatoFeito + totalLeadsEmTratamento;
+        
+        // Usar configuração de status definida fora do case
+        const statusConfig = statusConfigLeadMedico;
+
+        const statusOrder: LeadMedicoStatus[] = ['nao_qualificado', 'enviado_contato', 'contato_feito', 'em_tratamento', 'excluido'];
         
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Estatísticas de Pacientes</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Leads</h2>
+              <button
+                onClick={loadLeadsMedico}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={loadingLeadsMedico}
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingLeadsMedico ? 'animate-spin' : ''}`} />
+                Atualizar
+              </button>
             </div>
 
-            {/* Cards de resumo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <Users className="h-8 w-8 text-green-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total de Pacientes</p>
-                    <p className="text-2xl font-semibold text-gray-900">{totalPacientes}</p>
+            {/* Pipeline de Leads */}
+            {loadingLeadsMedico ? (
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Carregando leads...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Pipeline de Qualificação</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Use as setas para mover os leads entre os estágios.
+                </p>
+                <div className="overflow-x-auto pb-4">
+                  <div className="flex gap-4 min-w-max">
+                    {statusOrder.map((status) => {
+                      const config = statusConfig[status];
+                      const leadsInStatus = leadsByStatus[status];
+                      const currentIndex = statusOrder.indexOf(status);
+                      
+                      return (
+                        <div key={status} className="flex-shrink-0 w-64 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className={`${config.bgColor} ${config.color} px-4 py-3 rounded-t-lg border-b border-gray-200`}>
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-semibold text-sm">{config.label}</h3>
+                              <span className={`${config.color} text-xs font-medium bg-white px-2 py-1 rounded-full`}>
+                                {leadsInStatus.length}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-3 space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
+                            {leadsInStatus.length === 0 ? (
+                              <div className="text-center py-8 text-gray-400 text-sm">
+                                Nenhum lead
+                              </div>
+                            ) : (
+                              leadsInStatus.map((lead) => (
+                                <div
+                                  key={lead.id}
+                                  className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
+                                >
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-medium text-gray-900 truncate flex-1">{lead.name}</p>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAbrirMensagensLead(lead);
+                                          }}
+                                          className="flex-shrink-0 p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full transition-colors"
+                                          title="Abrir mensagens com o paciente"
+                                        >
+                                          <MessageCircle size={16} />
+                                        </button>
+                                      </div>
+                                      <p className="text-xs text-gray-500 truncate">{lead.email}</p>
+                                      {lead.telefone && (
+                                        <p className="text-xs text-gray-500 truncate">{lead.telefone}</p>
+                                      )}
+                                      {lead.cidade && lead.estado && (
+                                        <p className="text-xs text-gray-400 truncate">{lead.cidade}, {lead.estado}</p>
+                                      )}
+                                      {lead.createdAt && (
+                                        <p className="text-xs text-gray-400 mt-1">
+                                          {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-1 mt-2 pt-2 border-t border-gray-100">
+                                    <button
+                                      onClick={() => handleMoveLeadMedico(lead.id, lead.status, 'left')}
+                                      disabled={currentIndex === 0}
+                                      className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                                        currentIndex === 0
+                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                      }`}
+                                      title="Mover para esquerda"
+                                    >
+                                      ←
+                                    </button>
+                                    <button
+                                      onClick={() => handleMoveLeadMedico(lead.id, lead.status, 'right')}
+                                      disabled={currentIndex === statusOrder.length - 1}
+                                      className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                                        currentIndex === statusOrder.length - 1
+                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                      }`}
+                                      title="Mover para direita"
+                                    >
+                                      →
+                                    </button>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <Clock className="h-8 w-8 text-yellow-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Pendentes</p>
-                    <p className="text-2xl font-semibold text-gray-900">{pacientesPendentes}</p>
-                  </div>
+            )}
+
+            {/* Estatísticas do Pipeline */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Estatísticas do Pipeline</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-gray-500">Não Qualificado</p>
+                  <p className="text-2xl font-semibold text-gray-900">{totalLeadsNaoQualificado}</p>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-yellow-600">Enviado Contato</p>
+                  <p className="text-2xl font-semibold text-yellow-900">{totalLeadsEnviadoContato}</p>
+                </div>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-orange-600">Contato Feito</p>
+                  <p className="text-2xl font-semibold text-orange-900">{totalLeadsContatoFeito}</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-green-600">Em Tratamento</p>
+                  <p className="text-2xl font-semibold text-green-900">{totalLeadsEmTratamento}</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-red-600">Excluído</p>
+                  <p className="text-2xl font-semibold text-red-900">{totalLeadsExcluido}</p>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <Activity className="h-8 w-8 text-blue-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Em Tratamento</p>
-                    <p className="text-2xl font-semibold text-gray-900">{pacientesEmTratamento}</p>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  <span className="font-semibold">Total de Leads Ativos:</span> {totalLeadsAtivos}
+                </p>
+              </div>
+            </div>
+
+            {/* Estatísticas de Pacientes (mantidas) */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Estatísticas de Pacientes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                  <div className="flex items-center">
+                    <Users className="h-8 w-8 text-green-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Total de Pacientes</p>
+                      <p className="text-2xl font-semibold text-gray-900">{totalPacientes}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <CheckCircle className="h-8 w-8 text-green-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Concluído</p>
-                    <p className="text-2xl font-semibold text-gray-900">{pacientesConcluidos}</p>
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                  <div className="flex items-center">
+                    <Clock className="h-8 w-8 text-yellow-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Pendentes</p>
+                      <p className="text-2xl font-semibold text-gray-900">{pacientesPendentes}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                  <div className="flex items-center">
+                    <Activity className="h-8 w-8 text-blue-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Em Tratamento</p>
+                      <p className="text-2xl font-semibold text-gray-900">{pacientesEmTratamento}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Concluído</p>
+                      <p className="text-2xl font-semibold text-gray-900">{pacientesConcluidos}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                  <div className="flex items-center">
+                    <X className="h-8 w-8 text-red-600" />
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Abandonaram</p>
+                      <p className="text-2xl font-semibold text-gray-900">{pacientesAbandono}</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+            
+            {/* Ranking de motivos de abandono */}
+            {pacientesAbandono > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ranking de Motivos de Abandono</h3>
+                {rankingMotivos.length > 0 ? (
+                  <div className="space-y-3">
+                    {rankingMotivos.map(([motivo, count], index) => (
+                      <div key={motivo} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-600 font-semibold text-sm">
+                            {index + 1}
+                          </span>
+                          <span className="text-gray-900 font-medium">{motivo}</span>
                         </div>
-                      );
+                        <span className="text-gray-600 font-semibold">{count} paciente{count !== 1 ? 's' : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Nenhum motivo registrado</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
       }
 
       case 'troca': {
@@ -4811,8 +5725,8 @@ export default function MetaAdminPage() {
                                 const dataInicio = formatarDataGoogle(aplicacao.data);
                                 const dataFim = formatarDataFimGoogle(aplicacao.data);
                                 const localNome = aplicacao.localAplicacao === 'abdome' ? 'Abdome' : aplicacao.localAplicacao === 'coxa' ? 'Coxa' : 'Braço';
-                                const titulo = `${aplicacao.paciente.nome} - Monjauro Semana ${aplicacao.semana}`;
-                                const detalhes = `Aplicação de Monjauro%0A%0APaciente: ${aplicacao.paciente.nome}%0ASemana: ${aplicacao.semana}%0ADose: ${aplicacao.dose}mg%0ALocal: ${localNome}`;
+                                const titulo = `${aplicacao.paciente.nome} - Tirzepatida Semana ${aplicacao.semana}`;
+                                const detalhes = `Aplicação de Tirzepatida%0A%0APaciente: ${aplicacao.paciente.nome}%0ASemana: ${aplicacao.semana}%0ADose: ${aplicacao.dose}mg%0ALocal: ${localNome}`;
                                 const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicio}/${dataFim}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`;
                                 
                                 const novaJanela = window.open(url, '_blank');
@@ -4881,7 +5795,7 @@ export default function MetaAdminPage() {
                           .map(a => `${a.paciente.nome} - Semana ${a.semana} - ${a.dose}mg - Local: ${a.localAplicacao === 'abdome' ? 'Abdome' : a.localAplicacao === 'coxa' ? 'Coxa' : 'Braço'}`)
                           .join('%0A');
                         
-                        const titulo = `Aplicações Monjauro - ${diaSelecionado.toLocaleDateString('pt-BR')}`;
+                        const titulo = `Aplicações Tirzepatida - ${diaSelecionado.toLocaleDateString('pt-BR')}`;
                         const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicioStr}/${dataFimStr}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`;
                         
                         return (
@@ -4954,15 +5868,15 @@ export default function MetaAdminPage() {
         return renderizarCalendario();
       }
 
-      case 'monjauro': {
-        const tiposMonjauro = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
+      case 'tirzepatida': {
+        const tiposTirzepatida = ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'];
         const totalCarrinho = calcularTotal();
         const itensNoCarrinho = carrinho.length;
 
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Monjauro - Compras</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Tirzepatida - Compras</h2>
               {itensNoCarrinho > 0 && (
                 <button
                   onClick={limparCarrinho}
@@ -4973,7 +5887,7 @@ export default function MetaAdminPage() {
               )}
             </div>
 
-            {loadingMonjauroPrecos ? (
+            {loadingTirzepatidaPrecos ? (
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
               </div>
@@ -4984,8 +5898,8 @@ export default function MetaAdminPage() {
                   <div className="bg-white shadow rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Produtos Disponíveis</h3>
                     <div className="space-y-3">
-                      {tiposMonjauro.map((tipo) => {
-                        const preco = monjauroPrecos.find(p => p.tipo === tipo);
+                      {tiposTirzepatida.map((tipo) => {
+                        const preco = tirzepatidaPrecos.find(p => p.tipo === tipo);
                         const itemNoCarrinho = carrinho.find(item => item.tipo === tipo);
 
                         return (
@@ -4996,7 +5910,7 @@ export default function MetaAdminPage() {
                             <div className="flex items-center space-x-3">
                               <Pill className="h-8 w-8 text-green-600" />
                               <div>
-                                <p className="text-sm font-medium text-gray-900">Monjauro {tipo}</p>
+                                <p className="text-sm font-medium text-gray-900">Tirzepatida {tipo}</p>
                                 {preco ? (
                                   <p className="text-lg font-bold text-green-600">
                                     R$ {preco.preco.toFixed(2).replace('.', ',')}
@@ -5073,7 +5987,7 @@ export default function MetaAdminPage() {
                               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                             >
                               <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">Monjauro {item.tipo}</p>
+                                <p className="text-sm font-medium text-gray-900">Tirzepatida {item.tipo}</p>
                                 <p className="text-xs text-gray-500">
                                   {item.quantidade}x R$ {item.preco.toFixed(2).replace('.', ',')}
                                 </p>
@@ -5249,14 +6163,14 @@ export default function MetaAdminPage() {
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Estatísticas' : ''}
+                title={sidebarCollapsed ? 'Leads' : ''}
               >
-                <BarChart3 size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Estatísticas'}
+                <UserPlus size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Leads'}
               </button>
               <button
                 onClick={() => setActiveMenu('pacientes')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors relative ${
                   activeMenu === 'pacientes'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -5265,6 +6179,11 @@ export default function MetaAdminPage() {
               >
                 <Users size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Pacientes'}
+                {solicitacoesPendentesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                    {solicitacoesPendentesCount > 9 ? '9+' : solicitacoesPendentesCount}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setActiveMenu('calendario')}
@@ -5292,16 +6211,16 @@ export default function MetaAdminPage() {
                 {!sidebarCollapsed && 'Mensagens'}
               </button> */}
               <button
-                onClick={() => setActiveMenu('monjauro')}
+                onClick={() => setActiveMenu('tirzepatida')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'monjauro'
+                  activeMenu === 'tirzepatida'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Monjauro' : ''}
+                title={sidebarCollapsed ? 'Tirzepatida' : ''}
               >
                 <Pill size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Monjauro'}
+                {!sidebarCollapsed && 'Tirzepatida'}
               </button>
             </nav>
 
@@ -5779,15 +6698,36 @@ export default function MetaAdminPage() {
       )}
 
       {/* Modal de Editar Paciente com 9 Pastas */}
-      {showEditarPacienteModal && pacienteEditando && (
+      {showEditarPacienteModal && pacienteEditando && (() => {
+        const isAbandono = pacienteEditando.statusTratamento === 'abandono';
+        return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
+          <div className={`bg-white rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col ${isAbandono ? 'paciente-abandono-view' : ''}`}>
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Editar Paciente</h2>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {pacienteEditando.statusTratamento === 'abandono' ? 'Visualizar Paciente' : 'Editar Paciente'}
+                  </h2>
                   <p className="text-sm text-gray-500 mt-1">{pacienteEditando.nome}</p>
+                  {/* Aviso sobre leitura das recomendações */}
+                  {pacienteEditando.recomendacoesLidas ? (
+                    <div className="mt-2 flex items-center gap-2 text-sm bg-green-50 text-green-700 px-3 py-1.5 rounded-md border border-green-200">
+                      <AlertCircle className="w-4 h-4 text-green-600" />
+                      <span className="font-medium">✓ Paciente leu e compreendeu as recomendações</span>
+                      {pacienteEditando.dataLeituraRecomendacoes && pacienteEditando.dataLeituraRecomendacoes instanceof Date && !isNaN(pacienteEditando.dataLeituraRecomendacoes.getTime()) && (
+                        <span className="text-xs text-green-600 ml-2">
+                          ({new Date(pacienteEditando.dataLeituraRecomendacoes).toLocaleDateString('pt-BR')})
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex items-center gap-2 text-sm bg-orange-50 text-orange-700 px-3 py-1.5 rounded-md border border-orange-200">
+                      <AlertTriangle className="w-4 h-4 text-orange-600" />
+                      <span className="font-medium">⚠ Paciente ainda não leu as recomendações</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-3">
                   <select
@@ -5798,7 +6738,8 @@ export default function MetaAdminPage() {
                         statusTratamento: e.target.value as 'pendente' | 'em_tratamento' | 'concluido' | 'abandono'
                       });
                     }}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900"
+                    disabled={pacienteEditando.statusTratamento === 'abandono'}
+                    className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="pendente">Pendente</option>
                     <option value="em_tratamento">Em Tratamento</option>
@@ -5806,12 +6747,44 @@ export default function MetaAdminPage() {
                     <option value="abandono">Abandono</option>
                   </select>
                   <button
-                    onClick={() => {
-                      setShowEditarPacienteModal(false);
-                      setPacienteEditando(null);
-                      setPastaAtiva(1);
+                    onClick={async () => {
+                      // Verificar se há alterações não salvas (apenas se não for abandono)
+                      if (!isAbandono) {
+                        await verificarAlteracoesESair(
+                          () => {
+                            // Sair sem salvar
+                            setShowEditarPacienteModal(false);
+                            setPacienteEditando(null);
+                            setPacienteEditandoOriginal(null);
+                            setPastaAtiva(1);
+                          },
+                          async () => {
+                            // Salvar
+                            setLoadingPacientes(true);
+                            try {
+                              await PacienteService.createOrUpdatePaciente(pacienteEditando!);
+                              await loadPacientes();
+                              setMessage('Paciente atualizado com sucesso!');
+                            } catch (error) {
+                              console.error('Erro ao atualizar paciente:', error);
+                              setMessage('Erro ao atualizar paciente');
+                              throw error; // Re-throw para impedir fechamento se houver erro
+                            } finally {
+                              setLoadingPacientes(false);
+                            }
+                          }
+                        );
+                      } else {
+                        // Se for abandono, sair diretamente
+                        setShowEditarPacienteModal(false);
+                        setPacienteEditando(null);
+                        setPacienteEditandoOriginal(null);
+                        setPastaAtiva(1);
+                      }
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="close-button text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
+                    aria-label="Fechar"
+                    title="Fechar"
                   >
                     <X size={24} />
                   </button>
@@ -5835,6 +6808,22 @@ export default function MetaAdminPage() {
                   </div>
                 </div>
               )}
+              
+              {/* Alerta para alterar status de Pendente para Em Tratamento */}
+              {pacienteEditando.statusTratamento === 'pendente' && (
+                <div className="mt-3 bg-yellow-50 border-l-4 border-yellow-400 p-3">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Importante:</strong> Por favor, altere o status de <strong>"Pendente"</strong> para <strong>"Em Tratamento"</strong> no seletor acima para iniciar o acompanhamento do paciente.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tabs das 9 Pastas */}
@@ -5848,12 +6837,12 @@ export default function MetaAdminPage() {
                 { id: 6, nome: 'Evolução/Seguimento' },
                 { id: 7, nome: 'Alertas e Eventos' },
                 { id: 8, nome: 'Comunicação' },
-                { id: 9, nome: 'Indicadores' }
+                { id: 9, nome: 'Prescrições' }
               ].map((pasta) => (
                 <button
                   key={pasta.id}
                   onClick={() => setPastaAtiva(pasta.id)}
-                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  className={`tab-button px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     pastaAtiva === pasta.id
                       ? 'border-green-500 text-green-700 bg-green-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -5865,7 +6854,7 @@ export default function MetaAdminPage() {
             </div>
 
             {/* Conteúdo da Pasta Ativa */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className={`flex-1 overflow-y-auto p-6 ${isAbandono ? 'paciente-abandono-view' : ''}`}>
               {pastaAtiva === 1 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados de Identificação</h3>
@@ -5876,6 +6865,7 @@ export default function MetaAdminPage() {
                         type="text"
                         value={pacienteEditando.dadosIdentificacao?.nomeCompleto || ''}
                         onChange={(e) => {
+                          if (isAbandono) return;
                           setPacienteEditando({
                             ...pacienteEditando,
                             dadosIdentificacao: {
@@ -5884,7 +6874,9 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        disabled={isAbandono}
+                        readOnly={isAbandono}
+                        className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 ${isAbandono ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
@@ -5893,6 +6885,7 @@ export default function MetaAdminPage() {
                         type="email"
                         value={pacienteEditando.dadosIdentificacao?.email || ''}
                         onChange={(e) => {
+                          if (isAbandono) return;
                           setPacienteEditando({
                             ...pacienteEditando,
                             dadosIdentificacao: {
@@ -5901,7 +6894,9 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        disabled={isAbandono}
+                        readOnly={isAbandono}
+                        className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 ${isAbandono ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
@@ -5910,6 +6905,7 @@ export default function MetaAdminPage() {
                         type="tel"
                         value={pacienteEditando.dadosIdentificacao?.telefone || ''}
                         onChange={(e) => {
+                          if (isAbandono) return;
                           setPacienteEditando({
                             ...pacienteEditando,
                             dadosIdentificacao: {
@@ -5918,7 +6914,9 @@ export default function MetaAdminPage() {
                             }
                           });
                         }}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                        disabled={isAbandono}
+                        readOnly={isAbandono}
+                        className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 ${isAbandono ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       />
                     </div>
                     <div>
@@ -8084,7 +9082,7 @@ export default function MetaAdminPage() {
                             }}
                             className="mr-2"
                           />
-                          <span className="text-sm text-gray-900">Moderada (3-4x/semana, >150 min/semana)</span>
+                          <span className="text-sm text-gray-900">Moderada (3-4x/semana, &gt;150 min/semana)</span>
                         </label>
                         <label className="flex items-center">
                           <input
@@ -8226,7 +9224,7 @@ export default function MetaAdminPage() {
                           }}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-900">Abuso/diário (≥3x/semana ou >3 doses por ocasião)</span>
+                        <span className="text-sm text-gray-900">Abuso/diário (≥3x/semana ou &gt;3 doses por ocasião)</span>
                       </label>
                     </div>
                   </div>
@@ -8290,7 +9288,7 @@ export default function MetaAdminPage() {
                           }}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-900">Ex-fumante (>5 anos)</span>
+                        <span className="text-sm text-gray-900">Ex-fumante (&gt;5 anos)</span>
                       </label>
                       <label className="flex items-center">
                         <input
@@ -8331,7 +9329,7 @@ export default function MetaAdminPage() {
                           }}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-900">Fumante atual (>10 cigarros/dia)</span>
+                        <span className="text-sm text-gray-900">Fumante atual (&gt;10 cigarros/dia)</span>
                       </label>
                     </div>
                   </div>
@@ -8818,7 +9816,12 @@ export default function MetaAdminPage() {
                         hdl: exame.hdl || null,
                         triglicerides: exame.triglicerides || null,
                         tsh: exame.tsh || null,
-                        calcitonina: exame.calcitonina || null
+                        calcitonina: exame.calcitonina || null,
+                        ft4: exame.t4Livre || null,
+                        ferritina: exame.ferritina || null,
+                        ferroSerico: exame.ferroSerico || null,
+                        vitaminaB12: exame.vitaminaB12 || null,
+                        vitaminaD: exame.vitaminaD || null
                       };
                     }).reverse(); // Mais antigo primeiro para o gráfico
                     
@@ -8851,14 +9854,29 @@ export default function MetaAdminPage() {
                       ]},
                       { section: 'Tireóide / Rastreio MEN2', fields: [
                         { key: 'tsh', label: 'TSH', field: 'tsh' },
-                        { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina' }
+                        { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina' },
+                        { key: 'ft4', label: 'T4 Livre (FT4)', field: 't4Livre' }
+                      ]},
+                      { section: 'Ferro e Vitaminas', fields: [
+                        { key: 'ferritin', label: 'Ferritina', field: 'ferritina' },
+                        { key: 'iron', label: 'Ferro sérico', field: 'ferroSerico' },
+                        { key: 'b12', label: 'Vitamina B12', field: 'vitaminaB12' },
+                        { key: 'vitaminD', label: 'Vitamina D (25-OH)', field: 'vitaminaD' }
                       ]}
                     ];
+
+                    // Helper: verifica se algum exame tem valor preenchido para o campo
+                    const campoTemAlgumValor = (fieldKey: string) => {
+                      return exames.some((exame: any) => {
+                        const v = (exame as any)[fieldKey];
+                        return v !== null && v !== undefined && v !== '';
+                      });
+                    };
                     
                     return (
                       <div className="space-y-6">
-                        {/* Seletor de Data e Botão Adicionar lado a lado */}
-                        <div className="flex items-end gap-3">
+                        {/* Seletor de Data e Botões de Ação */}
+                        <div className="flex items-end gap-3 flex-wrap">
                           <div className="flex-1">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Selecionar Exame por Data
@@ -8898,6 +9916,19 @@ export default function MetaAdminPage() {
                           </div>
                           <button
                             onClick={() => {
+                              setShowSolicitarExamesModal(true);
+                              // Inicializar estados
+                              setExamesSelecionados([]);
+                              setExamesCustomizados(['']);
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <FileText size={16} />
+                            Solicitar Exames
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIndiceExameEditando(null);
                               setShowAdicionarExameModal(true);
                               // Inicializar novo exame com a estrutura vazia
                               setNovoExameData({
@@ -8908,6 +9939,67 @@ export default function MetaAdminPage() {
                           >
                             <Plus size={16} />
                             Adicionar Exames
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (examesOrdenados.length === 0 || !pacienteEditando) return;
+
+                              // Encontrar o exame correto usando a data selecionada
+                              // Primeiro tenta encontrar em examesOrdenados (que já está ordenado e filtrado)
+                              const exameParaEditar = examesOrdenados.find(e => {
+                                const dataExame = safeDateToString(e.dataColeta);
+                                return dataExame === dataSelecionada;
+                              }) || examesOrdenados[0] || null;
+
+                              if (!exameParaEditar) return;
+
+                              // Agora encontrar o índice correto no array original do paciente
+                              const examesPaciente = pacienteEditando.examesLaboratoriais || [];
+                              // Primeiro tenta encontrar pela referência do objeto (mais eficiente)
+                              let indexExame = examesPaciente.findIndex(e => e === exameParaEditar);
+                              
+                              // Se não encontrou pela referência, busca pela data (pode haver múltiplos exames com mesma data)
+                              if (indexExame === -1) {
+                                const dataExameParaEditar = safeDateToString(exameParaEditar.dataColeta);
+                                indexExame = examesPaciente.findIndex(e => {
+                                  const dataExame = safeDateToString(e.dataColeta);
+                                  return dataExame === dataExameParaEditar;
+                                });
+                              }
+
+                              const dataColetaStr =
+                                safeDateToString(exameParaEditar.dataColeta) ||
+                                new Date().toISOString().split('T')[0];
+
+                              // Inicializar a data selecionada no modal
+                              setDataSelecionadaModal(dataColetaStr);
+                              setIndiceExameEditando(indexExame >= 0 ? indexExame : null);
+
+                              setNovoExameData({
+                                dataColeta: dataColetaStr,
+                                ...Object.fromEntries(
+                                  Object.entries(exameParaEditar)
+                                    .filter(([key, value]) =>
+                                      key !== 'dataColeta' &&
+                                      key !== 'id' &&
+                                      value !== undefined &&
+                                      value !== null &&
+                                      value !== ''
+                                    )
+                                )
+                              });
+
+                              setShowAdicionarExameModal(true);
+                            }}
+                            disabled={examesOrdenados.length === 0}
+                            className={`px-4 py-2 rounded-md flex items-center gap-2 whitespace-nowrap ${
+                              examesOrdenados.length === 0
+                                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            }`}
+                          >
+                            <Edit size={16} />
+                            Editar Exame
                           </button>
                         </div>
                         
@@ -8943,14 +10035,45 @@ export default function MetaAdminPage() {
                           </div>
                         )}
                         
-                        {/* Renderizar cada seção lado a lado */}
-                        {todosOsCampos.map((secao, idxSecao) => (
+                        {/* Renderizar cada seção, apenas com campos que tenham algum dado preenchido */}
+                        {todosOsCampos.map((secao, idxSecao) => {
+                          const camposComValor = secao.fields.filter((campo) =>
+                            campoTemAlgumValor(campo.field)
+                          );
+
+                          if (camposComValor.length === 0) return null;
+
+                          return (
                           <div key={idxSecao} className="border border-gray-200 rounded-lg p-4">
                             <h4 className="font-semibold text-gray-800 mb-4">{secao.section}</h4>
                             
-                            {secao.fields.map((campo) => {
+                              {camposComValor.map((campo) => {
                               const range = getLabRange(campo.key as any, pacienteSex);
-                              if (!range) return null;
+                              // Para campos que dependem de sexo mas não está definido, usar range padrão ou ambos
+                              let rangeToUse = range;
+                              
+                              // Se não tiver range, tentar criar um range padrão para campos específicos
+                              if (!rangeToUse) {
+                                if (campo.key === 'ferritin' || campo.key === 'iron') {
+                                  const labRangeEntry = (labRanges as any)[campo.key];
+                                  if (labRangeEntry && labRangeEntry.M && labRangeEntry.F) {
+                                    // Usar range combinado (valores de ambos os sexos)
+                                    const minValue = Math.min(labRangeEntry.M.min, labRangeEntry.F.min);
+                                    const maxValue = Math.max(labRangeEntry.M.max, labRangeEntry.F.max);
+                                    rangeToUse = {
+                                      label: campo.key === 'ferritin' ? 'Ferritina' : 'Ferro sérico',
+                                      unit: labRangeEntry.M.unit || campo.unit || '',
+                                      min: minValue,
+                                      max: maxValue
+                                    };
+                                  }
+                                }
+                              }
+                              
+                              // Se ainda não tiver range válido, não renderizar o campo
+                              if (!rangeToUse || !rangeToUse.label || rangeToUse.min === undefined || rangeToUse.max === undefined) {
+                                return null;
+                              }
                               
                               // Pegar valor do exame selecionado
                               const value = exameSelecionado[campo.field as keyof typeof exameSelecionado] as number | undefined;
@@ -8960,7 +10083,7 @@ export default function MetaAdminPage() {
                                   {/* Coluna 1: Input e LabRangeBar */}
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      {range.label}
+                                      {rangeToUse.label}
                                     </label>
                                     <input
                                       type="number"
@@ -9004,7 +10127,7 @@ export default function MetaAdminPage() {
                                       }`}
                                       placeholder={examesOrdenados.length === 0 
                                         ? 'Adicione um exame primeiro' 
-                                        : `${range.min}-${range.max} ${range.unit}`
+                                        : `${rangeToUse.min}-${rangeToUse.max} ${rangeToUse.unit}`
                                       }
                                       onClick={() => {
                                         // Se não houver exames, focar no botão de adicionar
@@ -9018,16 +10141,16 @@ export default function MetaAdminPage() {
                                         }
                                       }}
                                     />
-                                    <LabRangeBar range={range} value={value || null} />
+                                    <LabRangeBar range={rangeToUse} value={value || null} />
                                     
                                     {/* Alertas específicos */}
                                     {campo.key === 'egfr' && value && value < 15 && (
                                       <p className="text-sm text-red-600 mt-1">⚠️ Alerta crítico: eGFR &lt; 15</p>
                                     )}
-                                    {campo.key === 'calcitonin' && range && value && value > range.max && (
+                                    {campo.key === 'calcitonin' && rangeToUse && value && value > rangeToUse.max && (
                                       <p className="text-sm text-red-600 mt-1">⚠️ Alerta MEN2: calcitonina elevada</p>
                                     )}
-                                    {['amylase', 'lipase'].includes(campo.key) && range && value && value > range.max && (
+                                    {['amylase', 'lipase'].includes(campo.key) && rangeToUse && value && value > rangeToUse.max && (
                                       <p className="text-sm text-red-600 mt-1">⚠️ Alerta: valor acima do máximo</p>
                                     )}
                                   </div>
@@ -9037,20 +10160,20 @@ export default function MetaAdminPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                       Evolução Temporal
                                     </label>
-                                    {dadosGrafico.length > 0 && dadosGrafico.some(d => d[campo.field as keyof typeof d[0]] !== null) ? (
+                                    {dadosGrafico.length > 0 && dadosGrafico.some(d => (d as any)[campo.field] !== null) ? (
                                       <TrendLine
                                         data={dadosGrafico}
                                         dataKeys={[
-                                          { key: campo.field, name: range.label, stroke: '#10b981', dot: true }
+                                          { key: campo.field, name: rangeToUse.label, stroke: '#10b981', dot: true }
                                         ]}
                                         xKey="data"
                                         height={150}
                                         xAxisLabel="Data"
-                                        yAxisLabel={range.unit || ''}
+                                        yAxisLabel={rangeToUse.unit || ''}
                                         formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)}` : 'N/A'}
                                         referenceLines={[
-                                          { value: range.min, label: `Min: ${range.min}`, stroke: '#ef4444', strokeDasharray: '5 5' },
-                                          { value: range.max, label: `Max: ${range.max}`, stroke: '#ef4444', strokeDasharray: '5 5' }
+                                          { value: rangeToUse.min, label: `Min: ${rangeToUse.min}`, stroke: '#ef4444', strokeDasharray: '5 5' },
+                                          { value: rangeToUse.max, label: `Max: ${rangeToUse.max}`, stroke: '#ef4444', strokeDasharray: '5 5' }
                                         ]}
                                       />
                                     ) : (
@@ -9063,7 +10186,8 @@ export default function MetaAdminPage() {
                               );
                             })}
                           </div>
-                        ))}
+                        );
+                        })}
                       </div>
                     );
                   })()}
@@ -9088,7 +10212,11 @@ export default function MetaAdminPage() {
                             try {
                               const d = new Date(date);
                               if (!isNaN(d.getTime())) {
-                                return d.toISOString().split('T')[0];
+                                // Formatar data localmente sem conversão UTC para evitar mudança de dia
+                                const year = d.getFullYear();
+                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                const day = String(d.getDate()).padStart(2, '0');
+                                return `${year}-${month}-${day}`;
                               }
                               return '';
                             } catch {
@@ -9096,12 +10224,26 @@ export default function MetaAdminPage() {
                             }
                           })()}
                           onChange={(e) => {
+                            if (!e.target.value) {
+                              setPacienteEditando({
+                                ...pacienteEditando!,
+                                planoTerapeutico: {
+                                  ...pacienteEditando?.planoTerapeutico,
+                                  startDate: undefined,
+                                  dataInicioTratamento: undefined
+                                }
+                              });
+                              return;
+                            }
+                            // Criar data no timezone local (meia-noite local) para evitar mudança de dia
+                            const [year, month, day] = e.target.value.split('-').map(Number);
+                            const localDate = new Date(year, month - 1, day, 0, 0, 0, 0);
                             setPacienteEditando({
                               ...pacienteEditando!,
                               planoTerapeutico: {
                                 ...pacienteEditando?.planoTerapeutico,
-                                startDate: e.target.value ? new Date(e.target.value) : undefined,
-                                dataInicioTratamento: e.target.value ? new Date(e.target.value) : undefined
+                                startDate: localDate,
+                                dataInicioTratamento: localDate
                               }
                             });
                           }}
@@ -10655,8 +11797,8 @@ export default function MetaAdminPage() {
                               const dataInicio = formatarDataGoogle(dataItem);
                               const dataFim = formatarDataFimGoogle(dataItem);
                               const localNome = item.localAplicacao === 'abdome' ? 'Abdome' : item.localAplicacao === 'coxa' ? 'Coxa' : 'Braço';
-                              const titulo = `Monjauro - Semana ${item.semana} - ${item.dose}mg`;
-                              const detalhes = `Aplicação de Monjauro%0A%0ASemana: ${item.semana}%0ADose: ${item.dose}mg%0ALocal: ${localNome}%0APaciente: ${pacienteEditando?.nome || 'Paciente'}`;
+                              const titulo = `Tirzepatida - Semana ${item.semana} - ${item.dose}mg`;
+                              const detalhes = `Aplicação de Tirzepatida%0A%0ASemana: ${item.semana}%0ADose: ${item.dose}mg%0ALocal: ${localNome}%0APaciente: ${pacienteEditando?.nome || 'Paciente'}`;
                               
                               return {
                                 url: `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${dataInicio}/${dataFim}&details=${encodeURIComponent(detalhes)}&ctz=America/Sao_Paulo`,
@@ -10887,6 +12029,22 @@ export default function MetaAdminPage() {
                     </button>
                   </div>
 
+                  {/* Alerta de mensagens não lidas */}
+                  {mensagensNaoLidasPacienteParaMedico > 0 && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          <AlertCircle className="h-5 w-5 text-yellow-600" />
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-yellow-800">
+                            <strong>Você tem {mensagensNaoLidasPacienteParaMedico} mensagem(ns) não lida(s) do paciente.</strong> Role para baixo para visualizar e marcar como lida.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Formulário para enviar nova mensagem */}
                   <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                     <h4 className="text-sm font-semibold text-gray-900 mb-3">Enviar Mensagem ao Paciente</h4>
@@ -10941,22 +12099,77 @@ export default function MetaAdminPage() {
                   {/* Histórico de mensagens */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-900">Histórico de Mensagens</h4>
+                    
+                    {/* Tabs */}
+                    <div className="flex border-b border-gray-200">
+                      <button
+                        onClick={() => setAbaAtivaMensagensAdmin('recebidas')}
+                        className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          abaAtivaMensagensAdmin === 'recebidas'
+                            ? 'border-blue-500 text-blue-700 bg-blue-50'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        Recebidas
+                        {mensagensNaoLidasPacienteParaMedico > 0 && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            {mensagensNaoLidasPacienteParaMedico}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setAbaAtivaMensagensAdmin('enviadas')}
+                        className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          abaAtivaMensagensAdmin === 'enviadas'
+                            ? 'border-blue-500 text-blue-700 bg-blue-50'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        Enviadas
+                      </button>
+                    </div>
+
+                    {/* Conteúdo das abas */}
                     {loadingMensagensPaciente && mensagensPaciente.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
                         <RefreshCw className="mx-auto animate-spin text-gray-400 mb-2" />
                         <p className="text-gray-600">Carregando mensagens...</p>
                       </div>
-                    ) : mensagensPaciente.length === 0 ? (
-                      <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
-                        <MessageSquare size={48} className="mx-auto text-gray-400 mb-4" />
-                        <p className="text-gray-600">Nenhuma mensagem enviada ainda</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {mensagensPaciente.map((msg) => (
+                    ) : (() => {
+                      // Filtrar mensagens por aba
+                      const mensagensFiltradas = mensagensPaciente.filter(msg => {
+                        if (abaAtivaMensagensAdmin === 'recebidas') {
+                          // Recebidas: mensagens do paciente para o médico
+                          return msg.direcao === 'paciente_para_medico';
+                        } else {
+                          // Enviadas: mensagens do médico para o paciente
+                          return msg.direcao === 'medico_para_paciente' || !msg.direcao;
+                        }
+                      });
+
+                      if (mensagensFiltradas.length === 0) {
+                        return (
+                          <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                            <MessageSquare size={48} className="mx-auto text-gray-400 mb-4" />
+                            <p className="text-gray-600">
+                              {abaAtivaMensagensAdmin === 'recebidas' 
+                                ? 'Nenhuma mensagem recebida ainda' 
+                                : 'Nenhuma mensagem enviada ainda'}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                          {mensagensFiltradas.map((msg) => (
                           <div
                             key={msg.id}
-                            className={`border rounded-lg p-3 ${msg.lida ? 'bg-gray-50' : 'bg-blue-50'}`}
+                            className={`border rounded-lg p-3 ${
+                              msg.direcao === 'paciente_para_medico' 
+                                ? (msg.lida ? 'bg-yellow-50 border-yellow-200' : 'bg-yellow-100 border-yellow-300')
+                                : (msg.lida ? 'bg-gray-50' : 'bg-blue-50')
+                            }`}
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
@@ -10965,7 +12178,22 @@ export default function MetaAdminPage() {
                                   <span className="px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300">
                                     {msg.tipo}
                                   </span>
-                                  {!msg.lida && (
+                                  {msg.direcao === 'paciente_para_medico' && (
+                                    <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-200 text-yellow-800 font-medium">
+                                      Do Paciente
+                                    </span>
+                                  )}
+                                  {msg.direcao === 'medico_para_paciente' && (
+                                    <span className="px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-medium">
+                                      Do Médico
+                                    </span>
+                                  )}
+                                  {!msg.lida && msg.direcao === 'paciente_para_medico' && (
+                                    <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800 font-medium">
+                                      Não lida
+                                    </span>
+                                  )}
+                                  {!msg.lida && msg.direcao === 'medico_para_paciente' && (
                                     <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
                                       Não lida
                                     </span>
@@ -10976,17 +12204,39 @@ export default function MetaAdminPage() {
                                   {new Date(msg.criadoEm).toLocaleDateString('pt-BR')}
                                 </p>
                               </div>
-                              <button
-                                onClick={() => handleDeletarMensagemPaciente(msg.id)}
-                                className="ml-2 text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                {msg.direcao === 'paciente_para_medico' && !msg.lida && (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await PacienteMensagemService.marcarComoLida(msg.id);
+                                        await loadMensagensPaciente();
+                                      } catch (error) {
+                                        console.error('Erro ao marcar como lida:', error);
+                                      }
+                                    }}
+                                    className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                                  >
+                                    Marcar como lida
+                                  </button>
+                                )}
+                                {/* Botão de excluir só aparece para mensagens enviadas pelo médico */}
+                                {msg.direcao === 'medico_para_paciente' && (
+                                  <button
+                                    onClick={() => handleDeletarMensagemPaciente(msg.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                    title="Excluir mensagem"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -10994,384 +12244,878 @@ export default function MetaAdminPage() {
               {pastaAtiva === 9 && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900">Dados Derivados / Indicadores</h3>
-                    <button
-                      onClick={() => loadPacientes()}
-                      className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-2"
-                    >
-                      <RefreshCw size={16} />
-                      Atualizar
-                    </button>
+                    <h3 className="text-lg font-semibold text-gray-900">Prescrições</h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          // Criar prescrição temporária
+                          const prescricaoTemporaria: Prescricao = {
+                            id: 'temp-new',
+                            medicoId: medicoPerfil?.id || '',
+                            nome: 'Nova prescrição',
+                            descricao: '',
+                            itens: [],
+                            observacoes: '',
+                            criadoEm: new Date(),
+                            atualizadoEm: new Date(),
+                            criadoPor: user?.email || '',
+                            isTemplate: false
+                          };
+                          
+                          // Adicionar à lista de prescrições (no início)
+                          setPrescricoes(prev => [prescricaoTemporaria, ...(prev || [])]);
+                          
+                          // Selecionar a prescrição temporária
+                          setPrescricaoSelecionada(prescricaoTemporaria);
+                          setPrescricaoEditando(null);
+                          
+                          // Zerar os campos
+                          setNovaPrescricao({
+                            nome: 'Nova prescrição',
+                            descricao: '',
+                            itens: [],
+                            observacoes: ''
+                          });
+                        }}
+                        className="px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 flex items-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Nova Prescrição
+                      </button>
+                      <button
+                        onClick={loadPrescricoes}
+                        className="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-2"
+                      >
+                        <RefreshCw size={16} />
+                        Atualizar
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Informação: Indicadores calculados automaticamente */}
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-800 font-medium mb-2">📊 Indicadores Ativos</p>
-                    <p className="text-sm text-green-700">
-                      Os indicadores são calculados automaticamente com base nos dados das pastas anteriores:
-                    </p>
-                    <ul className="list-disc list-inside text-sm text-green-700 mt-2 space-y-1">
-                      <li><strong>Peso:</strong> Real vs. Previsto, % de perda, variância</li>
-                      <li><strong>Adesão:</strong> Taxa de aplicação pontual, atrasos, esquecimentos</li>
-                      <li><strong>Segurança:</strong> Alertas ativos, bloqueios de dose, tempo médio de resolução</li>
-                      <li><strong>Metabólicos:</strong> HbA1c prevista, Circunferência abdominal prevista</li>
-                    </ul>
-                  </div>
-
-                  {/* Exibição de KPIs simples do paciente atual */}
-                  {pacienteEditando && (() => {
-                    const evolucao = pacienteEditando.evolucaoSeguimento || [];
-                    const medidasIniciais = pacienteEditando.dadosClinicos?.medidasIniciais;
-                    const planoTerapeutico = pacienteEditando.planoTerapeutico;
-                    
-                    const baselineWeight = medidasIniciais?.peso || 0;
-                    const ultimoRegistro = evolucao.length > 0 ? evolucao[evolucao.length - 1] : null;
-                    
-                    if (!ultimoRegistro) {
-                      return (
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <p className="text-sm text-gray-600 text-center">
-                            Nenhum registro de seguimento ainda. Adicione registros na Pasta 6 para visualizar indicadores.
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    const lossPct = baselineWeight > 0 && ultimoRegistro.peso 
-                      ? ((baselineWeight - ultimoRegistro.peso) / baselineWeight * 100).toFixed(1)
-                      : '0.0';
-
-                    const suggestedSchedule = buildSuggestedDoseSchedule(1, [2.5, 5, 7.5, 10, 12.5, 15], 4);
-                    const expectedCurve = buildExpectedCurveDoseDrivenAnchored({
-                      baselineWeightKg: baselineWeight,
-                      doseSchedule: suggestedSchedule,
-                      totalWeeks: 18,
-                      targetType: planoTerapeutico?.metas?.weightLossTargetType,
-                      targetValue: planoTerapeutico?.metas?.weightLossTargetValue || 0,
-                      useAnchorWeek: 18,
-                      useAnchorPct: 9.0
-                    });
-                    
-                    const expectedWeek = expectedCurve.find(e => e.weekIndex === ultimoRegistro.weekIndex);
-                    const expectedWeight = expectedWeek?.expectedWeightKg || baselineWeight;
-                    const varianceKg = ultimoRegistro.peso ? (ultimoRegistro.peso - expectedWeight) : null;
-                    const varianceStatusValue = varianceStatus(varianceKg);
-                    
-                    const adherenceCounts = evolucao.reduce((acc, r) => {
-                      const adherence = r.adherence || r.adesao;
-                      if (adherence === 'ON_TIME' || adherence === 'pontual') acc.onTime++;
-                      else if (adherence === 'MISSED' || adherence === 'esquecida') acc.missed++;
-                      else acc.late++;
-                      return acc;
-                    }, { onTime: 0, late: 0, missed: 0 });
-                    
-                    const adherenceRate = evolucao.length > 0 
-                      ? ((adherenceCounts.onTime / evolucao.length) * 100).toFixed(0)
-                      : '0';
-
-                    // Função para obter classes CSS do status
-                    const getStatusClasses = (status: string) => {
-                      switch (status) {
-                        case 'GREEN': return 'bg-emerald-100 text-emerald-700';
-                        case 'YELLOW': return 'bg-amber-100 text-amber-700';
-                        case 'RED': return 'bg-rose-100 text-rose-700';
-                        default: return 'bg-slate-100 text-slate-700';
-                      }
-                    };
-
-                    const getStatusBadge = (status: string) => {
-                      switch (status) {
-                        case 'GREEN': return '✅ Dentro da meta';
-                        case 'YELLOW': return '⚠️ Atentar';
-                        case 'RED': return '❌ Crítico';
-                        default: return '⏸️ N/A';
-                      }
-                    };
-
-                    return (
-                      <div className="space-y-4">
-                        {/* Cards de KPI */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="text-sm font-semibold text-gray-900">Peso Atual vs. Esperado</h4>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClasses(varianceStatusValue)}`}>
-                                {getStatusBadge(varianceStatusValue)}
-                              </span>
+                  {/* Lista de Prescrições */}
+                  {loadingPrescricoes ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                      <p className="mt-2 text-gray-600">Carregando prescrições...</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Lista de Prescrições - Lado Esquerdo */}
+                      <div className="lg:col-span-1 space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Prescrições Salvas</h4>
+                        <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
+                          {!prescricoes || prescricoes.length === 0 ? (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                              <p className="text-sm text-gray-500">Nenhuma prescrição cadastrada ainda.</p>
                             </div>
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Real:</span>
-                                <span className="font-semibold text-gray-900">{ultimoRegistro.peso?.toFixed(1) || '-'} kg</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Esperado:</span>
-                                <span className="font-semibold text-gray-700">{expectedWeight.toFixed(1)} kg</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Δ:</span>
-                                <span className={`font-semibold ${varianceKg !== null ? varianceKg > 0 ? 'text-red-600' : 'text-green-600' : 'text-gray-700'}`}>
-                                  {varianceKg !== null ? `${varianceKg > 0 ? '+' : ''}${varianceKg.toFixed(1)} kg` : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">% Perda:</span>
-                                <span className="font-semibold text-blue-600">{lossPct}%</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="text-sm font-semibold text-gray-900">Adesão ao Tratamento</h4>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                parseFloat(adherenceRate) >= 80 ? 'bg-emerald-100 text-emerald-700' : 
-                                parseFloat(adherenceRate) >= 60 ? 'bg-amber-100 text-amber-700' : 
-                                'bg-rose-100 text-rose-700'
-                              }`}>
-                                {parseFloat(adherenceRate) >= 80 ? '✅ Excelente' : parseFloat(adherenceRate) >= 60 ? '⚠️ Regular' : '❌ Crítico'}
-                              </span>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Taxa de Pontualidade:</span>
-                                <span className="font-semibold text-emerald-600">{adherenceRate}%</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Registros:</span>
-                                <span className="font-semibold text-gray-900">{evolucao.length}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Pontual:</span>
-                                <span className="font-semibold text-green-600">{adherenceCounts.onTime}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Atrasados:</span>
-                                <span className="font-semibold text-yellow-600">{adherenceCounts.late}</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Esquecidos:</span>
-                                <span className="font-semibold text-red-600">{adherenceCounts.missed}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="text-sm font-semibold text-gray-900">Segurança</h4>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                !ultimoRegistro.bloquearDose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                              }`}>
-                                {!ultimoRegistro.bloquearDose ? '✅ Liberado' : '❌ Bloqueado'}
-                              </span>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Dose Atual:</span>
-                                <span className="font-semibold text-gray-900">{ultimoRegistro.doseAplicada?.quantidade || planoTerapeutico?.doseTitulacao?.currentDoseMg || '-'} mg</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Upgrade Bloqueado:</span>
-                                <span className={`font-semibold ${ultimoRegistro.bloquearDose ? 'text-red-600' : 'text-green-600'}`}>
-                                  {ultimoRegistro.bloquearDose ? 'Sim' : 'Não'}
-                                </span>
-                              </div>
-                              {ultimoRegistro.giSeverity && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Severidade GI:</span>
-                                  <span className={`font-semibold ${
-                                    ultimoRegistro.giSeverity === 'LEVE' ? 'text-green-600' :
-                                    ultimoRegistro.giSeverity === 'MODERADO' ? 'text-yellow-600' :
-                                    'text-red-600'
-                                  }`}>
-                                    {ultimoRegistro.giSeverity}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="text-sm font-semibold text-gray-900">Metabólicos</h4>
-                            </div>
-                            <div className="space-y-1">
-                              {expectedWeek && (
-                                <>
-                                  {expectedWeek.expectedHbA1c !== undefined && (
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">HbA1c Prevista:</span>
-                                      <span className="font-semibold text-purple-600">{expectedWeek.expectedHbA1c.toFixed(1)}%</span>
-                                    </div>
-                                  )}
-                                  {expectedWeek.expectedWaistCm !== undefined && (
-                                    <div className="flex justify-between text-sm">
-                                      <span className="text-gray-600">Circunferência Prevista:</span>
-                                      <span className="font-semibold text-orange-600">{expectedWeek.expectedWaistCm.toFixed(1)} cm</span>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                              {ultimoRegistro.hba1c && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">HbA1c Real:</span>
-                                  <span className="font-semibold text-purple-600">{ultimoRegistro.hba1c.toFixed(1)}%</span>
-                                </div>
-                              )}
-                              {ultimoRegistro.circunferenciaAbdominal && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Circunferência Real:</span>
-                                  <span className="font-semibold text-orange-600">{ultimoRegistro.circunferenciaAbdominal.toFixed(1)} cm</span>
-                                </div>
-                              )}
-                              {(!expectedWeek && !ultimoRegistro.hba1c && !ultimoRegistro.circunferenciaAbdominal) && (
-                                <p className="text-xs text-gray-500 italic">Sem dados metabólicos disponíveis</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Tabs para gráficos adicionais */}
-                        <div className="border border-gray-200 rounded-lg bg-white">
-                          <div className="flex border-b border-gray-200">
-                            <button
-                              onClick={() => setIndicadorAtivoPasta9('paciente')}
-                              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                                indicadorAtivoPasta9 === 'paciente'
-                                  ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                              }`}
-                            >
-                              📊 Adesão por Semana
-          </button>
-                            <button
-                              onClick={() => setIndicadorAtivoPasta9('adesao')}
-                              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                                indicadorAtivoPasta9 === 'adesao'
-                                  ? 'bg-green-50 text-green-700 border-b-2 border-green-700'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                              }`}
-                            >
-                              📈 Evolução Peso
-                            </button>
-                          </div>
-
-                          <div className="p-6">
-                            {indicadorAtivoPasta9 === 'paciente' && (
-                              <div>
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Taxa de Adesão por Semana</h4>
-                                {evolucao.length > 0 ? (
-                                  <StackedBars
-                                    data={evolucao.map(r => ({
-                                      semana: r.weekIndex,
-                                      pontual: r.adherence === 'ON_TIME' || r.adesao === 'pontual' ? 1 : 0,
-                                      atrasado: r.adherence === 'LATE_<96H' || (r.adherence && r.adherence !== 'ON_TIME' && r.adherence !== 'MISSED' && r.adesao && r.adesao !== 'pontual' && r.adesao !== 'esquecida') ? 1 : 0,
-                                      esquecido: r.adherence === 'MISSED' || r.adesao === 'esquecida' ? 1 : 0
-                                    }))}
-                                    dataKeys={[
-                                      { key: 'pontual', name: 'Pontual', color: '#10b981' },
-                                      { key: 'atrasado', name: 'Atrasado', color: '#f59e0b' },
-                                      { key: 'esquecido', name: 'Esquecido', color: '#ef4444' }
-                                    ]}
-                                    xKey="semana"
-                                    height={300}
-                                    xAxisLabel="Semana"
-                                    yAxisLabel="Registros"
-                                  />
-                                ) : (
-                                  <p className="text-center text-gray-500 py-8">Sem dados de adesão disponíveis</p>
-                                )}
-                              </div>
-                            )}
-
-                            {indicadorAtivoPasta9 === 'adesao' && (
-                              <div>
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Evolução de Peso: Real vs. Previsto</h4>
-                                {evolucao.length > 0 && baselineWeight > 0 ? (
-                                  <TrendLine
-                                    data={evolucao.map(r => {
-                                      const expectedWeek = expectedCurve.find(e => e.weekIndex === r.weekIndex);
-                                      return {
-                                        semana: r.weekIndex,
-                                        real: r.peso,
-                                        previsto: expectedWeek?.expectedWeightKg
+                          ) : (
+                            prescricoes.map((prescricao) => {
+                              const isTemplate = prescricao.isTemplate;
+                              const isTemporaria = prescricao.id === 'temp-new';
+                              const isSelected = prescricaoSelecionada?.id === prescricao.id;
+                              return (
+                                <button
+                                  key={prescricao.id}
+                                  onClick={() => {
+                                    // Se for temporária, apenas selecionar e carregar os dados
+                                    if (isTemporaria) {
+                                      setPrescricaoSelecionada(prescricao);
+                                      setPrescricaoEditando(null);
+                                      setNovaPrescricao({
+                                        nome: prescricao.nome,
+                                        descricao: prescricao.descricao || '',
+                                        itens: prescricao.itens || [],
+                                        observacoes: prescricao.observacoes || ''
+                                      });
+                                      return;
+                                    }
+                                    
+                                    // Se for template, recalcular dosagens baseadas no peso do paciente
+                                    let prescricaoParaEditar = prescricao;
+                                    if (isTemplate && pacienteEditando) {
+                                      const pesoAtual = pacienteEditando.dadosClinicos?.medidasIniciais?.peso || 
+                                                       pacienteEditando.evolucaoSeguimento?.[pacienteEditando.evolucaoSeguimento.length - 1]?.peso;
+                                      
+                                      if (!pesoAtual) {
+                                        setMessage('Peso do paciente não encontrado. Por favor, cadastre o peso nas Medidas Iniciais (Aba 2 - Dados Clínicos).');
+                                        setTimeout(() => setMessage(''), 5000);
+                                        return;
+                                      }
+                                      
+                                      const itensRecalculados = prescricao.itens.map(item => {
+                                        if (item.medicamento === 'Whey Protein') {
+                                          const wheyDosagemTotal = (pesoAtual * 1.6).toFixed(1);
+                                          const wheyPorRefeicao = (pesoAtual * 1.6 / 3).toFixed(1);
+                                          return {
+                                            ...item,
+                                            dosagem: `${wheyDosagemTotal}g por dia (1,6g por kg de peso corporal)`,
+                                            instrucoes: `Tomar aproximadamente ${wheyPorRefeicao}g de whey protein 3 vezes ao dia (totalizando ${wheyDosagemTotal}g/dia). Preferencialmente após as refeições principais ou após exercícios físicos. A dosagem de 1,6g/kg/dia é recomendada para preservação de massa muscular durante processo de perda de peso.`,
+                                            quantidade: `${wheyDosagemTotal}g/dia`
+                                          };
+                                        }
+                                        // Garantir que creatina seja 3,5g
+                                        if (item.medicamento === 'Creatina MAX' || item.medicamento.includes('Creatina')) {
+                                          return {
+                                            ...item,
+                                            dosagem: '3,5g por dia',
+                                            instrucoes: 'Tomar 3,5g por dia, diluído em 200ml de água. Preferencialmente após o treino ou junto com uma refeição. A creatina auxilia na preservação de força e massa muscular durante o processo de perda de peso.',
+                                            quantidade: '3,5g/dia'
+                                          };
+                                        }
+                                        return item;
+                                      });
+                                      
+                                      prescricaoParaEditar = {
+                                        ...prescricao,
+                                        itens: itensRecalculados,
+                                        pesoPaciente: pesoAtual
                                       };
-                                    })}
-                                    dataKeys={[
-                                      { key: 'real', name: 'Peso Real', stroke: '#10b981', dot: true },
-                                      { key: 'previsto', name: 'Peso Previsto', stroke: '#3b82f6', strokeDasharray: '5 5', dot: false }
-                                    ]}
-                                    xKey="semana"
-                                    height={300}
-                                    xAxisLabel="Semana"
-                                    yAxisLabel="Peso (kg)"
-                                    domain={[baselineWeight - 20, baselineWeight + 20]}
-                                    formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)} kg` : 'N/A'}
-                                  />
-                                ) : (
-                                  <p className="text-center text-gray-500 py-8">Sem dados de peso disponíveis</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                                    }
+                                    setPrescricaoSelecionada(prescricaoParaEditar);
+                                    setPrescricaoEditando(prescricaoParaEditar);
+                                    setNovaPrescricao({
+                                      nome: prescricaoParaEditar.nome,
+                                      descricao: prescricaoParaEditar.descricao || '',
+                                      itens: prescricaoParaEditar.itens,
+                                      observacoes: prescricaoParaEditar.observacoes || ''
+                                    });
+                                  }}
+                                  className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
+                                    isSelected
+                                      ? 'border-green-500 bg-green-50'
+                                      : isTemporaria
+                                      ? 'border-yellow-200 bg-yellow-50/50 hover:border-yellow-300'
+                                      : isTemplate
+                                      ? 'border-blue-200 bg-blue-50/50 hover:border-blue-300'
+                                      : 'border-gray-200 bg-white hover:border-gray-300'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm font-medium truncate ${isSelected ? 'text-green-900' : 'text-gray-900'}`}>
+                                        {prescricao.nome}
+                                      </p>
+                                      {isTemporaria && (
+                                        <p className="text-xs text-yellow-600 mt-1">✏️ Em edição</p>
+                                      )}
+                                      {isTemplate && !isTemporaria && (
+                                        <p className="text-xs text-blue-600 mt-1">📋 Padrão</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
                         </div>
                       </div>
-                    );
-                  })()}
+
+                      {/* Editor de Prescrição - Centro */}
+                      <div className="lg:col-span-2">
+                        {prescricaoSelecionada ? (
+                          <div className="bg-white border border-gray-200 rounded-lg p-6">
+                            {prescricaoSelecionada.id === 'temp-new' && (
+                              <div className="mb-4 px-3 py-2 bg-yellow-100 border border-yellow-200 rounded-md">
+                                <p className="text-xs font-medium text-yellow-800">
+                                  ✏️ Prescrição temporária - Preencha os dados e salve para criar a prescrição
+                                </p>
+                              </div>
+                            )}
+                            {prescricaoSelecionada.isTemplate && prescricaoSelecionada.id !== 'temp-new' && (
+                              <div className="mb-4 px-3 py-2 bg-blue-100 border border-blue-200 rounded-md">
+                                <p className="text-xs font-medium text-blue-800">
+                                  📋 Prescrição Padrão (Disponível para todos os médicos)
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* Nome da Prescrição */}
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Nome da Prescrição *
+                              </label>
+                              <input
+                                type="text"
+                                value={novaPrescricao.nome}
+                                onChange={(e) => setNovaPrescricao({ ...novaPrescricao, nome: e.target.value })}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                placeholder="Ex: Prescrição Suplementar"
+                              />
+                            </div>
+
+                            {/* Descrição */}
+                            <div className="mb-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Descrição
+                              </label>
+                              <textarea
+                                value={novaPrescricao.descricao}
+                                onChange={(e) => setNovaPrescricao({ ...novaPrescricao, descricao: e.target.value })}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                rows={2}
+                                placeholder="Descrição da prescrição..."
+                              />
+                            </div>
+
+                            {/* Itens da Prescrição */}
+                            <div className="mb-4">
+                              <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Itens da Prescrição *
+                                </label>
+                                <button
+                                  onClick={() => {
+                                    setNovaPrescricao({
+                                      ...novaPrescricao,
+                                      itens: [...novaPrescricao.itens, {
+                                        medicamento: '',
+                                        dosagem: '',
+                                        frequencia: '',
+                                        instrucoes: ''
+                                      }]
+                                    });
+                                  }}
+                                  className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+                                >
+                                  <Plus size={14} />
+                                  Adicionar Item
+                                </button>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                {(novaPrescricao.itens || []).map((item, index) => (
+                                  <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                    <div className="flex justify-between items-center mb-3">
+                                      <h5 className="font-medium text-gray-900">Item {index + 1}</h5>
+                                      <button
+                                        onClick={() => {
+                                          const novosItens = (novaPrescricao.itens || []).filter((_, i) => i !== index);
+                                          setNovaPrescricao({ ...novaPrescricao, itens: novosItens });
+                                        }}
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                          Medicamento/Suplemento *
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={item.medicamento}
+                                          onChange={(e) => {
+                                            const novosItens = [...(novaPrescricao.itens || [])];
+                                            novosItens[index].medicamento = e.target.value;
+                                            setNovaPrescricao({ ...novaPrescricao, itens: novosItens });
+                                          }}
+                                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                          placeholder="Ex: Whey Protein"
+                                        />
+                                      </div>
+                                      
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                          Dosagem *
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={item.dosagem}
+                                          onChange={(e) => {
+                                            const novosItens = [...(novaPrescricao.itens || [])];
+                                            novosItens[index].dosagem = e.target.value;
+                                            setNovaPrescricao({ ...novaPrescricao, itens: novosItens });
+                                          }}
+                                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                          placeholder="Ex: 1,6g por kg"
+                                        />
+                                      </div>
+                                      
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                          Frequência *
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={item.frequencia}
+                                          onChange={(e) => {
+                                            const novosItens = [...(novaPrescricao.itens || [])];
+                                            novosItens[index].frequencia = e.target.value;
+                                            setNovaPrescricao({ ...novaPrescricao, itens: novosItens });
+                                          }}
+                                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                          placeholder="Ex: 3x ao dia"
+                                        />
+                                      </div>
+                                      
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                          Quantidade (opcional)
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={item.quantidade || ''}
+                                          onChange={(e) => {
+                                            const novosItens = [...(novaPrescricao.itens || [])];
+                                            novosItens[index].quantidade = e.target.value;
+                                            setNovaPrescricao({ ...novaPrescricao, itens: novosItens });
+                                          }}
+                                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                          placeholder="Ex: 100g/dia"
+                                        />
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="mt-3">
+                                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                                        Instruções Detalhadas *
+                                      </label>
+                                      <textarea
+                                        value={item.instrucoes}
+                                        onChange={(e) => {
+                                          const novosItens = [...(novaPrescricao.itens || [])];
+                                          novosItens[index].instrucoes = e.target.value;
+                                          setNovaPrescricao({ ...novaPrescricao, itens: novosItens });
+                                        }}
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                        rows={2}
+                                        placeholder="Instruções detalhadas de uso..."
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                                
+                                {(!novaPrescricao.itens || novaPrescricao.itens.length === 0) && (
+                                  <div className="text-center py-4 text-gray-500 text-sm">
+                                    Nenhum item adicionado. Clique em "Adicionar Item" para começar.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Observações */}
+                            <div className="mb-6">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Observações
+                              </label>
+                              <textarea
+                                value={novaPrescricao.observacoes}
+                                onChange={(e) => setNovaPrescricao({ ...novaPrescricao, observacoes: e.target.value })}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                                rows={3}
+                                placeholder="Observações adicionais..."
+                              />
+                            </div>
+
+                            {/* Botões de Ação */}
+                            <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={async () => {
+                                    if (!medicoPerfil || !pacienteEditando) return;
+                                    
+                                    if (!novaPrescricao.nome.trim()) {
+                                      setMessage('Nome da prescrição é obrigatório');
+                                      setTimeout(() => setMessage(''), 3000);
+                                      return;
+                                    }
+                                    
+                                    if (!novaPrescricao.itens || novaPrescricao.itens.length === 0) {
+                                      setMessage('Adicione pelo menos um item à prescrição');
+                                      setTimeout(() => setMessage(''), 3000);
+                                      return;
+                                    }
+                                    
+                                    // Validar itens
+                                    for (const item of (novaPrescricao.itens || [])) {
+                                      if (!item.medicamento.trim() || !item.dosagem.trim() || !item.frequencia.trim() || !item.instrucoes.trim()) {
+                                        setMessage('Preencha todos os campos obrigatórios dos itens');
+                                        setTimeout(() => setMessage(''), 3000);
+                                        return;
+                                      }
+                                    }
+                                    
+                                    try {
+                                      const pesoAtual = pacienteEditando.dadosClinicos?.medidasIniciais?.peso || 
+                                                       pacienteEditando.evolucaoSeguimento?.[pacienteEditando.evolucaoSeguimento.length - 1]?.peso;
+                                      
+                                      // Verificar se é uma prescrição temporária
+                                      const isTemporaria = prescricaoSelecionada?.id === 'temp-new';
+                                      
+                                      const prescricaoData: Omit<Prescricao, 'id'> | Prescricao = prescricaoEditando && !prescricaoEditando.isTemplate && !isTemporaria ? {
+                                        ...prescricaoEditando,
+                                        nome: novaPrescricao.nome,
+                                        descricao: novaPrescricao.descricao,
+                                        itens: novaPrescricao.itens,
+                                        observacoes: novaPrescricao.observacoes,
+                                        atualizadoEm: new Date()
+                                      } : {
+                                        medicoId: medicoPerfil.id,
+                                        pacienteId: undefined, // undefined = aparece para todos os pacientes deste médico
+                                        nome: novaPrescricao.nome,
+                                        descricao: novaPrescricao.descricao,
+                                        itens: novaPrescricao.itens,
+                                        observacoes: novaPrescricao.observacoes,
+                                        criadoEm: new Date(),
+                                        atualizadoEm: new Date(),
+                                        criadoPor: user?.email || '',
+                                        isTemplate: false,
+                                        pesoPaciente: pesoAtual
+                                      };
+                                      
+                                      const prescricaoId = await PrescricaoService.createOrUpdatePrescricao(prescricaoData);
+                                      
+                                      // Se era uma prescrição temporária, remover da lista
+                                      if (prescricaoSelecionada?.id === 'temp-new') {
+                                        setPrescricoes(prev => (prev || []).filter(p => p.id !== 'temp-new'));
+                                      }
+                                      
+                                      // Recarregar prescrições para obter a nova prescrição salva
+                                      await loadPrescricoes();
+                                      
+                                      // Selecionar a prescrição recém-salva
+                                      if (prescricaoId) {
+                                        const [templates, prescricoesMedico] = await Promise.all([
+                                          PrescricaoService.getPrescricoesTemplate(),
+                                          PrescricaoService.getPrescricoesByMedico(medicoPerfil.id)
+                                        ]);
+                                        const todasPrescricoes = [
+                                          ...templates,
+                                          ...prescricoesMedico.filter(p => !p.pacienteId)
+                                        ];
+                                        const prescricaoSalva = todasPrescricoes.find(p => p.id === prescricaoId);
+                                        if (prescricaoSalva) {
+                                          setPrescricaoSelecionada(prescricaoSalva);
+                                          setPrescricaoEditando(prescricaoSalva);
+                                          setNovaPrescricao({
+                                            nome: prescricaoSalva.nome,
+                                            descricao: prescricaoSalva.descricao || '',
+                                            itens: prescricaoSalva.itens || [],
+                                            observacoes: prescricaoSalva.observacoes || ''
+                                          });
+                                        }
+                                      }
+                                      
+                                      setMessage(prescricaoEditando && !prescricaoEditando.isTemplate && !isTemporaria ? 'Prescrição atualizada com sucesso!' : 'Prescrição criada com sucesso!');
+                                      setTimeout(() => setMessage(''), 3000);
+                                      
+                                      // Atualizar prescrição selecionada se for edição (não temporária)
+                                      if (prescricaoEditando && !prescricaoEditando.isTemplate && !isTemporaria) {
+                                        const prescricaoAtualizada = {
+                                          ...prescricaoEditando,
+                                          nome: novaPrescricao.nome,
+                                          descricao: novaPrescricao.descricao,
+                                          itens: novaPrescricao.itens,
+                                          observacoes: novaPrescricao.observacoes
+                                        };
+                                        setPrescricaoSelecionada(prescricaoAtualizada);
+                                      }
+                                    } catch (error) {
+                                      console.error('Erro ao salvar prescrição:', error);
+                                      setMessage('Erro ao salvar prescrição');
+                                      setTimeout(() => setMessage(''), 3000);
+                                    }
+                                  }}
+                                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+                                >
+                                  <Save size={16} />
+                                  {prescricaoEditando && !prescricaoEditando.isTemplate ? 'Salvar Alterações' : 'Salvar Prescrição'}
+                                </button>
+                                
+                                {prescricaoEditando && !prescricaoEditando.isTemplate && (
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm('Tem certeza que deseja excluir esta prescrição?')) {
+                                        try {
+                                          await PrescricaoService.deletePrescricao(prescricaoEditando.id);
+                                          await loadPrescricoes();
+                                          setPrescricaoSelecionada(null);
+                                          setPrescricaoEditando(null);
+                                          setNovaPrescricao({
+                                            nome: '',
+                                            descricao: '',
+                                            itens: [],
+                                            observacoes: ''
+                                          });
+                                          setMessage('Prescrição excluída com sucesso!');
+                                          setTimeout(() => setMessage(''), 3000);
+                                        } catch (error) {
+                                          console.error('Erro ao excluir prescrição:', error);
+                                          setMessage('Erro ao excluir prescrição');
+                                          setTimeout(() => setMessage(''), 3000);
+                                        }
+                                      }
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center gap-2"
+                                  >
+                                    <Trash2 size={16} />
+                                    Excluir
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <button
+                                onClick={async () => {
+                                  if (!medicoPerfil || !pacienteEditando || !prescricaoSelecionada) return;
+                                  
+                                  // Obter peso real do paciente
+                                  const pesoRealPaciente = pacienteEditando.dadosClinicos?.medidasIniciais?.peso || 
+                                                          pacienteEditando.evolucaoSeguimento?.[pacienteEditando.evolucaoSeguimento.length - 1]?.peso;
+                                  
+                                  if (!pesoRealPaciente) {
+                                    setMessage('Peso do paciente não encontrado. Por favor, cadastre o peso nas Medidas Iniciais (Aba 2 - Dados Clínicos).');
+                                    setTimeout(() => setMessage(''), 5000);
+                                    return;
+                                  }
+                                  
+                                  // Se for template, recalcular dosagens com peso real
+                                  let itensParaImprimir = novaPrescricao.itens || [];
+                                  if (prescricaoSelecionada.isTemplate) {
+                                    itensParaImprimir = itensParaImprimir.map(item => {
+                                      if (item.medicamento === 'Whey Protein') {
+                                        const wheyDosagemTotal = (pesoRealPaciente * 1.6).toFixed(1);
+                                        const wheyPorRefeicao = (pesoRealPaciente * 1.6 / 3).toFixed(1);
+                                        return {
+                                          ...item,
+                                          dosagem: `${wheyDosagemTotal}g por dia (1,6g por kg de peso corporal)`,
+                                          instrucoes: `Tomar aproximadamente ${wheyPorRefeicao}g de whey protein 3 vezes ao dia (totalizando ${wheyDosagemTotal}g/dia). Preferencialmente após as refeições principais ou após exercícios físicos. A dosagem de 1,6g/kg/dia é recomendada para preservação de massa muscular durante processo de perda de peso.`,
+                                          quantidade: `${wheyDosagemTotal}g/dia`
+                                        };
+                                      }
+                                      // Garantir que creatina seja 3,5g
+                                      if (item.medicamento === 'Creatina MAX' || item.medicamento.includes('Creatina')) {
+                                        return {
+                                          ...item,
+                                          dosagem: '3,5g por dia',
+                                          instrucoes: 'Tomar 3,5g por dia, diluído em 200ml de água. Preferencialmente após o treino ou junto com uma refeição. A creatina auxilia na preservação de força e massa muscular durante o processo de perda de peso.',
+                                          quantidade: '3,5g/dia'
+                                        };
+                                      }
+                                      return item;
+                                    });
+                                  }
+                                  
+                                  // Usar a prescrição atual editada para imprimir
+                                  const prescricaoParaImprimir = {
+                                    ...prescricaoSelecionada,
+                                    nome: novaPrescricao.nome,
+                                    descricao: novaPrescricao.descricao,
+                                    itens: itensParaImprimir,
+                                    observacoes: novaPrescricao.observacoes,
+                                    pesoPaciente: pesoRealPaciente
+                                  };
+                                  
+                                  // Gerar PDF da prescrição
+                                  const doc = new jsPDF();
+                                  
+                                  // Cores
+                                  const darkColor = [44, 62, 80];
+                                  
+                                  // Determinar título do médico
+                                  const tituloMedico = medicoPerfil.genero === 'F' ? 'Dra.' : 'Dr.';
+                                  const medicoNome = medicoPerfil.nome || 'Médico';
+                                  const medicoNomeCompleto = `${tituloMedico} ${medicoNome}`;
+                                  
+                                  // Header fixo e isolado com nome do médico e CRM
+                                  doc.setTextColor(...darkColor);
+                                  doc.setFontSize(18);
+                                  doc.setFont('helvetica', 'bold');
+                                  doc.text(medicoNomeCompleto, 20, 15);
+                                  
+                                  // Informações do médico (CRM)
+                                  doc.setFontSize(9);
+                                  doc.setFont('helvetica', 'normal');
+                                  const crmText = `CRM-${medicoPerfil.crm?.estado || 'XX'} ${medicoPerfil.crm?.numero || '00000'}`;
+                                  doc.text(crmText, 20, 22);
+                                  
+                                  // Logo Oftware
+                                  try {
+                                    const logoImg = new Image();
+                                    logoImg.crossOrigin = 'anonymous';
+                                    await new Promise<void>((resolve) => {
+                                      logoImg.onload = () => {
+                                        try {
+                                          const logoWidth = 25;
+                                          const logoHeight = 25;
+                                          const logoX = 190 - logoWidth - 10;
+                                          const logoY = 8;
+                                          doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, logoHeight);
+                                        } catch (e) {
+                                          doc.setFontSize(11);
+                                          doc.setFont('helvetica', 'bold');
+                                          doc.text('Oftware', 180, 15, { align: 'right' });
+                                        }
+                                        resolve();
+                                      };
+                                      logoImg.onerror = () => {
+                                        doc.setFontSize(11);
+                                        doc.setFont('helvetica', 'bold');
+                                        doc.text('Oftware', 180, 15, { align: 'right' });
+                                        resolve();
+                                      };
+                                      logoImg.src = '/icones/oftware.png';
+                                    });
+                                  } catch (e) {
+                                    doc.setFontSize(11);
+                                    doc.setFont('helvetica', 'bold');
+                                    doc.text('Oftware', 180, 15, { align: 'right' });
+                                  }
+                                  
+                                  // Linha separadora
+                                  doc.setDrawColor(200, 200, 200);
+                                  doc.line(20, 28, 190, 28);
+                                  
+                                  // Título da prescrição
+                                  let yPos = 40;
+                                  doc.setFontSize(16);
+                                  doc.setFont('helvetica', 'bold');
+                                  doc.text('PRESCRIÇÃO MÉDICA', 20, yPos);
+                                  
+                                  yPos += 10;
+                                  
+                                  // Informações do paciente
+                                  doc.setFontSize(10);
+                                  doc.setFont('helvetica', 'normal');
+                                  const pacienteNome = pacienteEditando.dadosIdentificacao?.nomeCompleto || pacienteEditando.nome || 'Paciente';
+                                  doc.text(`Paciente: ${pacienteNome}`, 20, yPos);
+                                  yPos += 6;
+                                  if (pacienteEditando.dadosIdentificacao?.cpf) {
+                                    doc.text(`CPF: ${pacienteEditando.dadosIdentificacao.cpf}`, 20, yPos);
+                                    yPos += 6;
+                                  }
+                                  if (prescricaoParaImprimir.pesoPaciente) {
+                                    doc.text(`Peso: ${prescricaoParaImprimir.pesoPaciente.toFixed(1)} kg`, 20, yPos);
+                                    yPos += 6;
+                                  }
+                                  
+                                  yPos += 5;
+                                  
+                                  // Nome da prescrição
+                                  doc.setFontSize(12);
+                                  doc.setFont('helvetica', 'bold');
+                                  doc.text(prescricaoParaImprimir.nome, 20, yPos);
+                                  yPos += 8;
+                                  
+                                  // Descrição
+                                  if (prescricaoParaImprimir.descricao) {
+                                    doc.setFontSize(10);
+                                    doc.setFont('helvetica', 'normal');
+                                    const descLines = doc.splitTextToSize(prescricaoParaImprimir.descricao, 170);
+                                    doc.text(descLines, 20, yPos);
+                                    yPos += descLines.length * 5 + 5;
+                                  }
+                                  
+                                  // Itens da prescrição
+                                  doc.setFontSize(11);
+                                  doc.setFont('helvetica', 'bold');
+                                  doc.text('MEDICAMENTOS/SUPLEMENTOS:', 20, yPos);
+                                  yPos += 8;
+                                  
+                                  prescricaoParaImprimir.itens.forEach((item, index) => {
+                                    if (yPos > 270) {
+                                      doc.addPage();
+                                      yPos = 20;
+                                    }
+                                    
+                                    doc.setFontSize(10);
+                                    doc.setFont('helvetica', 'bold');
+                                    doc.text(`${index + 1}. ${item.medicamento}`, 25, yPos);
+                                    yPos += 6;
+                                    
+                                    doc.setFont('helvetica', 'normal');
+                                    doc.text(`   Dosagem: ${item.dosagem}`, 25, yPos);
+                                    yPos += 5;
+                                    doc.text(`   Frequência: ${item.frequencia}`, 25, yPos);
+                                    yPos += 5;
+                                    
+                                    const instrucoesLines = doc.splitTextToSize(`   ${item.instrucoes}`, 165);
+                                    doc.text(instrucoesLines, 25, yPos);
+                                    yPos += instrucoesLines.length * 5 + 3;
+                                    
+                                    if (item.quantidade) {
+                                      doc.text(`   Quantidade: ${item.quantidade}`, 25, yPos);
+                                      yPos += 5;
+                                    }
+                                    
+                                    yPos += 3;
+                                  });
+                                  
+                                  // Observações
+                                  if (prescricaoParaImprimir.observacoes) {
+                                    if (yPos > 250) {
+                                      doc.addPage();
+                                      yPos = 20;
+                                    }
+                                    yPos += 5;
+                                    doc.setFontSize(10);
+                                    doc.setFont('helvetica', 'bold');
+                                    doc.text('OBSERVAÇÕES:', 20, yPos);
+                                    yPos += 6;
+                                    doc.setFont('helvetica', 'normal');
+                                    const obsLines = doc.splitTextToSize(prescricaoParaImprimir.observacoes, 170);
+                                    doc.text(obsLines, 20, yPos);
+                                    yPos += obsLines.length * 5;
+                                  }
+                                  
+                                  // Data e assinatura
+                                  if (yPos > 250) {
+                                    doc.addPage();
+                                    yPos = 20;
+                                  }
+                                  yPos += 10;
+                                  doc.setFontSize(9);
+                                  doc.setFont('helvetica', 'normal');
+                                  const dataAtual = new Date().toLocaleDateString('pt-BR');
+                                  doc.text(`Data: ${dataAtual}`, 20, yPos);
+                                  yPos += 15;
+                                  
+                                  // Linha para assinatura
+                                  doc.line(20, yPos, 100, yPos);
+                                  doc.setFontSize(8);
+                                  doc.text('Assinatura do Médico', 20, yPos + 5);
+                                  
+                                  // Salvar PDF
+                                  doc.save(`Prescricao_${pacienteNome.replace(/\s/g, '_')}_${dataAtual.replace(/\//g, '_')}.pdf`);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+                              >
+                                <Printer size={16} />
+                                Imprimir
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
+                            <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-600 text-lg mb-2">Nenhuma prescrição selecionada</p>
+                            <p className="text-sm text-gray-500">Clique em uma prescrição na lista ao lado para editá-la ou crie uma nova</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Footer com botões */}
-            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <button
-                onClick={() => {
-                  setShowEditarPacienteModal(false);
-                  setPacienteEditando(null);
-                  setPastaAtiva(1);
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={async () => {
-                  if (!pacienteEditando) return;
-                  setLoadingPacientes(true);
-                  try {
-                    await PacienteService.createOrUpdatePaciente(pacienteEditando);
-                    await loadPacientes();
+            <div className={`flex ${isAbandono ? 'justify-center' : 'justify-end'} space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0`}>
+              {isAbandono ? (
+                // Para pacientes em abandono, apenas botão Fechar
+                <button
+                  onClick={() => {
                     setShowEditarPacienteModal(false);
                     setPacienteEditando(null);
+                    setPacienteEditandoOriginal(null);
                     setPastaAtiva(1);
-                    setMessage('Paciente atualizado com sucesso!');
-                  } catch (error) {
-                    console.error('Erro ao atualizar paciente:', error);
-                    setMessage('Erro ao atualizar paciente');
-                  } finally {
-                    setLoadingPacientes(false);
-                  }
-                }}
-                disabled={loadingPacientes || pacienteEditando?.statusTratamento === 'abandono'}
-                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
-              >
-                {loadingPacientes ? 'Salvando...' : 'Salvar Alterações'}
-              </button>
+                  }}
+                  className="close-button px-6 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 transition-colors"
+                >
+                  Fechar
+                </button>
+              ) : (
+                // Para pacientes normais, botões Cancelar e Salvar
+                <>
+                  <button
+                    onClick={async () => {
+                      await verificarAlteracoesESair(
+                        () => {
+                          // Sair sem salvar
+                          setShowEditarPacienteModal(false);
+                          setPacienteEditando(null);
+                          setPacienteEditandoOriginal(null);
+                          setPastaAtiva(1);
+                        },
+                        async () => {
+                          // Salvar
+                          setLoadingPacientes(true);
+                          try {
+                            await PacienteService.createOrUpdatePaciente(pacienteEditando!);
+                            await loadPacientes();
+                            setMessage('Paciente atualizado com sucesso!');
+                          } catch (error) {
+                            console.error('Erro ao atualizar paciente:', error);
+                            setMessage('Erro ao atualizar paciente');
+                            throw error; // Re-throw para impedir fechamento se houver erro
+                          } finally {
+                            setLoadingPacientes(false);
+                          }
+                        }
+                      );
+                    }}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!pacienteEditando) return;
+                      setLoadingPacientes(true);
+                      try {
+                        const pacienteId = await PacienteService.createOrUpdatePaciente(pacienteEditando);
+                        await loadPacientes();
+                        // Não fechar o modal, apenas mostrar mensagem
+                        setPacienteEditandoOriginal(JSON.parse(JSON.stringify(pacienteEditando))); // Atualizar original após salvar
+                        
+                        // Verificar se o plano de tratamento foi editado e enviar e-mail
+                        if (pacienteEditando.planoTerapeutico && (pacienteEditando.planoTerapeutico.startDate || pacienteEditando.planoTerapeutico.numeroSemanasTratamento)) {
+                          try {
+                            await fetch('/api/send-email-plano-editado', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ pacienteId: pacienteId || pacienteEditando.id }),
+                            });
+                          } catch (emailError) {
+                            console.error('Erro ao enviar e-mail de plano editado:', emailError);
+                            // Não bloquear o fluxo se o e-mail falhar
+                          }
+                        }
+                        
+                        setMessage('Paciente atualizado com sucesso!');
+                        // Mostrar modal de sucesso
+                        setModalMessage('Alterações salvas com sucesso!');
+                        setModalType('success');
+                        setShowMessageModal(true);
+                      } catch (error) {
+                        console.error('Erro ao atualizar paciente:', error);
+                        setMessage('Erro ao atualizar paciente');
+                        // Mostrar modal de erro
+                        setModalMessage('Erro ao salvar alterações');
+                        setModalType('error');
+                        setShowMessageModal(true);
+                      } finally {
+                        setLoadingPacientes(false);
+                      }
+                    }}
+                    disabled={loadingPacientes}
+                    className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                  >
+                    {loadingPacientes ? 'Salvando...' : 'Salvar Alterações'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
-      {/* Modal de Adicionar Exame Laboratorial */}
+      {/* Modal de Adicionar / Editar Exame Laboratorial */}
       {showAdicionarExameModal && pacienteEditando && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Adicionar Novo Exame Laboratorial</h2>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {indiceExameEditando !== null ? 'Editar Exame Laboratorial' : 'Adicionar Novo Exame Laboratorial'}
+              </h2>
               <button
                 onClick={() => {
                   setShowAdicionarExameModal(false);
+                  setIndiceExameEditando(null);
+                  setDataSelecionadaModal('');
                   setNovoExameData({ dataColeta: new Date().toISOString().split('T')[0] });
                 }}
                 className="text-gray-400 hover:text-gray-600"
@@ -11382,7 +13126,138 @@ export default function MetaAdminPage() {
 
             {/* Content */}
             <div className="p-6 space-y-6">
-              {/* Data de Coleta */}
+              {/* Seletor de Data de Coleta */}
+              {indiceExameEditando !== null ? (
+                // Modo edição: mostrar select com lista de datas
+                (() => {
+                const exames = pacienteEditando?.examesLaboratoriais || [];
+                
+                // Função helper para converter data de forma segura
+                const safeDateToString = (date: any): string => {
+                  if (!date) return '';
+                  try {
+                    let d: Date;
+                    if (date instanceof Date) {
+                      d = date;
+                    } else if (typeof date === 'string') {
+                      d = new Date(date);
+                    } else if (date.toDate) {
+                      d = date.toDate();
+                    } else {
+                      d = new Date(date);
+                    }
+                    if (isNaN(d.getTime())) return '';
+                    return d.toISOString().split('T')[0];
+                  } catch {
+                    return '';
+                  }
+                };
+                
+                // Ordenar exames por data (mais recente primeiro)
+                const examesOrdenados = [...exames].sort((a, b) => {
+                  const dateA = safeDateToString(a.dataColeta);
+                  const dateB = safeDateToString(b.dataColeta);
+                  return dateB.localeCompare(dateA);
+                }).filter(e => safeDateToString(e.dataColeta));
+                
+                // Inicializar data selecionada no modal se não estiver definida
+                const dataInicialModal = dataSelecionadaModal || (examesOrdenados.length > 0 
+                  ? safeDateToString(examesOrdenados[0].dataColeta)
+                  : '');
+                
+                const dataAtualModal = dataSelecionadaModal || dataInicialModal;
+                
+                // Encontrar exame da data selecionada no modal
+                const exameAtualModal = examesOrdenados.find(e => {
+                  const dataExame = safeDateToString(e.dataColeta);
+                  return dataExame === dataAtualModal;
+                }) || examesOrdenados[0] || null;
+                
+                // Quando a data mudar no select, atualizar os dados do modal
+                const handleDataChangeModal = (novaData: string) => {
+                  setDataSelecionadaModal(novaData);
+                  
+                  // Encontrar o exame da nova data
+                  const exameNovaData = examesOrdenados.find(e => {
+                    const dataExame = safeDateToString(e.dataColeta);
+                    return dataExame === novaData;
+                  });
+                  
+                  if (exameNovaData) {
+                    // Encontrar o índice no array original
+                    const examesPaciente = pacienteEditando?.examesLaboratoriais || [];
+                    const indexExame = examesPaciente.findIndex(e => {
+                      const dataExame = safeDateToString(e.dataColeta);
+                      return dataExame === novaData && e === exameNovaData;
+                    });
+                    
+                    if (indexExame === -1) {
+                      const indexExame2 = examesPaciente.findIndex(e => {
+                        const dataExame = safeDateToString(e.dataColeta);
+                        return dataExame === novaData;
+                      });
+                      setIndiceExameEditando(indexExame2 >= 0 ? indexExame2 : null);
+                    } else {
+                      setIndiceExameEditando(indexExame);
+                    }
+                    
+                    // Atualizar os dados do modal com os dados do exame selecionado
+                    setNovoExameData({
+                      dataColeta: novaData,
+                      ...Object.fromEntries(
+                        Object.entries(exameNovaData)
+                          .filter(([key, value]) =>
+                            key !== 'dataColeta' &&
+                            key !== 'id' &&
+                            value !== undefined &&
+                            value !== null &&
+                            value !== ''
+                          )
+                      )
+                    });
+                  }
+                };
+                
+                return (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Selecionar Exame por Data *
+                    </label>
+                    <select
+                      value={dataAtualModal}
+                      onChange={(e) => handleDataChangeModal(e.target.value)}
+                      disabled={examesOrdenados.length === 0}
+                      className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 ${
+                        examesOrdenados.length === 0 ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      {examesOrdenados.map((exame, idx) => {
+                        const dataExame = safeDateToString(exame.dataColeta);
+                        // Formatar para exibição
+                        let dataFormatada = '';
+                        if (dataExame) {
+                          try {
+                            const d = new Date(dataExame);
+                            if (!isNaN(d.getTime())) {
+                              dataFormatada = d.toLocaleDateString('pt-BR');
+                            }
+                          } catch {}
+                        }
+                        return (
+                          <option key={idx} value={dataExame}>
+                            {dataFormatada}
+                          </option>
+                        );
+                      })}
+                      {examesOrdenados.length === 0 && (
+                        <option value="">Nenhum exame cadastrado</option>
+                      )}
+                    </select>
+                  </div>
+                );
+                })()
+              ) : (
+                // Modo adição: mostrar input de data normal
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Data de Coleta *</label>
                 <input
@@ -11392,6 +13267,7 @@ export default function MetaAdminPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
                 />
               </div>
+              )}
 
               {/* Todos os campos de exame */}
               {(() => {
@@ -11419,19 +13295,60 @@ export default function MetaAdminPage() {
                   { key: 'tg', label: 'Triglicerídeos', field: 'triglicerides', unit: 'mg/dL' },
                   // Tireoide
                   { key: 'tsh', label: 'TSH', field: 'tsh', unit: 'mUI/L' },
-                  { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina', unit: 'pg/mL' }
+                  { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina', unit: 'pg/mL' },
+                  { key: 'ft4', label: 'T4 Livre (FT4)', field: 't4Livre', unit: 'ng/dL' },
+                  // Ferro e Vitaminas
+                  { key: 'ferritin', label: 'Ferritina', field: 'ferritina', unit: 'ng/mL' },
+                  { key: 'iron', label: 'Ferro sérico', field: 'ferroSerico', unit: 'µg/dL' },
+                  { key: 'b12', label: 'Vitamina B12', field: 'vitaminaB12', unit: 'pg/mL' },
+                  { key: 'vitaminD', label: 'Vitamina D (25-OH)', field: 'vitaminaD', unit: 'ng/mL' }
                 ];
 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {camposExame.map((campo) => {
                       const range = getLabRange(campo.key as any, pacienteSex);
-                      if (!range) return null;
+                      // Para campos que dependem de sexo mas não está definido, usar range padrão ou ambos
+                      let rangeToUse = range;
+                      
+                      // Se não tiver range, tentar criar um range padrão para campos específicos
+                      if (!rangeToUse) {
+                        if (campo.key === 'ferritin' || campo.key === 'iron') {
+                          const labRangeEntry = (labRanges as any)[campo.key];
+                          if (labRangeEntry && labRangeEntry.M && labRangeEntry.F) {
+                            // Usar range combinado (valores de ambos os sexos)
+                            const minValue = Math.min(labRangeEntry.M.min, labRangeEntry.F.min);
+                            const maxValue = Math.max(labRangeEntry.M.max, labRangeEntry.F.max);
+                            rangeToUse = {
+                              label: campo.key === 'ferritin' ? 'Ferritina' : 'Ferro sérico',
+                              unit: labRangeEntry.M.unit || campo.unit || '',
+                              min: minValue,
+                              max: maxValue
+                            };
+                          }
+                        }
+                      }
+                      
+                      // Se ainda não tiver range válido, não renderizar o campo
+                      if (!rangeToUse || !rangeToUse.label || rangeToUse.min === undefined || rangeToUse.max === undefined) {
+                        return null;
+                      }
+                      
+                      // Verificar se precisa de sexo para este campo específico
+                      const precisaSexo = (campo.key === 'ferritin' || campo.key === 'iron') && !pacienteSex;
+                      const temValor = novoExameData[campo.field] !== undefined && novoExameData[campo.field] !== null && novoExameData[campo.field] !== '';
+                      
                       return (
                         <div key={campo.field}>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {range.label}
+                            {rangeToUse?.label || campo.label}
+                            {precisaSexo && (
+                              <span className="ml-2 text-xs text-amber-600 font-normal">
+                                (⚠️ Defina o sexo do paciente para valores de referência precisos)
+                              </span>
+                            )}
                           </label>
+                          <div className="flex items-center gap-2">
                           <input
                             type="number"
                             step="0.1"
@@ -11443,11 +13360,59 @@ export default function MetaAdminPage() {
                                 [campo.field]: numValue > 0 ? numValue : undefined
                               });
                             }}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900"
-                            placeholder={`${range.min}-${range.max} ${range.unit}`}
+                              className={`flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900 ${
+                                precisaSexo ? 'border-amber-300 bg-amber-50' : ''
+                              }`}
+                            placeholder={rangeToUse ? `${rangeToUse.min}-${rangeToUse.max} ${rangeToUse.unit}` : 'Digite o valor'}
                           />
-                          {novoExameData[campo.field] && (
-                            <LabRangeBar range={range} value={novoExameData[campo.field]} />
+                            {temValor && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const novoData = { ...novoExameData };
+                                  delete novoData[campo.field];
+                                  setNovoExameData(novoData);
+                                  
+                                  // Se estiver editando, atualizar imediatamente no estado do paciente e salvar no Firebase
+                                  if (indiceExameEditando !== null && pacienteEditando) {
+                                    const examesExistentes = pacienteEditando.examesLaboratoriais || [];
+                                    const examesAtualizados = [...examesExistentes];
+                                    
+                                    if (indiceExameEditando >= 0 && indiceExameEditando < examesAtualizados.length) {
+                                      const exameAtualizado = {
+                                        ...examesAtualizados[indiceExameEditando],
+                                        [campo.field]: undefined
+                                      };
+                                      delete exameAtualizado[campo.field];
+                                      
+                                      examesAtualizados[indiceExameEditando] = exameAtualizado;
+                                      
+                                      const pacienteAtualizado = {
+                                        ...pacienteEditando,
+                                        examesLaboratoriais: examesAtualizados
+                                      };
+                                      
+                                      setPacienteEditando(pacienteAtualizado);
+                                      
+                                      // Salvar no Firebase
+                                      if (pacienteAtualizado.id) {
+                                        PacienteService.createOrUpdatePaciente(pacienteAtualizado).catch(error => {
+                                          console.error('Erro ao salvar alteração no Firebase:', error);
+                                          setMessage('Erro ao salvar alteração. Tente novamente.');
+                                        });
+                                      }
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                                title={`Remover ${rangeToUse?.label || campo.label}`}
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            )}
+                          </div>
+                          {novoExameData[campo.field] && rangeToUse && (
+                            <LabRangeBar range={rangeToUse} value={novoExameData[campo.field]} />
                           )}
                         </div>
                       );
@@ -11458,10 +13423,87 @@ export default function MetaAdminPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
+              {/* Botão Deletar Exame (só aparece em modo edição) */}
+              {indiceExameEditando !== null && (
+              <button
+                onClick={() => {
+                    if (!pacienteEditando || !dataSelecionadaModal) return;
+                    
+                    if (!confirm('Tem certeza que deseja deletar todos os exames desta data?')) return;
+                    
+                    // Função helper para converter data de forma segura
+                    const safeDateToString = (date: any): string => {
+                      if (!date) return '';
+                      try {
+                        let d: Date;
+                        if (date instanceof Date) {
+                          d = date;
+                        } else if (typeof date === 'string') {
+                          d = new Date(date);
+                        } else if (date.toDate) {
+                          d = date.toDate();
+                        } else {
+                          d = new Date(date);
+                        }
+                        if (isNaN(d.getTime())) return '';
+                        return d.toISOString().split('T')[0];
+                      } catch {
+                        return '';
+                      }
+                    };
+                    
+                    // Deletar todos os exames da data selecionada
+                    const examesExistentes = pacienteEditando.examesLaboratoriais || [];
+                    const examesAtualizados = examesExistentes.filter(exame => {
+                      const dataExame = safeDateToString(exame.dataColeta);
+                      return dataExame !== dataSelecionadaModal;
+                    });
+                    
+                    // Ajustar data selecionada
+                    if (examesAtualizados.length === 0) {
+                      setExameDataSelecionada('');
+                    } else {
+                      // Encontrar a próxima data disponível
+                      const examesOrdenados = [...examesAtualizados].sort((a, b) => {
+                        const dateA = safeDateToString(a.dataColeta);
+                        const dateB = safeDateToString(b.dataColeta);
+                        return dateB.localeCompare(dateA);
+                      });
+                      const proximaData = safeDateToString(examesOrdenados[0]?.dataColeta);
+                      setExameDataSelecionada(proximaData || '');
+                    }
+                    
+                    // Atualizar estado (não salva ainda - será salvo ao clicar em "Salvar Exame")
+                    const pacienteAtualizado = {
+                      ...pacienteEditando,
+                      examesLaboratoriais: examesAtualizados
+                    };
+                    
+                    setPacienteEditando(pacienteAtualizado);
+                    
+                    // Limpar dados do modal
+                    setDataSelecionadaModal('');
+                    setIndiceExameEditando(null);
+                    setNovoExameData({ dataColeta: new Date().toISOString().split('T')[0] });
+                    
+                    // Fechar modal
+                  setShowAdicionarExameModal(false);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  Deletar Exame
+                </button>
+              )}
+              
+              {/* Botões à direita */}
+              <div className="flex justify-end space-x-3 ml-auto">
               <button
                 onClick={() => {
                   setShowAdicionarExameModal(false);
+                  setIndiceExameEditando(null);
+                  setDataSelecionadaModal('');
                   setNovoExameData({ dataColeta: new Date().toISOString().split('T')[0] });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
@@ -11469,37 +13511,92 @@ export default function MetaAdminPage() {
                 Cancelar
               </button>
               <button
-                onClick={() => {
+                  onClick={async () => {
                   if (!pacienteEditando || !novoExameData.dataColeta) return;
                   
-                  // Criar novo exame
+                    setLoadingPacientes(true);
+                    try {
+                      const camposValores = Object.fromEntries(
+                        Object.entries(novoExameData).filter(
+                          ([key, value]) => key !== 'dataColeta' && value !== undefined && value !== ''
+                        )
+                      );
+
+                      const temAlgumValor = Object.keys(camposValores).length > 0;
+                      const examesExistentes = pacienteEditando.examesLaboratoriais || [];
+                      let examesAtualizados = [...examesExistentes];
+
+                      if (indiceExameEditando !== null && indiceExameEditando >= 0 && indiceExameEditando < examesAtualizados.length) {
+                        // Modo edição
+                        if (!temAlgumValor) {
+                          // Nenhum valor preenchido: remover exame (equivale a excluir)
+                          examesAtualizados.splice(indiceExameEditando, 1);
+
+                          // Ajustar data selecionada
+                          if (examesAtualizados.length === 0) {
+                            setExameDataSelecionada('');
+                          } else {
+                            const restante = examesAtualizados[examesAtualizados.length - 1];
+                            const dataRestante =
+                              restante?.dataColeta instanceof Date
+                                ? restante.dataColeta.toISOString().split('T')[0]
+                                : restante?.dataColeta
+                                ? new Date(restante.dataColeta).toISOString().split('T')[0]
+                                : '';
+                            setExameDataSelecionada(dataRestante);
+                          }
+                        } else {
+                          // Atualizar exame existente
+                          examesAtualizados[indiceExameEditando] = {
+                            ...examesAtualizados[indiceExameEditando],
+                            dataColeta: new Date(novoExameData.dataColeta),
+                            ...camposValores
+                          };
+
+                          setExameDataSelecionada(novoExameData.dataColeta);
+                        }
+                      } else {
+                        // Modo adição
                   const novoExame = {
                     id: 'temp-' + Date.now(),
                     dataColeta: new Date(novoExameData.dataColeta),
-                    ...Object.fromEntries(
-                      Object.entries(novoExameData).filter(([key, value]) => key !== 'dataColeta' && value !== undefined && value !== '')
-                    )
+                          ...camposValores
                   };
                   
-                  // Adicionar ao array de exames
-                  const examesAtualizados = [...(pacienteEditando.examesLaboratoriais || []), novoExame];
+                        examesAtualizados = [...examesAtualizados, novoExame];
+                        setExameDataSelecionada(novoExameData.dataColeta);
+                      }
                   
-                  setPacienteEditando({
+                      const pacienteAtualizado = {
                     ...pacienteEditando,
                     examesLaboratoriais: examesAtualizados
-                  });
-                  
-                  // Atualizar data selecionada para o novo exame
-                  setExameDataSelecionada(novoExameData.dataColeta);
+                      };
+
+                      setPacienteEditando(pacienteAtualizado);
+
+                      // Salvar no Firebase
+                      if (pacienteAtualizado.id) {
+                        await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+                        setMessage('Exame salvo com sucesso!');
+                      }
                   
                   // Fechar modal e limpar
                   setShowAdicionarExameModal(false);
+                      setIndiceExameEditando(null);
+                      setDataSelecionadaModal('');
                   setNovoExameData({ dataColeta: new Date().toISOString().split('T')[0] });
+                    } catch (error) {
+                      console.error('Erro ao salvar exame:', error);
+                      setMessage('Erro ao salvar exame. Tente novamente.');
+                    } finally {
+                      setLoadingPacientes(false);
+                    }
                 }}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
               >
                 Salvar Exame
               </button>
+              </div>
             </div>
           </div>
         </div>
@@ -12196,24 +14293,66 @@ export default function MetaAdminPage() {
         </div>
       )}
 
+      {/* Modal de Mensagem */}
+      {showMessageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg w-full max-w-md overflow-hidden shadow-xl">
+            <div className={`px-6 py-4 border-b ${
+              modalType === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <h3 className={`text-lg font-semibold ${
+                  modalType === 'success' ? 'text-green-900' : 'text-red-900'
+                }`}>
+                  {modalType === 'success' ? 'Sucesso' : 'Erro'}
+                </h3>
+                <button
+                  onClick={() => setShowMessageModal(false)}
+                  className={`${
+                    modalType === 'success' ? 'text-green-600 hover:text-green-800' : 'text-red-600 hover:text-red-800'
+                  }`}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-900">{modalMessage}</p>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setShowMessageModal(false)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  modalType === 'success'
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                }`}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Bottom Navigation - Fixed at bottom, no logout button */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
-        <div className="flex overflow-x-auto scrollbar-hide items-center py-2 px-2 space-x-1">
+        <div className="flex items-center justify-around py-2 px-1">
           <button
             onClick={() => setActiveMenu('estatisticas')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
               activeMenu === 'estatisticas'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <BarChart3 className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Estatísticas</span>
+            <UserPlus className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Leads</span>
           </button>
 
           <button
             onClick={() => setActiveMenu('meu-perfil')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
               activeMenu === 'meu-perfil'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
@@ -12225,7 +14364,7 @@ export default function MetaAdminPage() {
 
           <button
             onClick={() => setActiveMenu('pacientes')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
               activeMenu === 'pacientes'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
@@ -12237,7 +14376,7 @@ export default function MetaAdminPage() {
 
           <button
             onClick={() => setActiveMenu('calendario')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
               activeMenu === 'calendario'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
@@ -12266,15 +14405,15 @@ export default function MetaAdminPage() {
           </button> */}
 
           <button
-            onClick={() => setActiveMenu('monjauro')}
-            className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeMenu === 'monjauro'
+            onClick={() => setActiveMenu('tirzepatida')}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
+              activeMenu === 'tirzepatida'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
             <Pill className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Monjauro</span>
+            <span className="text-xs font-medium">Tirzepatida</span>
           </button>
         </div>
       </div>
@@ -12414,6 +14553,679 @@ export default function MetaAdminPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Solicitar Exames */}
+      {showSolicitarExamesModal && pacienteEditando && medicoPerfil && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Solicitar Exames</h2>
+              <button
+                onClick={() => {
+                  setShowSolicitarExamesModal(false);
+                  setExamesSelecionados([]);
+                  setExamesCustomizados(['']);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Informações do Paciente */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-semibold text-gray-900 mb-3 text-lg">Paciente</h3>
+                <div className="space-y-2">
+                  <p className="text-gray-800">
+                    <strong className="text-gray-700">Nome:</strong>{' '}
+                    <span className="text-gray-900 font-medium text-base">
+                      {pacienteEditando?.dadosIdentificacao?.nome || pacienteEditando?.nome || 'N/A'}
+                    </span>
+                  </p>
+                  <p className="text-gray-800">
+                    <strong className="text-gray-700">CPF:</strong>{' '}
+                    <span className="text-gray-900">{pacienteEditando.dadosIdentificacao?.cpf || 'N/A'}</span>
+                  </p>
+                  <p className="text-gray-800">
+                    <strong className="text-gray-700">Data de Nascimento:</strong>{' '}
+                    <span className="text-gray-900">
+                      {pacienteEditando.dadosIdentificacao?.dataNascimento
+                        ? new Date(pacienteEditando.dadosIdentificacao.dataNascimento).toLocaleDateString('pt-BR')
+                        : 'N/A'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Exames Disponíveis */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-4 text-lg">Selecionar Exames Disponíveis</h3>
+                <div className="space-y-4 max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  {(() => {
+                    const secoesNomes: Record<string, string> = {
+                      metabolismo: 'Metabolismo Glicídico',
+                      renal: 'Função Renal',
+                      hepatobiliar: 'Função Hepática e Biliar',
+                      pancreas: 'Pâncreas',
+                      lipideos: 'Perfil Lipídico',
+                      tireoide: 'Tireóide / MEN2',
+                      hemograma: 'Hemograma Completo',
+                      ferroVitaminas: 'Ferro e Vitaminas'
+                    };
+
+                    return Object.entries(labOrderBySection).map(([secaoKey, campos]) => {
+                      const nomeSecao = secoesNomes[secaoKey] || secaoKey;
+                      
+                      // Tratamento especial para Hemograma Completo
+                      if (secaoKey === 'hemograma') {
+                        const hemogramaCompletoKey = 'hemogramaCompleto';
+                        const temHemograma = examesSelecionados.some(f => ['hgb', 'wbc', 'platelets'].includes(f));
+                        
+                        return (
+                          <div key={secaoKey} className="mb-4 pb-4 border-b border-gray-300 last:border-b-0">
+                            <h4 className="font-semibold text-gray-800 mb-3 text-base">{nomeSecao}</h4>
+                            <div className="space-y-2 ml-2">
+                              <label 
+                                className="flex items-center space-x-3 cursor-pointer hover:bg-white p-2 rounded transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={temHemograma}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      // Adicionar todos os campos do hemograma
+                                      const novosExames = [...examesSelecionados];
+                                      if (!novosExames.includes('hgb')) novosExames.push('hgb');
+                                      if (!novosExames.includes('wbc')) novosExames.push('wbc');
+                                      if (!novosExames.includes('platelets')) novosExames.push('platelets');
+                                      setExamesSelecionados(novosExames);
+                                    } else {
+                                      // Remover todos os campos do hemograma
+                                      setExamesSelecionados(examesSelecionados.filter(f => !['hgb', 'wbc', 'platelets'].includes(f)));
+                                    }
+                                  }}
+                                  className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-700 flex-1">Hemograma Completo</span>
+                              </label>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div key={secaoKey} className="mb-4 pb-4 border-b border-gray-300 last:border-b-0">
+                          <h4 className="font-semibold text-gray-800 mb-3 text-base">{nomeSecao}</h4>
+                          <div className="space-y-2 ml-2">
+                            {Array.isArray(campos) && campos.map((campoKey) => {
+                              const range = getLabRange(campoKey, pacienteEditando.dadosIdentificacao?.sexoBiologico as Sex);
+                              // Para campos que dependem de sexo mas não está definido, usar range padrão
+                              let rangeToUse = range;
+                              
+                              if (!rangeToUse && (campoKey === 'ferritin' || campoKey === 'iron')) {
+                                const labRangeEntry = (labRanges as any)[campoKey];
+                                if (labRangeEntry && labRangeEntry.M && labRangeEntry.F) {
+                                  rangeToUse = {
+                                    label: campoKey === 'ferritin' ? 'Ferritina' : 'Ferro sérico',
+                                    unit: labRangeEntry.M.unit || '',
+                                    min: Math.min(labRangeEntry.M.min, labRangeEntry.F.min),
+                                    max: Math.max(labRangeEntry.M.max, labRangeEntry.F.max)
+                                  };
+                                }
+                              }
+                              
+                              if (!rangeToUse || !rangeToUse.label) return null;
+                              
+                              return (
+                                <label 
+                                  key={campoKey} 
+                                  className="flex items-center space-x-3 cursor-pointer hover:bg-white p-2 rounded transition-colors"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={examesSelecionados.includes(campoKey)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setExamesSelecionados([...examesSelecionados, campoKey]);
+                                      } else {
+                                        setExamesSelecionados(examesSelecionados.filter(f => f !== campoKey));
+                                      }
+                                    }}
+                                    className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
+                                  />
+                                  <span className="text-gray-700 flex-1">{rangeToUse.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Exames Customizados */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-4">Adicionar Outros Exames</h3>
+                <div className="space-y-2">
+                  {examesCustomizados.map((exame, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={exame}
+                        onChange={(e) => {
+                          const novosExames = [...examesCustomizados];
+                          novosExames[idx] = e.target.value;
+                          setExamesCustomizados(novosExames);
+                        }}
+                        placeholder="Digite o nome do exame"
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                      />
+                      {examesCustomizados.length > 1 && (
+                        <button
+                          onClick={() => {
+                            setExamesCustomizados(examesCustomizados.filter((_, i) => i !== idx));
+                          }}
+                          className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setExamesCustomizados([...examesCustomizados, '']);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                  >
+                    <Plus size={16} />
+                    Adicionar mais um exame
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowSolicitarExamesModal(false);
+                  setExamesSelecionados([]);
+                  setExamesCustomizados(['']);
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  // Gerar PDF
+                  const doc = new jsPDF();
+                  
+                  // Cores
+                  const darkColor = [44, 62, 80]; // Azul escuro
+                  
+                  // Determinar título do médico (Dr. ou Dra.)
+                  const tituloMedico = medicoPerfil.genero === 'F' ? 'Dra.' : 'Dr.';
+                  const medicoNome = medicoPerfil.nome || 'Médico';
+                  const medicoNomeCompleto = `${tituloMedico} ${medicoNome}`;
+                  
+                  // Header fixo e isolado com nome do médico e CRM
+                  doc.setTextColor(...darkColor);
+                  doc.setFontSize(18);
+                  doc.setFont('helvetica', 'bold');
+                  doc.text(medicoNomeCompleto, 20, 15);
+                  
+                  // Informações do médico (CRM)
+                  doc.setFontSize(9);
+                  doc.setFont('helvetica', 'normal');
+                  const crmText = `CRM-${medicoPerfil.crm?.estado || 'XX'} ${medicoPerfil.crm?.numero || '00000'}`;
+                  doc.text(crmText, 20, 22);
+                  
+                  // Logo Oftware no canto direito do cabeçalho
+                  // Carregar a imagem e adicionar ao PDF
+                  try {
+                    const logoImg = new Image();
+                    logoImg.crossOrigin = 'anonymous';
+                    
+                    // Usar Promise para carregar a imagem antes de adicionar ao PDF
+                    await new Promise<void>((resolve) => {
+                      logoImg.onload = () => {
+                        try {
+                          // Adicionar a logo no canto direito superior (melhor posicionamento)
+                          const logoWidth = 25;
+                          const logoHeight = 25;
+                          const logoX = 190 - logoWidth - 10; // 10px da margem direita
+                          const logoY = 8; // Mais próximo do topo
+                          doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, logoHeight);
+                        } catch (e) {
+                          // Se falhar, apenas adicionar texto
+                          doc.setFontSize(11);
+                          doc.setFont('helvetica', 'bold');
+                          doc.text('Oftware', 180, 15, { align: 'right' });
+                        }
+                        resolve();
+                      };
+                      logoImg.onerror = () => {
+                        // Se a imagem não carregar, usar texto
+                        doc.setFontSize(11);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('Oftware', 180, 15, { align: 'right' });
+                        resolve();
+                      };
+                      // Iniciar carregamento da imagem
+                      logoImg.src = '/icones/oftware.png';
+                      
+                      // Timeout para não travar se a imagem demorar muito
+                      setTimeout(() => {
+                        if (logoImg.complete === false) {
+                          doc.setFontSize(11);
+                          doc.setFont('helvetica', 'bold');
+                          doc.text('Oftware', 180, 15, { align: 'right' });
+                          resolve();
+                        }
+                      }, 2000);
+                    });
+                  } catch (e) {
+                    // Se falhar completamente, usar texto
+                    doc.setFontSize(11);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Oftware', 180, 15, { align: 'right' });
+                  }
+                  
+                  // Espaço antes do título
+                  // Título centralizado (mais abaixo, com mais espaço)
+                  doc.setFontSize(16);
+                  doc.setFont('helvetica', 'bold');
+                  doc.text('REQUISIÇÃO DE EXAMES', 105, 32, { align: 'center' });
+                  
+                  // Linha divisória
+                  doc.setDrawColor(...darkColor);
+                  doc.setLineWidth(0.5);
+                  doc.line(20, 40, 190, 40);
+                  
+                  let yPos = 52;
+                  
+                  // Dados do Paciente e Médico lado a lado
+                  const colunaEsquerda = 20;
+                  const colunaDireita = 115;
+                  
+                  // Dados do Paciente (esquerda)
+                  doc.setFontSize(11);
+                  doc.setFont('helvetica', 'bold');
+                  doc.text('DADOS DO PACIENTE', colunaEsquerda, yPos);
+                  yPos += 8;
+                  
+                  doc.setFontSize(9);
+                  doc.setFont('helvetica', 'normal');
+                  const nomePacienteDisplay = pacienteEditando?.dadosIdentificacao?.nome || pacienteEditando?.nome || 'N/A';
+                  doc.text(`Nome: ${nomePacienteDisplay}`, colunaEsquerda, yPos);
+                  yPos += 6;
+                  
+                  doc.text(`CPF: ${pacienteEditando.dadosIdentificacao?.cpf || 'N/A'}`, colunaEsquerda, yPos);
+                  yPos += 6;
+                  
+                  const dataNasc = pacienteEditando.dadosIdentificacao?.dataNascimento
+                    ? new Date(pacienteEditando.dadosIdentificacao.dataNascimento).toLocaleDateString('pt-BR')
+                    : 'N/A';
+                  doc.text(`Data Nasc.: ${dataNasc}`, colunaEsquerda, yPos);
+                  yPos += 6;
+                  
+                  const sexo = pacienteEditando.dadosIdentificacao?.sexoBiologico === 'M' ? 'Masculino' : 
+                               pacienteEditando.dadosIdentificacao?.sexoBiologico === 'F' ? 'Feminino' : 'N/A';
+                  doc.text(`Sexo: ${sexo}`, colunaEsquerda, yPos);
+                  
+                  // Dados do Médico (direita)
+                  let yPosMedico = 52;
+                  doc.setFontSize(11);
+                  doc.setFont('helvetica', 'bold');
+                  doc.text('DADOS DO MÉDICO', colunaDireita, yPosMedico);
+                  yPosMedico += 8;
+                  
+                  doc.setFontSize(9);
+                  doc.setFont('helvetica', 'normal');
+                  doc.text(`Nome: ${medicoNomeCompleto}`, colunaDireita, yPosMedico);
+                  yPosMedico += 6;
+                  
+                  doc.text(crmText, colunaDireita, yPosMedico);
+                  yPosMedico += 6;
+                  
+                  if (medicoPerfil.localizacao?.endereco) {
+                    const endereco = medicoPerfil.localizacao.endereco.length > 40 
+                      ? medicoPerfil.localizacao.endereco.substring(0, 37) + '...'
+                      : medicoPerfil.localizacao.endereco;
+                    doc.text(`Endereço: ${endereco}`, colunaDireita, yPosMedico);
+                    yPosMedico += 6;
+                  }
+                  
+                  if (medicoPerfil.localizacao?.cep) {
+                    doc.text(`CEP: ${medicoPerfil.localizacao.cep}`, colunaDireita, yPosMedico);
+                    yPosMedico += 6;
+                  }
+                  
+                  if (medicoPerfil.telefone) {
+                    doc.text(`Telefone: ${medicoPerfil.telefone}`, colunaDireita, yPosMedico);
+                  }
+                  
+                  // Usar o maior yPos
+                  yPos = Math.max(yPos, yPosMedico) + 10;
+                  
+                  // Exames Solicitados
+                  doc.setFontSize(12);
+                  doc.setFont('helvetica', 'bold');
+                  doc.text('EXAMES SOLICITADOS', 20, yPos);
+                  yPos += 8;
+                  
+                  doc.setFontSize(10);
+                  doc.setFont('helvetica', 'normal');
+                  
+                  // Coletar todos os exames
+                  const todosExames: string[] = [];
+                  
+                  // Verificar se tem hemograma completo (todos os 3 campos)
+                  const temHemogramaCompleto = ['hgb', 'wbc', 'platelets'].every(f => examesSelecionados.includes(f));
+                  const camposHemograma = ['hgb', 'wbc', 'platelets'];
+                  
+                  // Exames selecionados
+                  examesSelecionados.forEach((field) => {
+                    // Se for hemograma completo, adicionar apenas uma vez como "Hemograma Completo"
+                    if (temHemogramaCompleto && camposHemograma.includes(field)) {
+                      // Adicionar apenas uma vez quando processar o primeiro campo do hemograma
+                      if (field === 'hgb' && !todosExames.includes('Hemograma Completo')) {
+                        todosExames.push('Hemograma Completo');
+                      }
+                    } else if (!camposHemograma.includes(field)) {
+                      // Para outros exames, adicionar normalmente
+                      const range = getLabRange(field as keyof typeof labRanges, pacienteEditando?.dadosIdentificacao?.sexoBiologico as Sex);
+                      let rangeToUse = range;
+                      
+                      // Se não tiver range para ferritina ou ferro, criar range padrão
+                      if (!rangeToUse && (field === 'ferritin' || field === 'iron')) {
+                        const labRangeEntry = (labRanges as any)[field];
+                        if (labRangeEntry && labRangeEntry.M && labRangeEntry.F) {
+                          rangeToUse = {
+                            label: field === 'ferritin' ? 'Ferritina' : 'Ferro sérico',
+                            unit: labRangeEntry.M.unit || '',
+                            min: Math.min(labRangeEntry.M.min, labRangeEntry.F.min),
+                            max: Math.max(labRangeEntry.M.max, labRangeEntry.F.max)
+                          };
+                        }
+                      }
+                      
+                      if (rangeToUse && rangeToUse.label) {
+                        todosExames.push(rangeToUse.label);
+                      }
+                    }
+                  });
+                  
+                  // Exames customizados
+                  examesCustomizados.forEach((exame) => {
+                    if (exame.trim()) {
+                      todosExames.push(exame);
+                    }
+                  });
+                  
+                  if (todosExames.length === 0) {
+                    if (yPos > 230) {
+                      doc.addPage();
+                      yPos = 52;
+                    }
+                    doc.text('Nenhum exame selecionado', 25, yPos);
+                    yPos += 6;
+                  } else {
+                    // Verificar se precisa de 2 colunas (mais de 20 exames)
+                    const usarDuasColunas = todosExames.length > 20;
+                    const colunaEsquerdaExames = 25;
+                    const colunaDireitaExames = 110;
+                    const alturaLinha = 6;
+                    const limiteY = 230;
+                    
+                    if (usarDuasColunas) {
+                      // Dividir exames em duas colunas
+                      const metade = Math.ceil(todosExames.length / 2);
+                      const examesColunaEsquerda = todosExames.slice(0, metade);
+                      const examesColunaDireita = todosExames.slice(metade);
+                      
+                      let yPosEsquerda = yPos;
+                      let yPosDireita = yPos;
+                      
+                      // Escrever ambas as colunas simultaneamente
+                      const maxLength = Math.max(examesColunaEsquerda.length, examesColunaDireita.length);
+                      
+                      for (let i = 0; i < maxLength; i++) {
+                        // Verificar se precisa de nova página
+                        if (yPosEsquerda > limiteY || yPosDireita > limiteY) {
+                          doc.addPage();
+                          yPosEsquerda = 52;
+                          yPosDireita = 52;
+                        }
+                        
+                        // Coluna esquerda
+                        if (i < examesColunaEsquerda.length) {
+                          doc.text(`• ${examesColunaEsquerda[i]}`, colunaEsquerdaExames, yPosEsquerda);
+                          yPosEsquerda += alturaLinha;
+                        }
+                        
+                        // Coluna direita
+                        if (i < examesColunaDireita.length) {
+                          doc.text(`• ${examesColunaDireita[i]}`, colunaDireitaExames, yPosDireita);
+                          yPosDireita += alturaLinha;
+                        }
+                      }
+                      
+                      yPos = Math.max(yPosEsquerda, yPosDireita);
+                    } else {
+                      // Uma coluna apenas
+                      let yPosAtual = yPos;
+                      todosExames.forEach((exameLabel) => {
+                        if (yPosAtual > limiteY) {
+                          doc.addPage();
+                          yPosAtual = 52;
+                        }
+                        doc.text(`• ${exameLabel}`, colunaEsquerdaExames, yPosAtual);
+                        yPosAtual += alturaLinha;
+                      });
+                      yPos = yPosAtual;
+                    }
+                  }
+                  
+                  // Rodapé com assinatura fixa em todas as páginas
+                  const pageCount = doc.getNumberOfPages();
+                  const hoje = new Date().toLocaleDateString('pt-BR');
+                  const local = medicoPerfil.localizacao?.endereco 
+                    ? `${medicoPerfil.localizacao.endereco}${medicoPerfil.localizacao.cep ? ` - CEP: ${medicoPerfil.localizacao.cep}` : ''}`
+                    : 'Local não informado';
+                  
+                  for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    
+                    // Assinatura fixa no rodapé (centralizada)
+                    const footerY = 250;
+                    
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    
+                    // Assinatura primeiro
+                    doc.setDrawColor(...darkColor);
+                    doc.setLineWidth(0.5);
+                    doc.line(70, footerY, 140, footerY);
+                    doc.text('Assinatura do Médico', 105, footerY + 6, { align: 'center' });
+                    
+                    // Local
+                    doc.text(`Local: ${local}`, 105, footerY + 12, { align: 'center' });
+                    
+                    // Data
+                    doc.text(`Data: ${hoje}`, 105, footerY + 18, { align: 'center' });
+                    
+                    // Numeração de páginas (abaixo da assinatura)
+                    doc.setFontSize(8);
+                    doc.setTextColor(128, 128, 128);
+                    doc.text(
+                      `Página ${i} de ${pageCount}`,
+                      105,
+                      footerY + 26,
+                      { align: 'center' }
+                    );
+                  }
+                  
+                  // Salvar PDF
+                  const nomePaciente = pacienteEditando.dadosIdentificacao?.nome?.replace(/\s+/g, '_') || 'Paciente';
+                  const nomeArquivo = `Requisicao_Exames_${nomePaciente}_${new Date().toISOString().split('T')[0]}.pdf`;
+                  doc.save(nomeArquivo);
+                  
+                  setShowSolicitarExamesModal(false);
+                  setExamesSelecionados([]);
+                  setExamesCustomizados(['']);
+                  setMessage('Requisição de exames gerada com sucesso!');
+                }}
+                disabled={examesSelecionados.length === 0 && examesCustomizados.filter(e => e.trim()).length === 0}
+                className={`px-4 py-2 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                  examesSelecionados.length === 0 && examesCustomizados.filter(e => e.trim()).length === 0
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                <FileText size={16} />
+                Gerar Requisição em PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Saída */}
+      {showConfirmarSaidaModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start mb-4">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-6 w-6 text-amber-500" />
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Deseja sair sem salvar as alterações?
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Você tem alterações não salvas. O que deseja fazer?
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-3 mt-6">
+              <button
+                onClick={async () => {
+                  await salvarESair();
+                }}
+                disabled={salvandoParaSair}
+                className="w-full px-4 py-2.5 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {salvandoParaSair ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Salvando...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={18} />
+                    Salvar e Sair
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={fecharModalSemSalvar}
+                disabled={salvandoParaSair}
+                className="w-full px-4 py-2.5 bg-gray-600 text-white font-medium rounded-md hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X size={18} />
+                Sair sem Salvar
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowConfirmarSaidaModal(false);
+                  setAcaoConfirmacaoSaida(null);
+                }}
+                disabled={salvandoParaSair}
+                className="w-full px-4 py-2.5 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Não Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FAQ Chat para Médico - Posicionado no canto inferior esquerdo, acima do menu */}
+      {user && (
+        <FAQChat
+          userName={medicoPerfil?.nome ? medicoPerfil.nome.split(' ')[0] : user.displayName?.split(' ')[0] || 'Médico'}
+          faqItems={[
+            {
+              question: "Quais são os benefícios da plataforma para mim como médico?",
+              answer: "A plataforma é 100% gratuita e oferece: gestão completa de pacientes em um só lugar, sistema de leads que traz pacientes direto para você, organização automática de dados clínicos em 9 pastas, gráficos e alertas automáticos que facilitam o acompanhamento, comunicação integrada com pacientes, prescrições pré-configuradas que economizam tempo, e estatísticas detalhadas do seu trabalho. Tudo isso sem custos, aumentando sua produtividade e organização."
+            },
+            {
+              question: "Como a plataforma me ajuda a conseguir mais pacientes?",
+              answer: "Ao cadastrar suas cidades de atendimento no perfil, pacientes interessados em tratamento com Tirzepatida podem encontrá-lo na busca por localização. Eles enviam solicitações de contato diretamente pela plataforma, criando um pipeline de leads organizado. Você recebe notificações de novas solicitações e pode gerenciar todo o processo de conversão em leads até transformá-los em pacientes em tratamento."
+            },
+            {
+              question: "Como gerenciar meus Leads?",
+              answer: "Na seção 'Leads', você encontra todos os pacientes que solicitaram contato. O sistema organiza os leads em um pipeline visual com 5 status: 'Não qualificado', 'Enviado contato', 'Contato Feito', 'Em tratamento' e 'Excluído'. Você pode arrastar os cards entre as colunas para atualizar o status. Cada lead mostra nome, cidade, data de solicitação e um ícone do WhatsApp para contato direto."
+            },
+            {
+              question: "Como entrar em contato com um Lead?",
+              answer: "Ao lado do nome de cada lead, há um ícone do WhatsApp. Clique nele para abrir uma conversa direta no WhatsApp com o paciente. Isso facilita o primeiro contato e a negociação do tratamento. Após o contato, mova o lead para 'Contato Feito' no pipeline."
+            },
+            {
+              question: "Como funciona o Pipeline de Leads?",
+              answer: "O pipeline é um sistema visual tipo Kanban com 5 colunas:\n\n1. 'Não qualificado' - Leads que não atendem aos critérios\n2. 'Enviado contato' - Leads que você já contatou\n3. 'Contato Feito' - Leads com quem você já conversou\n4. 'Em tratamento' - Leads que viraram pacientes\n5. 'Excluído' - Leads descartados\n\nArraste os cards entre as colunas para organizar seu fluxo de trabalho!"
+            },
+            {
+              question: "Como a plataforma economiza meu tempo?",
+              answer: "A plataforma automatiza muitas tarefas: cálculo automático de dosagens de prescrições baseadas no peso, alertas automáticos quando exames estão fora do normal, gráficos gerados automaticamente da evolução do paciente, prescrições padrão pré-configuradas (Whey, Creatina), e organização automática de dados em pastas. Isso reduz significativamente o tempo de preenchimento e análise, permitindo que você foque no que realmente importa: o cuidado com o paciente."
+            },
+            {
+              question: "Como organizar as informações do paciente?",
+              answer: "Após cadastrar um paciente, clique em 'Editar' na lista. Um modal abre com 9 abas (pastas):\n\n1. Dados de Identificação\n2. Dados Clínicos (peso inicial, medidas)\n3. Estilo de Vida\n4. Exames Laboratoriais\n5. Plano Terapêutico (doses de Tirzepatida)\n6. Evolução/Seguimento Semanal\n7. Alertas e Recomendações\n8. Comunicação e Registro\n9. Prescrições\n\nPreencha conforme a evolução do tratamento!"
+            },
+            {
+              question: "Como acompanhar a evolução do paciente?",
+              answer: "Na pasta 6 (Evolução/Seguimento Semanal), registre peso, circunferência abdominal, pressão arterial e outros dados de cada consulta. A plataforma gera gráficos automáticos mostrando a evolução ao longo do tempo. Na pasta 9 (Indicadores), você vê métricas de adesão e progresso do tratamento."
+            },
+            {
+              question: "Como usar os Alertas do sistema?",
+              answer: "A plataforma gera alertas automáticos quando:\n- Exames estão fora dos valores de referência\n- Dose precisa ser ajustada\n- Paciente está atrasado nas aplicações\n- Metas não estão sendo atingidas\n\nNa pasta 7 (Alertas), você pode ver todos os alertas e criar recomendações personalizadas para o paciente."
+            },
+            {
+              question: "Como gerenciar as aplicações de Tirzepatida?",
+              answer: "Na pasta 5 (Plano Terapêutico), defina a dose inicial e histórico de doses. O sistema sugere ajustes baseados na evolução. Na pasta 6, registre cada aplicação com data, dose e local. O calendário na pasta 5 mostra todas as aplicações agendadas e realizadas."
+            },
+            {
+              question: "Como criar prescrições para pacientes?",
+              answer: "Na pasta 9 (Prescrições), você tem acesso a prescrições padrão (como Whey Protein e Creatina) que são calculadas automaticamente baseadas no peso do paciente. Você pode criar novas prescrições personalizadas, editar existentes e imprimir PDFs para o paciente. As dosagens são ajustadas automaticamente!"
+            },
+            {
+              question: "Como ver estatísticas gerais?",
+              answer: "No menu 'Estatísticas', você vê um resumo completo: total de pacientes, leads por status, pacientes em tratamento, concluídos ou que abandonaram. Há também gráficos de evolução coletiva e indicadores de adesão ao tratamento. Use os filtros para analisar períodos específicos."
+            },
+            {
+              question: "Como cadastrar minhas cidades de atendimento?",
+              answer: "No menu 'Perfil', você pode cadastrar as cidades onde atende. Isso permite que pacientes encontrem você na busca por localização. Quanto mais cidades cadastrar, mais visibilidade você terá na plataforma. Pacientes podem filtrar médicos por cidade e estado."
+            },
+            {
+              question: "Como me comunicar com pacientes?",
+              answer: "A plataforma possui mensagens integradas. Na pasta 8 (Comunicação), você pode enviar mensagens, lembretes sobre consultas e exames, e receber mensagens dos pacientes. Tudo fica registrado e organizado. Você também pode enviar recomendações que o paciente pode marcar como lidas."
+            }
+          ]}
+          position="left"
+        />
       )}
     </div>
   );
