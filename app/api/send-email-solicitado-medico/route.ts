@@ -193,7 +193,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Registrar envio (usar solicitacaoId como identificador único para evitar duplicatas)
-    const enviosCollection = db.collection('email_envios');
     await enviosCollection.add({
       solicitacaoId: solicitacaoId, // Adicionar ID da solicitação para rastreamento
       leadId: solicitacao.pacienteId || '',
