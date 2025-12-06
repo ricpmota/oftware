@@ -54,6 +54,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
             
             setUser(newUser);
+
+            // Se for um novo usuário (não é o admin), criar lead e enviar e-mail
+            if (firebaseUser.email !== 'ricpmota.med@gmail.com' && firebaseUser.email) {
+              try {
+                console.log('🆕 Novo usuário detectado, criando lead e enviando e-mail...', {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email,
+                  name: firebaseUser.displayName || firebaseUser.email
+                });
+
+                // Criar lead no Firestore
+                const { LeadService } = await import('@/services/leadService');
+                const novoLead = {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email,
+                  name: firebaseUser.displayName || firebaseUser.email.split('@')[0] || 'Usuário',
+                  createdAt: firebaseUser.metadata.creationTime ? new Date(firebaseUser.metadata.creationTime) : new Date(),
+                  lastSignInTime: firebaseUser.metadata.lastSignInTime ? new Date(firebaseUser.metadata.lastSignInTime) : undefined,
+                  emailVerified: firebaseUser.emailVerified || false,
+                  status: 'nao_qualificado' as const,
+                  dataStatus: new Date(),
+                };
+                
+                const leadId = await LeadService.createOrUpdateLead(novoLead);
+                console.log('✅ Lead criado:', leadId);
+
+                // Enviar e-mail de lead avulso para o gestor admin
+                try {
+                  const emailResponse = await fetch('/api/send-email-lead-avulso', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      leadId: leadId,
+                      leadNome: novoLead.name,
+                      leadEmail: novoLead.email,
+                    }),
+                  });
+
+                  const emailResult = await emailResponse.json();
+                  
+                  if (!emailResponse.ok) {
+                    console.error('❌ Erro ao enviar e-mail de lead avulso:', emailResult);
+                  } else {
+                    console.log('✅ E-mail de lead avulso enviado com sucesso:', emailResult);
+                  }
+                } catch (emailError) {
+                  console.error('❌ Erro ao enviar e-mail de lead avulso:', emailError);
+                  // Não bloquear o fluxo se o e-mail falhar
+                }
+              } catch (leadError) {
+                console.error('❌ Erro ao criar lead para novo usuário:', leadError);
+                // Não bloquear o fluxo se o lead falhar
+              }
+            }
           }
         } catch (error) {
           console.error('Erro ao buscar dados do usuário:', error);
