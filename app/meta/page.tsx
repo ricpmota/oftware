@@ -1969,25 +1969,25 @@ export default function MetaPage() {
       }
 
       case 'indicar': {
-        // Função para carregar minhas indicações
-        const loadMinhasIndicacoes = async () => {
-          if (!user?.email) return;
-          setLoadingIndicacoes(true);
-          try {
-            const indicacoes = await IndicacaoService.getIndicacoesPorPaciente(user.email);
-            setMinhasIndicacoes(indicacoes);
-          } catch (error) {
-            console.error('Erro ao carregar indicações:', error);
-            alert('Erro ao carregar suas indicações. Tente novamente.');
-          } finally {
-            setLoadingIndicacoes(false);
-          }
+        // Função para validar telefone brasileiro (DDD + 9 dígitos)
+        const validarTelefone = (telefone: string): boolean => {
+          // Remove caracteres não numéricos
+          const numeros = telefone.replace(/\D/g, '');
+          // Deve ter 11 dígitos (2 DDD + 9 número) ou 10 dígitos (2 DDD + 8 número - formato antigo)
+          // Aceitamos ambos, mas preferimos 11 dígitos
+          return numeros.length === 10 || numeros.length === 11;
         };
 
-        // Carregar indicações quando mudar para aba "minhas"
-        if (activeTabIndicar === 'minhas' && minhasIndicacoes.length === 0 && !loadingIndicacoes && user?.email) {
-          loadMinhasIndicacoes();
-        }
+        // Função para formatar telefone
+        const formatarTelefone = (telefone: string): string => {
+          const numeros = telefone.replace(/\D/g, '');
+          if (numeros.length === 10) {
+            return numeros.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+          } else if (numeros.length === 11) {
+            return numeros.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+          }
+          return telefone;
+        };
 
         // Filtrar médicos por estado e cidade
         const medicosFiltrados = indicacaoForm.estado && indicacaoForm.cidade
@@ -2019,6 +2019,12 @@ export default function MetaPage() {
             return;
           }
 
+          // Validar telefone
+          if (!validarTelefone(indicacaoForm.telefonePaciente)) {
+            alert('Telefone inválido. Digite o DDD e o número com 9 dígitos (ex: (11) 98765-4321).');
+            return;
+          }
+
           setSalvandoIndicacao(true);
           try {
             const medicoSelecionado = todosMedicosDisponiveis.find(m => m.id === indicacaoForm.medicoId);
@@ -2027,11 +2033,14 @@ export default function MetaPage() {
               return;
             }
 
+            // Normalizar telefone (remover formatação)
+            const telefoneNormalizado = indicacaoForm.telefonePaciente.replace(/\D/g, '');
+
             await IndicacaoService.criarIndicacao({
               indicadoPor: user.email,
               indicadoPorNome: paciente.nome || user.displayName || 'Paciente',
               nomePaciente: indicacaoForm.nomePaciente.trim(),
-              telefonePaciente: indicacaoForm.telefonePaciente.trim(),
+              telefonePaciente: telefoneNormalizado,
               estado: indicacaoForm.estado,
               cidade: indicacaoForm.cidade,
               medicoId: indicacaoForm.medicoId,
@@ -2051,7 +2060,7 @@ export default function MetaPage() {
 
             // Recarregar minhas indicações se estiver na aba
             if (activeTabIndicar === 'minhas') {
-              await loadMinhasIndicacoes();
+              setMinhasIndicacoes([]); // Resetar para forçar reload
             }
           } catch (error) {
             console.error('Erro ao salvar indicação:', error);
@@ -2091,7 +2100,7 @@ export default function MetaPage() {
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  Indicar um paciente
+                  Plano de Indicação
                 </button>
                 <button
                   onClick={() => {
@@ -2114,11 +2123,21 @@ export default function MetaPage() {
               <div className="p-6">
                 {activeTabIndicar === 'indicar' ? (
                   <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Indicar um paciente</h3>
-                      <p className="text-sm text-gray-600 mb-6">
-                        Primeiro, selecione o médico que receberá a indicação. Depois, preencha os dados do paciente que você está indicando.
+                    <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 border border-green-200">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">💰 Ganhe dinheiro indicando!</h3>
+                      <p className="text-sm text-gray-700 mb-4">
+                        Indique pacientes para médicos cadastrados e ganhe comissão quando eles se tornarem clientes.
                       </p>
+                      <div className="bg-white rounded-lg p-4 border border-gray-200">
+                        <p className="text-xs text-gray-600 mb-2">
+                          <strong>Como funciona:</strong>
+                        </p>
+                        <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
+                          <li>Selecione o médico que receberá a indicação</li>
+                          <li>Preencha os dados do paciente que você está indicando</li>
+                          <li>Quando o paciente se cadastrar, você recebe comissão!</li>
+                        </ul>
+                      </div>
                     </div>
 
                     {/* Seção: Seleção do Médico */}
@@ -2184,20 +2203,24 @@ export default function MetaPage() {
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Médico *
                           </label>
-                        <select
-                          value={indicacaoForm.medicoId}
-                          onChange={(e) => setIndicacaoForm({ ...indicacaoForm, medicoId: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
-                        >
-                          <option value="">Selecione o médico</option>
-                          {medicosFiltrados.map((medico) => (
-                            <option key={medico.id} value={medico.id}>
-                              {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                          <select
+                            value={indicacaoForm.medicoId}
+                            onChange={(e) => setIndicacaoForm({ ...indicacaoForm, medicoId: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                          >
+                            <option value="">Selecione o médico</option>
+                            {medicosFiltrados.map((medico) => (
+                              <option key={medico.id} value={medico.id}>
+                                {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                                {medico.temPlanoIndicacao !== false ? ' ✓ Plano de Indicação' : ' (Sem plano)'}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Médicos com "✓ Plano de Indicação" oferecem comissão por indicações.
+                          </p>
+                        </div>
+                      )}
 
                       {indicacaoForm.estado && indicacaoForm.cidade && medicosFiltrados.length === 0 && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -2230,18 +2253,47 @@ export default function MetaPage() {
                         {/* Telefone do paciente */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Telefone do paciente *
+                            Telefone do paciente * (DDD + 9 dígitos)
                           </label>
                           <input
                             type="tel"
                             value={indicacaoForm.telefonePaciente}
-                            onChange={(e) => setIndicacaoForm({ ...indicacaoForm, telefonePaciente: e.target.value })}
+                            onChange={(e) => {
+                              let valor = e.target.value.replace(/\D/g, '');
+                              // Limitar a 11 dígitos (2 DDD + 9 número)
+                              if (valor.length > 11) valor = valor.slice(0, 11);
+                              // Formatar enquanto digita
+                              let formatado = valor;
+                              if (valor.length > 6) {
+                                formatado = valor.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
+                              } else if (valor.length > 2) {
+                                formatado = valor.replace(/(\d{2})(\d{0,5})/, '($1) $2');
+                              } else if (valor.length > 0) {
+                                formatado = `(${valor}`;
+                              }
+                              setIndicacaoForm({ ...indicacaoForm, telefonePaciente: formatado });
+                            }}
+                            onBlur={(e) => {
+                              const telefone = e.target.value.replace(/\D/g, '');
+                              if (telefone.length > 0 && !validarTelefone(telefone)) {
+                                // Não limpar, apenas mostrar erro visual
+                                e.target.classList.add('border-red-500');
+                              } else {
+                                e.target.classList.remove('border-red-500');
+                              }
+                            }}
                             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
-                            placeholder="(00) 00000-0000"
+                            placeholder="(11) 98765-4321"
+                            maxLength={15}
                           />
                           <p className="text-xs text-gray-500 mt-1">
-                            Este telefone será usado para identificar quando o paciente se cadastrar no sistema.
+                            Digite o DDD e o número com 9 dígitos. Este telefone será usado para identificar quando o paciente se cadastrar no sistema.
                           </p>
+                          {indicacaoForm.telefonePaciente && !validarTelefone(indicacaoForm.telefonePaciente) && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Telefone inválido. Digite o DDD (2 dígitos) e o número com 9 dígitos.
+                            </p>
+                          )}
                         </div>
                       </div>
                     )}

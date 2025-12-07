@@ -23,6 +23,7 @@ export interface Medico {
   dataCadastro: Date;
   status: 'ativo' | 'inativo';
   isVerificado?: boolean; // Verificação do médico pelo admin
+  temPlanoIndicacao?: boolean; // Se o médico tem plano de indicações ativo
 }
 
 export interface CidadeAtendimento {
