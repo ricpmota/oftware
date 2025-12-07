@@ -2117,15 +2117,19 @@ export default function MetaPage() {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Indicar um paciente</h3>
                       <p className="text-sm text-gray-600 mb-6">
-                        Preencha os dados do paciente que você deseja indicar para um médico.
+                        Primeiro, selecione o médico que receberá a indicação. Depois, preencha os dados do paciente que você está indicando.
                       </p>
                     </div>
 
-                    {/* Estado */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Estado *
-                      </label>
+                    {/* Seção: Seleção do Médico */}
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-4">Selecione o médico que receberá a indicação</h4>
+                      
+                      {/* Estado */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Estado *
+                        </label>
                       <select
                         value={indicacaoForm.estado}
                         onChange={(e) => {
@@ -2147,12 +2151,12 @@ export default function MetaPage() {
                       </select>
                     </div>
 
-                    {/* Cidade */}
-                    {indicacaoForm.estado && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Cidade *
-                        </label>
+                      {/* Cidade */}
+                      {indicacaoForm.estado && (
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Cidade *
+                          </label>
                         <select
                           value={indicacaoForm.cidade}
                           onChange={(e) => {
@@ -2174,12 +2178,12 @@ export default function MetaPage() {
                       </div>
                     )}
 
-                    {/* Médico */}
-                    {indicacaoForm.estado && indicacaoForm.cidade && medicosFiltrados.length > 0 && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Médico *
-                        </label>
+                      {/* Médico */}
+                      {indicacaoForm.estado && indicacaoForm.cidade && medicosFiltrados.length > 0 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Médico *
+                          </label>
                         <select
                           value={indicacaoForm.medicoId}
                           onChange={(e) => setIndicacaoForm({ ...indicacaoForm, medicoId: e.target.value })}
@@ -2195,19 +2199,25 @@ export default function MetaPage() {
                       </div>
                     )}
 
-                    {indicacaoForm.estado && indicacaoForm.cidade && medicosFiltrados.length === 0 && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <p className="text-sm text-yellow-800">
-                          Não há médicos disponíveis para esta cidade. Selecione outra cidade.
-                        </p>
-                      </div>
-                    )}
+                      {indicacaoForm.estado && indicacaoForm.cidade && medicosFiltrados.length === 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <p className="text-sm text-yellow-800">
+                            Não há médicos disponíveis para esta cidade. Selecione outra cidade.
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Nome do paciente */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Nome do paciente *
-                      </label>
+                    {/* Seção: Dados do Paciente Indicado */}
+                    {indicacaoForm.medicoId && (
+                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-4">Dados do paciente que você está indicando</h4>
+                        
+                        {/* Nome do paciente */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Nome do paciente *
+                          </label>
                       <input
                         type="text"
                         value={indicacaoForm.nomePaciente}
@@ -2217,22 +2227,24 @@ export default function MetaPage() {
                       />
                     </div>
 
-                    {/* Telefone do paciente */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Telefone do paciente *
-                      </label>
-                      <input
-                        type="tel"
-                        value={indicacaoForm.telefonePaciente}
-                        onChange={(e) => setIndicacaoForm({ ...indicacaoForm, telefonePaciente: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
-                        placeholder="(00) 00000-0000"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Este telefone será usado para identificar quando o paciente se cadastrar no sistema.
-                      </p>
-                    </div>
+                        {/* Telefone do paciente */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Telefone do paciente *
+                          </label>
+                          <input
+                            type="tel"
+                            value={indicacaoForm.telefonePaciente}
+                            onChange={(e) => setIndicacaoForm({ ...indicacaoForm, telefonePaciente: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
+                            placeholder="(00) 00000-0000"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Este telefone será usado para identificar quando o paciente se cadastrar no sistema.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Botão salvar */}
                     <button
