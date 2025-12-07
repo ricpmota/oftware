@@ -482,12 +482,38 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
 
     if (!emailTemplate) return null;
 
+    const variaveisInfo = getVariaveisDisponiveis(activeModulo, activeEmail);
+    
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-2 text-black">
           {emailInfo.nome}
         </h3>
         <p className="text-sm text-gray-600 mb-4">{emailInfo.descricao}</p>
+        
+        {/* Seção de Variáveis Disponíveis */}
+        {variaveisInfo.variaveis.length > 0 && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+              <span className="mr-2">📋</span> Variáveis Disponíveis
+            </h4>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {variaveisInfo.variaveis.map((variavel) => (
+                  <code
+                    key={variavel}
+                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-mono"
+                  >
+                    {variavel}
+                  </code>
+                ))}
+              </div>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                {variaveisInfo.descricao}
+              </p>
+            </div>
+          </div>
+        )}
         
         <div className="space-y-4">
           <div>
