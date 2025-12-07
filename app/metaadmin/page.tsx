@@ -248,20 +248,6 @@ export default function MetaAdminPage() {
   });
   const [indicacoesVisualizadas, setIndicacoesVisualizadas] = useState<Set<string>>(new Set());
 
-  // Função para carregar indicações pendentes
-  const loadIndicacoesPendentes = useCallback(async () => {
-    if (!medicoPerfil) return;
-    
-    setLoadingIndicacoes(true);
-    try {
-      const indicacoes = await IndicacaoService.getIndicacoesPendentesPorMedico(medicoPerfil.id);
-      setIndicacoesPendentes(indicacoes);
-    } catch (error) {
-      console.error('Erro ao carregar indicações pendentes:', error);
-    } finally {
-      setLoadingIndicacoes(false);
-    }
-  }, [medicoPerfil]);
 
   // Carregar indicações quando médico perfil mudar
   useEffect(() => {
