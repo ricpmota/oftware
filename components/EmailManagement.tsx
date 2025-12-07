@@ -544,20 +544,25 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
               <span className="mr-2">📋</span> Variáveis Disponíveis
             </h4>
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2 mb-2">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-1.5 mb-2">
                 {variaveisInfo.variaveis.map((variavel) => (
                   <code
-                    key={variavel}
-                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-mono"
+                    key={variavel.nome}
+                    className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-mono font-semibold"
                   >
-                    {variavel}
+                    {variavel.nome}
                   </code>
                 ))}
               </div>
-              <p className="text-xs text-blue-700 leading-relaxed">
-                {variaveisInfo.descricao}
-              </p>
+              <div className="space-y-1">
+                {variaveisInfo.variaveis.map((variavel) => (
+                  <div key={variavel.nome} className="text-xs text-blue-700">
+                    <span className="font-mono font-semibold">{variavel.nome}</span>
+                    <span className="ml-1.5">{variavel.descricao}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
