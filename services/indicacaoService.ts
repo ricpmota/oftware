@@ -39,14 +39,18 @@ export class IndicacaoService {
    */
   static async getIndicacoesPorPaciente(emailPaciente: string): Promise<Indicacao[]> {
     try {
+      console.log('Buscando indicações para email:', emailPaciente);
+      
+      // Primeiro buscar sem orderBy para evitar erro de índice
       const q = query(
         collection(db, this.COLLECTION),
-        where('indicadoPor', '==', emailPaciente),
-        orderBy('criadoEm', 'desc')
+        where('indicadoPor', '==', emailPaciente)
       );
       const snapshot = await getDocs(q);
       
-      return snapshot.docs.map(doc => {
+      console.log('Documentos encontrados:', snapshot.docs.length);
+      
+      const indicacoes = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -66,6 +70,12 @@ export class IndicacaoService {
           pacienteIdVenda: data.pacienteIdVenda
         } as Indicacao;
       });
+      
+      // Ordenar manualmente por data de criação (mais recente primeiro)
+      indicacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
+      
+      console.log('Indicações processadas:', indicacoes.length);
+      return indicacoes;
     } catch (error) {
       console.error('Erro ao buscar indicações do paciente:', error);
       throw error;

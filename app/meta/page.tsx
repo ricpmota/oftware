@@ -463,15 +463,24 @@ export default function MetaPage() {
     let isMounted = true;
     
     const loadMinhasIndicacoes = async () => {
-      if (!user?.email || activeMenu !== 'indicar' || activeTabIndicar !== 'minhas') return;
-      if (loadingIndicacoesRef.current) return; // Evitar chamadas duplicadas
+      if (!user?.email || activeMenu !== 'indicar' || activeTabIndicar !== 'minhas') {
+        console.log('Condições não atendidas:', { userEmail: user?.email, activeMenu, activeTabIndicar });
+        return;
+      }
+      if (loadingIndicacoesRef.current) {
+        console.log('Já está carregando, ignorando...');
+        return; // Evitar chamadas duplicadas
+      }
       
+      console.log('Carregando indicações para:', user.email);
       loadingIndicacoesRef.current = true;
       setLoadingIndicacoes(true);
       try {
         const indicacoes = await IndicacaoService.getIndicacoesPorPaciente(user.email);
+        console.log('Indicações carregadas:', indicacoes.length);
         if (isMounted) {
           setMinhasIndicacoes(indicacoes);
+          console.log('Estado atualizado com', indicacoes.length, 'indicações');
         }
       } catch (error) {
         console.error('Erro ao carregar indicações:', error);
@@ -2036,6 +2045,13 @@ export default function MetaPage() {
             )
           : [];
 
+        // Estados disponíveis (apenas os que têm médicos cadastrados)
+        const estadosComMedicos = Array.from(new Set(
+          todosMedicosDisponiveis
+            .flatMap(m => m.cidades)
+            .map(c => c.estado)
+        )).sort();
+
         // Cidades disponíveis para o estado selecionado
         const cidadesDoEstado = indicacaoForm.estado
           ? Array.from(new Set(
@@ -2168,7 +2184,7 @@ export default function MetaPage() {
                         <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
                           <li>Selecione o médico que receberá a indicação</li>
                           <li>Preencha os dados do paciente que você está indicando</li>
-                          <li>Quando o paciente se cadastrar, você recebe comissão!</li>
+                          <li>Quando o paciente se cadastrar e iniciar o tratamento, você recebe sua comissão daquele médico que possui plano de comissão</li>
                         </ul>
                       </div>
                     </div>
@@ -2195,11 +2211,13 @@ export default function MetaPage() {
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
                       >
                         <option value="">Selecione o estado</option>
-                        {estadosList.map((estado) => (
-                          <option key={estado.sigla} value={estado.sigla}>
-                            {estado.nome}
-                          </option>
-                        ))}
+                        {estadosList
+                          .filter(estado => estadosComMedicos.includes(estado.sigla))
+                          .map((estado) => (
+                            <option key={estado.sigla} value={estado.sigla}>
+                              {estado.nome}
+                            </option>
+                          ))}
                       </select>
                     </div>
 
