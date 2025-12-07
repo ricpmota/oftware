@@ -920,6 +920,23 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
               planoCarregado.restricoesPaciente || [],
               planoCarregado.preferenciasProteinaPaciente || []
             );
+            
+            // Adicionar opções customizadas salvas ao opcoesDisponiveis
+            if (planoCarregado.opcoesCustomizadas) {
+              const refeicoes: RefeicaoKey[] = ['cafe', 'lanche1', 'almoco', 'lanche2', 'jantar'];
+              refeicoes.forEach(refeicaoKey => {
+                const customizadas = planoCarregado.opcoesCustomizadas![refeicaoKey];
+                if (customizadas && customizadas.length > 0) {
+                  // Adicionar apenas se não existir já
+                  customizadas.forEach(opcaoCustom => {
+                    if (!opcoesDisponiveis[refeicaoKey].find(o => o.id === opcaoCustom.id)) {
+                      opcoesDisponiveis[refeicaoKey].push(opcaoCustom);
+                    }
+                  });
+                }
+              });
+            }
+            
             setOpcoesRefeicoes(opcoesDisponiveis);
           }
           
