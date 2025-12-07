@@ -132,6 +132,7 @@ interface CheckInDiario {
   aderenciaPlano?: number; // 0-100%
   pesoHoje?: number; // kg (opcional, se último peso > 7 dias)
   sintomasAumentoDose?: 'nenhum' | 'leve' | 'moderado' | 'intenso'; // Para semanas de aumento de dose
+  caloriasDiarias_kcal?: number; // Calorias totais do cardápio selecionado
   score: number;
   data: string;
 }
@@ -1019,19 +1020,13 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   // ============================================
 
   // Função para obter o peso atual do paciente
-  // Prioriza o último peso da evolução, senão usa o peso inicial
+  // Usa a mesma lógica do Home: último registro de evolucaoSeguimento (sem ordenar por data)
   const obterPesoAtual = (): number => {
-    // Buscar último peso na evolução de seguimento
+    // Buscar último peso na evolução de seguimento (mesma lógica do Home)
     const evolucao = paciente?.evolucaoSeguimento || [];
     if (evolucao.length > 0) {
-      // Ordenar por data (mais recente primeiro) e pegar o primeiro
-      const evolucaoOrdenada = [...evolucao].sort((a, b) => {
-        const dataA = a.data ? new Date(a.data).getTime() : 0;
-        const dataB = b.data ? new Date(b.data).getTime() : 0;
-        return dataB - dataA;
-      });
-      
-      const ultimoRegistro = evolucaoOrdenada[0];
+      // Pegar o último registro (mesma lógica do Home: evolucao[evolucao.length - 1])
+      const ultimoRegistro = evolucao[evolucao.length - 1];
       if (ultimoRegistro?.peso && ultimoRegistro.peso > 0) {
         return ultimoRegistro.peso;
       }
@@ -2105,6 +2100,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         aderenciaPlano: checkInData.aderenciaPlano ?? 100,
         pesoHoje: checkInData.pesoHoje || null,
         sintomasAumentoDose: checkInData.sintomasAumentoDose || null,
+        caloriasDiarias_kcal: checkInData.caloriasDiarias_kcal || null,
         score: score,
         data: checkInDate, // Usar checkInDate em vez de dataHoje
         timestamp: Timestamp.now()
@@ -3066,6 +3062,64 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   />
                 </label>
               </div>
+              
+              {/* Calorias do Cardápio */}
+              {plano && (() => {
+                const refeicoes: RefeicaoKey[] = ['cafe', 'lanche1', 'almoco', 'lanche2', 'jantar'];
+                let caloriasTotal = 0;
+                
+                refeicoes.forEach(refeicaoKey => {
+                  const macrosSalvas = plano.macrosPorRefeicao?.[refeicaoKey];
+                  if (macrosSalvas && macrosSalvas.caloriasEscolhida_kcal > 0) {
+                    caloriasTotal += macrosSalvas.caloriasEscolhida_kcal;
+                  } else {
+                    const valoresSugeridos = calcularValoresSugeridos(refeicaoKey, plano);
+                    caloriasTotal += valoresSugeridos.caloriasSugerida_kcal;
+                  }
+                });
+                
+                // Calcular meta de calorias (estimativa baseada no peso e estilo)
+                const pesoAtual = obterPesoAtual();
+                // Meta aproximada: 20-25 kcal/kg para perda de peso com Tirzepatida
+                const metaCaloriasMin = Math.round(pesoAtual * 20);
+                const metaCaloriasMax = Math.round(pesoAtual * 25);
+                const estaDentroDaMeta = caloriasTotal >= metaCaloriasMin && caloriasTotal <= metaCaloriasMax * 1.2;
+                
+                // Atualizar checkInData com calorias
+                if (checkInData.caloriasDiarias_kcal !== caloriasTotal) {
+                  setCheckInData({ ...checkInData, caloriasDiarias_kcal: caloriasTotal });
+                }
+                
+                return (
+                  <div className="mt-4 p-4 bg-white rounded-md border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-gray-600" />
+                        <p className="text-sm font-medium text-gray-700">Calorias do Cardápio de Hoje</p>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900">{caloriasTotal} kcal</p>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Meta sugerida: {metaCaloriasMin}-{metaCaloriasMax} kcal/dia
+                    </p>
+                    {!estaDentroDaMeta && (
+                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-semibold text-red-800 mb-1">
+                              Calorias fora da meta recomendada
+                            </p>
+                            <p className="text-xs text-red-700">
+                              Isso será notificado ao seu médico e pode comprometer o bom andamento do tratamento.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             
             {/* Card 2 – Água e Suplementos */}
