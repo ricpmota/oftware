@@ -1150,7 +1150,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     <input
                       type="number"
                       value={wizardData.kgSanfona || ''}
-                      onChange={(e) => setWizardData({ ...wizardData, kgSanfona: parseFloat(e.target.value) })}
+                      onChange={(e) => setWizardData({ ...wizardData, kgSanfona: e.target.value ? parseFloat(e.target.value) : undefined })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
                       placeholder="Ex: 10"
                       min="1"
@@ -1165,7 +1165,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     <input
                       type="number"
                       value={wizardData.pesoMaximo2Anos || ''}
-                      onChange={(e) => setWizardData({ ...wizardData, pesoMaximo2Anos: parseFloat(e.target.value) })}
+                      onChange={(e) => setWizardData({ ...wizardData, pesoMaximo2Anos: e.target.value ? parseFloat(e.target.value) : undefined })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
                       placeholder="Ex: 95"
                       min="20"
@@ -1178,7 +1178,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     <input
                       type="number"
                       value={wizardData.pesoMinimo2Anos || ''}
-                      onChange={(e) => setWizardData({ ...wizardData, pesoMinimo2Anos: parseFloat(e.target.value) })}
+                      onChange={(e) => setWizardData({ ...wizardData, pesoMinimo2Anos: e.target.value ? parseFloat(e.target.value) : undefined })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
                       placeholder="Ex: 75"
                       min="20"
