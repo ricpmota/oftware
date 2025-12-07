@@ -332,21 +332,35 @@ export default function NutriContent({ paciente }: NutriContentProps) {
   };
 
   const salvarCheckIn = async () => {
+    if (!paciente || !paciente.id) {
+      alert('Erro: Paciente não encontrado. Recarregue a página.');
+      return;
+    }
+
     try {
       setSavingCheckIn(true);
       const score = calcularScoreCheckIn(checkInData);
+      const dataHoje = new Date().toISOString().split('T')[0];
+      
       const checkInComScore = { 
-        ...checkInData, 
-        score,
-        data: new Date().toISOString().split('T')[0]
+        proteinaOk: checkInData.proteinaOk,
+        frutasOk: checkInData.frutasOk,
+        aguaOk: checkInData.aguaOk,
+        sintomasGI: checkInData.sintomasGI,
+        lixoAlimentar: checkInData.lixoAlimentar,
+        humorEnergia: checkInData.humorEnergia,
+        score: score,
+        data: dataHoje,
+        timestamp: new Date()
       };
       
-      const checkInRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'checkins', checkInComScore.data);
-      await setDoc(checkInRef, {
-        ...checkInComScore,
-        timestamp: new Date()
-      });
+      console.log('Salvando check-in:', checkInComScore);
+      console.log('Paciente ID:', paciente.id);
       
+      const checkInRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'checkins', dataHoje);
+      await setDoc(checkInRef, checkInComScore);
+      
+      console.log('Check-in salvo com sucesso!');
       alert('Check-in salvo com sucesso!');
       setView('plano');
       setCheckInData({
@@ -357,11 +371,16 @@ export default function NutriContent({ paciente }: NutriContentProps) {
         lixoAlimentar: false,
         humorEnergia: 3,
         score: 0,
-        data: new Date().toISOString().split('T')[0]
+        data: dataHoje
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar check-in:', error);
-      alert('Erro ao salvar check-in. Tente novamente.');
+      console.error('Detalhes do erro:', {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack
+      });
+      alert(`Erro ao salvar check-in: ${error?.message || 'Erro desconhecido'}. Verifique o console para mais detalhes.`);
     } finally {
       setSavingCheckIn(false);
     }
