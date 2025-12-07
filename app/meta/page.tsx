@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell, Eye, DollarSign, CheckCircle } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -29,6 +29,8 @@ import { LabRangeBar } from '@/components/LabRangeBar';
 import TrendLine from '@/components/TrendLine';
 import FAQChat from '@/components/FAQChat';
 import NutriContent from '@/components/NutriContent';
+import { IndicacaoService } from '@/services/indicacaoService';
+import { Indicacao } from '@/types/indicacao';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -153,6 +155,19 @@ export default function MetaPage() {
   const [todosMedicosDisponiveis, setTodosMedicosDisponiveis] = useState<Medico[]>([]);
   const [estadosDisponiveis, setEstadosDisponiveis] = useState<string[]>([]);
   const [cidadesDisponiveis, setCidadesDisponiveis] = useState<{ estado: string; cidade: string }[]>([]);
+  
+  // Estados para Indicação
+  const [activeTabIndicar, setActiveTabIndicar] = useState<'indicar' | 'minhas'>('indicar');
+  const [indicacaoForm, setIndicacaoForm] = useState({
+    estado: '',
+    cidade: '',
+    medicoId: '',
+    nomePaciente: '',
+    telefonePaciente: ''
+  });
+  const [salvandoIndicacao, setSalvandoIndicacao] = useState(false);
+  const [minhasIndicacoes, setMinhasIndicacoes] = useState<Indicacao[]>([]);
+  const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
 
   // Carregar cidades customizadas
   useEffect(() => {
@@ -1954,23 +1969,364 @@ export default function MetaPage() {
       }
 
       case 'indicar': {
+        // Função para carregar minhas indicações
+        const loadMinhasIndicacoes = async () => {
+          if (!user?.email) return;
+          setLoadingIndicacoes(true);
+          try {
+            const indicacoes = await IndicacaoService.getIndicacoesPorPaciente(user.email);
+            setMinhasIndicacoes(indicacoes);
+          } catch (error) {
+            console.error('Erro ao carregar indicações:', error);
+            alert('Erro ao carregar suas indicações. Tente novamente.');
+          } finally {
+            setLoadingIndicacoes(false);
+          }
+        };
+
+        // Carregar indicações quando mudar para aba "minhas"
+        if (activeTabIndicar === 'minhas' && minhasIndicacoes.length === 0 && !loadingIndicacoes && user?.email) {
+          loadMinhasIndicacoes();
+        }
+
+        // Filtrar médicos por estado e cidade
+        const medicosFiltrados = indicacaoForm.estado && indicacaoForm.cidade
+          ? todosMedicosDisponiveis.filter(medico => 
+              medico.cidades.some(c => 
+                c.estado === indicacaoForm.estado && c.cidade === indicacaoForm.cidade
+              )
+            )
+          : [];
+
+        // Cidades disponíveis para o estado selecionado
+        const cidadesDoEstado = indicacaoForm.estado
+          ? Array.from(new Set(
+              todosMedicosDisponiveis
+                .flatMap(m => m.cidades)
+                .filter(c => c.estado === indicacaoForm.estado)
+                .map(c => c.cidade)
+            )).sort()
+          : [];
+
+        const handleSalvarIndicacao = async () => {
+          if (!user?.email || !paciente) {
+            alert('Erro: Usuário não encontrado. Recarregue a página.');
+            return;
+          }
+
+          if (!indicacaoForm.estado || !indicacaoForm.cidade || !indicacaoForm.medicoId || !indicacaoForm.nomePaciente || !indicacaoForm.telefonePaciente) {
+            alert('Por favor, preencha todos os campos.');
+            return;
+          }
+
+          setSalvandoIndicacao(true);
+          try {
+            const medicoSelecionado = todosMedicosDisponiveis.find(m => m.id === indicacaoForm.medicoId);
+            if (!medicoSelecionado) {
+              alert('Médico não encontrado.');
+              return;
+            }
+
+            await IndicacaoService.criarIndicacao({
+              indicadoPor: user.email,
+              indicadoPorNome: paciente.nome || user.displayName || 'Paciente',
+              nomePaciente: indicacaoForm.nomePaciente.trim(),
+              telefonePaciente: indicacaoForm.telefonePaciente.trim(),
+              estado: indicacaoForm.estado,
+              cidade: indicacaoForm.cidade,
+              medicoId: indicacaoForm.medicoId,
+              medicoNome: medicoSelecionado.nome
+            });
+
+            alert('Indicação enviada com sucesso! O médico será notificado.');
+            
+            // Limpar formulário
+            setIndicacaoForm({
+              estado: '',
+              cidade: '',
+              medicoId: '',
+              nomePaciente: '',
+              telefonePaciente: ''
+            });
+
+            // Recarregar minhas indicações se estiver na aba
+            if (activeTabIndicar === 'minhas') {
+              await loadMinhasIndicacoes();
+            }
+          } catch (error) {
+            console.error('Erro ao salvar indicação:', error);
+            alert('Erro ao salvar indicação. Tente novamente.');
+          } finally {
+            setSalvandoIndicacao(false);
+          }
+        };
+
+        const getStatusLabel = (status: Indicacao['status']) => {
+          switch (status) {
+            case 'pendente':
+              return { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock };
+            case 'visualizada':
+              return { label: 'Visualizada', color: 'bg-blue-100 text-blue-800', icon: Eye };
+            case 'venda':
+              return { label: 'Virou Venda', color: 'bg-green-100 text-green-800', icon: CheckCircle };
+            case 'paga':
+              return { label: 'Paga', color: 'bg-purple-100 text-purple-800', icon: DollarSign };
+            default:
+              return { label: 'Pendente', color: 'bg-gray-100 text-gray-800', icon: Clock };
+          }
+        };
+
         return (
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900">Indicar</h2>
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <div className="max-w-md mx-auto">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <UserIcon className="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 className="text-2xl font-semibold text-gray-900 mb-4">Em Manutenção</h3>
-                <p className="text-gray-600 mb-6">
-                  Esta funcionalidade está em desenvolvimento e estará disponível em breve.
-                </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    Em breve você poderá indicar amigos e familiares para conhecerem o tratamento.
-                  </p>
-                </div>
+            
+            {/* Tabs */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTabIndicar('indicar')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTabIndicar === 'indicar'
+                      ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Indicar um paciente
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTabIndicar('minhas');
+                    if (minhasIndicacoes.length === 0 && user?.email && !loadingIndicacoes) {
+                      loadMinhasIndicacoes();
+                    }
+                  }}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTabIndicar === 'minhas'
+                      ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Minhas Indicações
+                </button>
+              </div>
+
+              {/* Conteúdo das tabs */}
+              <div className="p-6">
+                {activeTabIndicar === 'indicar' ? (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Indicar um paciente</h3>
+                      <p className="text-sm text-gray-600 mb-6">
+                        Preencha os dados do paciente que você deseja indicar para um médico.
+                      </p>
+                    </div>
+
+                    {/* Estado */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Estado *
+                      </label>
+                      <select
+                        value={indicacaoForm.estado}
+                        onChange={(e) => {
+                          setIndicacaoForm({
+                            ...indicacaoForm,
+                            estado: e.target.value,
+                            cidade: '', // Resetar cidade quando mudar estado
+                            medicoId: '' // Resetar médico quando mudar estado
+                          });
+                        }}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                      >
+                        <option value="">Selecione o estado</option>
+                        {estadosList.map((estado) => (
+                          <option key={estado.sigla} value={estado.sigla}>
+                            {estado.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Cidade */}
+                    {indicacaoForm.estado && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Cidade *
+                        </label>
+                        <select
+                          value={indicacaoForm.cidade}
+                          onChange={(e) => {
+                            setIndicacaoForm({
+                              ...indicacaoForm,
+                              cidade: e.target.value,
+                              medicoId: '' // Resetar médico quando mudar cidade
+                            });
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                        >
+                          <option value="">Selecione a cidade</option>
+                          {cidadesDoEstado.map((cidade) => (
+                            <option key={cidade} value={cidade}>
+                              {cidade}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Médico */}
+                    {indicacaoForm.estado && indicacaoForm.cidade && medicosFiltrados.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Médico *
+                        </label>
+                        <select
+                          value={indicacaoForm.medicoId}
+                          onChange={(e) => setIndicacaoForm({ ...indicacaoForm, medicoId: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                        >
+                          <option value="">Selecione o médico</option>
+                          {medicosFiltrados.map((medico) => (
+                            <option key={medico.id} value={medico.id}>
+                              {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {indicacaoForm.estado && indicacaoForm.cidade && medicosFiltrados.length === 0 && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p className="text-sm text-yellow-800">
+                          Não há médicos disponíveis para esta cidade. Selecione outra cidade.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Nome do paciente */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nome do paciente *
+                      </label>
+                      <input
+                        type="text"
+                        value={indicacaoForm.nomePaciente}
+                        onChange={(e) => setIndicacaoForm({ ...indicacaoForm, nomePaciente: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
+                        placeholder="Nome completo do paciente"
+                      />
+                    </div>
+
+                    {/* Telefone do paciente */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Telefone do paciente *
+                      </label>
+                      <input
+                        type="tel"
+                        value={indicacaoForm.telefonePaciente}
+                        onChange={(e) => setIndicacaoForm({ ...indicacaoForm, telefonePaciente: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
+                        placeholder="(00) 00000-0000"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Este telefone será usado para identificar quando o paciente se cadastrar no sistema.
+                      </p>
+                    </div>
+
+                    {/* Botão salvar */}
+                    <button
+                      onClick={handleSalvarIndicacao}
+                      disabled={salvandoIndicacao || !indicacaoForm.estado || !indicacaoForm.cidade || !indicacaoForm.medicoId || !indicacaoForm.nomePaciente || !indicacaoForm.telefonePaciente}
+                      className="w-full px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                    >
+                      {salvandoIndicacao ? 'Enviando...' : 'Enviar Indicação'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Minhas Indicações</h3>
+                      <p className="text-sm text-gray-600 mb-6">
+                        Acompanhe o status das suas indicações e quando elas viram venda.
+                      </p>
+                    </div>
+
+                    {loadingIndicacoes ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                        <p className="text-sm text-gray-600 mt-4">Carregando indicações...</p>
+                      </div>
+                    ) : minhasIndicacoes.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                        <UserIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">Você ainda não fez nenhuma indicação.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {minhasIndicacoes.map((indicacao) => {
+                          const statusInfo = getStatusLabel(indicacao.status);
+                          const StatusIcon = statusInfo.icon;
+                          
+                          return (
+                            <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <h4 className="text-base font-semibold text-gray-900 mb-1">
+                                    {indicacao.nomePaciente}
+                                  </h4>
+                                  <p className="text-sm text-gray-600">
+                                    {indicacao.cidade}, {indicacao.estado}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    Indicado para: {indicacao.medicoNome}
+                                  </p>
+                                </div>
+                                <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
+                                  <StatusIcon className="w-3 h-3" />
+                                  {statusInfo.label}
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-200">
+                                <div>
+                                  <p className="text-xs text-gray-500">Data da indicação</p>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {indicacao.criadoEm.toLocaleDateString('pt-BR')}
+                                  </p>
+                                </div>
+                                {indicacao.visualizadaEm && (
+                                  <div>
+                                    <p className="text-xs text-gray-500">Visualizada em</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {indicacao.visualizadaEm.toLocaleDateString('pt-BR')}
+                                    </p>
+                                  </div>
+                                )}
+                                {indicacao.virouVendaEm && (
+                                  <div>
+                                    <p className="text-xs text-gray-500">Virou venda em</p>
+                                    <p className="text-sm font-medium text-green-700">
+                                      {indicacao.virouVendaEm.toLocaleDateString('pt-BR')}
+                                    </p>
+                                  </div>
+                                )}
+                                {indicacao.pagaEm && (
+                                  <div>
+                                    <p className="text-xs text-gray-500">Paga em</p>
+                                    <p className="text-sm font-medium text-purple-700">
+                                      {indicacao.pagaEm.toLocaleDateString('pt-BR')}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

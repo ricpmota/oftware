@@ -45,6 +45,8 @@ import jsPDF from 'jspdf';
 import FAQChat from '@/components/FAQChat';
 import { PrescricaoService } from '@/services/prescricaoService';
 import { Prescricao, PrescricaoItem } from '@/types/prescricao';
+import { IndicacaoService } from '@/services/indicacaoService';
+import { Indicacao } from '@/types/indicacao';
 
 export default function MetaAdminPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -229,6 +231,10 @@ export default function MetaAdminPage() {
     itens: [] as PrescricaoItem[],
     observacoes: ''
   });
+  
+  // Estados para Indicações
+  const [indicacoesPendentes, setIndicacoesPendentes] = useState<Indicacao[]>([]);
+  const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
   
   // Estados para Pasta 4 (Exames Laboratoriais)
   const [exameDataSelecionada, setExameDataSelecionada] = useState<string>('');
@@ -1122,6 +1128,22 @@ export default function MetaAdminPage() {
   };
 
   // Função para carregar pacientes do médico
+  // Função para carregar indicações pendentes
+  const loadIndicacoesPendentes = useCallback(async () => {
+    if (!medicoPerfil?.id) return;
+    
+    setLoadingIndicacoes(true);
+    try {
+      const indicacoes = await IndicacaoService.getIndicacoesPendentesPorMedico(medicoPerfil.id);
+      setIndicacoesPendentes(indicacoes);
+    } catch (error) {
+      console.error('Erro ao carregar indicações pendentes:', error);
+      setMessage('Erro ao carregar indicações pendentes.');
+    } finally {
+      setLoadingIndicacoes(false);
+    }
+  }, [medicoPerfil?.id]);
+
   const loadPacientes = useCallback(async () => {
     if (!user || !medicoPerfil) return;
     
@@ -3197,6 +3219,112 @@ export default function MetaAdminPage() {
                 </div>
               </>
             )}
+
+            {/* Lista de Indicações Pendentes */}
+            <div className="bg-white shadow rounded-lg overflow-hidden mt-6">
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Indicações Pendentes</h3>
+                <button
+                  onClick={() => loadIndicacoesPendentes()}
+                  disabled={loadingIndicacoes}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Atualizar indicações"
+                >
+                  <RefreshCw size={16} className={loadingIndicacoes ? 'animate-spin' : ''} />
+                  <span className="hidden sm:inline">Atualizar</span>
+                </button>
+              </div>
+              {loadingIndicacoes ? (
+                <div className="px-6 py-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                  <p className="text-sm text-gray-600 mt-4">Carregando indicações...</p>
+                </div>
+              ) : indicacoesPendentes.length === 0 ? (
+                <div className="px-6 py-8 text-center">
+                  <UserCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-sm text-gray-600">Nenhuma indicação pendente.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {indicacoesPendentes.map((indicacao) => (
+                    <div key={indicacao.id} className="px-4 md:px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm md:text-base font-medium text-gray-900 truncate">
+                          {indicacao.nomePaciente}
+                        </h4>
+                        <p className="text-xs md:text-sm text-gray-500 truncate">
+                          Telefone: {indicacao.telefonePaciente}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {indicacao.cidade}, {indicacao.estado}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Indicado por: {indicacao.indicadoPorNome || indicacao.indicadoPor} em {indicacao.criadoEm.toLocaleDateString('pt-BR')}
+                        </p>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-2 ${
+                          indicacao.status === 'pendente'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : indicacao.status === 'visualizada'
+                            ? 'bg-blue-100 text-blue-800'
+                            : indicacao.status === 'venda'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {indicacao.status === 'pendente' ? 'Pendente' :
+                           indicacao.status === 'visualizada' ? 'Visualizada' :
+                           indicacao.status === 'venda' ? 'Virou Venda' : 'Paga'}
+                        </span>
+                        {indicacao.virouVendaEm && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Virou venda em: {indicacao.virouVendaEm.toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        {indicacao.status === 'pendente' && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await IndicacaoService.marcarComoVisualizada(indicacao.id);
+                                await loadIndicacoesPendentes();
+                                setMessage('Indicação marcada como visualizada.');
+                              } catch (error) {
+                                console.error('Erro ao marcar indicação como visualizada:', error);
+                                setMessage('Erro ao atualizar indicação.');
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Eye size={16} />
+                            Marcar como Visualizada
+                          </button>
+                        )}
+                        {indicacao.status === 'venda' && (
+                          <button
+                            onClick={async () => {
+                              if (confirm('Confirma que você pagou a comissão por esta indicação?')) {
+                                try {
+                                  await IndicacaoService.marcarComoPaga(indicacao.id);
+                                  await loadIndicacoesPendentes();
+                                  setMessage('Indicação marcada como paga.');
+                                } catch (error) {
+                                  console.error('Erro ao marcar indicação como paga:', error);
+                                  setMessage('Erro ao atualizar indicação.');
+                                }
+                              }
+                            }}
+                            className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <DollarSign size={16} />
+                            Marcar como Paga
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Lista de Solicitações */}
             {solicitacoesMedico.length > 0 && (

@@ -153,7 +153,27 @@ export class PacienteService {
         const cleanedData = removeUndefined(dataToSave);
         
         const docRef = await addDoc(collection(db, 'pacientes_completos'), cleanedData);
-        return docRef.id;
+        const novoPacienteId = docRef.id;
+        
+        // Verificar se há indicação pendente com o mesmo telefone
+        // Buscar telefone do paciente (pode estar em dadosIdentificacao.telefone)
+        const telefonePaciente = paciente.dadosIdentificacao?.telefone || '';
+        if (telefonePaciente) {
+          try {
+            const { IndicacaoService } = await import('@/services/indicacaoService');
+            const indicacao = await IndicacaoService.getIndicacaoPorTelefone(telefonePaciente);
+            if (indicacao && (indicacao.status === 'pendente' || indicacao.status === 'visualizada')) {
+              // Marcar indicação como venda
+              await IndicacaoService.marcarComoVenda(indicacao.id, novoPacienteId);
+              console.log('✅ Indicação marcada como venda:', indicacao.id);
+            }
+          } catch (error) {
+            // Não bloquear o cadastro se houver erro na verificação de indicação
+            console.error('Erro ao verificar indicação:', error);
+          }
+        }
+        
+        return novoPacienteId;
       }
     } catch (error) {
       console.error('Erro ao criar/atualizar paciente:', error);
