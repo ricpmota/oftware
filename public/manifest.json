@@ -1,7 +1,7 @@
 {
-  "name": "Oftware - Sistema de Gestão Clínica Oftalmológica",
+  "name": "Oftware - Sistema de Automação Médica",
   "short_name": "Oftware",
-  "description": "Sistema completo de assistência oftalmológica para médicos",
+  "description": "Sistema completo de monitoramento",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -27,6 +27,7 @@ import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predi
 import { getLabRange, Sex } from '@/types/labRanges';
 import { LabRangeBar } from '@/components/LabRangeBar';
 import TrendLine from '@/components/TrendLine';
+import FAQChat from '@/components/FAQChat';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -92,6 +93,18 @@ export default function MetaPage() {
   const [mensagensPaciente, setMensagensPaciente] = useState<PacienteMensagem[]>([]);
   const [loadingMensagensPaciente, setLoadingMensagensPaciente] = useState(false);
   const [mensagensNaoLidasPaciente, setMensagensNaoLidasPaciente] = useState(0);
+  const [showMensagensMedicoModal, setShowMensagensMedicoModal] = useState(false); // Novo modal de mensagens médico-paciente
+  const [abaAtivaMensagens, setAbaAtivaMensagens] = useState<'recebidas' | 'enviadas'>('recebidas'); // Aba ativa no modal de mensagens
+  const [showEnviarMensagemMedicoModal, setShowEnviarMensagemMedicoModal] = useState(false); // Modal para enviar nova mensagem ao médico
+  const [showRecomendacoesModal, setShowRecomendacoesModal] = useState(false);
+  const [slideRecomendacoes, setSlideRecomendacoes] = useState(0);
+  const [recomendacoesLidas, setRecomendacoesLidas] = useState(false);
+  const [mensagensEnviadasPaciente, setMensagensEnviadasPaciente] = useState<PacienteMensagem[]>([]); // Mensagens enviadas pelo paciente
+  const [novaMensagemMedico, setNovaMensagemMedico] = useState({
+    titulo: '',
+    mensagem: '',
+    tipo: 'clinico' as 'clinico' | 'alerta' | 'orientacao' | 'revisao'
+  });
   
   // Estados para médico responsável
   const [medicoResponsavel, setMedicoResponsavel] = useState<Medico | null>(null);
@@ -289,6 +302,7 @@ export default function MetaPage() {
       
       if (!user) {
         // Se não estiver autenticado, redirecionar para a página principal
+        // O usuário será induzido a fazer login ao clicar nos botões
         router.push('/');
         return;
       }
@@ -346,15 +360,29 @@ export default function MetaPage() {
     
     setLoadingMensagensPaciente(true);
     try {
+      console.log('📬 Carregando mensagens do paciente para:', user.email);
       const mensagensData = await PacienteMensagemService.getMensagensPaciente(user.email);
-      setMensagensPaciente(mensagensData.filter(m => !m.deletada));
+      console.log('📬 Mensagens recebidas do serviço:', mensagensData.length);
+      console.log('📬 Mensagens (detalhes):', mensagensData);
       
-      // Contar não lidas
-      const naoLidas = mensagensData.filter(m => !m.lida && !m.deletada).length;
+      const mensagensFiltradas = mensagensData.filter(m => !m.deletada);
+      console.log('📬 Mensagens não deletadas:', mensagensFiltradas.length);
+      
+      // Separar mensagens recebidas (do médico) e enviadas (pelo paciente)
+      const recebidas = mensagensFiltradas.filter(m => m.direcao === 'medico_para_paciente' || !m.direcao);
+      const enviadas = mensagensFiltradas.filter(m => m.direcao === 'paciente_para_medico');
+      
+      setMensagensPaciente(recebidas);
+      setMensagensEnviadasPaciente(enviadas);
+      
+      // Contar não lidas (apenas recebidas)
+      const naoLidas = recebidas.filter(m => !m.lida).length;
+      console.log('📬 Mensagens não lidas:', naoLidas);
       setMensagensNaoLidasPaciente(naoLidas);
     } catch (error) {
       console.error('Erro ao carregar mensagens do paciente:', error);
       setMensagensPaciente([]);
+      setMensagensEnviadasPaciente([]);
     } finally {
       setLoadingMensagensPaciente(false);
     }
@@ -396,6 +424,13 @@ export default function MetaPage() {
       loadMensagensPacienteAtual();
     }
   }, [user, loadPaciente, loadMensagensPacienteAtual]);
+
+  // Carregar estado do checkbox quando paciente é carregado
+  useEffect(() => {
+    if (paciente) {
+      setRecomendacoesLidas(paciente.recomendacoesLidas || false);
+    }
+  }, [paciente]);
 
   // Verificar autorização do Google Calendar quando o paciente for carregado
   useEffect(() => {
@@ -748,22 +783,33 @@ export default function MetaPage() {
         // Calcular estatísticas básicas
         const semanasTratamento = evolucao.length;
         const pesoInicial = medidasIniciais?.peso || 0;
-        const ultimoPeso = evolucao.length > 0 ? evolucao[evolucao.length - 1]?.peso || pesoInicial : pesoInicial;
-        const perdaPesoAcumulado = pesoInicial > 0 && ultimoPeso > 0 ? pesoInicial - ultimoPeso : 0;
+        // Peso Atual: sempre do último registro de aplicação (evolucaoSeguimento)
+        const ultimoPeso = evolucao.length > 0 
+          ? (evolucao[evolucao.length - 1]?.peso || null)
+          : null;
+        const perdaPesoAcumulado = pesoInicial > 0 && ultimoPeso && ultimoPeso > 0 ? pesoInicial - ultimoPeso : 0;
         
-        // HbA1c atual (último exame ou última medição)
-        const examesHbA1c = paciente?.examesLaboratoriais?.filter(e => e.hemoglobinaGlicada) || [];
+        // HbA1c atual (sempre do último registro de aplicação)
         const hba1cAtual = evolucao.length > 0 
           ? evolucao[evolucao.length - 1]?.hba1c || 0
-          : examesHbA1c.length > 0 
-            ? examesHbA1c[examesHbA1c.length - 1].hemoglobinaGlicada || 0 
-            : 0;
+          : 0;
         
-        // Circunferência abdominal atual
-        const circunferenciaInicial = medidasIniciais?.circunferenciaAbdominal || 0;
+        // Circunferência abdominal atual: sempre do último registro de aplicação
         const ultimaCircunferencia = evolucao.length > 0 
-          ? evolucao[evolucao.length - 1]?.circunferenciaAbdominal || circunferenciaInicial 
-          : circunferenciaInicial;
+          ? (evolucao[evolucao.length - 1]?.circunferenciaAbdominal || null)
+          : null;
+
+        const alturaMetros = medidasIniciais?.altura ? medidasIniciais.altura / 100 : null;
+        const imcAtual = alturaMetros && ultimoPeso > 0 ? ultimoPeso / (alturaMetros * alturaMetros) : null;
+        const tipoObesidade = (() => {
+          if (!imcAtual) return null;
+          if (imcAtual < 18.5) return 'Abaixo do peso';
+          if (imcAtual < 25) return 'Peso normal';
+          if (imcAtual < 30) return 'Sobrepeso';
+          if (imcAtual < 35) return 'Obesidade Grau I';
+          if (imcAtual < 40) return 'Obesidade Grau II';
+          return 'Obesidade Grau III';
+        })();
 
         // Preparar curva esperada igual ao médico
         const primeiroRegistro = evolucao.find(e => e.weekIndex === 1);
@@ -820,14 +866,9 @@ export default function MetaPage() {
         });
 
         // Preparar dados para gráfico de HbA1c (últimas 4 semanas)
-        const examesOrdenados = examesHbA1c.sort((a, b) => {
-          const dateA = new Date(a.dataColeta);
-          const dateB = new Date(b.dataColeta);
-          return dateA.getTime() - dateB.getTime();
-        });
-        const baseHbA1cFromExams = examesOrdenados.length > 0 ? examesOrdenados[0].hemoglobinaGlicada : 0;
+        // Base HbA1c sempre do primeiro registro de aplicação
         const primeiroRegistroHbA1c = evolucao.find(e => e.hba1c);
-        const baseHbA1c = primeiroRegistroHbA1c?.hba1c || baseHbA1cFromExams;
+        const baseHbA1c = primeiroRegistroHbA1c?.hba1c || 0;
         
         const hba1cData = ultimas4Semanas.map((s) => {
           const expectedWeek = expectedCurve.find(e => e.weekIndex === s.weekIndex);
@@ -854,6 +895,20 @@ export default function MetaPage() {
         const metaHba1c = planoTerapeutico?.metas?.hba1cTargetType;
         const metaValue = metaHba1c ? parseFloat(metaHba1c.replace('≤', '')) : null;
 
+        // Preparar dados para gráfico de IMC (últimas 4 semanas)
+        const imcChartData = alturaMetros ? ultimas4Semanas.map((s) => {
+          const expectedWeek = expectedCurve.find(e => e.weekIndex === s.weekIndex);
+          const imcReal = s.peso && alturaMetros ? s.peso / (alturaMetros * alturaMetros) : null;
+          const imcPrevisto = expectedWeek?.expectedWeightKg && alturaMetros 
+            ? expectedWeek.expectedWeightKg / (alturaMetros * alturaMetros) 
+            : null;
+          return {
+            semana: s.weekIndex,
+            imc: imcReal,
+            previsto: imcPrevisto
+          };
+        }) : [];
+
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -869,7 +924,7 @@ export default function MetaPage() {
               )}
             </div>
             
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
               <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                 <div className="flex items-center">
                   <BarChart3 className="h-8 w-8 text-green-600" />
@@ -902,7 +957,26 @@ export default function MetaPage() {
                   <RefreshCw className="h-8 w-8 text-orange-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Circunferência Abdominal Atual</p>
-                    <p className="text-2xl font-semibold text-gray-900">{ultimaCircunferencia > 0 ? ultimaCircunferencia.toFixed(1) + ' cm' : '-'}</p>
+                    <p className="text-2xl font-semibold text-gray-900">{ultimaCircunferencia && ultimaCircunferencia > 0 ? ultimaCircunferencia.toFixed(1) + ' cm' : '-'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
+                <div className="flex items-center">
+                  <Activity className="h-8 w-8 text-emerald-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">IMC Atual</p>
+                    <p className="text-2xl font-semibold text-gray-900">{imcAtual ? imcAtual.toFixed(1) : '-'}</p>
+                    <p className="text-sm text-gray-500">{tipoObesidade || 'Sem classificação'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
+                <div className="flex items-center">
+                  <Weight className="h-8 w-8 text-rose-600" />
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Peso Atual</p>
+                    <p className="text-2xl font-semibold text-gray-900">{ultimoPeso && ultimoPeso > 0 ? `${ultimoPeso.toFixed(1)} kg` : '-'}</p>
                   </div>
                 </div>
               </div>
@@ -1004,6 +1078,68 @@ export default function MetaPage() {
                                 name="Circunferência Prevista"
                                 dot={false}
                                 legendType="line"
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Gráfico de IMC */}
+                {alturaMetros && imcChartData.length > 0 && imcChartData.some(d => d.imc !== null) && (
+                  <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">IMC (últimas 4 semanas)</h3>
+                    {(() => {
+                      const valuesWithPrevisto = imcChartData.map(d => d.previsto).filter(v => v !== null) as number[];
+                      const valuesWithReal = imcChartData.map(d => d.imc).filter(v => v !== null) as number[];
+                      const allValues = [...valuesWithPrevisto, ...valuesWithReal];
+                      if (allValues.length === 0) return null;
+                      const minValue = Math.min(...allValues);
+                      const maxValue = Math.max(...allValues);
+                      const range = maxValue - minValue;
+                      // Ajustar escala para valores mais arredondados e com 2 casas decimais
+                      const domainMin = Math.max(0, Math.floor((minValue - range * 0.1) * 100) / 100);
+                      const domainMax = Math.ceil((maxValue + range * 0.1) * 100) / 100;
+
+                      return (
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={imcChartData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="semana" 
+                                label={{ value: 'Semana', position: 'bottom', offset: -5, style: { textAnchor: 'middle' } }}
+                              />
+                              <YAxis 
+                                label={{ value: 'IMC (kg/m²)', angle: -90, position: 'insideLeft' }}
+                                domain={[domainMin, domainMax]}
+                                tickFormatter={(value) => parseFloat(value.toFixed(2)).toString()}
+                                width={60}
+                              />
+                              <Tooltip 
+                                formatter={(value: any) => value !== null ? `${parseFloat(value).toFixed(1)} kg/m²` : 'N/A'}
+                                labelFormatter={(label) => `Semana ${label}`}
+                              />
+                              <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                              <Line 
+                                type="monotone" 
+                                dataKey="previsto" 
+                                stroke="#3b82f6" 
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                name="IMC Previsto"
+                                dot={{ fill: '#3b82f6', r: 3 }}
+                                legendType="line"
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="imc" 
+                                stroke="#10b981" 
+                                strokeWidth={2}
+                                name="IMC Real"
+                                dot={{ fill: '#10b981', r: 4 }}
                               />
                             </LineChart>
                           </ResponsiveContainer>
@@ -1147,10 +1283,36 @@ export default function MetaPage() {
         const dataSelecionada = exameDataSelecionada || dataInicial;
         
         // Encontrar exame da data selecionada
-        const exameSelecionado = exames.find(e => {
+        const exameOriginal = exames.find(e => {
           const dataExame = safeDateToString(e.dataColeta);
           return dataExame === dataSelecionada;
         }) || examesOrdenados[0] || {};
+        
+        // Mapear exame selecionado com os mesmos campos que dadosGrafico
+        const exameSelecionado = {
+          glicemiaJejum: exameOriginal.glicemiaJejum || null,
+          hemoglobinaGlicada: exameOriginal.hemoglobinaGlicada || null,
+          ureia: exameOriginal.ureia || null,
+          creatinina: exameOriginal.creatinina || null,
+          taxaFiltracaoGlomerular: exameOriginal.taxaFiltracaoGlomerular || null,
+          tgp: exameOriginal.tgp || null,
+          tgo: exameOriginal.tgo || null,
+          ggt: exameOriginal.ggt || null,
+          fosfataseAlcalina: exameOriginal.fosfataseAlcalina || null,
+          amilase: exameOriginal.amilase || null,
+          lipase: exameOriginal.lipase || null,
+          colesterolTotal: exameOriginal.colesterolTotal || null,
+          ldl: exameOriginal.ldl || null,
+          hdl: exameOriginal.hdl || null,
+          triglicerides: exameOriginal.triglicerides || null,
+          tsh: exameOriginal.tsh || null,
+          calcitonina: exameOriginal.calcitonina || null,
+          ft4: exameOriginal.t4Livre || null,
+          ferritina: exameOriginal.ferritina || null,
+          ferroSerico: exameOriginal.ferroSerico || null,
+          vitaminaB12: exameOriginal.vitaminaB12 || null,
+          vitaminaD: exameOriginal.vitaminaD || null
+        };
         
         // Preparar dados para gráfico de linha (todos os exames ao longo do tempo)
         const dadosGrafico = examesOrdenados.map(exame => {
@@ -1173,7 +1335,12 @@ export default function MetaPage() {
             hdl: exame.hdl || null,
             triglicerides: exame.triglicerides || null,
             tsh: exame.tsh || null,
-            calcitonina: exame.calcitonina || null
+            calcitonina: exame.calcitonina || null,
+            ft4: exame.t4Livre || null,
+            ferritina: exame.ferritina || null,
+            ferroSerico: exame.ferroSerico || null,
+            vitaminaB12: exame.vitaminaB12 || null,
+            vitaminaD: exame.vitaminaD || null
           };
         }).reverse();
         
@@ -1208,9 +1375,35 @@ export default function MetaPage() {
           ]},
           { section: 'Tireóide / Rastreio MEN2', fields: [
             { key: 'tsh', label: 'TSH', field: 'tsh' },
-            { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina' }
+            { key: 'calcitonin', label: 'Calcitonina', field: 'calcitonina' },
+            { key: 'ft4', label: 'T4 Livre (FT4)', field: 'ft4' }
+          ]},
+          { section: 'Ferro e Vitaminas', fields: [
+            { key: 'ferritin', label: 'Ferritina', field: 'ferritina' },
+            { key: 'iron', label: 'Ferro sérico', field: 'ferroSerico' },
+            { key: 'b12', label: 'Vitamina B12', field: 'vitaminaB12' },
+            { key: 'vitaminD', label: 'Vitamina D (25-OH)', field: 'vitaminaD' }
           ]}
         ];
+
+        // Helper: verifica se algum exame tem valor preenchido para o campo
+        // Mapeamento de campos do formulário para campos do exame original
+        const campoMapping: Record<string, string> = {
+          ft4: 't4Livre',
+          ferritina: 'ferritina',
+          ferroSerico: 'ferroSerico',
+          vitaminaB12: 'vitaminaB12',
+          vitaminaD: 'vitaminaD'
+        };
+        
+        const campoTemAlgumValor = (fieldKey: string) => {
+          // Se houver mapeamento, usar o campo original
+          const campoOriginal = campoMapping[fieldKey] || fieldKey;
+          return exames.some((exame: any) => {
+            const v = (exame as any)[campoOriginal];
+            return v !== null && v !== undefined && v !== '';
+          });
+        };
 
         if (exames.length === 0) {
                         return (
@@ -1231,17 +1424,24 @@ export default function MetaPage() {
             
             {/* Exibição dos exames */}
             <div className="space-y-6 pb-4">
-              {todosOsCampos.map((secao, idxSecao) => (
-                <div key={idxSecao} className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-4">{secao.section}</h4>
-                  
-                  {secao.fields.map((campo) => {
+              {todosOsCampos.map((secao, idxSecao) => {
+                const camposComValor = secao.fields.filter((campo) =>
+                  campoTemAlgumValor(campo.field)
+                );
+
+                if (camposComValor.length === 0) return null;
+
+                return (
+                  <div key={idxSecao} className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-4">{secao.section}</h4>
+                    
+                    {camposComValor.map((campo) => {
                     const range = getLabRange(campo.key as any, pacienteSex);
                     if (!range) return null;
                     
                     const value = exameSelecionado[campo.field as keyof typeof exameSelecionado] as number | undefined;
 
-                        return (
+                    return (
                       <div key={campo.field} className="grid grid-cols-1 gap-4 mb-4 last:mb-0">
                         {/* Input e LabRangeBar */}
                         <div>
@@ -1283,10 +1483,11 @@ export default function MetaPage() {
                           )}
                         </div>
                       </div>
-                        );
-                      })}
-              </div>
-              ))}
+                    );
+                  })}
+                </div>
+              );
+              })}
             </div>
           </div>
         );
@@ -3499,25 +3700,78 @@ export default function MetaPage() {
                             )}
                           </div>
                           
-                          <div className="ml-11 mt-3">
-                            <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                              solicitacao.status === 'pendente'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : solicitacao.status === 'aceita'
-                                ? 'bg-green-100 text-green-800'
-                                : solicitacao.status === 'rejeitada'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {solicitacao.status === 'pendente' && '⏳ Pendente'}
-                              {solicitacao.status === 'aceita' && '✓ Aceita'}
-                              {solicitacao.status === 'rejeitada' && '✕ Rejeitada'}
-                              {solicitacao.status === 'desistiu' && '↩ Desistiu'}
-                            </span>
+                          <div className="ml-11 mt-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                                solicitacao.status === 'pendente'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : solicitacao.status === 'aceita'
+                                  ? 'bg-green-100 text-green-800'
+                                  : solicitacao.status === 'rejeitada'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {solicitacao.status === 'pendente' && '⏳ Pendente'}
+                                {solicitacao.status === 'aceita' && '✓ Aceita'}
+                                {solicitacao.status === 'rejeitada' && '✕ Rejeitada'}
+                                {solicitacao.status === 'desistiu' && '↩ Desistiu'}
+                              </span>
+                              {solicitacao.status !== 'desistiu' && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      // Buscar dados do médico
+                                      const medico = await MedicoService.getMedicoById(solicitacao.medicoId);
+                                      if (!medico || !medico.telefone) {
+                                        alert('Médico não possui telefone cadastrado.');
+                                        return;
+                                      }
+
+                                      // Formatar número de telefone
+                                      let telefoneFormatado = medico.telefone.replace(/\D/g, '');
+                                      if (telefoneFormatado.startsWith('0')) {
+                                        telefoneFormatado = telefoneFormatado.substring(1);
+                                      }
+                                      if (!telefoneFormatado.startsWith('55')) {
+                                        telefoneFormatado = '55' + telefoneFormatado;
+                                      }
+
+                                      // Criar mensagem pré-definida
+                                      const tituloMedico = medico.genero === 'F' ? 'Dra.' : 'Dr.';
+                                      const mensagem = `Olá, ${tituloMedico} ${medico.nome}, estou enviando uma solicitação para cotação de um tratamento com Tirzepatida. Poderia me dar mais informações, por favor.`;
+
+                                      // Codificar mensagem para URL
+                                      const mensagemCodificada = encodeURIComponent(mensagem);
+
+                                      // Abrir WhatsApp
+                                      const whatsappUrl = `https://wa.me/${telefoneFormatado}?text=${mensagemCodificada}`;
+                                      window.open(whatsappUrl, '_blank');
+                                    } catch (error) {
+                                      console.error('Erro ao abrir WhatsApp:', error);
+                                      alert('Erro ao abrir WhatsApp. Tente novamente.');
+                                    }
+                                  }}
+                                  className="inline-flex items-center justify-center p-1.5 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full transition-colors"
+                                  title="Abrir WhatsApp"
+                                >
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                            
+                            {/* Mensagem quando solicitação está aceita mas paciente ainda está pendente */}
+                            {solicitacao.status === 'aceita' && paciente?.statusTratamento === 'pendente' && (
+                              <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                <Clock className="h-4 w-4" />
+                                <span>Aguardando o início do Tratamento pelo médico</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         
-                        {(solicitacao.status === 'pendente' || solicitacao.status === 'aceita') && (
+                        {solicitacao.status === 'pendente' && (
                           <button
                             onClick={() => {
                               setSolicitacaoParaDesistir(solicitacao);
@@ -3591,10 +3845,82 @@ export default function MetaPage() {
                     </div>
                   </div>
 
+                  {/* Seção de Mensagens - Apenas visualização, sem formulário */}
+                  <div className="mt-6">
+                    <h4 className="text-md font-semibold text-gray-900 mb-4">Comunicação</h4>
+                    
+                    {/* Mensagens recebidas do médico */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">Mensagens do Médico</h5>
+                      {loadingMensagensPaciente && mensagensPaciente.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500">Carregando mensagens...</div>
+                      ) : mensagensPaciente.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500">Nenhuma mensagem recebida ainda</div>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {mensagensPaciente.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className={`border rounded-lg p-3 ${msg.lida ? 'bg-gray-50' : 'bg-blue-50'}`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-semibold text-gray-900">{msg.titulo}</span>
+                                    <span className={`px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300 capitalize ${
+                                      msg.tipo === 'clinico' ? 'text-gray-900' : 'text-gray-600'
+                                    }`}>
+                                      {msg.tipo}
+                                    </span>
+                                    {!msg.lida && (
+                                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
+                                        Nova
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-700 mb-2">{msg.mensagem}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(msg.criadoEm).toLocaleDateString('pt-BR')} às {new Date(msg.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                                {!msg.lida && (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await PacienteMensagemService.marcarComoLida(msg.id);
+                                        await loadMensagensPacienteAtual();
+                                      } catch (error) {
+                                        console.error('Erro ao marcar como lida:', error);
+                                      }
+                                    }}
+                                    className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                  >
+                                    Marcar como lida
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-3 text-center">
+                        <button
+                          onClick={() => {
+                            setShowMensagensMedicoModal(true);
+                            loadMensagensPacienteAtual();
+                          }}
+                          className="text-sm text-green-600 hover:text-green-700 font-medium"
+                        >
+                          Ver todas as mensagens →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Botão Abandonar Tratamento */}
                   <button
                     onClick={() => setShowModalAbandono(true)}
-                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                    className="w-full mt-6 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
                   >
                     Abandonar Tratamento
                   </button>
@@ -4008,18 +4334,24 @@ export default function MetaPage() {
                 <h1 className="text-xl font-bold text-gray-900">META</h1>
               )}
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setShowMensagensModal(true)}
-                  className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Mensagens"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                  {mensagensNaoLidas > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {mensagensNaoLidas > 9 ? '9+' : mensagensNaoLidas}
-                    </span>
-                  )}
-                </button>
+                {/* Novo botão de mensagens médico-paciente - só aparece se tiver médico responsável */}
+                {medicoResponsavel && paciente?.statusTratamento === 'em_tratamento' && (
+                  <button
+                    onClick={() => {
+                      setShowMensagensMedicoModal(true);
+                      loadMensagensPacienteAtual();
+                    }}
+                    className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Mensagens com Médico"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                    {mensagensNaoLidasPaciente > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {mensagensNaoLidasPaciente > 9 ? '9+' : mensagensNaoLidasPaciente}
+                      </span>
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                   className="p-2 rounded-md hover:bg-gray-100"
@@ -4160,10 +4492,30 @@ export default function MetaPage() {
                 )}
               </div>
               <div className="flex items-center space-x-2">
-                <button
+                {/* Novo botão de mensagens médico-paciente - só aparece se tiver médico responsável */}
+                {medicoResponsavel && paciente?.statusTratamento === 'em_tratamento' && (
+                  <button
+                    onClick={() => {
+                      setShowMensagensMedicoModal(true);
+                      loadMensagensPacienteAtual();
+                    }}
+                    className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Mensagens com Médico"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                    {mensagensNaoLidasPaciente > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {mensagensNaoLidasPaciente > 9 ? '9+' : mensagensNaoLidasPaciente}
+                      </span>
+                    )}
+                  </button>
+                )}
+                {/* Botão antigo de mensagens - DESATIVADO (comentado mas não removido) */}
+                {/* <button
                   onClick={() => setShowMensagensModal(true)}
-                  className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                  className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors opacity-0 pointer-events-none"
                   title="Mensagens"
+                  style={{ display: 'none' }}
                 >
                   <MessageSquare className="w-5 h-5" />
                   {mensagensNaoLidasPaciente > 0 && (
@@ -4171,6 +4523,13 @@ export default function MetaPage() {
                       {mensagensNaoLidasPaciente > 9 ? '9+' : mensagensNaoLidasPaciente}
                     </span>
                   )}
+                </button> */}
+                <button
+                  onClick={() => setShowRecomendacoesModal(true)}
+                  className="relative p-2 text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                  title="Recomendações"
+                >
+                  <AlertTriangle className="w-5 h-5" />
                 </button>
                 <button
                   onClick={handleLogout}
@@ -4185,6 +4544,28 @@ export default function MetaPage() {
           </div>
           
           <main className="p-3 lg:p-4">
+            {/* Alerta para ler recomendações - Só aparece na página de Estatísticas */}
+            {activeMenu === 'estatisticas' && paciente && paciente.medicoResponsavelId && !paciente.recomendacoesLidas && (
+              <div className="mb-4 bg-gradient-to-r from-orange-50 to-purple-50 border-l-4 border-orange-500 rounded-lg p-4 shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <AlertTriangle className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Importante: Leia as Recomendações</h3>
+                    <p className="text-sm text-gray-700 mb-3">
+                      Para obter os melhores resultados com o tratamento, é essencial que você leia e compreenda as recomendações de alimentação e exercícios físicos.
+                    </p>
+                    <button
+                      onClick={() => setShowRecomendacoesModal(true)}
+                      className="bg-gradient-to-r from-purple-600 to-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:from-purple-700 hover:to-orange-700 transition-all shadow-sm hover:shadow-md"
+                    >
+                      Ler Recomendações
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {renderContent()}
           </main>
         </div>
@@ -4602,8 +4983,8 @@ export default function MetaPage() {
       {/* Modal de Solicitação de Médico */}
       {showModalMedico && medicoSelecionado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">Solicitar Médico</h3>
               <button
                 onClick={() => {
@@ -4615,9 +4996,9 @@ export default function MetaPage() {
               >
                 <X size={24} />
               </button>
-    </div>
+            </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <h4 className="text-lg font-bold text-gray-900 mb-3">
                   {medicoSelecionado.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoSelecionado.nome}
@@ -4732,6 +5113,46 @@ export default function MetaPage() {
                     await loadMinhasSolicitacoes();
 
                     alert('Solicitação enviada com sucesso! O médico será notificado.');
+                    
+                    // Abrir WhatsApp com mensagem pré-definida (usar setTimeout para não ser bloqueado pelo alert)
+                    setTimeout(() => {
+                      if (medicoSelecionado.telefone) {
+                        try {
+                          // Formatar número de telefone (remover caracteres especiais)
+                          let telefoneFormatado = medicoSelecionado.telefone.replace(/\D/g, ''); // Remove tudo que não é dígito
+                          
+                          // Remover zero inicial se houver
+                          if (telefoneFormatado.startsWith('0')) {
+                            telefoneFormatado = telefoneFormatado.substring(1);
+                          }
+                          
+                          // Adicionar código do país (55) se não tiver
+                          if (!telefoneFormatado.startsWith('55')) {
+                            telefoneFormatado = '55' + telefoneFormatado;
+                          }
+                          
+                          console.log('Telefone original:', medicoSelecionado.telefone);
+                          console.log('Telefone formatado:', telefoneFormatado);
+                          
+                          // Criar mensagem pré-definida
+                          const tituloMedico = medicoSelecionado.genero === 'F' ? 'Dra.' : 'Dr.';
+                          const mensagem = `Olá, ${tituloMedico} ${medicoSelecionado.nome}, estou enviando uma solicitação para cotação de um tratamento com Tirzepatida. Poderia me dar mais informações, por favor.`;
+                          
+                          // Codificar mensagem para URL
+                          const mensagemCodificada = encodeURIComponent(mensagem);
+                          
+                          // Abrir WhatsApp
+                          const whatsappUrl = `https://wa.me/${telefoneFormatado}?text=${mensagemCodificada}`;
+                          console.log('URL do WhatsApp:', whatsappUrl);
+                          window.open(whatsappUrl, '_blank');
+                        } catch (error) {
+                          console.error('Erro ao abrir WhatsApp:', error);
+                        }
+                      } else {
+                        console.warn('Médico não possui telefone cadastrado:', medicoSelecionado);
+                      }
+                    }, 100);
+                    
                     setShowModalMedico(false);
                     setMedicoSelecionado(null);
                     setTelefonePaciente('');
@@ -4836,6 +5257,337 @@ export default function MetaPage() {
         </div>
       )}
 
+      {/* Modal de Mensagens Médico-Paciente */}
+      {showMensagensMedicoModal && medicoResponsavel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Mensagens com Médico</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowMensagensMedicoModal(false);
+                    setAbaAtivaMensagens('recebidas');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 flex-shrink-0">
+              <button
+                onClick={() => setAbaAtivaMensagens('recebidas')}
+                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  abaAtivaMensagens === 'recebidas'
+                    ? 'border-green-500 text-green-700 bg-green-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Mensagens Recebidas
+                {mensagensNaoLidasPaciente > 0 && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    {mensagensNaoLidasPaciente}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setAbaAtivaMensagens('enviadas')}
+                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  abaAtivaMensagens === 'enviadas'
+                    ? 'border-green-500 text-green-700 bg-green-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Mensagens Enviadas
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {abaAtivaMensagens === 'recebidas' ? (
+                /* Mensagens Recebidas */
+                <div className="space-y-4">
+                  <div>
+                    {loadingMensagensPaciente && mensagensPaciente.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">Carregando mensagens...</div>
+                    ) : mensagensPaciente.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                        Nenhuma mensagem recebida ainda
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {mensagensPaciente.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`border rounded-lg p-4 ${msg.lida ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="font-semibold text-gray-900">{msg.titulo}</span>
+                                  <span className={`px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300 capitalize ${
+                                    msg.tipo === 'clinico' ? 'text-gray-900' : 'text-gray-600'
+                                  }`}>
+                                    {msg.tipo}
+                                  </span>
+                                  {!msg.lida && (
+                                    <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
+                                      Nova
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{msg.mensagem}</p>
+                                <p className="text-xs text-gray-500">
+                                  {new Date(msg.criadoEm).toLocaleDateString('pt-BR')} às {new Date(msg.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                              {!msg.lida && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await PacienteMensagemService.marcarComoLida(msg.id);
+                                      await loadMensagensPacienteAtual();
+                                    } catch (error) {
+                                      console.error('Erro ao marcar como lida:', error);
+                                    }
+                                  }}
+                                  className="ml-3 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                >
+                                  Marcar como lida
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Botão para ir para aba de enviadas */}
+                  <div className="text-center pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => setAbaAtivaMensagens('enviadas')}
+                      className="text-sm text-green-600 hover:text-green-700 font-medium"
+                    >
+                      Enviar nova mensagem →
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Mensagens Enviadas */
+                <div className="space-y-4">
+                  <div>
+                    {loadingMensagensPaciente && mensagensEnviadasPaciente.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">Carregando mensagens...</div>
+                    ) : mensagensEnviadasPaciente.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                        <MessageSquare size={48} className="mx-auto text-gray-400 mb-4" />
+                        <p className="text-gray-600 mb-4">Nenhuma mensagem enviada ainda</p>
+                        <button
+                          onClick={() => setShowEnviarMensagemMedicoModal(true)}
+                          className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-1.5 mx-auto"
+                        >
+                          <Plus size={14} />
+                          Nova Mensagem
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {mensagensEnviadasPaciente.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className="border rounded-lg p-4 bg-green-50 border-green-200"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="font-semibold text-gray-900">{msg.titulo}</span>
+                                    <span className={`px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300 capitalize ${
+                                      msg.tipo === 'clinico' ? 'text-gray-900' : 'text-gray-600'
+                                    }`}>
+                                      {msg.tipo}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{msg.mensagem}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(msg.criadoEm).toLocaleDateString('pt-BR')} às {new Date(msg.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
+                                    
+                                    setLoadingMensagensPaciente(true);
+                                    try {
+                                      await PacienteMensagemService.deletarMensagem(msg.id);
+                                      await loadMensagensPacienteAtual();
+                                      alert('Mensagem excluída com sucesso!');
+                                    } catch (error) {
+                                      console.error('Erro ao excluir mensagem:', error);
+                                      alert('Erro ao excluir mensagem. Tente novamente.');
+                                    } finally {
+                                      setLoadingMensagensPaciente(false);
+                                    }
+                                  }}
+                                  className="ml-3 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center gap-1"
+                                  title="Excluir mensagem"
+                                >
+                                  <Trash2 size={12} />
+                                  Excluir
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-center pt-3">
+                          <button
+                            onClick={() => setShowEnviarMensagemMedicoModal(true)}
+                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-1.5"
+                          >
+                            <Plus size={14} />
+                            Nova Mensagem
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Enviar Nova Mensagem ao Médico */}
+      {showEnviarMensagemMedicoModal && medicoResponsavel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Enviar Mensagem ao Médico</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEnviarMensagemMedicoModal(false);
+                    setNovaMensagemMedico({ titulo: '', mensagem: '', tipo: 'clinico' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                <input
+                  type="text"
+                  value={novaMensagemMedico.titulo}
+                  onChange={(e) => setNovaMensagemMedico({ ...novaMensagemMedico, titulo: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Ex: Dúvida sobre medicação"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Mensagem</label>
+                <select
+                  value={novaMensagemMedico.tipo}
+                  onChange={(e) => setNovaMensagemMedico({ ...novaMensagemMedico, tipo: e.target.value as any })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="clinico">Clínico</option>
+                  <option value="alerta">Alerta</option>
+                  <option value="orientacao">Orientação</option>
+                  <option value="revisao">Revisão</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem *</label>
+                <textarea
+                  value={novaMensagemMedico.mensagem}
+                  onChange={(e) => setNovaMensagemMedico({ ...novaMensagemMedico, mensagem: e.target.value })}
+                  rows={5}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Digite sua mensagem..."
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-2 flex-shrink-0">
+              <button
+                onClick={() => {
+                  setShowEnviarMensagemMedicoModal(false);
+                  setNovaMensagemMedico({ titulo: '', mensagem: '', tipo: 'clinico' });
+                }}
+                className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!novaMensagemMedico.titulo.trim() || !novaMensagemMedico.mensagem.trim()) {
+                    alert('Título e mensagem são obrigatórios');
+                    return;
+                  }
+                  if (!paciente || !medicoResponsavel || !user) {
+                    alert('Erro ao enviar mensagem. Tente novamente.');
+                    return;
+                  }
+                  
+                  setLoadingMensagensPaciente(true);
+                  try {
+                    await PacienteMensagemService.criarMensagem({
+                      pacienteId: paciente.id,
+                      pacienteEmail: user.email || '',
+                      medicoId: medicoResponsavel.id,
+                      medicoEmail: medicoResponsavel.email,
+                      titulo: novaMensagemMedico.titulo.trim(),
+                      mensagem: novaMensagemMedico.mensagem.trim(),
+                      tipo: novaMensagemMedico.tipo,
+                      lida: false,
+                      criadoPor: user.email || '',
+                      direcao: 'paciente_para_medico',
+                      pacienteNome: paciente.nome
+                    });
+                    setNovaMensagemMedico({ titulo: '', mensagem: '', tipo: 'clinico' });
+                    setShowEnviarMensagemMedicoModal(false);
+                    alert('Mensagem enviada com sucesso!');
+                    await loadMensagensPacienteAtual();
+                    // Atualizar aba para mostrar a nova mensagem
+                    setAbaAtivaMensagens('enviadas');
+                  } catch (error) {
+                    console.error('Erro ao enviar mensagem:', error);
+                    alert('Erro ao enviar mensagem. Tente novamente.');
+                  } finally {
+                    setLoadingMensagensPaciente(false);
+                  }
+                }}
+                disabled={loadingMensagensPaciente || !novaMensagemMedico.titulo.trim() || !novaMensagemMedico.mensagem.trim()}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+              >
+                <Send size={16} />
+                {loadingMensagensPaciente ? 'Enviando...' : 'Enviar Mensagem'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Abandono de Tratamento */}
       {showModalAbandono && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -4885,22 +5637,31 @@ export default function MetaPage() {
               </button>
               <button
                 onClick={async () => {
-                  if (!motivoAbandono || !paciente?.id) {
+                  if (!motivoAbandono || !paciente?.id || !user?.email) {
                     alert('Por favor, selecione um motivo do abandono.');
                     return;
                   }
 
                   try {
-                    // Atualizar status do paciente para abandono
-                    const pacienteAtualizado = {
-                      ...paciente,
-                      statusTratamento: 'abandono' as const,
-                      motivoAbandono: motivoAbandono
-                    };
-                    await PacienteService.updatePaciente(paciente.id, pacienteAtualizado);
+                    // IMPORTANTE: Salvar o medicoResponsavelId ANTES de qualquer atualização
+                    const medicoResponsavelIdOriginal = paciente.medicoResponsavelId || null;
+                    console.log('💾 Médico responsável original salvo:', medicoResponsavelIdOriginal);
+                    
+                    // 1. Deletar todas as solicitações do paciente em solicitacoes_medico
+                    await SolicitacaoMedicoService.deletarSolicitacoesPaciente(user.email);
+                    
+                    // 2. Mover paciente de pacientes_completos para pacientes_abandono
+                    // A função moverParaAbandono vai buscar o documento ANTES de atualizar
+                    // e salvar o medicoResponsavelAnteriorId corretamente
+                    await PacienteService.moverParaAbandono(
+                      paciente.id, 
+                      motivoAbandono, 
+                      medicoResponsavelIdOriginal // Passar o ID original salvo
+                    );
                     
                     // Recarregar dados
                     await loadPaciente();
+                    setMedicoResponsavel(null); // Limpar médico responsável do estado
                     
                     alert('Tratamento abandonado com sucesso.');
                     setShowModalAbandono(false);
@@ -4915,6 +5676,329 @@ export default function MetaPage() {
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Confirmar Abandono
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FAQ Chat para Paciente - Posicionado no canto inferior esquerdo, acima do menu */}
+      {user && (
+        <FAQChat
+          userName={(paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome || user.displayName || 'Paciente').split(' ')[0]}
+          faqItems={[
+            {
+              question: "Como funciona o tratamento com Tirzepatida?",
+              answer: "A Tirzepatida é um medicamento injetável administrado semanalmente para tratamento da obesidade. O tratamento é acompanhado pelo seu médico, que ajusta a dose conforme sua evolução. É importante seguir rigorosamente as orientações médicas e realizar os exames solicitados."
+            },
+            {
+              question: "Como acompanhar minha evolução?",
+              answer: "Na área de Estatísticas, você pode visualizar gráficos mostrando sua evolução de peso, IMC, circunferência abdominal e outros indicadores ao longo do tempo. Na área de Evolução, você pode ver o histórico completo de todas as suas consultas e registros."
+            },
+            {
+              question: "Como visualizar meus exames laboratoriais?",
+              answer: "Na área de Exames Laboratoriais, você pode ver todos os resultados dos seus exames. A plataforma mostra se os valores estão dentro ou fora da normalidade, com gráficos visuais para facilitar o entendimento."
+            },
+            {
+              question: "O que fazer se tiver efeitos colaterais?",
+              answer: "Se você sentir qualquer efeito colateral, entre em contato imediatamente com seu médico através da área de Mensagens. Efeitos colaterais comuns incluem náusea, vômito e desconforto gastrointestinal, mas seu médico pode orientá-lo sobre como minimizá-los."
+            },
+            {
+              question: "Como agendar uma consulta?",
+              answer: "Entre em contato com seu médico através da área de Mensagens para agendar consultas. Seu médico também pode enviar lembretes sobre consultas agendadas e exames que precisam ser realizados."
+            },
+            {
+              question: "Como verificar meu plano terapêutico?",
+              answer: "Na área de Plano Terapêutico, você pode ver a dose atual de Tirzepatida, histórico de doses anteriores, suas metas de peso e HbA1c, e quando está agendada sua próxima revisão médica."
+            },
+            {
+              question: "O que fazer se esquecer de tomar a dose?",
+              answer: "Se você esquecer de tomar a dose, entre em contato com seu médico o quanto antes. Não tome doses duplas. Seu médico orientará sobre o melhor procedimento. É importante manter a adesão ao tratamento para obter os melhores resultados."
+            },
+            {
+              question: "Como funciona a comunicação com meu médico?",
+              answer: "Você pode enviar mensagens para seu médico através da área de Mensagens. Seu médico pode enviar lembretes, orientações e responder suas dúvidas. Todas as mensagens ficam registradas para consulta posterior."
+            }
+          ]}
+          position="left"
+        />
+      )}
+
+      {/* Modal de Recomendações */}
+      {showRecomendacoesModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setShowRecomendacoesModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-orange-600 text-white p-6 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Recomendações</h3>
+                  <p className="text-sm text-white/80">Alimentação e Exercícios</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRecomendacoesModal(false)}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                aria-label="Fechar modal"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Carrossel */}
+            <div className="flex-1 overflow-hidden relative" style={{ minHeight: 0 }}>
+              <div 
+                className="flex transition-transform duration-300 ease-in-out h-full"
+                style={{ transform: `translateX(-${slideRecomendacoes * 100}%)` }}
+              >
+                {/* Slide 1: Alimentação */}
+                <div className="min-w-full p-6 overflow-y-auto" style={{ maxHeight: '100%', height: '100%' }}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                      <UtensilsCrossed className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-gray-900">Alimentação</h4>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-purple-50 to-orange-50 rounded-xl p-4 border-l-4 border-purple-600">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        A Tirzepatida é um medicamento que auxilia no controle do peso e da glicemia. Para obter os melhores resultados, é importante seguir cuidados específicos de alimentação e atividade física.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-green-600 font-bold text-xs">✓</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Priorize proteínas magras: ovos, frango, peixe, queijos leves, tofu.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-green-600 font-bold text-xs">✓</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Aumente a ingestão de vegetais e fibras: folhas verdes, legumes, chia, aveia, feijão.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-green-600 font-bold text-xs">✓</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Prefira carboidratos integrais e com baixo índice glicêmico.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-red-600 font-bold text-xs">✗</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Reduza açúcar, massas, pão branco e alimentos ultraprocessados.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-blue-600 font-bold text-xs">💧</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Mantenha hidratação adequada: 2 a 3 litros de água por dia.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-orange-600 font-bold text-xs">⚡</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Faça refeições menores, com intervalos um pouco maiores – isso ajuda a controlar possíveis náuseas.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-red-600 font-bold text-xs">✗</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Evite álcool, especialmente nas primeiras semanas, pois pode piorar sintomas gastrointestinais.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 2: Exercícios */}
+                <div className="min-w-full p-6 overflow-y-auto" style={{ maxHeight: '100%', height: '100%' }}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                      <Dumbbell className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-gray-900">Exercícios Físicos</h4>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-purple-50 to-orange-50 rounded-xl p-4 border-l-4 border-orange-600">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        A prática regular de exercícios físicos é essencial para potencializar os resultados do tratamento com Tirzepatida.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-green-600 font-bold text-xs">✓</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Realize ao menos 150 minutos por semana de exercícios aeróbicos moderados: caminhada, bicicleta ou natação.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-green-600 font-bold text-xs">✓</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Inclua 2 treinos de força semanais (peso corporal já é suficiente).</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-yellow-600 font-bold text-xs">⚠</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Evite exercícios muito intensos nas primeiras 2 semanas de uso ou após aumentos de dose.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-blue-600 font-bold text-xs">💡</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Tente fazer uma caminhada leve após as refeições, pois ajuda no controle glicêmico.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-orange-600 font-bold text-xs">⚡</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Caso tenha tonturas ou fraqueza, reduza a intensidade e hidrate-se bem.</p>
+                      </div>
+
+                      <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-purple-600 font-bold text-xs">💪</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">Se estiver muito nauseado nesses dias, priorize exercícios leves ou alongamentos.</p>
+                      </div>
+                    </div>
+
+                    {/* Aviso Importante */}
+                    <div className="mt-6 bg-red-50 border-l-4 border-red-500 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-red-900 mb-2">⚠️ Importante</p>
+                          <ul className="text-sm text-red-800 space-y-1">
+                            <li>• Náuseas podem ocorrer; pequenas adaptações na dieta ajudam</li>
+                            <li>• Nunca aumente a dose por conta própria</li>
+                            <li>• Em caso de dor abdominal intensa, vômitos persistentes ou sinais de desidratação, procure atendimento</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Checkbox Lido e Compreendido - Só mostra se ainda não leu */}
+            {!recomendacoesLidas && (
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={recomendacoesLidas}
+                    onChange={async (e) => {
+                      const checked = e.target.checked;
+                      setRecomendacoesLidas(checked);
+                    if (checked && paciente) {
+                      try {
+                        const pacienteAtualizado = {
+                          ...paciente,
+                          recomendacoesLidas: true,
+                          dataLeituraRecomendacoes: new Date()
+                        };
+                        await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+                        setPaciente(pacienteAtualizado);
+                        
+                        // Enviar e-mail para o médico
+                        try {
+                          await fetch('/api/send-email-check-recomendacoes', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pacienteId: paciente.id }),
+                          });
+                        } catch (emailError) {
+                          console.error('Erro ao enviar e-mail de check recomendações:', emailError);
+                          // Não bloquear o fluxo se o e-mail falhar
+                        }
+                        
+                        alert('Obrigado por confirmar! Seu médico foi notificado.');
+                      } catch (error) {
+                        console.error('Erro ao salvar confirmação:', error);
+                        alert('Erro ao salvar. Tente novamente.');
+                        setRecomendacoesLidas(false);
+                      }
+                    }
+                    }}
+                    className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                  />
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                    Li e compreendi as recomendações
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {/* Controles do Carrossel */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+              <button
+                onClick={() => setSlideRecomendacoes(0)}
+                disabled={slideRecomendacoes === 0}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  slideRecomendacoes === 0
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                }`}
+              >
+                <ChevronLeft size={20} />
+                <span className="font-medium">Anterior</span>
+              </button>
+
+              {/* Indicadores */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSlideRecomendacoes(0)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    slideRecomendacoes === 0
+                      ? 'bg-purple-600 w-8'
+                      : 'bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  aria-label="Slide 1"
+                />
+                <button
+                  onClick={() => setSlideRecomendacoes(1)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    slideRecomendacoes === 1
+                      ? 'bg-orange-600 w-8'
+                      : 'bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  aria-label="Slide 2"
+                />
+              </div>
+
+              <button
+                onClick={() => setSlideRecomendacoes(1)}
+                disabled={slideRecomendacoes === 1}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  slideRecomendacoes === 1
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                }`}
+              >
+                <span className="font-medium">Próximo</span>
+                <ChevronRight size={20} />
               </button>
             </div>
           </div>

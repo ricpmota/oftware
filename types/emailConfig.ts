@@ -1,7 +1,7 @@
 // Tipos para configuração de e-mails automáticos para leads
 
 export type EmailTipo = 'email1' | 'email2' | 'email3' | 'email4' | 'email5';
-export type EmailModulo = 'leads' | 'solicitado_medico' | 'em_tratamento' | 'novo_lead_medico' | 'aplicacao' | 'lead_avulso' | 'check_recomendacoes' | 'novidades';
+export type EmailModulo = 'leads' | 'solicitado_medico' | 'em_tratamento' | 'novo_lead_medico' | 'aplicacao' | 'lead_avulso' | 'check_recomendacoes' | 'bem_vindo' | 'novidades';
 
 export interface EmailTemplate {
   assunto: string;
@@ -44,7 +44,11 @@ export interface EmailConfig {
   check_recomendacoes: {
     recomendacoes_lidas: EmailTemplate; // Enviado quando paciente lê recomendações
   };
-  // Módulo 8: Novidades - E-mail em massa para pacientes ou médicos
+  // Módulo 8: Bem-vindo - E-mail automático enviado quando um novo cliente se cadastra
+  bem_vindo: {
+    bem_vindo: EmailTemplate; // Enviado automaticamente quando um novo usuário se cadastra
+  };
+  // Módulo 9: Novidades - E-mail em massa para pacientes ou médicos
   novidades: {
     novidade: EmailTemplate; // Template de e-mail para novidades
   };

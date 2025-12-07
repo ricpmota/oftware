@@ -7,6 +7,18 @@
     {
       "path": "/api/cron/daily-notifications", 
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/send-automatic-emails",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/atualizar-conversao",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/send-email-aplicacao",
+      "schedule": "0 8 * * *"
     }
   ]
 }

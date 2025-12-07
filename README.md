@@ -1,4 +1,4 @@
-# Oftware - Sistema de Gestão Clínica Oftalmológica
+# Oftware - Sistema de Automação Médica
 
 Sistema completo de assistência oftalmológica para médicos, otimizado para máxima performance e experiência do usuário.
 

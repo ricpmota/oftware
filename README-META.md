@@ -1,7 +1,7 @@
-# 📋 README - Sistema META (Tratamento de Obesidade com Monjauro)
+# 📋 README - Sistema META (Tratamento de Obesidade com Tirzepatida)
 
 ## 🎯 Objetivo do Sistema
-Sistema para gerenciamento de tratamento de obesidade com Monjauro (Tirzepatida). O sistema conecta médicos e pacientes, permitindo que médicos gerenciem seus pacientes com informações clínicas completas organizadas em 9 pastas.
+Sistema para gerenciamento de tratamento de obesidade com Tirzepatida. O sistema conecta médicos e pacientes, permitindo que médicos gerenciem seus pacientes com informações clínicas completas organizadas em 9 pastas.
 
 ## 🏗️ Estrutura Atual
 
@@ -18,10 +18,6 @@ Sistema para gerenciamento de tratamento de obesidade com Monjauro (Tirzepatida)
   - ✅ Menu "Pacientes" - Lista de pacientes do médico
   - ✅ Modal de cadastro básico de paciente
   - ✅ Modal de edição com 9 abas (pastas)
-
-#### `/metaadmingeral` - Admin Geral
-- **Status**: Copiado de `/admin` para gerenciamento geral
-- **Funcionalidade**: Área administrativa geral
 
 ## 👨‍⚕️ Cadastro do Médico
 

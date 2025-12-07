@@ -80,9 +80,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const leadId = await LeadService.createOrUpdateLead(novoLead);
                 console.log('✅ Lead criado:', leadId);
 
-                // Enviar e-mail de lead avulso para o gestor admin
+                // Enviar e-mails simultaneamente: bem-vindo para o cliente e lead avulso para o admin
                 try {
-                  const emailResponse = await fetch('/api/send-email-lead-avulso', {
+                  // Enviar e-mail de boas-vindas para o cliente
+                  const bemVindoResponse = fetch('/api/send-email-bem-vindo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userId: firebaseUser.uid,
+                      userEmail: novoLead.email,
+                      userName: novoLead.name,
+                    }),
+                  });
+
+                  // Enviar e-mail de lead avulso para o gestor admin
+                  const leadAvulsoResponse = fetch('/api/send-email-lead-avulso', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -92,15 +104,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }),
                   });
 
-                  const emailResult = await emailResponse.json();
-                  
-                  if (!emailResponse.ok) {
-                    console.error('❌ Erro ao enviar e-mail de lead avulso:', emailResult);
+                  // Aguardar ambos os envios
+                  const [bemVindoResult, leadAvulsoResult] = await Promise.allSettled([
+                    bemVindoResponse,
+                    leadAvulsoResponse
+                  ]);
+
+                  if (bemVindoResult.status === 'fulfilled') {
+                    const bemVindoData = await bemVindoResult.value.json();
+                    if (bemVindoResult.value.ok) {
+                      console.log('✅ E-mail de boas-vindas enviado com sucesso:', bemVindoData);
+                    } else {
+                      console.error('❌ Erro ao enviar e-mail de boas-vindas:', bemVindoData);
+                    }
                   } else {
-                    console.log('✅ E-mail de lead avulso enviado com sucesso:', emailResult);
+                    console.error('❌ Erro ao enviar e-mail de boas-vindas:', bemVindoResult.reason);
+                  }
+
+                  if (leadAvulsoResult.status === 'fulfilled') {
+                    const leadAvulsoData = await leadAvulsoResult.value.json();
+                    if (leadAvulsoResult.value.ok) {
+                      console.log('✅ E-mail de lead avulso enviado com sucesso:', leadAvulsoData);
+                    } else {
+                      console.error('❌ Erro ao enviar e-mail de lead avulso:', leadAvulsoData);
+                    }
+                  } else {
+                    console.error('❌ Erro ao enviar e-mail de lead avulso:', leadAvulsoResult.reason);
                   }
                 } catch (emailError) {
-                  console.error('❌ Erro ao enviar e-mail de lead avulso:', emailError);
+                  console.error('❌ Erro ao enviar e-mails:', emailError);
                   // Não bloquear o fluxo se o e-mail falhar
                 }
               } catch (leadError) {

@@ -234,8 +234,8 @@ export async function POST(request: NextRequest) {
           const localNome = locais[localIndex] === 'abdome' ? 'Abdome' : locais[localIndex] === 'coxa' ? 'Coxa' : 'Braço';
 
           const evento: EventoCalendario = {
-            summary: `${paciente.nome} - Monjauro Semana ${semana + 1}`,
-            description: `Aplicação de Monjauro\n\nPaciente: ${paciente.nome}\nSemana: ${semana + 1}\nDose: ${dosePlanejada}mg\nLocal: ${localNome}`,
+            summary: `${paciente.nome} - Tirzepatida Semana ${semana + 1}`,
+            description: `Aplicação de Tirzepatida\n\nPaciente: ${paciente.nome}\nSemana: ${semana + 1}\nDose: ${dosePlanejada}mg\nLocal: ${localNome}`,
             start: {
               dateTime: dataDose.toISOString(),
               timeZone: 'America/Sao_Paulo'
@@ -325,8 +325,8 @@ export async function POST(request: NextRequest) {
         const dosePlanejada = doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
 
         const evento: EventoCalendario = {
-          summary: `Monjauro - Semana ${semana + 1} - ${dosePlanejada}mg`,
-          description: `Aplicação de Monjauro\n\nSemana: ${semana + 1}\nDose: ${dosePlanejada}mg`,
+          summary: `Tirzepatida - Semana ${semana + 1} - ${dosePlanejada}mg`,
+          description: `Aplicação de Tirzepatida\n\nSemana: ${semana + 1}\nDose: ${dosePlanejada}mg`,
           start: {
             dateTime: dataDose.toISOString(),
             timeZone: 'America/Sao_Paulo'

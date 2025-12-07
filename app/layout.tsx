@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Oftware - Sistema de Gestão Clínica Oftalmológica",
-  description: "Sistema completo de assistência oftalmológica para médicos",
+  title: "Oftware - Sistema de Automação Médica",
+  description: "Sistema completo de monitoramento",
   manifest: "/manifest.json",
   icons: {
     icon: [

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import nodemailer from 'nodemailer';
 
 // Para usar SendGrid (recomendado para produção)
 // npm install @sendgrid/mail
@@ -37,16 +38,41 @@ export async function POST(request: NextRequest) {
     await sgMail.send(msg);
     */
 
-    // OPÇÃO 2: Nodemailer (Para desenvolvimento/teste)
-    // Simulação para desenvolvimento (remova para usar nodemailer real)
-    console.log('📧 SIMULAÇÃO E-MAIL:');
-    console.log(`Para: ${to}`);
-    console.log(`Assunto: ${subject}`);
-    console.log(`Conteúdo: ${html.substring(0, 100)}...`);
-    console.log('---');
+    // OPÇÃO 2: Zoho Mail via SMTP (Nodemailer)
+    const useZoho = process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD;
     
-    // Para desenvolvimento, simular sucesso
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (useZoho) {
+      // Configurar transporter do Zoho Mail
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.zoho.com',
+        port: 587,
+        secure: false, // true para 465, false para outras portas
+        auth: {
+          user: process.env.ZOHO_EMAIL, // suporte@oftware.com.br
+          pass: process.env.ZOHO_PASSWORD, // Senha de app do Zoho
+        },
+      });
+
+      // Enviar e-mail
+      const info = await transporter.sendMail({
+        from: process.env.ZOHO_EMAIL,
+        to,
+        subject,
+        html,
+      });
+
+      console.log('✅ E-mail enviado via Zoho:', info.messageId);
+    } else {
+      // OPÇÃO 3: Simulação para desenvolvimento (quando Zoho não está configurado)
+      console.log('📧 SIMULAÇÃO E-MAIL:');
+      console.log(`Para: ${to}`);
+      console.log(`Assunto: ${subject}`);
+      console.log(`Conteúdo: ${html.substring(0, 100)}...`);
+      console.log('---');
+      
+      // Para desenvolvimento, simular sucesso
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
 
     // Atualizar log no Firestore
     if (logId) {

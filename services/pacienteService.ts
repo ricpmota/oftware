@@ -322,13 +322,107 @@ export class PacienteService {
     }
   }
 
-  // Buscar todos os pacientes de um médico
+  // Buscar todos os pacientes de um médico (incluindo os que abandonaram)
   static async getPacientesByMedico(medicoId: string): Promise<PacienteCompleto[]> {
     try {
+      console.log('🔍 Buscando pacientes para médico ID:', medicoId);
+      
+      if (!medicoId) {
+        console.warn('⚠️ medicoId é vazio ou undefined');
+        return [];
+      }
+      
+      // Buscar pacientes ativos do médico
       const pacientesQuery = query(collection(db, 'pacientes_completos'), where('medicoResponsavelId', '==', medicoId));
       const pacientesSnapshot = await getDocs(pacientesQuery);
+      console.log('✅ Pacientes ativos encontrados:', pacientesSnapshot.docs.length);
       
-      return pacientesSnapshot.docs.map(doc => {
+      // Buscar pacientes que abandonaram mas que tinham este médico como responsável anterior
+      // Primeiro buscar de pacientes_completos (para compatibilidade com dados antigos)
+      const pacientesAbandonoQuery = query(
+        collection(db, 'pacientes_completos'),
+        where('statusTratamento', '==', 'abandono')
+      );
+      const pacientesAbandonoSnapshot = await getDocs(pacientesAbandonoQuery);
+      
+      // Filtrar pacientes que abandonaram mas que tinham este médico como responsável anterior
+      const pacientesAbandono = pacientesAbandonoSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        const medicoAnteriorId = data.medicoResponsavelAnteriorId;
+        // Comparação robusta (tratando null, undefined e strings)
+        const match = String(medicoAnteriorId) === String(medicoId);
+        if (match) {
+          console.log('📋 Paciente abandonado encontrado em pacientes_completos:', doc.id, 'medicoResponsavelAnteriorId:', medicoAnteriorId);
+        }
+        return match;
+      });
+      console.log('✅ Pacientes abandonados em pacientes_completos:', pacientesAbandono.length);
+      
+      // Buscar também de pacientes_abandono (nova coleção)
+      // Primeiro tentar com where, se falhar buscar todos e filtrar
+      let pacientesAbandonoNovos: any[] = [];
+      try {
+        const pacientesAbandonoNovosQuery = query(
+          collection(db, 'pacientes_abandono'),
+          where('medicoResponsavelAnteriorId', '==', medicoId)
+        );
+        const pacientesAbandonoNovosSnapshot = await getDocs(pacientesAbandonoNovosQuery);
+        pacientesAbandonoNovos = pacientesAbandonoNovosSnapshot.docs;
+        console.log('✅ Pacientes abandonados em pacientes_abandono (com where):', pacientesAbandonoNovos.length);
+      } catch (error: any) {
+        // Se a query falhar (pode ser por falta de índice), buscar todos e filtrar em memória
+        console.warn('⚠️ Query com where falhou, buscando todos e filtrando em memória:', error.message);
+        const todosAbandonoSnapshot = await getDocs(collection(db, 'pacientes_abandono'));
+        console.log('📦 Total de pacientes em pacientes_abandono:', todosAbandonoSnapshot.docs.length);
+        
+        // Log de todos os pacientes para debug
+        todosAbandonoSnapshot.docs.forEach((doc: any) => {
+          const data = doc.data();
+          console.log('🔍 Paciente em pacientes_abandono:', {
+            id: doc.id,
+            nome: data.nome || data.dadosIdentificacao?.nome,
+            medicoResponsavelAnteriorId: data.medicoResponsavelAnteriorId,
+            medicoIdBuscado: medicoId,
+            match: String(data.medicoResponsavelAnteriorId) === String(medicoId)
+          });
+        });
+        
+        pacientesAbandonoNovos = todosAbandonoSnapshot.docs.filter(doc => {
+          const data = doc.data();
+          const medicoAnteriorId = data.medicoResponsavelAnteriorId;
+          // Comparação robusta
+          const match = String(medicoAnteriorId) === String(medicoId);
+          if (match) {
+            console.log('📋 Paciente abandonado encontrado (filtrado):', doc.id, 'medicoResponsavelAnteriorId:', medicoAnteriorId, 'nome:', data.nome || data.dadosIdentificacao?.nome);
+          }
+          return match;
+        });
+        console.log('✅ Pacientes abandonados em pacientes_abandono (filtrado em memória):', pacientesAbandonoNovos.length);
+      }
+      
+      // Log detalhado dos pacientes encontrados
+      pacientesAbandonoNovos.forEach((doc: any) => {
+        const data = doc.data();
+        console.log('📋 Paciente abandonado encontrado:', doc.id, 'medicoResponsavelAnteriorId:', data.medicoResponsavelAnteriorId, 'nome:', data.nome || data.dadosIdentificacao?.nome);
+      });
+      
+      // Combinar pacientes ativos e que abandonaram (remover duplicatas)
+      const todosPacientesIds = new Set();
+      const todosPacientesDocs: any[] = [];
+      
+      [...pacientesSnapshot.docs, ...pacientesAbandono, ...pacientesAbandonoNovos].forEach(doc => {
+        if (!todosPacientesIds.has(doc.id)) {
+          todosPacientesIds.add(doc.id);
+          todosPacientesDocs.push(doc);
+        }
+      });
+      
+      console.log('📊 Total de pacientes encontrados:', todosPacientesDocs.length);
+      console.log('   - Ativos:', pacientesSnapshot.docs.length);
+      console.log('   - Abandonados (pacientes_completos):', pacientesAbandono.length);
+      console.log('   - Abandonados (pacientes_abandono):', pacientesAbandonoNovos.length);
+      
+      return todosPacientesDocs.map(doc => {
         const data = doc.data();
         
         // Converter datas em evolucaoSeguimento
@@ -358,7 +452,9 @@ export class PacienteService {
         return {
           id: doc.id,
           ...data,
+          statusTratamento: data.statusTratamento || 'abandono', // Garantir que pacientes de pacientes_abandono tenham status abandono
           dataCadastro: data.dataCadastro?.toDate(),
+          dataAbandono: data.dataAbandono?.toDate ? data.dataAbandono.toDate() : (data.dataAbandono ? new Date(data.dataAbandono) : undefined),
           dadosIdentificacao: {
             ...data.dadosIdentificacao,
             dataNascimento: data.dadosIdentificacao?.dataNascimento?.toDate(),
@@ -397,12 +493,144 @@ export class PacienteService {
     }
   }
 
-  // Deletar paciente
+  // Deletar paciente (de pacientes_completos ou pacientes_abandono)
   static async deletePaciente(pacienteId: string): Promise<void> {
     try {
-      await deleteDoc(doc(db, 'pacientes_completos', pacienteId));
+      console.log('🗑️ Deletando paciente:', pacienteId);
+      
+      // Tentar deletar de pacientes_completos primeiro
+      const pacienteCompletoRef = doc(db, 'pacientes_completos', pacienteId);
+      const pacienteCompletoDoc = await getDoc(pacienteCompletoRef);
+      
+      if (pacienteCompletoDoc.exists()) {
+        await deleteDoc(pacienteCompletoRef);
+        console.log('✅ Paciente deletado de pacientes_completos');
+        return;
+      }
+      
+      // Se não encontrou em pacientes_completos, tentar deletar de pacientes_abandono
+      const pacienteAbandonoRef = doc(db, 'pacientes_abandono', pacienteId);
+      const pacienteAbandonoDoc = await getDoc(pacienteAbandonoRef);
+      
+      if (pacienteAbandonoDoc.exists()) {
+        await deleteDoc(pacienteAbandonoRef);
+        console.log('✅ Paciente deletado de pacientes_abandono');
+        return;
+      }
+      
+      // Se não encontrou em nenhuma coleção, lançar erro
+      throw new Error('Paciente não encontrado em pacientes_completos nem em pacientes_abandono');
     } catch (error) {
-      console.error('Erro ao deletar paciente:', error);
+      console.error('❌ Erro ao deletar paciente:', error);
+      throw error;
+    }
+  }
+
+  // Mover paciente para pacientes_abandono
+  static async moverParaAbandono(pacienteId: string, motivoAbandono?: string, medicoResponsavelAnteriorId?: string | null): Promise<void> {
+    try {
+      console.log('🔄 Movendo paciente para abandono:', pacienteId);
+      
+      // Buscar o paciente de pacientes_completos
+      const pacienteRef = doc(db, 'pacientes_completos', pacienteId);
+      const pacienteDoc = await getDoc(pacienteRef);
+      
+      if (!pacienteDoc.exists()) {
+        throw new Error('Paciente não encontrado');
+      }
+
+      const pacienteData = pacienteDoc.data();
+      
+      // Priorizar o parâmetro passado, senão usar o valor do documento
+      // Se o parâmetro for explicitamente passado (mesmo que null), usar ele
+      // Caso contrário, usar o valor do documento
+      const medicoIdAnterior = medicoResponsavelAnteriorId !== undefined 
+        ? medicoResponsavelAnteriorId 
+        : (pacienteData.medicoResponsavelId || null);
+      
+      console.log('👨‍⚕️ Médico responsável anterior:');
+      console.log('   - Parâmetro passado:', medicoResponsavelAnteriorId);
+      console.log('   - Do documento:', pacienteData.medicoResponsavelId);
+      console.log('   - Valor final usado:', medicoIdAnterior);
+      
+      // Adicionar data de abandono se não existir
+      const dataComAbandono = {
+        ...pacienteData,
+        dataAbandono: pacienteData.dataAbandono || new Date(),
+        statusTratamento: 'abandono',
+        medicoResponsavelAnteriorId: medicoIdAnterior, // SEMPRE salvar, mesmo se for null
+        medicoResponsavelId: null,
+        motivoAbandono: motivoAbandono || pacienteData.motivoAbandono || null
+      };
+
+      console.log('💾 Salvando em pacientes_abandono:');
+      console.log('   - medicoResponsavelAnteriorId:', dataComAbandono.medicoResponsavelAnteriorId);
+      console.log('   - motivoAbandono:', dataComAbandono.motivoAbandono);
+      console.log('   - statusTratamento:', dataComAbandono.statusTratamento);
+
+      // Salvar em pacientes_abandono
+      await setDoc(doc(db, 'pacientes_abandono', pacienteId), removeUndefined(dataComAbandono));
+      
+      // Deletar de pacientes_completos
+      await deleteDoc(pacienteRef);
+      
+      console.log('✅ Paciente movido para abandono com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao mover paciente para abandono:', error);
+      throw error;
+    }
+  }
+
+  // Buscar paciente de abandono por ID
+  static async getPacienteAbandonoById(pacienteId: string): Promise<PacienteCompleto | null> {
+    try {
+      const pacienteDoc = await getDoc(doc(db, 'pacientes_abandono', pacienteId));
+      
+      if (!pacienteDoc.exists()) {
+        return null;
+      }
+
+      const data = pacienteDoc.data();
+      
+      // Converter datas em evolucaoSeguimento
+      let evolucaoSeguimento = data.evolucaoSeguimento;
+      if (evolucaoSeguimento && Array.isArray(evolucaoSeguimento)) {
+        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => ({
+          ...seg,
+          dataRegistro: seg.dataRegistro?.toDate ? seg.dataRegistro.toDate() : (seg.dataRegistro ? new Date(seg.dataRegistro) : undefined),
+          doseAplicada: seg.doseAplicada ? {
+            ...seg.doseAplicada,
+            data: seg.doseAplicada.data?.toDate ? seg.doseAplicada.data.toDate() : (seg.doseAplicada.data ? new Date(seg.doseAplicada.data) : undefined)
+          } : undefined
+        }));
+      }
+      
+      // Converter datas em planoTerapeutico
+      let planoTerapeutico = data.planoTerapeutico;
+      if (planoTerapeutico) {
+        planoTerapeutico = {
+          ...planoTerapeutico,
+          startDate: planoTerapeutico.startDate?.toDate ? planoTerapeutico.startDate.toDate() : (planoTerapeutico.startDate ? new Date(planoTerapeutico.startDate) : undefined),
+          lastDoseChangeAt: planoTerapeutico.lastDoseChangeAt?.toDate ? planoTerapeutico.lastDoseChangeAt.toDate() : (planoTerapeutico.lastDoseChangeAt ? new Date(planoTerapeutico.lastDoseChangeAt) : undefined),
+          nextReviewDate: planoTerapeutico.nextReviewDate?.toDate ? planoTerapeutico.nextReviewDate.toDate() : (planoTerapeutico.nextReviewDate ? new Date(planoTerapeutico.nextReviewDate) : undefined),
+        };
+      }
+      
+      return {
+        id: pacienteDoc.id,
+        ...data,
+        dataCadastro: data.dataCadastro?.toDate(),
+        dataAbandono: data.dataAbandono?.toDate ? data.dataAbandono.toDate() : (data.dataAbandono ? new Date(data.dataAbandono) : undefined),
+        dadosIdentificacao: {
+          ...data.dadosIdentificacao,
+          dataNascimento: data.dadosIdentificacao?.dataNascimento?.toDate(),
+          dataCadastro: data.dadosIdentificacao?.dataCadastro?.toDate(),
+        },
+        evolucaoSeguimento,
+        planoTerapeutico,
+      } as PacienteCompleto;
+    } catch (error) {
+      console.error('Erro ao buscar paciente de abandono:', error);
       throw error;
     }
   }

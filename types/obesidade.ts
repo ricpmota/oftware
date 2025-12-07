@@ -5,7 +5,7 @@ export interface PacienteCompleto {
   userId: string; // Firebase Auth UID
   email: string;
   nome: string;
-  medicoResponsavelId: string; // ID do médico
+  medicoResponsavelId: string | null; // ID do médico (null quando abandonou)
   
   // Pasta 1: Dados de Identificação
   dadosIdentificacao: DadosIdentificacao;
@@ -38,6 +38,10 @@ export interface PacienteCompleto {
   status: 'ativo' | 'inativo' | 'arquivado';
   statusTratamento: 'pendente' | 'em_tratamento' | 'concluido' | 'abandono';
   motivoAbandono?: string; // Preenchido quando statusTratamento = 'abandono'
+  dataAbandono?: Date; // Data em que o paciente abandonou o tratamento
+  medicoResponsavelAnteriorId?: string | null; // ID do médico que estava responsável antes do abandono (para estatísticas)
+  recomendacoesLidas?: boolean; // Indica se o paciente leu e compreendeu as recomendações
+  dataLeituraRecomendacoes?: Date; // Data em que o paciente leu as recomendações
 }
 
 // Pasta 1: Dados de Identificação
@@ -228,6 +232,10 @@ export interface ExamesLaboratoriais {
   tsh?: number;
   t4Livre?: number;
   calcitonina?: number;
+  ferritina?: number; // ng/mL
+  ferroSerico?: number; // µg/dL
+  vitaminaB12?: number; // pg/mL
+  vitaminaD?: number; // ng/mL (25-OH vitamina D)
   hemogramaCompleto?: {
     hemoglobina?: number;
     hematocrito?: number;

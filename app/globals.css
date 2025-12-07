@@ -44,3 +44,163 @@ body {
   -webkit-translate: no;
   -moz-translate: no;
 }
+
+/* Animações para página inicial */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) rotate(0deg);
+    opacity: 0.2;
+  }
+  33% {
+    transform: translateY(-30px) translateX(20px) rotate(120deg);
+    opacity: 0.3;
+  }
+  66% {
+    transform: translateY(20px) translateX(-20px) rotate(240deg);
+    opacity: 0.25;
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+.animate-float {
+  animation: float 20s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 8s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-enter {
+  animation: modal-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes expand-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-expand-in {
+  animation: expand-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Animações para loading da balança - seta caindo */
+@keyframes arrow-falling {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(15px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-arrow-falling {
+  animation: arrow-falling 1.5s ease-in-out infinite;
+}
+
+/* Estilos para modal de visualização de paciente em abandono */
+.paciente-abandono-view input,
+.paciente-abandono-view textarea,
+.paciente-abandono-view select {
+  pointer-events: none;
+  opacity: 0.7;
+  background-color: #f3f4f6 !important;
+  cursor: not-allowed !important;
+  color: #6b7280 !important;
+}
+
+/* Permitir botões de navegação (abas) e fechar */
+.paciente-abandono-view button.tab-button,
+.paciente-abandono-view button.close-button,
+.paciente-abandono-view button[aria-label="Fechar"] {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  background-color: initial !important;
+  cursor: pointer !important;
+}
+
+/* Permitir botão X do header */
+.paciente-abandono-view header button.close-button {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  background-color: initial !important;
+  cursor: pointer !important;
+}
+
+.paciente-abandono-view input:disabled,
+.paciente-abandono-view textarea:disabled,
+.paciente-abandono-view select:disabled {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+}
+
+/* Permitir visualização de conteúdo (gráficos, tabelas, etc) */
+.paciente-abandono-view canvas,
+.paciente-abandono-view svg,
+.paciente-abandono-view table,
+.paciente-abandono-view .chart-container,
+.paciente-abandono-view .graph-container {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}

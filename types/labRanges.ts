@@ -71,7 +71,20 @@ export const labRanges: Record<string, RangeEntry> = {
     F: { label: 'Hemoglobina (F)', unit: 'g/dL', min: 12.0, max: 15.5 }
   },
   wbc:            { label: 'Leucócitos', unit: '×10³/µL', min: 4.0, max: 11.0 },
-  platelets:      { label: 'Plaquetas', unit: '×10³/µL', min: 150, max: 450 }
+  platelets:      { label: 'Plaquetas', unit: '×10³/µL', min: 150, max: 450 },
+
+  // Ferro e Vitaminas
+  ferritin: {
+    M: { label: 'Ferritina (M)', unit: 'ng/mL', min: 30, max: 400 },
+    F: { label: 'Ferritina (F)', unit: 'ng/mL', min: 13, max: 150 }
+  },
+  iron: {
+    M: { label: 'Ferro sérico (M)', unit: 'µg/dL', min: 65, max: 175 },
+    F: { label: 'Ferro sérico (F)', unit: 'µg/dL', min: 50, max: 170 }
+  },
+  ft4:            { label: 'T4 Livre (FT4)', unit: 'ng/dL', min: 0.8, max: 1.8 },
+  b12:            { label: 'Vitamina B12', unit: 'pg/mL', min: 200, max: 900 },
+  vitaminD:       { label: 'Vitamina D (25-OH)', unit: 'ng/mL', min: 30, max: 60 }
 };
 
 /**
@@ -106,7 +119,8 @@ export const labOrderBySection: Record<string, (keyof typeof labRanges)[]> = {
   hepatobiliar: ['alt', 'ast', 'ggt', 'alp'],
   pancreas: ['amylase', 'lipase'],
   lipideos: ['cholTotal', 'ldl', 'hdl', 'tg'],
-  tireoide: ['tsh', 'calcitonin'],
-  hemograma: ['hgb', 'wbc', 'platelets']
+  tireoide: ['tsh', 'calcitonin', 'ft4'],
+  hemograma: ['hgb', 'wbc', 'platelets'],
+  ferroVitaminas: ['ferritin', 'iron', 'b12', 'vitaminD']
 };
 
