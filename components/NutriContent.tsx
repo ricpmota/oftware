@@ -270,6 +270,29 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   // FUNÇÕES DE DADOS BÁSICOS
   // ============================================
 
+  // Função auxiliar para verificar se hoje é dia de aplicação da Tirzepatida
+  const verificarSeHojeEDiaAplicacao = (): boolean => {
+    const planoTerapeutico = paciente?.planoTerapeutico;
+    if (!planoTerapeutico?.injectionDayOfWeek) {
+      return false;
+    }
+    
+    const diasSemana: { [key: string]: number } = {
+      'dom': 0,
+      'seg': 1,
+      'ter': 2,
+      'qua': 3,
+      'qui': 4,
+      'sex': 5,
+      'sab': 6
+    };
+    
+    const diaSemanaHoje = new Date().getDay();
+    const diaSemanaAplicacao = diasSemana[planoTerapeutico.injectionDayOfWeek];
+    
+    return diaSemanaHoje === diaSemanaAplicacao;
+  };
+
   const handleSalvarPesoAltura = async () => {
     if (!peso || !altura) return;
     
@@ -688,13 +711,17 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
    */
   const calcularScoreCheckIn = (data: CheckInDiario): number => {
     let scoreTotal = 0;
+    let pesoTotal = 0; // Inicializar pesoTotal
     
     // 1. Aderência ao Plano (30% do total) - valor direto
+    const pesoAderencia = 30;
+    pesoTotal += pesoAderencia;
     const aderenciaPlano = data.aderenciaPlano ?? 100;
-    scoreTotal += (aderenciaPlano / 100) * 30;
+    scoreTotal += (aderenciaPlano / 100) * pesoAderencia;
     
     // 2. Adesão Alimentar (30% do total)
     const pesoAlimentar = 30;
+    pesoTotal += pesoAlimentar;
     let scoreAlimentar = 0;
     scoreAlimentar += data.proteinaOk ? 25 : 0; // 25% dentro dos 30%
     scoreAlimentar += data.frutasOk ? 25 : 0; // 25% dentro dos 30%
@@ -712,7 +739,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     scoreTotal += (scoreSuplementos / 100) * pesoSuplementos;
     
     // 4. Sintomas GI (15% do total) - quanto menos sintomas, melhor
-    const pesoGI = 20;
+    const pesoGI = 15;
     pesoTotal += pesoGI;
     const sintomasMap: { [key: string]: number } = {
       'nenhum': 1,
@@ -729,7 +756,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     scoreTotal += (scoreGI / 100) * pesoGI;
     
     // 5. Sono e Energia (5% do total)
-    const pesoSonoEnergia = 15;
+    const pesoSonoEnergia = 5;
     pesoTotal += pesoSonoEnergia;
     const sonoMap: { [key: string]: number } = {
       '<6h': 0.5,
@@ -742,7 +769,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     scoreTotal += (scoreSonoEnergia / 100) * pesoSonoEnergia;
     
     // 6. Atividade Física (3% do total)
-    const pesoAtividade = 5;
+    const pesoAtividade = 3;
     pesoTotal += pesoAtividade;
     const atividadeMap: { [key: string]: number } = {
       'nenhuma': 0,
@@ -754,7 +781,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     scoreTotal += scoreAtividade * pesoAtividade;
     
     // 7. Adesão Tirzepatida (2% do total) - só conta se foi dia de aplicação
-    const pesoTirzepatida = 5;
+    const pesoTirzepatida = 2;
     pesoTotal += pesoTirzepatida;
     let scoreTirzepatida = 0;
     if (data.diaAplicacao === 'aplicou_no_horario') {
@@ -1900,53 +1927,68 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
               </div>
             </div>
             
-            {/* Card 5 – Dia de aplicação da Tirzepatida */}
-            <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border border-pink-200 p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Syringe className="h-5 w-5 text-pink-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Aplicação da Tirzepatida</h3>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Hoje foi dia de aplicação da tirzepatida?</label>
-                  <select
-                    value={checkInData.diaAplicacao}
-                    onChange={(e) => setCheckInData({ ...checkInData, diaAplicacao: e.target.value as any, localAplicacao: e.target.value === 'nao_foi_dia' ? undefined : checkInData.localAplicacao })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 bg-white"
-                  >
-                    <option value="nao_foi_dia">Não foi dia</option>
-                    <option value="aplicou_no_horario">Apliquei no horário</option>
-                    <option value="aplicou_atrasado">Apliquei atrasado</option>
-                    <option value="esqueceu">Esqueci</option>
-                  </select>
+            {/* Card 5 – Dia de aplicação da Tirzepatida (calculado automaticamente) */}
+            {(() => {
+              const hojeEDiaAplicacao = verificarSeHojeEDiaAplicacao();
+              
+              if (!hojeEDiaAplicacao) {
+                return null; // Não mostrar o card se não for dia de aplicação
+              }
+              
+              return (
+                <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border border-pink-200 p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Syringe className="h-5 w-5 text-pink-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Aplicação da Tirzepatida</h3>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                      <p className="text-sm text-blue-800 font-medium">
+                        Hoje é seu dia de aplicação da tirzepatida.
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Como foi a aplicação?</label>
+                      <select
+                        value={checkInData.diaAplicacao}
+                        onChange={(e) => setCheckInData({ ...checkInData, diaAplicacao: e.target.value as any, localAplicacao: e.target.value === 'nao_foi_dia' ? undefined : checkInData.localAplicacao })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 bg-white"
+                      >
+                        <option value="aplicou_no_horario">Apliquei no horário</option>
+                        <option value="aplicou_atrasado">Apliquei atrasado</option>
+                        <option value="esqueceu">Esqueci</option>
+                      </select>
+                    </div>
+                    
+                    {checkInData.diaAplicacao !== 'nao_foi_dia' && checkInData.diaAplicacao !== 'esqueceu' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Local da aplicação</label>
+                        <select
+                          value={checkInData.localAplicacao || ''}
+                          onChange={(e) => setCheckInData({ ...checkInData, localAplicacao: e.target.value as any })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 bg-white"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="abdome">Abdome</option>
+                          <option value="coxa">Coxa</option>
+                          <option value="braco">Braço</option>
+                          <option value="outro">Outro</option>
+                        </select>
+                      </div>
+                    )}
+                    
+                    {(checkInData.diaAplicacao === 'esqueceu' || checkInData.diaAplicacao === 'aplicou_atrasado') && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <p className="text-sm text-yellow-800">
+                          <strong>Importante:</strong> Se esquecer a dose ou tiver sintomas fortes, entre em contato com seu médico.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
-                {checkInData.diaAplicacao !== 'nao_foi_dia' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Local da aplicação</label>
-                    <select
-                      value={checkInData.localAplicacao || ''}
-                      onChange={(e) => setCheckInData({ ...checkInData, localAplicacao: e.target.value as any })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 bg-white"
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="abdome">Abdome</option>
-                      <option value="coxa">Coxa</option>
-                      <option value="braco">Braço</option>
-                      <option value="outro">Outro</option>
-                    </select>
-                  </div>
-                )}
-                
-                {(checkInData.diaAplicacao === 'esqueceu' || checkInData.diaAplicacao === 'aplicou_atrasado') && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Importante:</strong> Se esquecer a dose ou tiver sintomas fortes, entre em contato com seu médico.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+              );
+            })()}
             
             {/* Card 6 – Movimento / atividade */}
             <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg border border-amber-200 p-5">
@@ -2050,12 +2092,12 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Seu último peso registrado foi há mais de 7 dias. Quer registrar seu peso hoje?
+                        Seu último peso registrado foi há mais de 7 dias ({pesoAtual ? `${pesoAtual.toFixed(1)} kg` : 'não disponível'}). Quer registrar seu peso hoje?
                       </label>
                       <input
                         type="number"
                         value={checkInData.pesoHoje || ''}
-                        onChange={(e) => setCheckInData({ ...checkInData, pesoHoje: parseFloat(e.target.value) })}
+                        onChange={(e) => setCheckInData({ ...checkInData, pesoHoje: e.target.value ? parseFloat(e.target.value) : undefined })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 placeholder:text-gray-400"
                         placeholder="Ex: 75.5"
                         min="20"
