@@ -61,10 +61,46 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
   const [activeModulo, setActiveModulo] = useState<EmailModulo>('leads');
   const [activeEmail, setActiveEmail] = useState<string>('email1');
   const [enviandoNovidades, setEnviandoNovidades] = useState(false);
+  const [modoEnvioNovidades, setModoEnvioNovidades] = useState<'massa' | 'especifico'>('massa');
+  const [pacientesDisponiveis, setPacientesDisponiveis] = useState<Array<{id: string; nome: string; email: string}>>([]);
+  const [medicosDisponiveis, setMedicosDisponiveis] = useState<Array<{id: string; nome: string; email: string}>>([]);
+  const [pacientesSelecionados, setPacientesSelecionados] = useState<string[]>([]);
+  const [medicosSelecionados, setMedicosSelecionados] = useState<string[]>([]);
+  const [loadingDestinatarios, setLoadingDestinatarios] = useState(false);
 
   useEffect(() => {
     loadConfig();
   }, []);
+
+  // Carregar pacientes e médicos quando o modo específico for ativado
+  useEffect(() => {
+    if (activeModulo === 'novidades' && modoEnvioNovidades === 'especifico' && pacientesDisponiveis.length === 0) {
+      loadDestinatarios();
+    }
+  }, [activeModulo, modoEnvioNovidades]);
+
+  const loadDestinatarios = async () => {
+    setLoadingDestinatarios(true);
+    try {
+      // Buscar pacientes
+      const pacientesResponse = await fetch('/api/pacientes-para-email');
+      if (pacientesResponse.ok) {
+        const pacientesData = await pacientesResponse.json();
+        setPacientesDisponiveis(pacientesData.pacientes || []);
+      }
+
+      // Buscar médicos
+      const medicosResponse = await fetch('/api/medicos-para-email');
+      if (medicosResponse.ok) {
+        const medicosData = await medicosResponse.json();
+        setMedicosDisponiveis(medicosData.medicos || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar destinatários:', error);
+    } finally {
+      setLoadingDestinatarios(false);
+    }
+  };
 
   const loadConfig = async () => {
     setLoading(true);
@@ -611,71 +647,222 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
           {activeModulo === 'novidades' && (
             <div className="border-t pt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Disparar E-mail em Massa
+                Modo de Envio
               </label>
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* Seleção do modo */}
                 <div className="flex gap-4">
                   <label className="flex items-center">
                     <input
-                      type="checkbox"
-                      id="enviarPacientes"
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      type="radio"
+                      name="modoEnvio"
+                      value="massa"
+                      checked={modoEnvioNovidades === 'massa'}
+                      onChange={() => setModoEnvioNovidades('massa')}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Enviar para todos os pacientes</span>
+                    <span className="ml-2 text-sm text-gray-700">Envio em Massa</span>
                   </label>
                   <label className="flex items-center">
                     <input
-                      type="checkbox"
-                      id="enviarMedicos"
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      type="radio"
+                      name="modoEnvio"
+                      value="especifico"
+                      checked={modoEnvioNovidades === 'especifico'}
+                      onChange={() => setModoEnvioNovidades('especifico')}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Enviar para todos os médicos</span>
+                    <span className="ml-2 text-sm text-gray-700">Pessoas Específicas</span>
                   </label>
                 </div>
-                <button
-                  onClick={async () => {
-                    const enviarPacientes = (document.getElementById('enviarPacientes') as HTMLInputElement)?.checked;
-                    const enviarMedicos = (document.getElementById('enviarMedicos') as HTMLInputElement)?.checked;
-                    
-                    if (!enviarPacientes && !enviarMedicos) {
-                      alert('Selecione pelo menos um destinatário (Pacientes ou Médicos)');
-                      return;
-                    }
-                    
-                    if (!confirm(`Tem certeza que deseja enviar este e-mail para ${enviarPacientes ? 'todos os pacientes' : ''}${enviarPacientes && enviarMedicos ? ' e ' : ''}${enviarMedicos ? 'todos os médicos' : ''}?`)) {
-                      return;
-                    }
-                    
-                    setEnviandoNovidades(true);
-                    try {
-                      const response = await fetch('/api/send-email-novidades', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          enviarPacientes,
-                          enviarMedicos,
-                        }),
-                      });
-                      
-                      if (response.ok) {
-                        const data = await response.json();
-                        alert(`E-mail enviado com sucesso! ${data.enviadosPacientes || 0} pacientes e ${data.enviadosMedicos || 0} médicos receberam o e-mail.`);
-                      } else {
-                        const error = await response.json();
-                        throw new Error(error.error || 'Erro ao enviar');
-                      }
-                    } catch (error) {
-                      console.error('Erro ao enviar novidades:', error);
-                      alert('Erro ao enviar e-mail em massa. Tente novamente.');
-                    } finally {
-                      setEnviandoNovidades(false);
-                    }
-                  }}
-                  disabled={enviandoNovidades}
-                  className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {enviandoNovidades ? 'Enviando...' : 'Disparar E-mail'}
-                </button>
+
+                {/* Modo: Envio em Massa */}
+                {modoEnvioNovidades === 'massa' && (
+                  <div className="space-y-3">
+                    <div className="flex gap-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="enviarPacientes"
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Enviar para todos os pacientes</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="enviarMedicos"
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Enviar para todos os médicos</span>
+                      </label>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const enviarPacientes = (document.getElementById('enviarPacientes') as HTMLInputElement)?.checked;
+                        const enviarMedicos = (document.getElementById('enviarMedicos') as HTMLInputElement)?.checked;
+                        
+                        if (!enviarPacientes && !enviarMedicos) {
+                          alert('Selecione pelo menos um destinatário (Pacientes ou Médicos)');
+                          return;
+                        }
+                        
+                        if (!confirm(`Tem certeza que deseja enviar este e-mail para ${enviarPacientes ? 'todos os pacientes' : ''}${enviarPacientes && enviarMedicos ? ' e ' : ''}${enviarMedicos ? 'todos os médicos' : ''}?`)) {
+                          return;
+                        }
+                        
+                        setEnviandoNovidades(true);
+                        try {
+                          const response = await fetch('/api/send-email-novidades', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              enviarPacientes,
+                              enviarMedicos,
+                            }),
+                          });
+                          
+                          if (response.ok) {
+                            const data = await response.json();
+                            alert(`E-mail enviado com sucesso! ${data.enviadosPacientes || 0} pacientes e ${data.enviadosMedicos || 0} médicos receberam o e-mail.`);
+                          } else {
+                            const error = await response.json();
+                            throw new Error(error.error || 'Erro ao enviar');
+                          }
+                        } catch (error) {
+                          console.error('Erro ao enviar novidades:', error);
+                          alert('Erro ao enviar e-mail em massa. Tente novamente.');
+                        } finally {
+                          setEnviandoNovidades(false);
+                        }
+                      }}
+                      disabled={enviandoNovidades}
+                      className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      {enviandoNovidades ? 'Enviando...' : 'Disparar E-mail em Massa'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Modo: Pessoas Específicas */}
+                {modoEnvioNovidades === 'especifico' && (
+                  <div className="space-y-4">
+                    {loadingDestinatarios ? (
+                      <div className="text-center py-4 text-gray-500">Carregando destinatários...</div>
+                    ) : (
+                      <>
+                        {/* Seleção de Pacientes */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Selecionar Pacientes
+                          </label>
+                          <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
+                            {pacientesDisponiveis.length === 0 ? (
+                              <p className="text-sm text-gray-500">Nenhum paciente disponível</p>
+                            ) : (
+                              pacientesDisponiveis.map((paciente) => (
+                                <label key={paciente.id} className="flex items-center py-1 hover:bg-gray-50 rounded px-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={pacientesSelecionados.includes(paciente.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setPacientesSelecionados([...pacientesSelecionados, paciente.id]);
+                                      } else {
+                                        setPacientesSelecionados(pacientesSelecionados.filter(id => id !== paciente.id));
+                                      }
+                                    }}
+                                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                  />
+                                  <span className="ml-2 text-sm text-gray-700">
+                                    {paciente.nome} ({paciente.email})
+                                  </span>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Seleção de Médicos */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Selecionar Médicos
+                          </label>
+                          <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
+                            {medicosDisponiveis.length === 0 ? (
+                              <p className="text-sm text-gray-500">Nenhum médico disponível</p>
+                            ) : (
+                              medicosDisponiveis.map((medico) => (
+                                <label key={medico.id} className="flex items-center py-1 hover:bg-gray-50 rounded px-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={medicosSelecionados.includes(medico.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setMedicosSelecionados([...medicosSelecionados, medico.id]);
+                                      } else {
+                                        setMedicosSelecionados(medicosSelecionados.filter(id => id !== medico.id));
+                                      }
+                                    }}
+                                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                  />
+                                  <span className="ml-2 text-sm text-gray-700">
+                                    {medico.nome} ({medico.email})
+                                  </span>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={async () => {
+                            if (pacientesSelecionados.length === 0 && medicosSelecionados.length === 0) {
+                              alert('Selecione pelo menos um destinatário (Paciente ou Médico)');
+                              return;
+                            }
+                            
+                            if (!confirm(`Tem certeza que deseja enviar este e-mail para ${pacientesSelecionados.length} paciente(s) e ${medicosSelecionados.length} médico(s)?`)) {
+                              return;
+                            }
+                            
+                            setEnviandoNovidades(true);
+                            try {
+                              const response = await fetch('/api/send-email-novidades', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  pacientesIds: pacientesSelecionados,
+                                  medicosIds: medicosSelecionados,
+                                }),
+                              });
+                              
+                              if (response.ok) {
+                                const data = await response.json();
+                                alert(`E-mail enviado com sucesso! ${data.enviadosPacientes || 0} paciente(s) e ${data.enviadosMedicos || 0} médico(s) receberam o e-mail.`);
+                                // Limpar seleções
+                                setPacientesSelecionados([]);
+                                setMedicosSelecionados([]);
+                              } else {
+                                const error = await response.json();
+                                throw new Error(error.error || 'Erro ao enviar');
+                              }
+                            } catch (error) {
+                              console.error('Erro ao enviar novidades:', error);
+                              alert('Erro ao enviar e-mail. Tente novamente.');
+                            } finally {
+                              setEnviandoNovidades(false);
+                            }
+                          }}
+                          disabled={enviandoNovidades || (pacientesSelecionados.length === 0 && medicosSelecionados.length === 0)}
+                          className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                          {enviandoNovidades ? 'Enviando...' : `Enviar para ${pacientesSelecionados.length + medicosSelecionados.length} destinatário(s)`}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -987,46 +1174,64 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
           emailsPorTipo[tipo].push(envio);
         });
 
-        // Mapear tipos de e-mail para nomes amigáveis
-        const tiposEmail: Record<string, { nome: string; descricao: string }> = {
+        // Mapear tipos de e-mail para módulo, nome e descrição
+        const tiposEmail: Record<string, { modulo: string; nome: string; descricao: string }> = {
           'lead_avulso_novo_lead': { 
-            nome: 'Lead Avulso - Novo Lead', 
+            modulo: 'Lead Avulso',
+            nome: 'Novo Lead', 
             descricao: 'E-mail enviado quando um novo usuário se cadastra'
           },
           'novo_lead_medico_novo_lead': { 
-            nome: 'Novo Lead Médico', 
+            modulo: 'Novo Lead Médico',
+            nome: 'Novo Lead', 
             descricao: 'Aviso ao médico sobre novo paciente'
           },
           'solicitado_medico_boas_vindas': { 
-            nome: 'Solicitado Médico - Boas-vindas', 
+            modulo: 'Solicitado Médico',
+            nome: 'Boas-vindas', 
             descricao: 'E-mail de boas-vindas quando solicitação é aceita'
           },
           'em_tratamento_plano_editado': { 
-            nome: 'Em Tratamento - Plano Editado', 
+            modulo: 'Em Tratamento',
+            nome: 'Plano Editado', 
             descricao: 'E-mail quando o plano de tratamento é editado'
           },
           'aplicacao_aplicacao_antes': { 
-            nome: 'Aplicação - Antes', 
+            modulo: 'Aplicação',
+            nome: 'Antes', 
             descricao: 'Lembrete 1 dia antes da aplicação'
           },
           'aplicacao_aplicacao_dia': { 
-            nome: 'Aplicação - Dia', 
+            modulo: 'Aplicação',
+            nome: 'Dia', 
             descricao: 'Lembrete no dia da aplicação'
           },
           'check_recomendacoes_recomendacoes_lidas': { 
-            nome: 'Check Recomendações', 
+            modulo: 'Check Recomendações',
+            nome: 'Recomendações Lidas', 
             descricao: 'Aviso ao médico quando paciente lê recomendações'
           },
           'novidades_novidade': { 
-            nome: 'Novidades', 
+            modulo: 'Novidades',
+            nome: 'Novidade', 
             descricao: 'E-mail em massa para pacientes ou médicos'
           },
-          'email1': { nome: 'Bem-vindo ao Oftware!', descricao: 'E-mail imediato (1h após cadastro)' },
-          'email2': { nome: 'Você ainda está aqui?', descricao: 'E-mail 24h depois do cadastro' },
-          'email3': { nome: 'Reacenda sua jornada', descricao: 'E-mail 72h (3 dias) depois do cadastro' },
-          'email4': { nome: 'Superando objeções', descricao: 'E-mail 7 dias depois do cadastro' },
-          'email5': { nome: 'Última chance', descricao: 'E-mail 14 dias depois do cadastro' },
+          'email1': { modulo: 'Leads', nome: 'Bem-vindo ao Oftware!', descricao: 'E-mail imediato (1h após cadastro)' },
+          'email2': { modulo: 'Leads', nome: 'Você ainda está aqui?', descricao: 'E-mail 24h depois do cadastro' },
+          'email3': { modulo: 'Leads', nome: 'Reacenda sua jornada', descricao: 'E-mail 72h (3 dias) depois do cadastro' },
+          'email4': { modulo: 'Leads', nome: 'Superando objeções', descricao: 'E-mail 7 dias depois do cadastro' },
+          'email5': { modulo: 'Leads', nome: 'Última chance', descricao: 'E-mail 14 dias depois do cadastro' },
         };
+
+        // Organizar por módulo
+        const emailsPorModulo: Record<string, Record<string, any[]>> = {};
+        Object.keys(emailsPorTipo).forEach((tipo) => {
+          const info = tiposEmail[tipo] || { modulo: 'Outros', nome: tipo, descricao: '' };
+          if (!emailsPorModulo[info.modulo]) {
+            emailsPorModulo[info.modulo] = {};
+          }
+          emailsPorModulo[info.modulo][tipo] = emailsPorTipo[tipo];
+        });
 
         // Calcular estatísticas por tipo
         const getEstatisticasTipo = (tipo: string) => {
@@ -1035,6 +1240,22 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
           const falharam = envios.filter(e => e.status === 'falhou').length;
           const pendentes = envios.filter(e => e.status === 'pendente').length;
           return { total: envios.length, enviados, falharam, pendentes };
+        };
+
+        // Calcular estatísticas por módulo
+        const getEstatisticasModulo = (modulo: string) => {
+          const tiposDoModulo = emailsPorModulo[modulo] || {};
+          let total = 0;
+          let enviados = 0;
+          let falharam = 0;
+          let pendentes = 0;
+          Object.values(tiposDoModulo).forEach((envios: any[]) => {
+            total += envios.length;
+            enviados += envios.filter(e => e.status === 'enviado').length;
+            falharam += envios.filter(e => e.status === 'falhou').length;
+            pendentes += envios.filter(e => e.status === 'pendente').length;
+          });
+          return { total, enviados, falharam, pendentes };
         };
 
         // Filtrar e-mails da pasta selecionada
@@ -1082,47 +1303,59 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                           </span>
                         </div>
                       </button>
-                      {Object.keys(emailsPorTipo).map((tipo) => {
-                        const info = tiposEmail[tipo] || { nome: tipo, descricao: '' };
-                        const stats = getEstatisticasTipo(tipo);
+                      {Object.keys(emailsPorModulo).sort().map((modulo) => {
+                        const statsModulo = getEstatisticasModulo(modulo);
+                        const tiposDoModulo = emailsPorModulo[modulo];
                         return (
-                          <button
-                            key={tipo}
-                            onClick={() => setPastaEmailSelecionada(tipo)}
-                            className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                              pastaEmailSelecionada === tipo
-                                ? 'bg-green-100 text-green-700 font-semibold'
-                                : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium">{info.nome}</span>
-                              <span className={`text-xs px-2 py-1 rounded-full ${
-                                stats.falharam > 0 
-                                  ? 'bg-red-100 text-red-700'
-                                  : stats.enviados > 0
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-gray-200 text-gray-700'
-                              }`}>
-                                {stats.total}
-                              </span>
+                          <div key={modulo} className="space-y-1">
+                            {/* Cabeçalho do Módulo */}
+                            <div className="px-3 py-2 bg-gray-100 rounded-md">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-semibold text-gray-900">{modulo}</span>
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                  statsModulo.falharam > 0 
+                                    ? 'bg-red-100 text-red-700'
+                                    : statsModulo.enviados > 0
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-200 text-gray-700'
+                                }`}>
+                                  {statsModulo.total}
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500 truncate" title={info.descricao}>
-                              {info.descricao}
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-green-600">✓ {stats.enviados}</span>
-                              {stats.falharam > 0 && (
-                                <span className="text-xs text-red-600">✗ {stats.falharam}</span>
-                              )}
-                              {stats.pendentes > 0 && (
-                                <span className="text-xs text-yellow-600">⏳ {stats.pendentes}</span>
-                              )}
-                            </div>
-                          </button>
+                            {/* Títulos dentro do módulo */}
+                            {Object.keys(tiposDoModulo).sort().map((tipo) => {
+                              const info = tiposEmail[tipo] || { modulo: 'Outros', nome: tipo, descricao: '' };
+                              const stats = getEstatisticasTipo(tipo);
+                              return (
+                                <button
+                                  key={tipo}
+                                  onClick={() => setPastaEmailSelecionada(tipo)}
+                                  className={`w-full text-left px-3 py-2 ml-2 rounded-md transition-colors ${
+                                    pastaEmailSelecionada === tipo
+                                      ? 'bg-green-100 text-green-700 font-semibold'
+                                      : 'text-gray-700 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm">{info.nome}</span>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                      stats.falharam > 0 
+                                        ? 'bg-red-100 text-red-700'
+                                        : stats.enviados > 0
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-gray-200 text-gray-700'
+                                    }`}>
+                                      {stats.total}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
                         );
                       })}
-                      {Object.keys(emailsPorTipo).length === 0 && (
+                      {Object.keys(emailsPorModulo).length === 0 && (
                         <div className="text-center py-4 text-gray-500 text-sm">
                           Nenhum e-mail enviado ainda
                         </div>
@@ -1150,7 +1383,9 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                       <div className="mb-4">
                         <h4 className="text-md font-semibold text-gray-900">
                           {pastaEmailSelecionada 
-                            ? tiposEmail[pastaEmailSelecionada]?.nome || pastaEmailSelecionada
+                            ? tiposEmail[pastaEmailSelecionada] 
+                              ? `${tiposEmail[pastaEmailSelecionada].modulo} - ${tiposEmail[pastaEmailSelecionada].nome}`
+                              : pastaEmailSelecionada
                             : 'Todos os E-mails Enviados'}
                         </h4>
                         {pastaEmailSelecionada && tiposEmail[pastaEmailSelecionada] && (
