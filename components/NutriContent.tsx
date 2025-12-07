@@ -17,7 +17,7 @@ import {
 
 type RefeicaoKey = 'cafe' | 'lanche1' | 'almoco' | 'lanche2' | 'jantar';
 
-type CategoriaItemRefeicao = 'proteina' | 'carboidrato' | 'legumes_salada' | 'gordura_boa' | 'extra';
+type CategoriaItemRefeicao = 'proteina' | 'carboidrato' | 'legumes_salada' | 'gordura_boa' | 'extra' | 'lixo';
 
 interface ItemRefeicao {
   id: string;
@@ -36,6 +36,7 @@ interface ConfiguracaoRefeicao {
   maxLegumesSalada: number;
   maxGordurasBoas: number;
   maxExtras: number;
+  maxLixo: number;
   metaProteina_g: number; // Meta de proteína para esta refeição
 }
 
@@ -270,6 +271,25 @@ const gerarConfiguracaoBuilderPorRefeicao = (
     { id: 'extra_iogurte_extra', nome: 'Iogurte natural extra', categoria: 'extra', proteina_g: 5, calorias_kcal: 80 }
   ];
 
+  const lixoBase: ItemRefeicao[] = [
+    { id: 'lixo_batata_frita_media', nome: 'Batata frita porção média (130 g)', categoria: 'lixo', proteina_g: 4, calorias_kcal: 400, descricao: 'Porção de batata frita de fast-food, crocante e bem gordurosa.' },
+    { id: 'lixo_hamburguer_sanduiche', nome: 'Hambúrguer tipo fast-food', categoria: 'lixo', proteina_g: 15, calorias_kcal: 500, descricao: 'Sanduíche com carne bovina, queijo e molho.' },
+    { id: 'lixo_pizza_calabresa_fatia', nome: 'Pizza de calabresa (1 fatia grande)', categoria: 'lixo', proteina_g: 12, calorias_kcal: 350, descricao: 'Fatia grande de pizza com queijo e calabresa.' },
+    { id: 'lixo_pizza_queijo_fatia', nome: 'Pizza de queijo (1 fatia média)', categoria: 'lixo', proteina_g: 10, calorias_kcal: 280, descricao: 'Fatia média de pizza de muçarela.' },
+    { id: 'lixo_refrigerante_lata', nome: 'Refrigerante comum (1 lata 350 ml)', categoria: 'lixo', proteina_g: 0, calorias_kcal: 140, descricao: 'Refrigerante açucarado, sem valor proteico.' },
+    { id: 'lixo_salgadinho_pacote_pequeno', nome: 'Salgadinho de pacote (1 pacote pequeno ~30 g)', categoria: 'lixo', proteina_g: 2, calorias_kcal: 160, descricao: 'Salgadinho crocante industrializado (chips).' },
+    { id: 'lixo_chocolate_barra_30g', nome: 'Chocolate ao leite (30 g)', categoria: 'lixo', proteina_g: 2, calorias_kcal: 160, descricao: 'Quadradinhos de chocolate ao leite (~3 quadrados).' },
+    { id: 'lixo_brigadeiro_2_unid', nome: 'Brigadeiro (2 unidades médias)', categoria: 'lixo', proteina_g: 2, calorias_kcal: 200, descricao: 'Docinho de leite condensado, chocolate e manteiga.' },
+    { id: 'lixo_sorvete_2_bolas', nome: 'Sorvete cremoso (2 bolas)', categoria: 'lixo', proteina_g: 4, calorias_kcal: 250, descricao: 'Sorvete de massa cremoso, sabor creme ou chocolate.' },
+    { id: 'lixo_milkshake_300ml', nome: 'Milkshake (300 ml)', categoria: 'lixo', proteina_g: 6, calorias_kcal: 450, descricao: 'Milkshake de sorvete com leite e calda.' },
+    { id: 'lixo_cerveja_lata', nome: 'Cerveja (1 lata 350 ml)', categoria: 'lixo', proteina_g: 1, calorias_kcal: 150, descricao: 'Cerveja comum, consumo recreativo.' },
+    { id: 'lixo_drink_destilado_doce', nome: 'Drink com destilado e açúcar (1 dose ~200 ml)', categoria: 'lixo', proteina_g: 0, calorias_kcal: 200, descricao: 'Drink alcoólico com destilado, refrigerante ou suco e açúcar.' },
+    { id: 'lixo_biscoito_recheado_3_unid', nome: 'Biscoito recheado (3 unidades)', categoria: 'lixo', proteina_g: 2, calorias_kcal: 180, descricao: 'Biscoitos recheados doces, industrializados.' },
+    { id: 'lixo_donut', nome: 'Donut (1 unidade média)', categoria: 'lixo', proteina_g: 3, calorias_kcal: 300, descricao: 'Rosquinha frita com cobertura açucarada.' },
+    { id: 'lixo_coxinha_media', nome: 'Coxinha média (1 unidade)', categoria: 'lixo', proteina_g: 7, calorias_kcal: 250, descricao: 'Salgado frito recheado com frango.' },
+    { id: 'lixo_pastel_frito', nome: 'Pastel frito (1 unidade média)', categoria: 'lixo', proteina_g: 6, calorias_kcal: 300, descricao: 'Pastel de feira, frito por imersão em óleo.' }
+  ];
+
   // Filtrar por restrições
   const filtrarItens = (itens: ItemRefeicao[]): ItemRefeicao[] => {
     return itens.filter(item => {
@@ -314,57 +334,63 @@ const gerarConfiguracaoBuilderPorRefeicao = (
   const legumesSalada = filtrarItens(legumesSaladaBase);
   const gordurasBoas = filtrarItens(gordurasBoasBase);
   const extras = filtrarItens(extrasBase);
+  const lixo = lixoBase; // Lixo não precisa filtrar por restrições
 
   // Configuração por refeição
   const config: Record<RefeicaoKey, ConfiguracaoRefeicao> = {
     cafe: {
       refeicaoKey: 'cafe',
-      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas, ...extras],
+      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas, ...extras, ...lixo],
       maxProteinas: 1,
       maxCarboidratos: 1,
       maxLegumesSalada: 1,
       maxGordurasBoas: 1,
       maxExtras: 1,
+      maxLixo: 3,
       metaProteina_g: protCafe
     },
     lanche1: {
       refeicaoKey: 'lanche1',
-      itensDisponiveis: [...proteinas.filter(p => p.id.includes('whey') || p.id.includes('iogurte') || p.id.includes('ovos')), ...extras],
+      itensDisponiveis: [...proteinas.filter(p => p.id.includes('whey') || p.id.includes('iogurte') || p.id.includes('ovos')), ...extras, ...lixo],
       maxProteinas: 1,
       maxCarboidratos: 0,
       maxLegumesSalada: 0,
       maxGordurasBoas: 0,
       maxExtras: 1,
+      maxLixo: 2,
       metaProteina_g: protLanche
     },
     almoco: {
       refeicaoKey: 'almoco',
-      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas],
+      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas, ...lixo],
       maxProteinas: 1,
       maxCarboidratos: 2,
       maxLegumesSalada: 3,
       maxGordurasBoas: 1,
       maxExtras: 0,
+      maxLixo: 3,
       metaProteina_g: protAlmoco
     },
     lanche2: {
       refeicaoKey: 'lanche2',
-      itensDisponiveis: [...proteinas.filter(p => p.id.includes('whey') || p.id.includes('iogurte') || p.id.includes('ovos')), ...extras],
+      itensDisponiveis: [...proteinas.filter(p => p.id.includes('whey') || p.id.includes('iogurte') || p.id.includes('ovos')), ...extras, ...lixo],
       maxProteinas: 1,
       maxCarboidratos: 0,
       maxLegumesSalada: 0,
       maxGordurasBoas: 0,
       maxExtras: 1,
+      maxLixo: 2,
       metaProteina_g: protLanche
     },
     jantar: {
       refeicaoKey: 'jantar',
-      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas],
+      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas, ...lixo],
       maxProteinas: 1,
       maxCarboidratos: 1,
       maxLegumesSalada: 3,
       maxGordurasBoas: 1,
       maxExtras: 0,
+      maxLixo: 3,
       metaProteina_g: protJantar
     }
   };
@@ -1557,6 +1583,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       else if (categoria === 'legumes_salada') maxItens = config.maxLegumesSalada;
       else if (categoria === 'gordura_boa') maxItens = config.maxGordurasBoas;
       else if (categoria === 'extra') maxItens = config.maxExtras;
+      else if (categoria === 'lixo') maxItens = config.maxLixo;
       
       if (novosItens[itemId]) {
         // Desmarcar se já estava marcado
@@ -1589,12 +1616,16 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     const legumes = itens.filter(i => i.categoria === 'legumes_salada');
     const gorduras = itens.filter(i => i.categoria === 'gordura_boa');
     const extras = itens.filter(i => i.categoria === 'extra');
+    const lixo = itens.filter(i => i.categoria === 'lixo');
     
     proteinas.forEach(p => partes.push(p.nome));
     carboidratos.forEach(c => partes.push(c.nome));
     legumes.forEach(l => partes.push(l.nome));
     gorduras.forEach(g => partes.push(g.nome));
     extras.forEach(e => partes.push(e.nome));
+    if (lixo.length > 0) {
+      partes.push(`+ Lixo: ${lixo.map(l => l.nome).join(', ')}`);
+    }
     
     return partes.join(' + ') || 'Refeição personalizada';
   };
@@ -4212,13 +4243,14 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                 <div className="p-6">
                   {(() => {
                     const config = configuracaoBuilder[refeicaoEmEdicao];
-                    const categorias: CategoriaItemRefeicao[] = ['proteina', 'carboidrato', 'legumes_salada', 'gordura_boa', 'extra'];
+                    const categorias: CategoriaItemRefeicao[] = ['proteina', 'carboidrato', 'legumes_salada', 'gordura_boa', 'extra', 'lixo'];
                     const nomesCategorias: Record<CategoriaItemRefeicao, string> = {
                       proteina: 'Proteína Principal',
                       carboidrato: 'Acompanhamentos',
                       legumes_salada: 'Legumes',
                       gordura_boa: 'Gorduras',
-                      extra: 'Extra'
+                      extra: 'Extra',
+                      lixo: 'Lixo'
                     };
                     
                     // Abas de navegação
@@ -4235,7 +4267,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                                             categoria === 'carboidrato' ? config.maxCarboidratos :
                                             categoria === 'legumes_salada' ? config.maxLegumesSalada :
                                             categoria === 'gordura_boa' ? config.maxGordurasBoas :
-                                            config.maxExtras;
+                                            categoria === 'extra' ? config.maxExtras :
+                                            config.maxLixo;
                             
                             return (
                               <button
@@ -4267,7 +4300,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                                           categoriaAtiva === 'carboidrato' ? config.maxCarboidratos :
                                           categoriaAtiva === 'legumes_salada' ? config.maxLegumesSalada :
                                           categoriaAtiva === 'gordura_boa' ? config.maxGordurasBoas :
-                                          config.maxExtras;
+                                          categoriaAtiva === 'extra' ? config.maxExtras :
+                                          config.maxLixo;
                           
                           return (
                             <div className="space-y-4">
