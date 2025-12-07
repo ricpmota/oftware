@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AplicacaoAgendada, FiltroAplicacao } from '@/types/calendario';
 import { AplicacaoService } from '@/services/aplicacaoService';
-import { EmailAplicacaoService } from '@/services/emailAplicacaoService';
-import { Calendar, Mail, CheckCircle, XCircle, Clock, Filter, RefreshCw, Search } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, Filter, RefreshCw } from 'lucide-react';
 import { PacienteCompleto } from '@/types/obesidade';
 
 interface CalendarioAplicacoesProps {
@@ -24,7 +23,6 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
     dataInicio: primeiroDiaMes,
     dataFim: ultimoDiaMes,
   });
-  const [processandoEmails, setProcessandoEmails] = useState(false);
 
   const loadAplicacoes = async () => {
     setLoading(true);
@@ -85,25 +83,15 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho e Ações */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Calendar className="mr-2" size={28} />
-            Calendário de Aplicações
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Gerencie as aplicações agendadas e envio de e-mails automáticos
-          </p>
-        </div>
-        <button
-          onClick={handleProcessarEmails}
-          disabled={processandoEmails}
-          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          <Mail size={16} className="mr-2" />
-          {processandoEmails ? 'Processando...' : 'Processar E-mails Hoje'}
-        </button>
+      {/* Cabeçalho */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+          <Calendar className="mr-2" size={28} />
+          Calendário de Aplicações
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Gerencie as aplicações agendadas. Os e-mails são enviados automaticamente via cron job.
+        </p>
       </div>
 
       {/* Filtros */}
@@ -114,29 +102,29 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Data Início</label>
+            <label className="block text-xs font-medium text-gray-900 mb-1">Data Início</label>
             <input
               type="date"
               value={filtro.dataInicio ? filtro.dataInicio.toISOString().split('T')[0] : ''}
               onChange={(e) => setFiltro({ ...filtro, dataInicio: e.target.value ? new Date(e.target.value) : undefined })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Data Fim</label>
+            <label className="block text-xs font-medium text-gray-900 mb-1">Data Fim</label>
             <input
               type="date"
               value={filtro.dataFim ? filtro.dataFim.toISOString().split('T')[0] : ''}
               onChange={(e) => setFiltro({ ...filtro, dataFim: e.target.value ? new Date(e.target.value) : undefined })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Paciente</label>
+            <label className="block text-xs font-medium text-gray-900 mb-1">Paciente</label>
             <select
               value={filtro.pacienteId || ''}
               onChange={(e) => setFiltro({ ...filtro, pacienteId: e.target.value || undefined })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">Todos</option>
               {pacientes.map((p) => (
@@ -147,11 +135,11 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Dose (mg)</label>
+            <label className="block text-xs font-medium text-gray-900 mb-1">Dose (mg)</label>
             <select
               value={filtro.dose || ''}
               onChange={(e) => setFiltro({ ...filtro, dose: e.target.value ? parseFloat(e.target.value) : undefined })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">Todas</option>
               <option value="2.5">2.5 mg</option>

@@ -6,6 +6,7 @@ import { AplicacaoAgendada, FiltroAplicacao, AplicacaoRealizada } from '@/types/
 export class AplicacaoService {
   /**
    * Calcula todas as aplicações futuras baseado no plano terapêutico do paciente
+   * Considera o histórico de doses aplicadas para calcular corretamente o número da aplicação
    */
   static calcularAplicacoesFuturas(
     paciente: PacienteCompleto,
@@ -31,14 +32,27 @@ export class AplicacaoService {
     };
     const diaSemanaInjecao = diasSemana[planoTerapeutico.injectionDayOfWeek];
 
-    // Calcular número de semanas desde o início
-    const semanasDesdeInicio = Math.floor(
-      (hoje.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
-    );
+    // Contar aplicações já realizadas
+    let aplicacoesRealizadas = 0;
+    
+    // Contar do histórico de doses
+    if (planoTerapeutico.historicoDoses && Array.isArray(planoTerapeutico.historicoDoses)) {
+      aplicacoesRealizadas = planoTerapeutico.historicoDoses.length;
+    }
+    
+    // Contar da evolução semanal (se houver aplicações registradas)
+    if (paciente.evolucaoSeguimento && Array.isArray(paciente.evolucaoSeguimento)) {
+      const aplicacoesEvolucao = paciente.evolucaoSeguimento.filter(
+        (seg: any) => seg.doseAplicada && seg.doseAplicada.data
+      ).length;
+      // Usar o maior valor entre histórico e evolução
+      aplicacoesRealizadas = Math.max(aplicacoesRealizadas, aplicacoesEvolucao);
+    }
 
-    // Encontrar a próxima data de aplicação (hoje ou futura)
+    // Calcular a próxima data de aplicação baseada no histórico
+    // Começar a partir da data de início + (número de aplicações já realizadas * 7 dias)
     let proximaData = new Date(startDate);
-    proximaData.setDate(proximaData.getDate() + (semanasDesdeInicio * 7));
+    proximaData.setDate(proximaData.getDate() + (aplicacoesRealizadas * 7));
     
     // Ajustar para o dia da semana correto
     while (proximaData.getDay() !== diaSemanaInjecao) {
@@ -51,19 +65,39 @@ export class AplicacaoService {
     }
 
     // Calcular aplicações futuras
-    let numeroAplicacao = semanasDesdeInicio + 1;
+    // O número da aplicação começa a partir das aplicações já realizadas + 1
+    let numeroAplicacao = aplicacoesRealizadas + 1;
     let dataAplicacao = new Date(proximaData);
     const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
     const currentDose = planoTerapeutico.currentDoseMg || 2.5;
 
+    // Calcular dose prevista baseada no esquema de titulação
+    const calcularDosePrevista = (numAplicacao: number): number => {
+      // Esquema padrão de titulação:
+      // Semanas 1-4: 2.5mg
+      // Semanas 5-8: 5mg
+      // Semanas 9-12: 7.5mg
+      // Semanas 13-16: 10mg
+      // Semanas 17-20: 12.5mg
+      // Semanas 21+: 15mg
+      if (numAplicacao <= 4) return 2.5;
+      if (numAplicacao <= 8) return 5;
+      if (numAplicacao <= 12) return 7.5;
+      if (numAplicacao <= 16) return 10;
+      if (numAplicacao <= 20) return 12.5;
+      return 15;
+    };
+
     while (dataAplicacao <= dataLimite && numeroAplicacao <= numeroSemanas) {
+      const dosePrevista = calcularDosePrevista(numeroAplicacao);
+      
       aplicacoes.push({
         id: `${paciente.id}_${numeroAplicacao}`,
         pacienteId: paciente.id,
         pacienteNome: paciente.nome,
         pacienteEmail: paciente.email,
         dataAplicacao: new Date(dataAplicacao),
-        dosePrevista: currentDose, // Por enquanto usa a dose atual, pode ser melhorado
+        dosePrevista,
         numeroAplicacao,
         statusEmailAntes: 'nao_enviado',
         statusEmailDia: 'nao_enviado',
