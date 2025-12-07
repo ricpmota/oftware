@@ -1109,143 +1109,161 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       {activeTab === 'config' && (
         <div className="space-y-6">
           {/* Seleção de Módulo */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 text-black">Selecione o Módulo de E-mail</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <h3 className="text-base font-semibold mb-3 text-gray-900">Módulos de E-mail</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
               <button
                 onClick={() => {
                   setActiveModulo('leads');
                   setActiveEmail('email1');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'leads'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <Users className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Leads</div>
-                <div className="text-sm text-gray-600 mt-1">5 e-mails automáticos para leads</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Mail size={16} className={activeModulo === 'leads' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Leads</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">5 e-mails automáticos</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('solicitado_medico');
                   setActiveEmail('boas_vindas');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'solicitado_medico'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <UserCheck className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Solicitado Médico</div>
-                <div className="text-sm text-gray-600 mt-1">E-mail de boas-vindas</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <UserCheck size={16} className={activeModulo === 'solicitado_medico' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Solicitado Médico</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">Boas-vindas</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('em_tratamento');
                   setActiveEmail('plano_editado');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'em_tratamento'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <Activity className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Em Tratamento</div>
-                <div className="text-sm text-gray-600 mt-1">E-mail quando plano é editado</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Activity size={16} className={activeModulo === 'em_tratamento' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Em Tratamento</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">Plano editado</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('novo_lead_medico');
                   setActiveEmail('novo_lead');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'novo_lead_medico'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <Mail className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Novo Lead Médico</div>
-                <div className="text-sm text-gray-600 mt-1">Avisa médico sobre novo lead</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Users size={16} className={activeModulo === 'novo_lead_medico' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Novo Lead Médico</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">Aviso ao médico</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('aplicacao');
                   setActiveEmail('aplicacao_antes');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'aplicacao'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <Send className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Aplicação</div>
-                <div className="text-sm text-gray-600 mt-1">2 e-mails sobre aplicações</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Send size={16} className={activeModulo === 'aplicacao' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Aplicação</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">2 e-mails</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('lead_avulso');
                   setActiveEmail('novo_lead');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'lead_avulso'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <BarChart3 className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Lead Avulso</div>
-                <div className="text-sm text-gray-600 mt-1">Aviso para Gestor Admin</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <BarChart3 size={16} className={activeModulo === 'lead_avulso' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Lead Avulso</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">Aviso admin</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('check_recomendacoes');
                   setActiveEmail('recomendacoes_lidas');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'check_recomendacoes'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <RefreshCw className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Check Recomendações</div>
-                <div className="text-sm text-gray-600 mt-1">Avisa médico sobre leitura</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <RefreshCw size={16} className={activeModulo === 'check_recomendacoes' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Check Recomendações</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">Avisa médico</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('bem_vindo');
                   setActiveEmail('bem_vindo_geral');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'bem_vindo'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <UserCheck className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Bem-vindo</div>
-                <div className="text-sm text-gray-600 mt-1">E-mails automáticos de boas-vindas</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <UserCheck size={16} className={activeModulo === 'bem_vindo' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Bem-vindo</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">E-mails automáticos</div>
               </button>
               <button
                 onClick={() => {
                   setActiveModulo('novidades');
                   setActiveEmail('novidade');
                 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                className={`p-2.5 rounded-md border transition-all text-left ${
                   activeModulo === 'novidades'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <Mail className="inline mr-2 mb-1" size={20} />
-                <div className="font-semibold text-black">Novidades</div>
-                <div className="text-sm text-gray-600 mt-1">E-mail em massa</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Mail size={16} className={activeModulo === 'novidades' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Novidades</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">E-mail em massa</div>
               </button>
             </div>
           </div>
