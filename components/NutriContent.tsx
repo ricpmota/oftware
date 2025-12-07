@@ -1633,8 +1633,11 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         macrosPorRefeicao: macrosPorRefeicaoAtualizado
       };
       
-      // Salvar no Firestore
+      // Salvar no Firestore e atualizar estado
       await salvarPlanoNutricional(planoAtualizado);
+      
+      // Atualizar estado local imediatamente para refletir mudanças
+      setPlano(planoAtualizado);
       
       // Fechar modal e limpar estados
       setRefeicaoEmEdicao(null);
@@ -3716,11 +3719,11 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
                     
                     return (
-                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-amber-200 shadow-sm">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="mx-2 md:mx-4 p-3 bg-white rounded-lg border border-amber-200 shadow-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex flex-wrap items-baseline gap-2">
                               <span className="text-sm text-gray-600">Sugerida:</span>
                               <span className="text-base font-semibold text-gray-900">{valoresSugeridos.proteinaSugerida_g}g</span>
                               {temEscolhido && (
@@ -3739,7 +3742,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                           </div>
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Calorias</p>
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex flex-wrap items-baseline gap-2">
                               <span className="text-sm text-gray-600">Sugerida:</span>
                               <span className="text-base font-semibold text-gray-900">{valoresSugeridos.caloriasSugerida_kcal} kcal</span>
                               {temEscolhido && (
@@ -3782,8 +3785,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
                     
                     return (
-                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-blue-200 shadow-sm">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="mx-2 md:mx-4 p-3 bg-white rounded-lg border border-blue-200 shadow-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
                             <div className="flex items-baseline gap-2">
@@ -3848,8 +3851,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
                     
                     return (
-                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-orange-200 shadow-sm">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="mx-2 md:mx-4 p-3 bg-white rounded-lg border border-orange-200 shadow-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
                             <div className="flex items-baseline gap-2">
@@ -3914,8 +3917,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
                     
                     return (
-                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-purple-200 shadow-sm">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="mx-2 md:mx-4 p-3 bg-white rounded-lg border border-purple-200 shadow-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
                             <div className="flex items-baseline gap-2">
@@ -3980,8 +3983,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
                     
                     return (
-                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-indigo-200 shadow-sm">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="mx-2 md:mx-4 p-3 bg-white rounded-lg border border-indigo-200 shadow-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
                             <div className="flex items-baseline gap-2">
@@ -4019,6 +4022,74 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     );
                   })()}
                 </div>
+                
+                {/* Resumo Total - Proteína e Calorias */}
+                {(() => {
+                  const refeicoes: RefeicaoKey[] = ['cafe', 'lanche1', 'almoco', 'lanche2', 'jantar'];
+                  let proteinaSugeridaTotal = 0;
+                  let proteinaEscolhidaTotal = 0;
+                  let caloriasSugeridaTotal = 0;
+                  let caloriasEscolhidaTotal = 0;
+                  
+                  refeicoes.forEach(refeicaoKey => {
+                    const valoresSugeridos = calcularValoresSugeridos(refeicaoKey, plano);
+                    proteinaSugeridaTotal += valoresSugeridos.proteinaSugerida_g;
+                    caloriasSugeridaTotal += valoresSugeridos.caloriasSugerida_kcal;
+                    
+                    const macrosSalvas = plano.macrosPorRefeicao?.[refeicaoKey];
+                    if (macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0) {
+                      proteinaEscolhidaTotal += macrosSalvas.proteinaEscolhida_g;
+                      caloriasEscolhidaTotal += macrosSalvas.caloriasEscolhida_kcal;
+                    } else {
+                      // Se não foi modificado, conta o sugerido
+                      proteinaEscolhidaTotal += valoresSugeridos.proteinaSugerida_g;
+                      caloriasEscolhidaTotal += valoresSugeridos.caloriasSugerida_kcal;
+                    }
+                  });
+                  
+                  return (
+                    <div className="mt-6 p-5 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-gray-300 shadow-md">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-blue-600" />
+                        Resumo Total do Dia
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">Proteína Total</p>
+                          <div className="flex flex-wrap items-baseline gap-2">
+                            <span className="text-sm text-gray-600">Sugerida:</span>
+                            <span className="text-xl font-bold text-gray-900">{proteinaSugeridaTotal.toFixed(1)}g</span>
+                            <span className="text-gray-400">→</span>
+                            <span className={`text-xl font-bold ${
+                              proteinaEscolhidaTotal >= proteinaSugeridaTotal * 0.9
+                                ? 'text-green-600'
+                                : proteinaEscolhidaTotal >= proteinaSugeridaTotal * 0.8
+                                ? 'text-amber-600'
+                                : 'text-red-600'
+                            }`}>
+                              {proteinaEscolhidaTotal.toFixed(1)}g
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Meta diária: {plano.protDia_g}g
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">Calorias Total</p>
+                          <div className="flex flex-wrap items-baseline gap-2">
+                            <span className="text-sm text-gray-600">Sugerida:</span>
+                            <span className="text-xl font-bold text-gray-900">{caloriasSugeridaTotal} kcal</span>
+                            <span className="text-gray-400">→</span>
+                            <span className="text-xl font-bold text-gray-900">{caloriasEscolhidaTotal} kcal</span>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Estimativa baseada nas refeições
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -4080,15 +4151,15 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                               <button
                                 key={categoria}
                                 onClick={() => setAbaBuilderAtiva(categoria)}
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                className={`px-3 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors flex flex-col items-center ${
                                   abaBuilderAtiva === categoria
                                     ? 'border-green-600 text-green-600 bg-green-50'
                                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                                 }`}
                               >
-                                {nomesCategorias[categoria]}
+                                <span>{nomesCategorias[categoria]}</span>
                                 {maxItens > 0 && (
-                                  <span className="ml-2 text-xs">
+                                  <span className="text-xs mt-0.5">
                                     ({itensSelecionadosDaCategoria.length}/{maxItens})
                                   </span>
                                 )}
