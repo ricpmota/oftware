@@ -4,7 +4,15 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PacienteCompleto } from '@/types/obesidade';
-import { UtensilsCrossed, Calendar, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { 
+  UtensilsCrossed, Calendar, AlertCircle, CheckCircle, XCircle, 
+  Droplet, Apple, Activity, Target, Clock, Moon, Coffee, 
+  Sun, Sunset, TrendingUp, Zap, Heart
+} from 'lucide-react';
+
+// ============================================
+// TIPOS E INTERFACES
+// ============================================
 
 interface PlanoNutricional {
   estilo: 'digestiva' | 'plant_based' | 'mediterranea' | 'rico_proteina' | 'low_carb_moderada';
@@ -27,6 +35,7 @@ interface PlanoNutricional {
   };
   evitar: string[];
   criadoEm: Date;
+  descricaoEstilo?: string; // Campo opcional para descrição do estilo
 }
 
 interface CheckInDiario {
@@ -40,10 +49,17 @@ interface CheckInDiario {
   data: string;
 }
 
+// WizardData expandido com campos clínicos adicionais
 interface WizardData {
-  atividadeFisica: 'nunca' | '1-2x' | '3-4x' | '5-7x';
+  objetivoPrincipal: 'perda_peso' | 'recomposicao' | 'controle_glicemia' | 'melhora_disposicao' | 'manutencao';
+  horarioTrabalho: 'diurno' | 'noturno' | 'turnos';
   horasSentado: '<4h' | '4-8h' | '>8h';
+  atividadeFisica: 'nunca' | '1-2x' | '3-4x' | '5-7x';
+  sonoHoras: '<6h' | '6-8h' | '>8h';
+  numeroRefeicoesDia: '2-3' | '4-5' | '>5';
   comportamentosAlimentares: string[];
+  fomeEmocional: boolean;
+  compulsaoNoturna: boolean;
   restricoes: string[];
   preferenciasProteina: string[];
   sintomasGI: 'nenhum' | 'leve' | 'moderado' | 'grave';
@@ -51,15 +67,26 @@ interface WizardData {
 
 interface NutriContentProps {
   paciente: PacienteCompleto;
+  setPaciente?: (paciente: PacienteCompleto) => void;
 }
 
-export default function NutriContent({ paciente }: NutriContentProps) {
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
+
+export default function NutriContent({ paciente, setPaciente }: NutriContentProps) {
   const [view, setView] = useState<'loading' | 'wizard' | 'plano' | 'checkin'>('loading');
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardData>({
-    atividadeFisica: 'nunca',
+    objetivoPrincipal: 'perda_peso',
+    horarioTrabalho: 'diurno',
     horasSentado: '4-8h',
+    atividadeFisica: 'nunca',
+    sonoHoras: '6-8h',
+    numeroRefeicoesDia: '4-5',
     comportamentosAlimentares: [],
+    fomeEmocional: false,
+    compulsaoNoturna: false,
     restricoes: [],
     preferenciasProteina: [],
     sintomasGI: 'nenhum'
@@ -82,6 +109,10 @@ export default function NutriContent({ paciente }: NutriContentProps) {
   const [checkIns, setCheckIns] = useState<CheckInDiario[]>([]);
   const [loadingCheckIns, setLoadingCheckIns] = useState(false);
 
+  // ============================================
+  // CARREGAMENTO DE DADOS
+  // ============================================
+
   useEffect(() => {
     const loadPlano = async () => {
       try {
@@ -95,7 +126,6 @@ export default function NutriContent({ paciente }: NutriContentProps) {
             criadoEm: planoData.criadoEm?.toDate() || new Date()
           } as PlanoNutricional);
           setView('plano');
-          // Carregar check-ins quando o plano existir
           await loadCheckIns();
         } else {
           const medidasIniciais = paciente.dadosClinicos?.medidasIniciais;
@@ -123,6 +153,10 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     loadPlano();
   }, [paciente]);
 
+  // ============================================
+  // FUNÇÕES DE DADOS BÁSICOS
+  // ============================================
+
   const handleSalvarPesoAltura = async () => {
     if (!peso || !altura) return;
     
@@ -146,6 +180,22 @@ export default function NutriContent({ paciente }: NutriContentProps) {
             }
           }
         }, { merge: true });
+        
+        // Atualizar estado local do paciente se setPaciente estiver disponível
+        if (setPaciente) {
+          setPaciente({
+            ...paciente,
+            dadosClinicos: {
+              ...paciente.dadosClinicos,
+              medidasIniciais: {
+                ...paciente.dadosClinicos?.medidasIniciais,
+                peso,
+                altura,
+                imc: imcCalculado
+              }
+            }
+          });
+        }
       }
       
       setShowPesoAlturaForm(false);
@@ -156,7 +206,12 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     }
   };
 
+  // ============================================
+  // FUNÇÕES DO WIZARD
+  // ============================================
+
   const handleWizardNext = () => {
+    // Wizard agora tem 6 passos
     if (wizardStep < 6) {
       setWizardStep(wizardStep + 1);
     } else {
@@ -170,21 +225,28 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     }
   };
 
-  const toggleCheckbox = (field: keyof WizardData, value: string) => {
+  const toggleCheckbox = (field: keyof WizardData, value: string | boolean) => {
     if (field === 'comportamentosAlimentares' || field === 'restricoes' || field === 'preferenciasProteina') {
       const current = wizardData[field] as string[];
-      const updated = current.includes(value)
+      const updated = current.includes(value as string)
         ? current.filter(v => v !== value)
-        : [...current, value];
+        : [...current, value as string];
       setWizardData({ ...wizardData, [field]: updated });
+    } else if (field === 'fomeEmocional' || field === 'compulsaoNoturna') {
+      setWizardData({ ...wizardData, [field]: value as boolean });
     }
   };
+
+  // ============================================
+  // GERAÇÃO DO PLANO NUTRICIONAL
+  // ============================================
 
   const gerarPlanoNutricional = async () => {
     const medidasIniciais = paciente.dadosClinicos?.medidasIniciais;
     const pesoKg = medidasIniciais?.peso || 0;
     const imc = medidasIniciais?.imc || 0;
     
+    // Cálculo de proteína diária baseado em IMC
     let protDia_g: number;
     if (imc < 27) {
       protDia_g = pesoKg * 1.2;
@@ -194,24 +256,34 @@ export default function NutriContent({ paciente }: NutriContentProps) {
       protDia_g = pesoKg * 1.5;
     }
     
+    // Cálculo de água diária
     const aguaDia_ml = pesoKg * 35;
     
+    // Determinação do estilo alimentar (lógica aprimorada)
     let estilo: PlanoNutricional['estilo'];
+    let descricaoEstilo: string;
+    
     if (wizardData.sintomasGI === 'moderado' || wizardData.sintomasGI === 'grave') {
       estilo = 'digestiva';
+      descricaoEstilo = 'Dieta focada em alimentos de fácil digestão, com preparações cozidas e baixa fibra insolúvel para reduzir sintomas gastrointestinais.';
     } else if (wizardData.restricoes.includes('vegetariano') || wizardData.restricoes.includes('vegano')) {
       estilo = 'plant_based';
+      descricaoEstilo = 'Abordagem baseada em plantas, priorizando leguminosas, grãos integrais, oleaginosas e proteínas vegetais completas.';
     } else if (wizardData.atividadeFisica === 'nunca' && 
                (wizardData.comportamentosAlimentares.includes('pulo refeições') ||
                 wizardData.comportamentosAlimentares.includes('como rápido') ||
                 wizardData.comportamentosAlimentares.includes('belisco o dia todo'))) {
       estilo = 'mediterranea';
-    } else if (imc >= 32) {
+      descricaoEstilo = 'Padrão alimentar mediterrâneo, rico em azeite, peixes, vegetais coloridos e oleaginosas, com foco em qualidade e variedade.';
+    } else if (imc >= 32 || wizardData.objetivoPrincipal === 'recomposicao') {
       estilo = 'rico_proteina';
+      descricaoEstilo = 'Dieta rica em proteína de alto valor biológico, com foco em preservação e ganho de massa magra e controle de apetite.';
     } else {
       estilo = 'low_carb_moderada';
+      descricaoEstilo = 'Abordagem com redução moderada de carboidratos, priorizando proteínas magras, gorduras saudáveis e vegetais.';
     }
     
+    // Distribuição de proteína por refeição
     const protPorRefeicao = protDia_g / 5;
     const distribuicaoProteina = {
       cafe: `${Math.round(protPorRefeicao * 1.2)}-${Math.round(protPorRefeicao * 1.4)} g`,
@@ -221,8 +293,10 @@ export default function NutriContent({ paciente }: NutriContentProps) {
       lanche2: `${Math.round(protPorRefeicao * 0.7)}-${Math.round(protPorRefeicao * 0.9)} g`
     };
     
+    // Geração do modelo de dia (melhorado com exemplos específicos)
     const modeloDia = gerarModeloDia(estilo);
     
+    // Lista de alimentos a evitar
     const evitar: string[] = ['fritos', 'ultraprocessados'];
     if (wizardData.comportamentosAlimentares.includes('álcool frequente')) {
       evitar.push('álcool frequente');
@@ -233,6 +307,9 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     if (wizardData.restricoes.includes('sem glúten')) {
       evitar.push('alimentos com glúten');
     }
+    if (wizardData.compulsaoNoturna) {
+      evitar.push('refeições pesadas após 20h');
+    }
     
     const novoPlano: PlanoNutricional = {
       estilo,
@@ -242,64 +319,75 @@ export default function NutriContent({ paciente }: NutriContentProps) {
       distribuicaoProteina,
       modeloDia,
       evitar,
-      criadoEm: new Date()
+      criadoEm: new Date(),
+      descricaoEstilo
     };
     
     await salvarPlanoNutricional(novoPlano);
   };
 
+  // Função aprimorada para gerar modelo de dia com exemplos específicos
   const gerarModeloDia = (estilo: PlanoNutricional['estilo']): PlanoNutricional['modeloDia'] => {
     switch (estilo) {
       case 'digestiva':
         return {
-          cafe: 'Ovos cozidos + fruta + chá',
-          almoco: 'Peixe grelhado + legumes cozidos + arroz branco',
-          jantar: 'Frango desfiado + purê de abóbora + salada morna',
-          lanche1: 'Banana + chá de camomila',
-          lanche2: 'Iogurte natural + fruta cozida'
+          cafe: 'Opção 1: 2 ovos cozidos + 1 fatia de pão branco sem glúten + 1 banana prata madura. Ou: 1 pote de iogurte natural (170g) + 1/2 xícara de frutas cozidas (maçã ou pera) + 1 colher de chá de mel.',
+          almoco: '120-150g de peixe grelhado (pescada, tilápia ou salmão) + 1/2 prato de legumes cozidos (abobrinha, cenoura, chuchu) + 1/4 prato de arroz branco ou batata cozida. Evitar saladas cruas e fibras insolúveis.',
+          jantar: '100-120g de frango desfiado cozido + 1/2 prato de purê de abóbora ou batata doce + salada morna (espinafre refogado). Preparações cozidas e sem temperos fortes.',
+          lanche1: '1 banana prata madura + 1 xícara de chá de camomila ou erva-doce. Ou: 1 pote de iogurte natural (170g) sem lactose se necessário.',
+          lanche2: '1 pote de iogurte natural (170g) + 1/2 xícara de fruta cozida. Ou: 1 fatia de queijo branco + 1 fatia de pão branco sem glúten.'
         };
+      
       case 'plant_based':
         return {
-          cafe: 'Aveia + frutas + sementes',
-          almoco: 'Lentilha + quinoa + salada + legumes',
-          jantar: 'Grão-de-bico + vegetais + batata doce',
-          lanche1: 'Hummus + vegetais crus',
-          lanche2: 'Smoothie de proteína vegetal + frutas'
+          cafe: 'Opção 1: 1 xícara de aveia em flocos + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes de chia + 1 colher de sopa de amêndoas picadas. Ou: 2 fatias de pão integral + 2 colheres de sopa de pasta de amendoim + 1 banana + 1 copo de bebida vegetal (soja ou amêndoa).',
+          almoco: '1 xícara de lentilha cozida (ou grão-de-bico) + 1/2 xícara de quinoa cozida + salada colorida (folhas, tomate, pepino) + 1 colher de sopa de azeite + 1/4 de abacate. Proteína vegetal completa com todos os aminoácidos essenciais.',
+          jantar: '1 xícara de grão-de-bico cozido + 1/2 prato de vegetais assados (berinjela, abobrinha, pimentão) + 1/2 xícara de batata doce assada + 1 colher de sopa de tahine. Ou: 150g de tofu grelhado + legumes salteados + arroz integral.',
+          lanche1: 'Hummus caseiro (3 colheres de sopa) + palitos de cenoura, pepino e pimentão. Ou: 1 punhado de oleaginosas (castanhas, nozes, amêndoas) + 1 fruta.',
+          lanche2: 'Smoothie proteico: 1 copo de bebida vegetal + 1 scoop de proteína vegetal em pó (30g) + 1/2 xícara de frutas congeladas + 1 colher de sopa de sementes de linhaça. Ou: 1 pote de iogurte vegetal + granola sem glúten + frutas.'
         };
+      
       case 'mediterranea':
         return {
-          cafe: 'Iogurte grego + frutas + azeite',
-          almoco: 'Salmão + salada mediterrânea + azeite',
-          jantar: 'Frango + legumes assados + azeite',
-          lanche1: 'Oleaginosas + frutas',
-          lanche2: 'Queijo + azeitonas + tomate'
+          cafe: 'Opção 1: 1 pote de iogurte grego (170g) + 1/2 xícara de frutas frescas (morangos, mirtilos) + 1 colher de sopa de azeite extra virgem + 1 colher de sopa de nozes picadas. Ou: 2 ovos mexidos + 1 fatia de pão integral + 1/4 de abacate + tomate e azeitonas.',
+          almoco: '150g de salmão grelhado + salada mediterrânea (folhas, tomate, pepino, cebola roxa, azeitonas) + 1 colher de sopa de azeite + 1/4 prato de quinoa ou arroz integral. Ou: 120g de frango grelhado + legumes assados (berinjela, pimentão, abobrinha) + azeite.',
+          jantar: '100-120g de peixe (sardinha, atum ou salmão) + 1 prato de salada verde + 1 colher de sopa de azeite + 1/2 xícara de grão-de-bico. Ou: frango grelhado + ratatouille (legumes cozidos) + azeite.',
+          lanche1: '1 punhado de oleaginosas (castanhas, nozes, amêndoas) + 1 fruta fresca. Ou: 1 fatia de queijo branco + azeitonas + tomate cereja.',
+          lanche2: '1 pote de iogurte grego (170g) + 1 colher de sopa de mel + 1 colher de sopa de nozes. Ou: 1 fatia de pão integral + pasta de azeitona + queijo branco.'
         };
+      
       case 'rico_proteina':
         return {
-          cafe: 'Ovos + bacon magro + queijo + fruta',
-          almoco: 'Carne magra + salada + batata doce',
-          jantar: 'Peito de frango + legumes + quinoa',
-          lanche1: 'Whey protein + fruta',
-          lanche2: 'Atum + queijo cottage + fruta'
+          cafe: 'Opção 1: 2 ovos mexidos + 1 fatia de queijo branco (30g) + 1 fatia de peito de peru + 1 fruta pequena (maçã ou pêra). Ou: 1 pote de iogurte grego (170g) + 30g de whey protein + 1 colher de sopa de chia + 1/2 xícara de frutas vermelhas.',
+          almoco: '120-150g de carne magra (patinho, alcatra ou maminha) grelhada + 1/2 prato de salada verde + 1/4 prato de carboidrato complexo (arroz integral, batata doce ou quinoa). Ou: 150g de peito de frango grelhado + legumes cozidos + 1/2 xícara de batata doce assada.',
+          jantar: '120-150g de peito de frango ou peixe grelhado + 1 prato de salada colorida + 1 colher de sopa de azeite. Ou: 150g de carne magra + legumes salteados + 1/4 de abacate.',
+          lanche1: '1 scoop de whey protein (30g) + 1 fruta + 1 punhado de castanhas. Ou: 1 pote de iogurte grego (170g) + 1 colher de sopa de proteína em pó + frutas.',
+          lanche2: '1 lata de atum em água (120g) + 1 fatia de queijo cottage (50g) + 1 fruta. Ou: 2 ovos cozidos + 1 fatia de queijo branco + 1 punhado de oleaginosas.'
         };
+      
       case 'low_carb_moderada':
         return {
-          cafe: 'Ovos + abacate + vegetais',
-          almoco: 'Proteína + salada + azeite',
-          jantar: 'Proteína + legumes + azeite',
-          lanche1: 'Oleaginosas + queijo',
-          lanche2: 'Iogurte grego + frutas vermelhas'
+          cafe: 'Opção 1: 2 ovos mexidos + 1/4 de abacate + 1 xícara de vegetais (espinafre, tomate, cogumelos) + 1 colher de sopa de azeite. Ou: 1 pote de iogurte grego (170g) + 1 colher de sopa de pasta de amendoim + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes.',
+          almoco: '120-150g de proteína magra (frango, peixe ou carne) grelhada + 1 prato de salada verde variada + 1 colher de sopa de azeite + 1/4 de abacate. Carboidrato reduzido, foco em proteína e gordura saudável.',
+          jantar: '100-120g de peixe grelhado + 1 prato de legumes cozidos ou salteados (brócolis, couve-flor, abobrinha) + 1 colher de sopa de azeite. Ou: frango grelhado + salada verde + 1/4 de abacate.',
+          lanche1: '1 punhado de oleaginosas (castanhas, nozes, amêndoas) + 1 fatia de queijo branco. Ou: 1 pote de iogurte grego (170g) + 1 colher de sopa de pasta de amendoim.',
+          lanche2: '1 pote de iogurte grego (170g) + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes de chia. Ou: 2 ovos cozidos + 1 punhado de castanhas + 1 fruta pequena.'
         };
+      
       default:
         return {
-          cafe: 'Ovos mexidos + pão integral + fruta',
-          almoco: 'Proteína (carne/frango/peixe) + salada + arroz integral',
-          jantar: 'Proteína + legumes cozidos + batata doce',
-          lanche1: 'Iogurte + frutas + oleaginosas',
-          lanche2: 'Queijo + fruta ou smoothie proteico'
+          cafe: '2 ovos mexidos + 1 fatia de pão integral + 1 fruta + 1 xícara de café ou chá.',
+          almoco: '120-150g de proteína (carne, frango ou peixe) + salada verde + 1/4 prato de arroz integral ou batata doce.',
+          jantar: '100-120g de proteína magra + legumes cozidos + 1 colher de sopa de azeite.',
+          lanche1: '1 pote de iogurte + frutas + 1 punhado de oleaginosas.',
+          lanche2: '1 fatia de queijo + 1 fruta ou smoothie proteico.'
         };
     }
   };
+
+  // ============================================
+  // SALVAMENTO NO FIRESTORE
+  // ============================================
 
   const salvarPlanoNutricional = async (planoData: PlanoNutricional) => {
     try {
@@ -309,19 +397,21 @@ export default function NutriContent({ paciente }: NutriContentProps) {
         criadoEm: Timestamp.now()
       });
       
-      // Manter criadoEm como Date no estado local para exibição
       setPlano({
         ...planoData,
         criadoEm: new Date()
       });
       setView('plano');
-      // Carregar check-ins após salvar o plano
       await loadCheckIns();
     } catch (error) {
       console.error('Erro ao salvar plano nutricional:', error);
       alert('Erro ao salvar plano. Tente novamente.');
     }
   };
+
+  // ============================================
+  // CHECK-INS DIÁRIOS
+  // ============================================
 
   const loadCheckIns = async () => {
     if (!paciente || !paciente.id) return;
@@ -397,18 +487,11 @@ export default function NutriContent({ paciente }: NutriContentProps) {
         timestamp: Timestamp.now()
       };
       
-      console.log('Salvando check-in:', checkInComScore);
-      console.log('Paciente ID:', paciente.id);
-      
-      // Firestore requer número par de segmentos: collection/document/collection/document
-      // Criar documento "dados" em nutricao primeiro, depois checkins como subcoleção
       const nutricaoDadosRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'dados');
       const checkInRef = doc(nutricaoDadosRef, 'checkins', dataHoje);
       await setDoc(checkInRef, checkInComScore);
       
-      console.log('Check-in salvo com sucesso!');
       alert('Check-in salvo com sucesso!');
-      // Recarregar check-ins após salvar
       await loadCheckIns();
       setView('plano');
       setCheckInData({
@@ -423,16 +506,32 @@ export default function NutriContent({ paciente }: NutriContentProps) {
       });
     } catch (error: any) {
       console.error('Erro ao salvar check-in:', error);
-      console.error('Detalhes do erro:', {
-        message: error?.message,
-        code: error?.code,
-        stack: error?.stack
-      });
-      alert(`Erro ao salvar check-in: ${error?.message || 'Erro desconhecido'}. Verifique o console para mais detalhes.`);
+      alert(`Erro ao salvar check-in: ${error?.message || 'Erro desconhecido'}.`);
     } finally {
       setSavingCheckIn(false);
     }
   };
+
+  // Função para calcular resumo dos check-ins
+  const calcularResumoCheckIns = () => {
+    if (checkIns.length === 0) return null;
+    
+    const ultimos7 = checkIns.slice(0, 7);
+    const mediaScore = ultimos7.reduce((acc, ci) => acc + ci.score, 0) / ultimos7.length;
+    const melhorDia = checkIns.reduce((melhor, atual) => 
+      atual.score > melhor.score ? atual : melhor, checkIns[0]
+    );
+    
+    return {
+      mediaScore7dias: mediaScore,
+      totalCheckIns: checkIns.length,
+      melhorDia: melhorDia
+    };
+  };
+
+  // ============================================
+  // RENDERIZAÇÃO
+  // ============================================
 
   if (view === 'loading') {
     return (
@@ -445,6 +544,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     );
   }
 
+  // Formulário de peso/altura (se necessário)
   if (showPesoAlturaForm && view === 'wizard') {
     return (
       <div className="space-y-4">
@@ -501,13 +601,16 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     );
   }
 
+  // Wizard de anamnese nutricional (melhorado)
   if (view === 'wizard') {
+    const totalSteps = 6;
+    
     return (
       <div className="space-y-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Plano Nutricional Personalizado</h2>
-            <p className="text-gray-600">Vamos conhecer seus hábitos para criar o melhor plano para você.</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Anamnese Nutricional</h2>
+            <p className="text-gray-600">Vamos conhecer seus hábitos e objetivos para criar o melhor plano nutricional para você.</p>
             <div className="mt-4 flex gap-2">
               {[1, 2, 3, 4, 5, 6].map((step) => (
                 <div
@@ -518,142 +621,320 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                 />
               ))}
             </div>
+            <p className="text-sm text-gray-500 mt-2">Passo {wizardStep} de {totalSteps}</p>
           </div>
           
+          {/* Step 1: Objetivo Principal */}
           {wizardStep === 1 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Atividade Física</h3>
-              <p className="text-gray-600 mb-4">Com que frequência você pratica atividade física?</p>
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Objetivo Principal</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Qual é o seu principal objetivo com o acompanhamento nutricional?</p>
               <div className="space-y-2">
-                {(['nunca', '1-2x', '3-4x', '5-7x'] as const).map((opcao) => (
+                {([
+                  { value: 'perda_peso', label: 'Perda de Peso', desc: 'Redução de peso e gordura corporal' },
+                  { value: 'recomposicao', label: 'Recomposição Corporal', desc: 'Ganho de massa magra e perda de gordura' },
+                  { value: 'controle_glicemia', label: 'Controle Glicêmico', desc: 'Melhorar níveis de açúcar no sangue' },
+                  { value: 'melhora_disposicao', label: 'Melhora de Disposição', desc: 'Aumentar energia e bem-estar' },
+                  { value: 'manutencao', label: 'Manutenção', desc: 'Manter peso e hábitos saudáveis' }
+                ] as const).map((opcao) => (
                   <button
-                    key={opcao}
-                    onClick={() => setWizardData({ ...wizardData, atividadeFisica: opcao })}
-                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
-                      wizardData.atividadeFisica === opcao
+                    key={opcao.value}
+                    onClick={() => setWizardData({ ...wizardData, objetivoPrincipal: opcao.value })}
+                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                      wizardData.objetivoPrincipal === opcao.value
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    {opcao === 'nunca' && 'Nunca'}
-                    {opcao === '1-2x' && '1-2 vezes por semana'}
-                    {opcao === '3-4x' && '3-4 vezes por semana'}
-                    {opcao === '5-7x' && '5-7 vezes por semana'}
+                    <p className="font-medium text-gray-900">{opcao.label}</p>
+                    <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
                   </button>
                 ))}
               </div>
             </div>
           )}
           
+          {/* Step 2: Rotina e Jornada de Trabalho */}
           {wizardStep === 2 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Tempo Sentado</h3>
-              <p className="text-gray-600 mb-4">Quantas horas por dia você passa sentado?</p>
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Rotina e Jornada de Trabalho</h3>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Qual é o seu horário de trabalho?</p>
+                  <div className="space-y-2">
+                    {([
+                      { value: 'diurno', label: 'Diurno', icon: Sun },
+                      { value: 'noturno', label: 'Noturno', icon: Moon },
+                      { value: 'turnos', label: 'Turnos Rotativos', icon: Clock }
+                    ] as const).map((opcao) => {
+                      const Icon = opcao.icon;
+                      return (
+                        <button
+                          key={opcao.value}
+                          onClick={() => setWizardData({ ...wizardData, horarioTrabalho: opcao.value })}
+                          className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors flex items-center gap-3 ${
+                            wizardData.horarioTrabalho === opcao.value
+                              ? 'border-green-600 bg-green-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <Icon className="h-5 w-5 text-gray-600" />
+                          <span className="text-gray-900 font-medium">{opcao.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Quantas horas por dia você passa sentado?</p>
+                  <div className="space-y-2">
+                    {(['<4h', '4-8h', '>8h'] as const).map((opcao) => (
+                      <button
+                        key={opcao}
+                        onClick={() => setWizardData({ ...wizardData, horasSentado: opcao })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
+                          wizardData.horasSentado === opcao
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {opcao === '<4h' && 'Menos de 4 horas'}
+                        {opcao === '4-8h' && '4 a 8 horas'}
+                        {opcao === '>8h' && 'Mais de 8 horas'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Step 3: Padrão de Atividade Física */}
+          {wizardStep === 3 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Padrão de Atividade Física</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Com que frequência você pratica atividade física regularmente?</p>
               <div className="space-y-2">
-                {(['<4h', '4-8h', '>8h'] as const).map((opcao) => (
+                {([
+                  { value: 'nunca', label: 'Nunca', desc: 'Não pratico atividade física regular' },
+                  { value: '1-2x', label: '1-2 vezes por semana', desc: 'Atividade física leve a moderada' },
+                  { value: '3-4x', label: '3-4 vezes por semana', desc: 'Atividade física regular' },
+                  { value: '5-7x', label: '5-7 vezes por semana', desc: 'Atividade física intensa e frequente' }
+                ] as const).map((opcao) => (
                   <button
-                    key={opcao}
-                    onClick={() => setWizardData({ ...wizardData, horasSentado: opcao })}
-                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
-                      wizardData.horasSentado === opcao
+                    key={opcao.value}
+                    onClick={() => setWizardData({ ...wizardData, atividadeFisica: opcao.value })}
+                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                      wizardData.atividadeFisica === opcao.value
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    {opcao === '<4h' && 'Menos de 4 horas'}
-                    {opcao === '4-8h' && '4 a 8 horas'}
-                    {opcao === '>8h' && 'Mais de 8 horas'}
+                    <p className="font-medium text-gray-900">{opcao.label}</p>
+                    <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-          
-          {wizardStep === 3 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Comportamentos Alimentares</h3>
-              <p className="text-gray-600 mb-4">Selecione todos que se aplicam a você:</p>
-              <div className="space-y-2">
-                {['pulo refeições', 'como rápido', 'belisco o dia todo', 'doce diário', 'álcool frequente'].map((opcao) => (
-                  <label
-                    key={opcao}
-                    className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={wizardData.comportamentosAlimentares.includes(opcao)}
-                      onChange={() => toggleCheckbox('comportamentosAlimentares', opcao)}
-                      className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-gray-900 capitalize">{opcao}</span>
-                  </label>
-                ))}
+              
+              <div className="mt-6">
+                <p className="text-gray-700 font-medium mb-3">Quantas horas de sono você tem por noite?</p>
+                <div className="space-y-2">
+                  {(['<6h', '6-8h', '>8h'] as const).map((opcao) => (
+                    <button
+                      key={opcao}
+                      onClick={() => setWizardData({ ...wizardData, sonoHoras: opcao })}
+                      className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
+                        wizardData.sonoHoras === opcao
+                          ? 'border-green-600 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {opcao === '<6h' && 'Menos de 6 horas'}
+                      {opcao === '6-8h' && '6 a 8 horas'}
+                      {opcao === '>8h' && 'Mais de 8 horas'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
           
+          {/* Step 4: Padrão Alimentar */}
           {wizardStep === 4 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Restrições Alimentares</h3>
-              <p className="text-gray-600 mb-4">Selecione todas que se aplicam:</p>
-              <div className="space-y-2">
-                {['vegetariano', 'vegano', 'intolerância lactose', 'sem glúten', 'nada'].map((opcao) => (
-                  <label
-                    key={opcao}
-                    className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
-                  >
+              <div className="flex items-center gap-2 mb-4">
+                <UtensilsCrossed className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Padrão Alimentar</h3>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Quantas refeições você faz por dia?</p>
+                  <div className="space-y-2">
+                    {(['2-3', '4-5', '>5'] as const).map((opcao) => (
+                      <button
+                        key={opcao}
+                        onClick={() => setWizardData({ ...wizardData, numeroRefeicoesDia: opcao })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
+                          wizardData.numeroRefeicoesDia === opcao
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {opcao === '2-3' && '2 a 3 refeições'}
+                        {opcao === '4-5' && '4 a 5 refeições'}
+                        {opcao === '>5' && 'Mais de 5 refeições'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Selecione todos os comportamentos que se aplicam a você:</p>
+                  <div className="space-y-2">
+                    {[
+                      'pulo refeições',
+                      'como rápido',
+                      'belisco o dia todo',
+                      'doce diário',
+                      'álcool frequente'
+                    ].map((opcao) => (
+                      <label
+                        key={opcao}
+                        className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={wizardData.comportamentosAlimentares.includes(opcao)}
+                          onChange={() => toggleCheckbox('comportamentosAlimentares', opcao)}
+                          className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-gray-900 capitalize">{opcao}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-md cursor-pointer hover:border-gray-300">
+                    <div>
+                      <p className="font-medium text-gray-900">Fome Emocional</p>
+                      <p className="text-sm text-gray-600">Você come quando está ansioso, estressado ou triste?</p>
+                    </div>
                     <input
                       type="checkbox"
-                      checked={wizardData.restricoes.includes(opcao)}
-                      onChange={() => toggleCheckbox('restricoes', opcao)}
-                      className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
+                      checked={wizardData.fomeEmocional}
+                      onChange={(e) => toggleCheckbox('fomeEmocional', e.target.checked)}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-gray-900 capitalize">{opcao}</span>
                   </label>
-                ))}
+                  
+                  <label className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-md cursor-pointer hover:border-gray-300">
+                    <div>
+                      <p className="font-medium text-gray-900">Compulsão Noturna</p>
+                      <p className="text-sm text-gray-600">Você tem episódios de compulsão alimentar à noite?</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={wizardData.compulsaoNoturna}
+                      onChange={(e) => toggleCheckbox('compulsaoNoturna', e.target.checked)}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
           )}
           
+          {/* Step 5: Preferências e Restrições */}
           {wizardStep === 5 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Preferências de Proteína</h3>
-              <p className="text-gray-600 mb-4">Selecione todas as fontes de proteína que você consome:</p>
-              <div className="space-y-2">
-                {['Carne', 'Frango', 'Peixe', 'Ovos', 'Laticínios', 'Leguminosas'].map((opcao) => (
-                  <label
-                    key={opcao}
-                    className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={wizardData.preferenciasProteina.includes(opcao)}
-                      onChange={() => toggleCheckbox('preferenciasProteina', opcao)}
-                      className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-gray-900">{opcao}</span>
-                  </label>
-                ))}
+              <div className="flex items-center gap-2 mb-4">
+                <Heart className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Preferências e Restrições Alimentares</h3>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Restrições alimentares (selecione todas que se aplicam):</p>
+                  <div className="space-y-2">
+                    {['vegetariano', 'vegano', 'intolerância lactose', 'sem glúten', 'nada'].map((opcao) => (
+                      <label
+                        key={opcao}
+                        className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={wizardData.restricoes.includes(opcao)}
+                          onChange={() => toggleCheckbox('restricoes', opcao)}
+                          className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-gray-900 capitalize">{opcao}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Preferências de proteína (selecione todas que você consome):</p>
+                  <div className="space-y-2">
+                    {['Carne', 'Frango', 'Peixe', 'Ovos', 'Laticínios', 'Leguminosas'].map((opcao) => (
+                      <label
+                        key={opcao}
+                        className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={wizardData.preferenciasProteina.includes(opcao)}
+                          onChange={() => toggleCheckbox('preferenciasProteina', opcao)}
+                          className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-gray-900">{opcao}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
           
+          {/* Step 6: Sintomas Gastrointestinais */}
           {wizardStep === 6 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Sintomas Gastrointestinais</h3>
-              <p className="text-gray-600 mb-4">Você apresenta sintomas gastrointestinais (náusea, vômito, diarreia)?</p>
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Sintomas Gastrointestinais e Digestivos</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Você apresenta sintomas gastrointestinais com frequência? (náusea, vômito, diarreia, constipação, refluxo, distensão abdominal)</p>
               <div className="space-y-2">
-                {(['nenhum', 'leve', 'moderado', 'grave'] as const).map((opcao) => (
+                {([
+                  { value: 'nenhum', label: 'Nenhum', desc: 'Não apresento sintomas gastrointestinais' },
+                  { value: 'leve', label: 'Leve', desc: 'Sintomas ocasionais e leves' },
+                  { value: 'moderado', label: 'Moderado', desc: 'Sintomas frequentes que afetam o dia a dia' },
+                  { value: 'grave', label: 'Grave', desc: 'Sintomas intensos e constantes' }
+                ] as const).map((opcao) => (
                   <button
-                    key={opcao}
-                    onClick={() => setWizardData({ ...wizardData, sintomasGI: opcao })}
-                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
-                      wizardData.sintomasGI === opcao
+                    key={opcao.value}
+                    onClick={() => setWizardData({ ...wizardData, sintomasGI: opcao.value })}
+                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                      wizardData.sintomasGI === opcao.value
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <span className="capitalize">{opcao}</span>
+                    <p className="font-medium text-gray-900">{opcao.label}</p>
+                    <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
                   </button>
                 ))}
               </div>
@@ -673,7 +954,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
               onClick={handleWizardNext}
               className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
             >
-              {wizardStep === 6 ? 'Gerar Plano' : 'Próximo'}
+              {wizardStep === 6 ? 'Gerar Plano Nutricional' : 'Próximo'}
             </button>
           </div>
         </div>
@@ -681,6 +962,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     );
   }
 
+  // Tela de Check-in Diário
   if (view === 'checkin') {
     return (
       <div className="space-y-4">
@@ -812,6 +1094,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     );
   }
 
+  // Tela principal do plano (melhorada)
   if (!plano) {
     return (
       <div className="space-y-4">
@@ -822,17 +1105,25 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     );
   }
 
+  const resumoCheckIns = calcularResumoCheckIns();
+  const coposAgua = Math.round(plano.aguaDia_ml / 250);
+
   return (
     <div className="space-y-6">
+      {/* Cabeçalho do Plano */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <UtensilsCrossed className="h-6 w-6 text-green-600" />
-              Plano Nutricional
+              Plano Nutricional Personalizado
             </h1>
             <p className="text-gray-600 mt-1">
-              Criado em {new Date(plano.criadoEm).toLocaleDateString('pt-BR')}
+              Criado em {new Date(plano.criadoEm).toLocaleDateString('pt-BR', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+              })}
             </p>
           </div>
           <button
@@ -845,99 +1136,169 @@ export default function NutriContent({ paciente }: NutriContentProps) {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Cards de Métricas Principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Estilo Alimentar */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estilo Alimentar</h3>
-          <p className="text-2xl font-bold text-green-600 capitalize">
+          <div className="flex items-center gap-2 mb-3">
+            <UtensilsCrossed className="h-5 w-5 text-green-600" />
+            <h3 className="text-sm font-medium text-gray-600">Estilo Alimentar</h3>
+          </div>
+          <p className="text-xl font-bold text-green-600 capitalize mb-2">
             {plano.estilo.replace('_', ' ')}
           </p>
+          {plano.descricaoEstilo && (
+            <p className="text-xs text-gray-500 leading-relaxed">
+              {plano.descricaoEstilo}
+            </p>
+          )}
         </div>
         
+        {/* Meta de Proteína */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Meta de Proteína</h3>
-          <p className="text-2xl font-bold text-green-600">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity className="h-5 w-5 text-blue-600" />
+            <h3 className="text-sm font-medium text-gray-600">Meta de Proteína</h3>
+          </div>
+          <p className="text-2xl font-bold text-blue-600 mb-1">
             {plano.protDia_g} g/dia
           </p>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Meta de Água</h3>
-          <p className="text-2xl font-bold text-blue-600">
-            {plano.aguaDia_ml} ml/dia
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            Aproximadamente {Math.round(plano.aguaDia_ml / 250)} copos
+          <p className="text-xs text-gray-500">
+            Meta diária aproximada de proteína total
           </p>
         </div>
         
+        {/* Meta de Água */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Refeições</h3>
-          <p className="text-2xl font-bold text-gray-900">
-            {plano.refeicoes} refeições/dia
+          <div className="flex items-center gap-2 mb-3">
+            <Droplet className="h-5 w-5 text-blue-500" />
+            <h3 className="text-sm font-medium text-gray-600">Meta de Água</h3>
+          </div>
+          <p className="text-2xl font-bold text-blue-600 mb-1">
+            {plano.aguaDia_ml} ml
+          </p>
+          <p className="text-xs text-gray-500">
+            Equivalente a {coposAgua}-{coposAgua + 1} copos por dia
+          </p>
+        </div>
+        
+        {/* Refeições */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="h-5 w-5 text-purple-600" />
+            <h3 className="text-sm font-medium text-gray-600">Refeições</h3>
+          </div>
+          <p className="text-2xl font-bold text-purple-600 mb-1">
+            {plano.refeicoes} refeições
+          </p>
+          <p className="text-xs text-gray-500">
+            Distribuídas ao longo do dia
           </p>
         </div>
       </div>
       
+      {/* Distribuição de Proteína */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribuição de Proteína por Refeição</h3>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Café da Manhã</p>
+          <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Coffee className="h-4 w-4 text-green-700" />
+              <p className="text-sm font-semibold text-gray-700">Café da Manhã</p>
+            </div>
             <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.cafe}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Lanche 1</p>
+          <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Sun className="h-4 w-4 text-blue-700" />
+              <p className="text-sm font-semibold text-gray-700">Lanche 1</p>
+            </div>
             <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.lanche1}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Almoço</p>
+          <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Sunset className="h-4 w-4 text-orange-700" />
+              <p className="text-sm font-semibold text-gray-700">Almoço</p>
+            </div>
             <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.almoco}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Lanche 2</p>
+          <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Sun className="h-4 w-4 text-purple-700" />
+              <p className="text-sm font-semibold text-gray-700">Lanche 2</p>
+            </div>
             <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.lanche2}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Jantar</p>
+          <div className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg border border-indigo-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Moon className="h-4 w-4 text-indigo-700" />
+              <p className="text-sm font-semibold text-gray-700">Jantar</p>
+            </div>
             <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.jantar}</p>
           </div>
         </div>
       </div>
       
+      {/* Modelo de Dia (melhorado) */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Modelo de Dia</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Modelo de Dia - Sugestões de Refeições</h3>
         <div className="space-y-4">
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Café da Manhã</p>
-            <p className="text-gray-900">{plano.modeloDia.cafe}</p>
+          {/* Café da Manhã */}
+          <div className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border-l-4 border-amber-500">
+            <div className="flex items-center gap-3 mb-2">
+              <Coffee className="h-5 w-5 text-amber-700" />
+              <h4 className="font-semibold text-gray-900">Café da Manhã</h4>
+            </div>
+            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.cafe}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Lanche 1</p>
-            <p className="text-gray-900">{plano.modeloDia.lanche1}</p>
+          
+          {/* Lanche 1 */}
+          <div className="p-5 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border-l-4 border-blue-500">
+            <div className="flex items-center gap-3 mb-2">
+              <Sun className="h-5 w-5 text-blue-700" />
+              <h4 className="font-semibold text-gray-900">Lanche da Manhã</h4>
+            </div>
+            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche1}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Almoço</p>
-            <p className="text-gray-900">{plano.modeloDia.almoco}</p>
+          
+          {/* Almoço */}
+          <div className="p-5 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border-l-4 border-orange-500">
+            <div className="flex items-center gap-3 mb-2">
+              <Sunset className="h-5 w-5 text-orange-700" />
+              <h4 className="font-semibold text-gray-900">Almoço</h4>
+            </div>
+            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.almoco}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Lanche 2</p>
-            <p className="text-gray-900">{plano.modeloDia.lanche2}</p>
+          
+          {/* Lanche 2 */}
+          <div className="p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-500">
+            <div className="flex items-center gap-3 mb-2">
+              <Sun className="h-5 w-5 text-purple-700" />
+              <h4 className="font-semibold text-gray-900">Lanche da Tarde</h4>
+            </div>
+            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche2}</p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-md">
-            <p className="text-sm font-medium text-gray-600 mb-1">Jantar</p>
-            <p className="text-gray-900">{plano.modeloDia.jantar}</p>
+          
+          {/* Jantar */}
+          <div className="p-5 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500">
+            <div className="flex items-center gap-3 mb-2">
+              <Moon className="h-5 w-5 text-indigo-700" />
+              <h4 className="font-semibold text-gray-900">Jantar</h4>
+            </div>
+            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.jantar}</p>
           </div>
         </div>
       </div>
       
+      {/* Alimentos a Evitar */}
       {plano.evitar.length > 0 && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Evitar</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Alimentos e Hábitos a Evitar</h3>
           <div className="flex flex-wrap gap-2">
             {plano.evitar.map((item, idx) => (
               <span
                 key={idx}
-                className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-sm"
+                className="px-3 py-1.5 bg-red-50 text-red-700 rounded-full text-sm font-medium border border-red-200"
               >
                 {item}
               </span>
@@ -946,9 +1307,49 @@ export default function NutriContent({ paciente }: NutriContentProps) {
         </div>
       )}
       
-      {/* Histórico de Check-ins */}
+      {/* Histórico de Check-ins (melhorado) */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Check-ins</h3>
+        
+        {/* Resumo dos Check-ins */}
+        {resumoCheckIns && checkIns.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-5 w-5 text-green-700" />
+                <p className="text-sm font-medium text-gray-700">Média (7 dias)</p>
+              </div>
+              <p className="text-2xl font-bold text-green-700">
+                {(resumoCheckIns.mediaScore7dias * 100).toFixed(0)}%
+              </p>
+            </div>
+            
+            <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-5 w-5 text-blue-700" />
+                <p className="text-sm font-medium text-gray-700">Total de Check-ins</p>
+              </div>
+              <p className="text-2xl font-bold text-blue-700">
+                {resumoCheckIns.totalCheckIns}
+              </p>
+            </div>
+            
+            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-5 w-5 text-purple-700" />
+                <p className="text-sm font-medium text-gray-700">Melhor Dia</p>
+              </div>
+              <p className="text-2xl font-bold text-purple-700">
+                {(resumoCheckIns.melhorDia.score * 100).toFixed(0)}%
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                {new Date(resumoCheckIns.melhorDia.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Lista de Check-ins */}
         {loadingCheckIns ? (
           <div className="text-center py-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
@@ -961,99 +1362,105 @@ export default function NutriContent({ paciente }: NutriContentProps) {
             <p className="text-sm text-gray-500 mt-2">Use o botão "Check-in Diário" para começar a registrar.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {checkIns.map((checkIn, idx) => (
-              <div
-                key={idx}
-                className="p-4 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {new Date(checkIn.data).toLocaleDateString('pt-BR', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
+          <div className="space-y-4">
+            {checkIns.map((checkIn, idx) => {
+              const scoreColor = checkIn.score >= 0.8 ? 'green' : checkIn.score >= 0.6 ? 'yellow' : 'red';
+              const borderColor = scoreColor === 'green' ? 'border-green-300' : scoreColor === 'yellow' ? 'border-yellow-300' : 'border-red-300';
+              const bgColor = scoreColor === 'green' ? 'bg-green-50' : scoreColor === 'yellow' ? 'bg-yellow-50' : 'bg-red-50';
+              
+              return (
+                <div
+                  key={idx}
+                  className={`p-5 rounded-lg border-l-4 ${borderColor} ${bgColor} hover:shadow-md transition-shadow`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="font-bold text-gray-900 text-lg">
+                        {new Date(checkIn.data).toLocaleDateString('pt-BR', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-4 py-1.5 rounded-full text-sm font-bold ${
+                        checkIn.score >= 0.8 ? 'bg-green-200 text-green-800' :
+                        checkIn.score >= 0.6 ? 'bg-yellow-200 text-yellow-800' :
+                        'bg-red-200 text-red-800'
+                      }`}>
+                        Score: {(checkIn.score * 100).toFixed(0)}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      checkIn.score >= 0.8 ? 'bg-green-100 text-green-700' :
-                      checkIn.score >= 0.6 ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      Score: {(checkIn.score * 100).toFixed(0)}%
-                    </span>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="flex items-center gap-2">
+                      {checkIn.proteinaOk ? (
+                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">Proteína</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {checkIn.frutasOk ? (
+                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">Frutas</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {checkIn.aguaOk ? (
+                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">Água</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">Sintomas GI:</span>
+                      <span className={`text-sm font-bold px-2 py-1 rounded ${
+                        checkIn.sintomasGI === 'nenhum' ? 'bg-green-100 text-green-700' :
+                        checkIn.sintomasGI === 'leve' ? 'bg-yellow-100 text-yellow-700' :
+                        checkIn.sintomasGI === 'moderado' ? 'bg-orange-100 text-orange-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {checkIn.sintomasGI.charAt(0).toUpperCase() + checkIn.sintomasGI.slice(1)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {checkIn.lixoAlimentar ? (
+                        <>
+                          <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                          <span className="text-sm font-medium text-red-600">Lixo alimentar</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          <span className="text-sm font-medium text-gray-900">Sem lixo</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                      <span className="text-sm font-medium text-gray-900">Energia:</span>
+                      <span className="text-sm font-bold text-gray-900">{checkIn.humorEnergia}/5</span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-                  <div className="flex items-center gap-2">
-                    {checkIn.proteinaOk ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-600" />
-                    )}
-                    <span className="text-sm text-gray-900">Proteína</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {checkIn.frutasOk ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-600" />
-                    )}
-                    <span className="text-sm text-gray-900">Frutas</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {checkIn.aguaOk ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-600" />
-                    )}
-                    <span className="text-sm text-gray-900">Água</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-900">Sintomas GI:</span>
-                    <span className={`text-sm font-medium ${
-                      checkIn.sintomasGI === 'nenhum' ? 'text-green-600' :
-                      checkIn.sintomasGI === 'leve' ? 'text-yellow-600' :
-                      checkIn.sintomasGI === 'moderado' ? 'text-orange-600' :
-                      'text-red-600'
-                    }`}>
-                      {checkIn.sintomasGI.charAt(0).toUpperCase() + checkIn.sintomasGI.slice(1)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {checkIn.lixoAlimentar ? (
-                      <>
-                        <XCircle className="h-5 w-5 text-red-600" />
-                        <span className="text-sm text-red-600">Lixo alimentar</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <span className="text-sm text-gray-900">Sem lixo</span>
-                      </>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-900">Humor/Energia:</span>
-                    <span className="text-sm font-semibold text-gray-900">{checkIn.humorEnergia}/5</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
     </div>
   );
 }
-
