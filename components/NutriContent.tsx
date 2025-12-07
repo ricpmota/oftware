@@ -3737,6 +3737,36 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.jantar}</p>
                 </div>
               </div>
+              
+              {/* Resumo Total */}
+              {(() => {
+                const refeicoes: RefeicaoKey[] = ['cafe', 'lanche1', 'almoco', 'lanche2', 'jantar'];
+                let proteinaTotalDistribuida = 0;
+                
+                refeicoes.forEach(refeicaoKey => {
+                  proteinaTotalDistribuida += converterDistribuicaoProteina(plano.distribuicaoProteina[refeicaoKey]);
+                });
+                
+                return (
+                  <div className="mt-6 p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border-2 border-blue-300 shadow-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 uppercase tracking-wide mb-1">Total Distribuído</p>
+                        <p className="text-2xl font-bold text-blue-700">{proteinaTotalDistribuida.toFixed(1)}g</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-700 uppercase tracking-wide mb-1">Meta Diária</p>
+                        <p className="text-2xl font-bold text-gray-900">{plano.protDia_g}g</p>
+                      </div>
+                    </div>
+                    {Math.abs(proteinaTotalDistribuida - plano.protDia_g) > 5 && (
+                      <p className="text-xs text-amber-600 mt-2">
+                        ⚠️ A soma das distribuições ({proteinaTotalDistribuida.toFixed(1)}g) difere da meta ({plano.protDia_g}g)
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -4116,9 +4146,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                             <span className="text-xl font-bold text-gray-900">{proteinaSugeridaTotal.toFixed(1)}g</span>
                             <span className="text-gray-400">→</span>
                             <span className={`text-xl font-bold ${
-                              proteinaEscolhidaTotal >= proteinaSugeridaTotal * 0.9
+                              proteinaEscolhidaTotal >= plano.protDia_g * 0.9
                                 ? 'text-green-600'
-                                : proteinaEscolhidaTotal >= proteinaSugeridaTotal * 0.8
+                                : proteinaEscolhidaTotal >= plano.protDia_g * 0.8
                                 ? 'text-amber-600'
                                 : 'text-red-600'
                             }`}>
@@ -4128,6 +4158,11 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                           <p className="text-xs text-gray-500">
                             Meta diária: {plano.protDia_g}g
                           </p>
+                          <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                            <p className="text-xs text-gray-600">
+                              <strong>Comparação:</strong> {proteinaEscolhidaTotal.toFixed(1)}g de {plano.protDia_g}g ({((proteinaEscolhidaTotal / plano.protDia_g) * 100).toFixed(1)}%)
+                            </p>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">Calorias Total</p>
@@ -4190,7 +4225,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     return (
                       <div className="space-y-4">
                         {/* Navegação por abas */}
-                        <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+                        <div className="flex flex-wrap justify-center gap-2 border-b border-gray-200 pb-2">
                           {categorias.map(categoria => {
                             const itensDaCategoria = config.itensDisponiveis.filter(i => i.categoria === categoria);
                             if (itensDaCategoria.length === 0) return null;
@@ -4206,10 +4241,10 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                               <button
                                 key={categoria}
                                 onClick={() => setAbaBuilderAtiva(categoria)}
-                                className={`px-3 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors flex flex-col items-center ${
+                                className={`px-3 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors flex flex-col items-center rounded-t-lg ${
                                   abaBuilderAtiva === categoria
-                                    ? 'border-green-600 text-green-600 bg-green-50'
-                                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                                    ? 'border-green-600 text-green-700 bg-green-50 shadow-sm'
+                                    : 'border-transparent text-gray-700 bg-gray-100 hover:bg-gray-200 hover:border-gray-400'
                                 }`}
                               >
                                 <span>{nomesCategorias[categoria]}</span>
