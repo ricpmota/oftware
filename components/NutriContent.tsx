@@ -862,10 +862,18 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     }
   };
 
-  // useEffect para carregar check-in quando a data mudar
+  // useEffect para carregar check-in quando a data mudar ou quando entrar na view de check-in
   useEffect(() => {
-    if (view === 'checkin' && checkInDate) {
+    if (view === 'checkin' && checkInDate && checkIns.length > 0) {
+      // Só carregar se já tiver check-ins carregados
       carregarCheckInPorData(checkInDate);
+    } else if (view === 'checkin' && checkIns.length === 0) {
+      // Se não tiver check-ins carregados, carregar primeiro
+      loadCheckIns().then(() => {
+        if (checkInDate) {
+          carregarCheckInPorData(checkInDate);
+        }
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkInDate, view]);
