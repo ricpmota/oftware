@@ -4534,28 +4534,68 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   })()}
                 </div>
                 
-                <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6 flex gap-3 justify-end">
+                <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6 flex flex-col sm:flex-row gap-3 justify-end">
                   <button
                     onClick={() => {
-                      setRefeicaoEmEdicao(null);
-                      setOpcaoSelecionadaTemp('');
-                      setItensSelecionadosRefeicao({});
-                      setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
-                      setAbaBuilderAtiva('proteina');
+                      // Ajustar conforme sugerido: selecionar primeira opção de cada categoria
+                      const itensSugeridos: Record<string, boolean> = {};
+                      const config = configuracaoBuilder[refeicaoEmEdicao];
+                      
+                      // Proteína: primeira opção disponível
+                      const primeiraProteina = config.itensDisponiveis.find(i => i.categoria === 'proteina');
+                      if (primeiraProteina) {
+                        itensSugeridos[primeiraProteina.id] = true;
+                      }
+                      
+                      // Carboidrato: primeira opção se permitido
+                      if (config.maxCarboidratos > 0) {
+                        const primeiroCarboidrato = config.itensDisponiveis.find(i => i.categoria === 'carboidrato');
+                        if (primeiroCarboidrato) {
+                          itensSugeridos[primeiroCarboidrato.id] = true;
+                        }
+                      }
+                      
+                      // Legumes/Salada: primeira opção se permitido
+                      if (config.maxLegumesSalada > 0) {
+                        const primeiroLegume = config.itensDisponiveis.find(i => i.categoria === 'legumes_salada');
+                        if (primeiroLegume) {
+                          itensSugeridos[primeiroLegume.id] = true;
+                        }
+                      }
+                      
+                      setItensSelecionadosRefeicao(itensSugeridos);
+                      
+                      // Recalcular macros
+                      const macros = calcularMacrosRefeicao(config, itensSugeridos);
+                      setMacrosRefeicaoAtual(macros);
                     }}
-                    className="px-6 py-2 rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-semibold"
+                    className="px-4 py-2 rounded-md border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 font-semibold text-sm"
                   >
-                    Cancelar
+                    Ajustar conforme sugerido
                   </button>
-                  <button
-                    onClick={salvarAlteracoesCardapio}
-                    disabled={!configuracaoBuilder[refeicaoEmEdicao].itensDisponiveis.some(i => 
-                      i.categoria === 'proteina' && itensSelecionadosRefeicao[i.id]
-                    )}
-                    className="px-6 py-2 rounded-md bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    Salvar refeição
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setRefeicaoEmEdicao(null);
+                        setOpcaoSelecionadaTemp('');
+                        setItensSelecionadosRefeicao({});
+                        setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
+                        setAbaBuilderAtiva('proteina');
+                      }}
+                      className="px-6 py-2 rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={salvarAlteracoesCardapio}
+                      disabled={!configuracaoBuilder[refeicaoEmEdicao].itensDisponiveis.some(i => 
+                        i.categoria === 'proteina' && itensSelecionadosRefeicao[i.id]
+                      )}
+                      className="px-6 py-2 rounded-md bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      Salvar refeição
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
