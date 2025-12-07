@@ -96,6 +96,9 @@ export default function MetaAdminGeralPage() {
   });
   const [leadsQualificadosDesaparecidos, setLeadsQualificadosDesaparecidos] = useState<number>(0);
   
+  // Estado para aba do calendário
+  const [calendarioTab, setCalendarioTab] = useState<'calendario' | 'dashboard'>('calendario');
+  
   
   // Estados para modais de edição
   const [showEditarMedicoModal, setShowEditarMedicoModal] = useState(false);
