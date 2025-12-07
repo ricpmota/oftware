@@ -157,7 +157,9 @@ const gerarOpcoesRefeicoes = (
   protCafe: number,
   protAlmoco: number,
   protJantar: number,
-  protLanche: number
+  protLanche: number,
+  restricoes: string[] = [],
+  preferenciasProteina: string[] = []
 ): Record<RefeicaoKey, OpcaoRefeicao[]> => {
   // Por questões de espaço, vou criar uma versão simplificada que será expandida
   // A função completa será muito longa, então vou criar uma estrutura base
@@ -228,6 +230,16 @@ const gerarOpcoesRefeicoes = (
     jantar: [
       { id: 'jantar_padrao', titulo: 'Jantar padrão', descricao: `Opção padrão de jantar com ~${protJantar}g de proteína.`, proteina_g: protJantar, calorias_kcal: 450 }
     ]
+    };
+  }
+  
+  // Filtrar e ordenar opções de cada refeição
+  return {
+    cafe: ordenarPorPreferencias(filtrarOpcoes(opcoesFinais.cafe)),
+    lanche1: ordenarPorPreferencias(filtrarOpcoes(opcoesFinais.lanche1)),
+    almoco: ordenarPorPreferencias(filtrarOpcoes(opcoesFinais.almoco)),
+    lanche2: ordenarPorPreferencias(filtrarOpcoes(opcoesFinais.lanche2)),
+    jantar: ordenarPorPreferencias(filtrarOpcoes(opcoesFinais.jantar))
   };
 };
 
@@ -638,8 +650,16 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     const protJantar = Math.round(protPorRefeicao * 1.3);
     const protLanche = Math.round(protPorRefeicao * 0.8);
     
-    // Gerar opções de refeições baseadas no estilo
-    const opcoesDisponiveis = gerarOpcoesRefeicoes(estilo, protCafe, protAlmoco, protJantar, protLanche);
+    // Gerar opções de refeições baseadas no estilo, restrições e preferências
+    const opcoesDisponiveis = gerarOpcoesRefeicoes(
+      estilo, 
+      protCafe, 
+      protAlmoco, 
+      protJantar, 
+      protLanche,
+      wizardData.restricoes,
+      wizardData.preferenciasProteina
+    );
     setOpcoesRefeicoes(opcoesDisponiveis);
     
     // Selecionar opções padrão (primeira opção de cada refeição)
