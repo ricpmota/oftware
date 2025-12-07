@@ -747,6 +747,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     caloriasTotal_kcal: 0 
   });
   const [configuracaoBuilder, setConfiguracaoBuilder] = useState<Record<RefeicaoKey, ConfiguracaoRefeicao> | null>(null);
+  const [abaBuilderAtiva, setAbaBuilderAtiva] = useState<CategoriaItemRefeicao>('proteina');
 
   // ============================================
   // CARREGAMENTO DE DADOS
@@ -769,6 +770,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         plano.preferenciasProteinaPaciente || []
       );
       setConfiguracaoBuilder(config);
+      
+      // Resetar aba para proteína ao abrir modal
+      setAbaBuilderAtiva('proteina');
       
       // Inicializar itens selecionados (sugestão padrão: proteína + salada)
       const configRefeicao = config[refeicaoEmEdicao];
@@ -801,6 +805,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     } else {
       setItensSelecionadosRefeicao({});
       setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
+      setAbaBuilderAtiva('proteina');
     }
   }, [refeicaoEmEdicao, plano]);
 
@@ -1609,6 +1614,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       setOpcaoSelecionadaTemp('');
       setItensSelecionadosRefeicao({});
       setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
+      setAbaBuilderAtiva('proteina');
       
       // Mostrar mensagem de ajuste se houver
       if (mensagemAjuste) {
@@ -3917,6 +3923,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       setOpcaoSelecionadaTemp('');
                       setItensSelecionadosRefeicao({});
                       setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
+                      setAbaBuilderAtiva('proteina');
                     }}
                     className="text-gray-400 hover:text-gray-600"
                   >
@@ -3924,7 +3931,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </button>
                 </div>
                 
-                <div className="p-6 space-y-6">
+                <div className="p-6">
                   {(() => {
                     const config = configuracaoBuilder[refeicaoEmEdicao];
                     const categorias: CategoriaItemRefeicao[] = ['proteina', 'carboidrato', 'legumes_salada', 'gordura_boa', 'extra'];
@@ -3936,73 +3943,107 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       extra: 'Extra'
                     };
                     
-                    const coresCategorias: Record<CategoriaItemRefeicao, string> = {
-                      proteina: 'from-blue-50 to-blue-100 border-blue-200',
-                      carboidrato: 'from-amber-50 to-amber-100 border-amber-200',
-                      legumes_salada: 'from-green-50 to-green-100 border-green-200',
-                      gordura_boa: 'from-purple-50 to-purple-100 border-purple-200',
-                      extra: 'from-pink-50 to-pink-100 border-pink-200'
-                    };
-                    
-                    return categorias.map(categoria => {
-                      const itensDaCategoria = config.itensDisponiveis.filter(i => i.categoria === categoria);
-                      if (itensDaCategoria.length === 0) return null;
-                      
-                      const itensSelecionadosDaCategoria = itensDaCategoria.filter(i => itensSelecionadosRefeicao[i.id]);
-                      const maxItens = categoria === 'proteina' ? config.maxProteinas :
-                                      categoria === 'carboidrato' ? config.maxCarboidratos :
-                                      categoria === 'legumes_salada' ? config.maxLegumesSalada :
-                                      categoria === 'gordura_boa' ? config.maxGordurasBoas :
-                                      config.maxExtras;
-                      
-                      return (
-                        <section key={categoria} className={`bg-gradient-to-br ${coresCategorias[categoria]} rounded-lg border p-4 space-y-3`}>
-                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                            {nomesCategorias[categoria]}
-                            {categoria === 'proteina' && (
-                              <span className="text-xs font-normal text-red-600">(obrigatório)</span>
-                            )}
-                            {maxItens > 0 && (
-                              <span className="text-xs font-normal text-gray-500">
-                                ({itensSelecionadosDaCategoria.length}/{maxItens})
-                              </span>
-                            )}
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {itensDaCategoria.map(item => {
-                              const estaSelecionado = itensSelecionadosRefeicao[item.id] || false;
-                              return (
-                                <button
-                                  key={item.id}
-                                  onClick={() => handleSelecionarItem(item.id, categoria)}
-                                  className={`p-3 border-2 rounded-lg text-left transition-colors ${
-                                    estaSelecionado
-                                      ? 'border-green-500 bg-green-50'
-                                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                                  }`}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{item.nome}</h4>
-                                      {item.descricao && (
-                                        <p className="text-xs text-gray-700 mb-2">{item.descricao}</p>
-                                      )}
-                                      <div className="flex gap-3 text-xs text-gray-600">
-                                        <span>Proteína: ~{item.proteina_g}g</span>
-                                        <span>Calorias: ~{item.calorias_kcal} kcal</span>
+                    // Abas de navegação
+                    return (
+                      <div className="space-y-4">
+                        {/* Navegação por abas */}
+                        <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+                          {categorias.map(categoria => {
+                            const itensDaCategoria = config.itensDisponiveis.filter(i => i.categoria === categoria);
+                            if (itensDaCategoria.length === 0) return null;
+                            
+                            const itensSelecionadosDaCategoria = itensDaCategoria.filter(i => itensSelecionadosRefeicao[i.id]);
+                            const maxItens = categoria === 'proteina' ? config.maxProteinas :
+                                            categoria === 'carboidrato' ? config.maxCarboidratos :
+                                            categoria === 'legumes_salada' ? config.maxLegumesSalada :
+                                            categoria === 'gordura_boa' ? config.maxGordurasBoas :
+                                            config.maxExtras;
+                            
+                            return (
+                              <button
+                                key={categoria}
+                                onClick={() => setAbaBuilderAtiva(categoria)}
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                  abaBuilderAtiva === categoria
+                                    ? 'border-green-600 text-green-600 bg-green-50'
+                                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                                }`}
+                              >
+                                {nomesCategorias[categoria]}
+                                {maxItens > 0 && (
+                                  <span className="ml-2 text-xs">
+                                    ({itensSelecionadosDaCategoria.length}/{maxItens})
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Conteúdo da aba ativa */}
+                        {(() => {
+                          const categoriaAtiva = abaBuilderAtiva;
+                          const itensDaCategoria = config.itensDisponiveis.filter(i => i.categoria === categoriaAtiva);
+                          const itensSelecionadosDaCategoria = itensDaCategoria.filter(i => itensSelecionadosRefeicao[i.id]);
+                          const maxItens = categoriaAtiva === 'proteina' ? config.maxProteinas :
+                                          categoriaAtiva === 'carboidrato' ? config.maxCarboidratos :
+                                          categoriaAtiva === 'legumes_salada' ? config.maxLegumesSalada :
+                                          categoriaAtiva === 'gordura_boa' ? config.maxGordurasBoas :
+                                          config.maxExtras;
+                          
+                          return (
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2 mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                  {nomesCategorias[categoriaAtiva]}
+                                </h3>
+                                {categoriaAtiva === 'proteina' && (
+                                  <span className="text-xs font-normal text-red-600">(obrigatório)</span>
+                                )}
+                                {maxItens > 0 && (
+                                  <span className="text-xs font-normal text-gray-500">
+                                    {itensSelecionadosDaCategoria.length}/{maxItens} selecionados
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {itensDaCategoria.map(item => {
+                                  const estaSelecionado = itensSelecionadosRefeicao[item.id] || false;
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      onClick={() => handleSelecionarItem(item.id, categoriaAtiva)}
+                                      className={`p-3 border-2 rounded-lg text-left transition-colors ${
+                                        estaSelecionado
+                                          ? 'border-green-500 bg-green-50'
+                                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1">
+                                          <h4 className="font-semibold text-gray-900 text-sm mb-1">{item.nome}</h4>
+                                          {item.descricao && (
+                                            <p className="text-xs text-gray-700 mb-2">{item.descricao}</p>
+                                          )}
+                                          <div className="flex gap-3 text-xs text-gray-600">
+                                            <span>Proteína: ~{item.proteina_g}g</span>
+                                            <span>Calorias: ~{item.calorias_kcal} kcal</span>
+                                          </div>
+                                        </div>
+                                        {estaSelecionado && (
+                                          <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                        )}
                                       </div>
-                                    </div>
-                                    {estaSelecionado && (
-                                      <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </section>
-                      );
-                    });
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
                   })()}
                   
                   {/* Resumo de macros da refeição - Comparação Sugerida vs Escolhida */}
@@ -4092,6 +4133,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       setOpcaoSelecionadaTemp('');
                       setItensSelecionadosRefeicao({});
                       setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
+                      setAbaBuilderAtiva('proteina');
                     }}
                     className="px-6 py-2 rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-semibold"
                   >
