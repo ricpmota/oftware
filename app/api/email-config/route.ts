@@ -463,6 +463,145 @@ export async function POST(request: NextRequest) {
       await emTratamentoRef.set(cleanedEmTratamento);
       console.log('✅ em_tratamento_plano_editado salvo com sucesso');
       
+      // Salvar e-mail do módulo Novo Lead Médico
+      const novoLeadMedicoData = config.novo_lead_medico.novo_lead;
+      const novoLeadMedicoRef = emailsCollection.doc('novo_lead_medico_novo_lead');
+      const existingNovoLeadMedico = await novoLeadMedicoRef.get();
+      
+      const novoLeadMedicoDoc: any = {
+        assunto: String(novoLeadMedicoData.assunto || '').trim(),
+        corpoHtml: String(novoLeadMedicoData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (novoLeadMedicoData.corpoTexto && novoLeadMedicoData.corpoTexto.trim()) {
+        novoLeadMedicoDoc.corpoTexto = String(novoLeadMedicoData.corpoTexto).trim();
+      }
+      
+      if (!existingNovoLeadMedico.exists) {
+        novoLeadMedicoDoc.createdAt = agora;
+      }
+      
+      const cleanedNovoLeadMedico = removeUndefined(novoLeadMedicoDoc);
+      await novoLeadMedicoRef.set(cleanedNovoLeadMedico);
+      console.log('✅ novo_lead_medico_novo_lead salvo com sucesso');
+      
+      // Salvar e-mails do módulo Aplicação
+      const aplicacaoAntesData = config.aplicacao.aplicacao_antes;
+      const aplicacaoAntesRef = emailsCollection.doc('aplicacao_aplicacao_antes');
+      const existingAplicacaoAntes = await aplicacaoAntesRef.get();
+      
+      const aplicacaoAntesDoc: any = {
+        assunto: String(aplicacaoAntesData.assunto || '').trim(),
+        corpoHtml: String(aplicacaoAntesData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (aplicacaoAntesData.corpoTexto && aplicacaoAntesData.corpoTexto.trim()) {
+        aplicacaoAntesDoc.corpoTexto = String(aplicacaoAntesData.corpoTexto).trim();
+      }
+      
+      if (!existingAplicacaoAntes.exists) {
+        aplicacaoAntesDoc.createdAt = agora;
+      }
+      
+      const cleanedAplicacaoAntes = removeUndefined(aplicacaoAntesDoc);
+      await aplicacaoAntesRef.set(cleanedAplicacaoAntes);
+      console.log('✅ aplicacao_aplicacao_antes salvo com sucesso');
+      
+      const aplicacaoDiaData = config.aplicacao.aplicacao_dia;
+      const aplicacaoDiaRef = emailsCollection.doc('aplicacao_aplicacao_dia');
+      const existingAplicacaoDia = await aplicacaoDiaRef.get();
+      
+      const aplicacaoDiaDoc: any = {
+        assunto: String(aplicacaoDiaData.assunto || '').trim(),
+        corpoHtml: String(aplicacaoDiaData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (aplicacaoDiaData.corpoTexto && aplicacaoDiaData.corpoTexto.trim()) {
+        aplicacaoDiaDoc.corpoTexto = String(aplicacaoDiaData.corpoTexto).trim();
+      }
+      
+      if (!existingAplicacaoDia.exists) {
+        aplicacaoDiaDoc.createdAt = agora;
+      }
+      
+      const cleanedAplicacaoDia = removeUndefined(aplicacaoDiaDoc);
+      await aplicacaoDiaRef.set(cleanedAplicacaoDia);
+      console.log('✅ aplicacao_aplicacao_dia salvo com sucesso');
+      
+      // Salvar e-mail do módulo Lead Avulso
+      const leadAvulsoData = config.lead_avulso.novo_lead;
+      const leadAvulsoRef = emailsCollection.doc('lead_avulso_novo_lead');
+      const existingLeadAvulso = await leadAvulsoRef.get();
+      
+      const leadAvulsoDoc: any = {
+        assunto: String(leadAvulsoData.assunto || '').trim(),
+        corpoHtml: String(leadAvulsoData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (leadAvulsoData.corpoTexto && leadAvulsoData.corpoTexto.trim()) {
+        leadAvulsoDoc.corpoTexto = String(leadAvulsoData.corpoTexto).trim();
+      }
+      
+      if (!existingLeadAvulso.exists) {
+        leadAvulsoDoc.createdAt = agora;
+      }
+      
+      const cleanedLeadAvulso = removeUndefined(leadAvulsoDoc);
+      await leadAvulsoRef.set(cleanedLeadAvulso);
+      console.log('✅ lead_avulso_novo_lead salvo com sucesso');
+      
+      // Salvar e-mail do módulo Check Recomendações
+      const checkRecomendacoesData = config.check_recomendacoes.recomendacoes_lidas;
+      const checkRecomendacoesRef = emailsCollection.doc('check_recomendacoes_recomendacoes_lidas');
+      const existingCheckRecomendacoes = await checkRecomendacoesRef.get();
+      
+      const checkRecomendacoesDoc: any = {
+        assunto: String(checkRecomendacoesData.assunto || '').trim(),
+        corpoHtml: String(checkRecomendacoesData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (checkRecomendacoesData.corpoTexto && checkRecomendacoesData.corpoTexto.trim()) {
+        checkRecomendacoesDoc.corpoTexto = String(checkRecomendacoesData.corpoTexto).trim();
+      }
+      
+      if (!existingCheckRecomendacoes.exists) {
+        checkRecomendacoesDoc.createdAt = agora;
+      }
+      
+      const cleanedCheckRecomendacoes = removeUndefined(checkRecomendacoesDoc);
+      await checkRecomendacoesRef.set(cleanedCheckRecomendacoes);
+      console.log('✅ check_recomendacoes_recomendacoes_lidas salvo com sucesso');
+      
+      // Salvar e-mail do módulo Bem-vindo
+      if (config.bem_vindo && config.bem_vindo.bem_vindo) {
+        const bemVindoData = config.bem_vindo.bem_vindo;
+        const bemVindoRef = emailsCollection.doc('bem_vindo_bem_vindo');
+        const existingBemVindo = await bemVindoRef.get();
+        
+        const bemVindoDoc: any = {
+          assunto: String(bemVindoData.assunto || '').trim(),
+          corpoHtml: String(bemVindoData.corpoHtml || '').trim(),
+          updatedAt: agora,
+        };
+        
+        if (bemVindoData.corpoTexto && bemVindoData.corpoTexto.trim()) {
+          bemVindoDoc.corpoTexto = String(bemVindoData.corpoTexto).trim();
+        }
+        
+        if (!existingBemVindo.exists) {
+          bemVindoDoc.createdAt = agora;
+        }
+        
+        const cleanedBemVindo = removeUndefined(bemVindoDoc);
+        await bemVindoRef.set(cleanedBemVindo);
+        console.log('✅ bem_vindo_bem_vindo salvo com sucesso');
+      }
+      
       // Salvar e-mail do módulo Novidades
       const novidadesData = config.novidades.novidade;
       const novidadesRef = emailsCollection.doc('novidades_novidade');
