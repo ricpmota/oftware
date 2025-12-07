@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Calendar } from 'lucide-react';
 import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
@@ -4605,53 +4604,53 @@ export default function MetaPage() {
 
       {/* Mobile Bottom Navigation - Fixed at bottom, no logout button */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
-        <div className="flex justify-around items-center py-2">
+        <div className="flex justify-around items-center py-1.5">
           <button
             onClick={() => setActiveMenu('estatisticas')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'estatisticas'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <BarChart3 className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Estatísticas</span>
+            <BarChart3 className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-medium leading-tight">Home</span>
           </button>
 
           <button
             onClick={() => setActiveMenu('exames')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'exames'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <FlaskConical className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Exames</span>
+            <FlaskConical className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-medium leading-tight">Exames</span>
           </button>
 
           <button
             onClick={() => setActiveMenu('plano')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'plano'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <FileText className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Plano</span>
+            <FileText className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-medium leading-tight">Plano</span>
           </button>
 
           <button
             onClick={() => setActiveMenu('medicos')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'medicos'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <Stethoscope className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Médicos</span>
+            <Stethoscope className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-medium leading-tight">Médicos</span>
           </button>
 
           <button
@@ -4659,26 +4658,26 @@ export default function MetaPage() {
               setActiveMenu('nutri');
               router.push('/meta/nutri');
             }}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'nutri'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <UtensilsCrossed className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Nutri</span>
+            <UtensilsCrossed className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-medium leading-tight">Nutri</span>
           </button>
 
           <button
             onClick={() => setActiveMenu('perfil')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'perfil'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <UserIcon className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Perfil</span>
+            <UserIcon className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] font-medium leading-tight">Perfil</span>
           </button>
 
         </div>
