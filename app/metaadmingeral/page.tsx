@@ -4498,6 +4498,20 @@ export default function MetaAdminGeralPage() {
                 <Mail size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'E-mails'}
               </button>
+              <button
+                onClick={() => {
+                  window.location.href = '/metaadmingeral/calendario';
+                }}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  window.location.pathname === '/metaadmingeral/calendario'
+                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+                title={sidebarCollapsed ? 'Calendário' : ''}
+              >
+                <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Calendário'}
+              </button>
               
             </nav>
 
@@ -5162,6 +5176,20 @@ export default function MetaAdminGeralPage() {
           >
             <Mail className="w-4 h-4 mb-1" />
             <span className="text-xs font-medium">E-mails</span>
+          </button>
+
+          <button
+            onClick={() => {
+              window.location.href = '/metaadmingeral/calendario';
+            }}
+            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
+              window.location.pathname === '/metaadmingeral/calendario'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <Calendar className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Calendário</span>
           </button>
         </div>
       </div>
