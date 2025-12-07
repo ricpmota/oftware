@@ -420,21 +420,61 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
     return <div className="p-6">Erro ao carregar configuração</div>;
   }
 
-  const getVariaveisDisponiveis = (modulo: EmailModulo): string => {
+  const getVariaveisDisponiveis = (modulo: EmailModulo, emailTipo?: string): { variaveis: string[]; descricao: string } => {
     if (modulo === 'leads') {
-      return 'Variáveis disponíveis: {nome}';
-    } else if (modulo === 'solicitado_medico' || modulo === 'em_tratamento') {
-      return 'Variáveis disponíveis: {medico}, {inicio}, {semanas}';
+      return {
+        variaveis: ['{nome}'],
+        descricao: '{nome} - Nome da pessoa cadastrada (paciente ou médico)'
+      };
+    } else if (modulo === 'solicitado_medico') {
+      return {
+        variaveis: ['{nome}', '{medico}'],
+        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico responsável pelo tratamento'
+      };
+    } else if (modulo === 'em_tratamento') {
+      return {
+        variaveis: ['{nome}', '{medico}', '{inicio}', '{semanas}'],
+        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico | {inicio} - Data de início do tratamento | {semanas} - Duração do tratamento em semanas'
+      };
     } else if (modulo === 'novo_lead_medico') {
-      return 'Variáveis disponíveis: {nome}, {medico}';
+      return {
+        variaveis: ['{nome}', '{medico}'],
+        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico que receberá o aviso'
+      };
     } else if (modulo === 'aplicacao') {
-      return 'Variáveis disponíveis: {nome}, {medico}, {numero}';
+      return {
+        variaveis: ['{nome}', '{medico}', '{numero}'],
+        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico responsável | {numero} - Número da aplicação (1, 2, 3...)'
+      };
     } else if (modulo === 'lead_avulso') {
-      return 'Variáveis disponíveis: {nome}';
+      return {
+        variaveis: ['{nome}'],
+        descricao: '{nome} - Nome da pessoa cadastrada (novo lead)'
+      };
     } else if (modulo === 'check_recomendacoes') {
-      return 'Variáveis disponíveis: {nome}, {medico}';
+      return {
+        variaveis: ['{nome}', '{medico}'],
+        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico que receberá o aviso'
+      };
+    } else if (modulo === 'bem_vindo') {
+      if (emailTipo === 'bem_vindo_medico') {
+        return {
+          variaveis: ['{nome}'],
+          descricao: '{nome} - Nome do médico cadastrado'
+        };
+      } else {
+        return {
+          variaveis: ['{nome}'],
+          descricao: '{nome} - Nome da pessoa cadastrada (paciente ou médico)'
+        };
+      }
+    } else if (modulo === 'novidades') {
+      return {
+        variaveis: ['{nome}'],
+        descricao: '{nome} - Nome da pessoa cadastrada (paciente ou médico)'
+      };
     }
-    return '';
+    return { variaveis: [], descricao: '' };
   };
 
   const renderEmailEditor = () => {
@@ -622,9 +662,28 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Corpo do E-mail (HTML)
             </label>
-            <p className="text-xs text-gray-500 mb-2">
-              {getVariaveisDisponiveis(activeModulo)}
-            </p>
+            {(() => {
+              const variaveisInfo = getVariaveisDisponiveis(activeModulo, activeEmail);
+              if (variaveisInfo.variaveis.length === 0) return null;
+              return (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs font-semibold text-blue-900 mb-1">Variáveis Disponíveis:</p>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {variaveisInfo.variaveis.map((variavel) => (
+                      <code
+                        key={variavel}
+                        className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono"
+                      >
+                        {variavel}
+                      </code>
+                    ))}
+                  </div>
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    {variaveisInfo.descricao}
+                  </p>
+                </div>
+              );
+            })()}
             <textarea
               value={emailTemplate.corpoHtml}
               onChange={(e) => {
