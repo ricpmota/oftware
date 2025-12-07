@@ -212,7 +212,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   const [savingCheckIn, setSavingCheckIn] = useState(false);
   const [checkIns, setCheckIns] = useState<CheckInDiario[]>([]);
   const [loadingCheckIns, setLoadingCheckIns] = useState(false);
-  const [checkInHojeExiste, setCheckInHojeExiste] = useState(false);
+  // Removido: checkInHojeExiste não é mais necessário com a nova lógica de data
   
   // Estado para a data do check-in (permite até 3 dias retroativos)
   const [checkInDate, setCheckInDate] = useState<string>(() => {
@@ -694,13 +694,14 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         
         checkInsData.push(checkInData);
         
-        // Verificar se já existe check-in de hoje
+        // Verificar se já existe check-in de hoje (para compatibilidade)
         if (checkInData.data === dataHoje) {
           hojeExiste = true;
         }
       });
       
       setCheckIns(checkInsData);
+      // Manter setCheckInHojeExiste para compatibilidade, mas não é mais usado na UI
       setCheckInHojeExiste(hojeExiste);
     } catch (error) {
       console.error('Erro ao carregar check-ins:', error);
