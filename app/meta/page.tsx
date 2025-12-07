@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { Calendar } from 'lucide-react';
 import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
@@ -1929,6 +1931,20 @@ export default function MetaPage() {
                     </div>
                   ))}
                 </div>
+            </div>
+          </div>
+        );
+      }
+
+      case 'nutri': {
+        // A página nutri está em /meta/nutri como rota separada
+        // Este case não deve ser alcançado se o redirecionamento funcionar
+        return (
+          <div className="space-y-4">
+            <div className="bg-white p-8 rounded-lg shadow text-center">
+              <UtensilsCrossed className="mx-auto h-16 w-16 text-green-600 mb-4 animate-pulse" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Carregando Nutri...</h3>
+              <p className="text-gray-500">Se esta mensagem aparecer, clique novamente no menu Nutri.</p>
             </div>
           </div>
         );
@@ -4403,19 +4419,6 @@ export default function MetaPage() {
             </button>
 
             <button
-              onClick={() => router.push('/meta/nutri')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'nutri'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              title={sidebarCollapsed ? 'Nutri' : ''}
-            >
-              <UtensilsCrossed className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
-              {!sidebarCollapsed && 'Nutri'}
-            </button>
-
-            <button
               onClick={() => setActiveMenu('medicos')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeMenu === 'medicos'
@@ -4426,6 +4429,22 @@ export default function MetaPage() {
             >
               <Stethoscope className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
               {!sidebarCollapsed && 'Médicos'}
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveMenu('nutri');
+                router.push('/meta/nutri');
+              }}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeMenu === 'nutri'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={sidebarCollapsed ? 'Nutri' : ''}
+            >
+              <UtensilsCrossed className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+              {!sidebarCollapsed && 'Nutri'}
             </button>
 
             <button
@@ -4624,18 +4643,6 @@ export default function MetaPage() {
           </button>
 
           <button
-            onClick={() => router.push('/meta/nutri')}
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-              activeMenu === 'nutri'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <UtensilsCrossed className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">Nutri</span>
-          </button>
-
-          <button
             onClick={() => setActiveMenu('medicos')}
             className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
               activeMenu === 'medicos'
@@ -4645,6 +4652,21 @@ export default function MetaPage() {
           >
             <Stethoscope className="w-5 h-5 mb-1" />
             <span className="text-xs font-medium">Médicos</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveMenu('nutri');
+              router.push('/meta/nutri');
+            }}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+              activeMenu === 'nutri'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <UtensilsCrossed className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Nutri</span>
           </button>
 
           <button
