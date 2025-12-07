@@ -31,7 +31,6 @@ import EmailManagement from '@/components/EmailManagement';
 
 export default function MetaAdminGeralPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
-  const [calendarioTab, setCalendarioTab] = useState<'calendario' | 'dashboard'>('calendario');
   const [filtroPeriodo, setFiltroPeriodo] = useState<'semana' | 'mes' | 'ano'>('semana');
   const [users, setUsers] = useState<UserType[]>([]);
   const [firebaseUsers, setFirebaseUsers] = useState<{
