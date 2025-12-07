@@ -1869,7 +1869,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           
           {/* Ocultar formulário se já existe check-in para esta data */}
           {!isEditandoCheckIn && (
-          <div className="space-y-6">
+            <>
+            <div className="space-y-6">
             {/* Card 1 – Alimentação e Proteína */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-5">
               <div className="flex items-center gap-2 mb-4">
@@ -2346,30 +2347,31 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </div>
           </div>
           
-          {/* Botões de ação */}
-          <div className="mt-6 flex gap-4">
-            <button
-              onClick={() => {
-                setView('plano');
-                // Resetar para data de hoje ao voltar
-                const hoje = new Date().toISOString().split('T')[0];
-                setCheckInDate(hoje);
-              }}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={salvarCheckIn}
-              disabled={savingCheckIn}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-md hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md transition-all"
-            >
-              {savingCheckIn ? 'Salvando...' : 'Salvar check-in de hoje'}
-            </button>
-          </div>
+            {/* Botões de ação */}
+            <div className="mt-6 flex gap-4">
+              <button
+                onClick={() => {
+                  setView('plano');
+                  // Resetar para data de hoje ao voltar
+                  const hoje = new Date().toISOString().split('T')[0];
+                  setCheckInDate(hoje);
+                }}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvarCheckIn}
+                disabled={savingCheckIn}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-md hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md transition-all"
+              >
+                {savingCheckIn ? 'Salvando...' : 'Salvar check-in de hoje'}
+              </button>
+            </div>
+            </>
           )}
         </div>
-        </div>
+      </div>
       </div>
     );
   }
