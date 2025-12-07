@@ -84,18 +84,18 @@ export class IndicacaoService {
 
   /**
    * Buscar indicações pendentes para um médico
+   * Retorna todas as indicações do médico (pendentes, visualizadas, vendas, pagas)
    */
   static async getIndicacoesPendentesPorMedico(medicoId: string): Promise<Indicacao[]> {
     try {
+      // Buscar todas as indicações do médico sem orderBy para evitar erro de índice
       const q = query(
         collection(db, this.COLLECTION),
-        where('medicoId', '==', medicoId),
-        where('status', '==', 'pendente'),
-        orderBy('criadoEm', 'desc')
+        where('medicoId', '==', medicoId)
       );
       const snapshot = await getDocs(q);
       
-      return snapshot.docs.map(doc => {
+      const indicacoes = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -115,6 +115,11 @@ export class IndicacaoService {
           pacienteIdVenda: data.pacienteIdVenda
         } as Indicacao;
       });
+      
+      // Ordenar manualmente por data de criação (mais recente primeiro)
+      indicacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
+      
+      return indicacoes;
     } catch (error) {
       console.error('Erro ao buscar indicações pendentes do médico:', error);
       throw error;
@@ -126,14 +131,14 @@ export class IndicacaoService {
    */
   static async getIndicacoesPorMedico(medicoId: string): Promise<Indicacao[]> {
     try {
+      // Buscar sem orderBy para evitar erro de índice
       const q = query(
         collection(db, this.COLLECTION),
-        where('medicoId', '==', medicoId),
-        orderBy('criadoEm', 'desc')
+        where('medicoId', '==', medicoId)
       );
       const snapshot = await getDocs(q);
       
-      return snapshot.docs.map(doc => {
+      const indicacoes = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -153,6 +158,11 @@ export class IndicacaoService {
           pacienteIdVenda: data.pacienteIdVenda
         } as Indicacao;
       });
+      
+      // Ordenar manualmente por data de criação (mais recente primeiro)
+      indicacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
+      
+      return indicacoes;
     } catch (error) {
       console.error('Erro ao buscar indicações do médico:', error);
       throw error;
