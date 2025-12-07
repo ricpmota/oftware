@@ -210,16 +210,36 @@ export class AplicacaoService {
 
         if (emailAntes) {
           statusEmailAntes = 'enviado';
-        } else if (dataAplicacao.getTime() === amanha.getTime()) {
-          // Aplicação é amanhã, e-mail "antes" deve ser enviado hoje
-          statusEmailAntes = 'pendente';
+        } else {
+          // Verificar se a aplicação é amanhã ou se já passou o dia de enviar
+          const dataAplicacaoMenosUmDia = new Date(dataAplicacao);
+          dataAplicacaoMenosUmDia.setDate(dataAplicacaoMenosUmDia.getDate() - 1);
+          
+          if (dataAplicacao.getTime() === amanha.getTime()) {
+            // Aplicação é amanhã, e-mail "antes" deve ser enviado hoje
+            statusEmailAntes = 'pendente';
+          } else if (dataAplicacaoMenosUmDia.getTime() === hoje.getTime() && dataAplicacao.getTime() > hoje.getTime()) {
+            // Aplicação é depois de amanhã, mas o e-mail "antes" deveria ter sido enviado hoje
+            statusEmailAntes = 'pendente';
+          } else if (dataAplicacao.getTime() > hoje.getTime()) {
+            // Aplicação é futura, mas ainda não é hora de enviar
+            statusEmailAntes = 'nao_enviado';
+          }
         }
 
         if (emailDia) {
           statusEmailDia = 'enviado';
-        } else if (dataAplicacao.getTime() === hoje.getTime()) {
-          // Aplicação é hoje, e-mail "dia" deve ser enviado hoje
-          statusEmailDia = 'pendente';
+        } else {
+          if (dataAplicacao.getTime() === hoje.getTime()) {
+            // Aplicação é hoje, e-mail "dia" deve ser enviado hoje
+            statusEmailDia = 'pendente';
+          } else if (dataAplicacao.getTime() < hoje.getTime()) {
+            // Aplicação já passou
+            statusEmailDia = 'nao_enviado';
+          } else {
+            // Aplicação é futura, ainda não é hora de enviar
+            statusEmailDia = 'nao_enviado';
+          }
         }
 
         return {

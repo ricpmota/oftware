@@ -28,6 +28,8 @@ import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 import { LeadService } from '@/services/leadService';
 import { Lead, LeadStatus } from '@/types/lead';
 import EmailManagement from '@/components/EmailManagement';
+import CalendarioAplicacoes from '@/components/CalendarioAplicacoes';
+import DashboardEvolucao from '@/components/DashboardEvolucao';
 
 export default function MetaAdminGeralPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');

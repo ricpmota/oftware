@@ -29,6 +29,9 @@ export class EmailAplicacaoService {
       const { AplicacaoService } = await import('./aplicacaoService');
       const aplicacoes = await AplicacaoService.buscarAplicacoesAgendadas();
 
+      console.log(`📧 Processando envios automáticos. Total de aplicações: ${aplicacoes.length}`);
+      console.log(`📅 Hoje: ${hoje.toLocaleDateString('pt-BR')}, Amanhã: ${amanha.toLocaleDateString('pt-BR')}`);
+
       for (const aplicacao of aplicacoes) {
         const dataAplicacao = new Date(aplicacao.dataAplicacao);
         dataAplicacao.setHours(0, 0, 0, 0);
@@ -37,6 +40,7 @@ export class EmailAplicacaoService {
         if (dataAplicacao.getTime() === hoje.getTime()) {
           // Enviar e-mail "dia da aplicação" se ainda não foi enviado
           if (aplicacao.statusEmailDia !== 'enviado') {
+            console.log(`📧 Enviando e-mail "dia da aplicação" para ${aplicacao.pacienteNome} (aplicação hoje)`);
             try {
               const response = await fetch('/api/send-email-aplicacao', {
                 method: 'POST',
@@ -80,6 +84,7 @@ export class EmailAplicacaoService {
         else if (dataAplicacao.getTime() === amanha.getTime()) {
           // Enviar e-mail "dia anterior" se ainda não foi enviado
           if (aplicacao.statusEmailAntes !== 'enviado') {
+            console.log(`📧 Enviando e-mail "dia anterior" para ${aplicacao.pacienteNome} (aplicação amanhã)`);
             try {
               const response = await fetch('/api/send-email-aplicacao', {
                 method: 'POST',

@@ -14,7 +14,16 @@ interface CalendarioAplicacoesProps {
 export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoesProps) {
   const [aplicacoes, setAplicacoes] = useState<AplicacaoAgendada[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filtro, setFiltro] = useState<FiltroAplicacao>({});
+  
+  // Filtro inicial: mês atual
+  const hoje = new Date();
+  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  
+  const [filtro, setFiltro] = useState<FiltroAplicacao>({
+    dataInicio: primeiroDiaMes,
+    dataFim: ultimoDiaMes,
+  });
   const [processandoEmails, setProcessandoEmails] = useState(false);
 
   const loadAplicacoes = async () => {
