@@ -1601,32 +1601,28 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   <AlertCircle className="h-5 w-5 text-green-600" />
                   <h3 className="text-lg font-semibold text-gray-900">Sintomas Gastrointestinais e Digestivos</h3>
                 </div>
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="h-5 w-5 text-green-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Sintomas Gastrointestinais e Digestivos</h3>
-              </div>
-              <p className="text-gray-600 mb-4">Você apresenta sintomas gastrointestinais com frequência? (náusea, vômito, diarreia, constipação, refluxo, distensão abdominal)</p>
-              <div className="space-y-2">
-                {([
-                  { value: 'nenhum', label: 'Nenhum', desc: 'Não apresento sintomas gastrointestinais' },
-                  { value: 'leve', label: 'Leve', desc: 'Sintomas ocasionais e leves' },
-                  { value: 'moderado', label: 'Moderado', desc: 'Sintomas frequentes que afetam o dia a dia' },
-                  { value: 'grave', label: 'Grave', desc: 'Sintomas intensos e constantes' }
-                ] as const).map((opcao) => (
-                  <button
-                    key={opcao.value}
-                    onClick={() => setWizardData({ ...wizardData, sintomasGI: opcao.value })}
-                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
-                      wizardData.sintomasGI === opcao.value
-                        ? 'border-green-600 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <p className="font-medium text-gray-900">{opcao.label}</p>
-                    <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
-                  </button>
-                ))}
+                <p className="text-gray-600 mb-4">Você apresenta sintomas gastrointestinais com frequência? (náusea, vômito, diarreia, constipação, refluxo, distensão abdominal)</p>
+                <div className="space-y-2">
+                  {([
+                    { value: 'nenhum', label: 'Nenhum', desc: 'Não apresento sintomas gastrointestinais' },
+                    { value: 'leve', label: 'Leve', desc: 'Sintomas ocasionais e leves' },
+                    { value: 'moderado', label: 'Moderado', desc: 'Sintomas frequentes que afetam o dia a dia' },
+                    { value: 'grave', label: 'Grave', desc: 'Sintomas intensos e constantes' }
+                  ] as const).map((opcao) => (
+                    <button
+                      key={opcao.value}
+                      onClick={() => setWizardData({ ...wizardData, sintomasGI: opcao.value })}
+                      className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                        wizardData.sintomasGI === opcao.value
+                          ? 'border-green-600 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <p className="font-medium text-gray-900">{opcao.label}</p>
+                      <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
