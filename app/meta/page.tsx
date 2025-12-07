@@ -4471,19 +4471,6 @@ export default function MetaPage() {
               {!sidebarCollapsed && 'Nutri'}
             </button>
 
-            <button
-              onClick={() => setActiveMenu('perfil')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'perfil'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              title={sidebarCollapsed ? 'Perfil' : ''}
-            >
-              <UserIcon className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
-              {!sidebarCollapsed && 'Meu Perfil'}
-              </button>
-              
             </nav>
 
           {/* Profile button with dropdown */}
