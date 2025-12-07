@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AplicacaoAgendada, FiltroAplicacao } from '@/types/calendario';
 import { AplicacaoService } from '@/services/aplicacaoService';
+import { MedicoService } from '@/services/medicoService';
 import { Calendar, CheckCircle, XCircle, Clock, Filter, RefreshCw } from 'lucide-react';
 import { PacienteCompleto } from '@/types/obesidade';
 
@@ -13,6 +14,7 @@ interface CalendarioAplicacoesProps {
 export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoesProps) {
   const [aplicacoes, setAplicacoes] = useState<AplicacaoAgendada[]>([]);
   const [loading, setLoading] = useState(false);
+  const [medicosMap, setMedicosMap] = useState<Map<string, string>>(new Map());
   
   // Filtro inicial: mês atual
   const hoje = new Date();
@@ -23,6 +25,26 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
     dataInicio: primeiroDiaMes,
     dataFim: ultimoDiaMes,
   });
+  
+  // Carregar médicos para exibir nomes
+  useEffect(() => {
+    const loadMedicos = async () => {
+      try {
+        const medicos = await MedicoService.getAllMedicos();
+        const map = new Map<string, string>();
+        medicos.forEach(medico => {
+          const nomeCompleto = medico.genero === 'F' 
+            ? `Dra. ${medico.nome}` 
+            : `Dr. ${medico.nome}`;
+          map.set(medico.id, nomeCompleto);
+        });
+        setMedicosMap(map);
+      } catch (error) {
+        console.error('Erro ao carregar médicos:', error);
+      }
+    };
+    loadMedicos();
+  }, []);
 
   const loadAplicacoes = async () => {
     setLoading(true);
@@ -184,16 +206,19 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
                     Paciente
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Médico Responsável
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Dose
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Aplicação
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    E-mail - Dia Anterior
+                    E-mail Antes
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    E-mail - Dia da Aplicação
+                    E-mail Dia
                   </th>
                 </tr>
               </thead>
@@ -205,6 +230,11 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                       {aplicacao.pacienteNome}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {aplicacao.medicoResponsavelId 
+                        ? (medicosMap.get(aplicacao.medicoResponsavelId) || 'Não informado')
+                        : 'Não informado'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                       {aplicacao.dosePrevista} mg
