@@ -530,11 +530,13 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
     const variaveisInfo = getVariaveisDisponiveis(activeModulo, activeEmail);
     
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-2 text-black">
-          {emailInfo.nome}
-        </h3>
-        <p className="text-sm text-gray-600 mb-4">{emailInfo.descricao}</p>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <div className="mb-4">
+          <h3 className="text-base font-semibold mb-1 text-gray-900">
+            {emailInfo.nome}
+          </h3>
+          <p className="text-xs text-gray-500">{emailInfo.descricao}</p>
+        </div>
         
         {/* Seção de Variáveis Disponíveis */}
         {variaveisInfo.variaveis.length > 0 && (
@@ -562,7 +564,7 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
               Assunto do E-mail
             </label>
             <input
@@ -785,8 +787,8 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                   });
                 }
               }}
-              rows={12}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm text-black bg-white"
+              rows={10}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-xs text-black bg-white"
               style={{ color: '#000000' }}
               placeholder="<p>Olá {nome}, ...</p>"
             />
@@ -1250,50 +1252,50 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
 
           {/* Seleção de E-mail dentro do Módulo */}
           {activeModulo === 'bem_vindo' && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o tipo de e-mail:</label>
+            <div className="mb-3 bg-white rounded-md border border-gray-200 p-3">
+              <label className="block text-xs font-medium text-gray-700 mb-2">Tipo de e-mail:</label>
               <div className="flex gap-2">
                 <button
                   onClick={() => setActiveEmail('bem_vindo_geral')}
-                  className={`px-4 py-2 rounded-md text-sm ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     activeEmail === 'bem_vindo_geral'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-green-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  Bem-vindo Geral
+                  Geral
                 </button>
                 <button
                   onClick={() => setActiveEmail('bem_vindo_medico')}
-                  className={`px-4 py-2 rounded-md text-sm ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     activeEmail === 'bem_vindo_medico'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-green-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  Bem-vindo Médico
+                  Médico
                 </button>
               </div>
             </div>
           )}
           {activeModulo === 'leads' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4 text-black">Selecione o E-mail para Configurar</h3>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="bg-white rounded-md border border-gray-200 shadow-sm p-4">
+              <h3 className="text-sm font-semibold mb-3 text-gray-900">Selecione o E-mail</h3>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                 {(Object.keys(emailInfoLeads) as EmailTipo[]).map((emailTipo) => {
                   const info = emailInfoLeads[emailTipo];
                   return (
                     <button
                       key={emailTipo}
                       onClick={() => setActiveEmail(emailTipo)}
-                      className={`p-4 rounded-lg border-2 transition-all ${
+                      className={`p-2.5 rounded-md border transition-all text-left ${
                         activeEmail === emailTipo
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-green-500 bg-green-50 shadow-sm'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
-                      <div className="font-semibold text-black">{info.nome}</div>
-                      <div className="text-sm text-gray-600 mt-1">{info.tempo}</div>
+                      <div className="font-medium text-sm text-gray-900">{info.nome}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{info.tempo}</div>
                     </button>
                   );
                 })}
