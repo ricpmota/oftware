@@ -168,6 +168,7 @@ export default function MetaPage() {
   const [salvandoIndicacao, setSalvandoIndicacao] = useState(false);
   const [minhasIndicacoes, setMinhasIndicacoes] = useState<Indicacao[]>([]);
   const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
+  const loadingIndicacoesRef = useRef(false);
 
   // Carregar cidades customizadas
   useEffect(() => {
