@@ -7,7 +7,8 @@ import { PacienteCompleto } from '@/types/obesidade';
 import { 
   UtensilsCrossed, Calendar, AlertCircle, CheckCircle, XCircle, 
   Droplet, Apple, Activity, Target, Clock, Moon, Coffee, 
-  Sun, Sunset, TrendingUp, Zap, Heart
+  Sun, Sunset, TrendingUp, Zap, Heart, Pill, Syringe, 
+  Wind, Brain, Dumbbell, MessageSquare
 } from 'lucide-react';
 
 // ============================================
@@ -39,12 +40,36 @@ interface PlanoNutricional {
 }
 
 interface CheckInDiario {
+  // Alimentação/hidratação
   proteinaOk: boolean;
   frutasOk: boolean;
   aguaOk: boolean;
-  sintomasGI: 'nenhum' | 'leve' | 'moderado' | 'grave';
   lixoAlimentar: boolean;
-  humorEnergia: number;
+  
+  // Suplementos
+  probioticoTomou: boolean;
+  wheyTomou: boolean;
+  creatinaTomou: boolean;
+  
+  // Sintomas gastrointestinais
+  sintomasGI: 'nenhum' | 'leve' | 'moderado' | 'grave';
+  nauseas: 'nenhum' | 'leve' | 'moderado' | 'grave';
+  constipacao: 'nenhum' | 'leve' | 'moderado' | 'grave';
+  diarreia: 'nenhum' | 'leve' | 'moderado' | 'grave';
+  
+  // Sono, energia e humor
+  horasSono: '<6h' | '6-8h' | '>8h';
+  humorEnergia: number; // escala 1-5
+  
+  // Movimento / atividade
+  atividadeFisicaHoje: 'nenhuma' | 'leve' | 'moderada' | 'intensa';
+  
+  // Tirzepatida – adesão diária ao esquema semanal
+  diaAplicacao: 'nao_foi_dia' | 'aplicou_no_horario' | 'aplicou_atrasado' | 'esqueceu';
+  localAplicacao?: 'abdome' | 'coxa' | 'braco' | 'outro';
+  
+  // Metadados
+  observacoes?: string;
   score: number;
   data: string;
 }
@@ -97,18 +122,43 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   const [showPesoAlturaForm, setShowPesoAlturaForm] = useState(false);
   const [plano, setPlano] = useState<PlanoNutricional | null>(null);
   const [checkInData, setCheckInData] = useState<CheckInDiario>({
+    // Alimentação/hidratação
     proteinaOk: false,
     frutasOk: false,
     aguaOk: false,
-    sintomasGI: 'nenhum',
     lixoAlimentar: false,
+    
+    // Suplementos
+    probioticoTomou: false,
+    wheyTomou: false,
+    creatinaTomou: false,
+    
+    // Sintomas gastrointestinais
+    sintomasGI: 'nenhum',
+    nauseas: 'nenhum',
+    constipacao: 'nenhum',
+    diarreia: 'nenhum',
+    
+    // Sono, energia e humor
+    horasSono: '6-8h',
     humorEnergia: 3,
+    
+    // Movimento / atividade
+    atividadeFisicaHoje: 'nenhuma',
+    
+    // Tirzepatida
+    diaAplicacao: 'nao_foi_dia',
+    localAplicacao: undefined,
+    
+    // Metadados
+    observacoes: '',
     score: 0,
     data: new Date().toISOString().split('T')[0]
   });
   const [savingCheckIn, setSavingCheckIn] = useState(false);
   const [checkIns, setCheckIns] = useState<CheckInDiario[]>([]);
   const [loadingCheckIns, setLoadingCheckIns] = useState(false);
+  const [checkInHojeExiste, setCheckInHojeExiste] = useState(false);
 
   // ============================================
   // CARREGAMENTO DE DADOS
@@ -433,21 +483,56 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       const checkInsSnapshot = await getDocs(checkInsQuery);
       
       const checkInsData: CheckInDiario[] = [];
+      const dataHoje = new Date().toISOString().split('T')[0];
+      let hojeExiste = false;
+      
       checkInsSnapshot.forEach((doc) => {
         const data = doc.data();
-        checkInsData.push({
-          proteinaOk: data.proteinaOk || false,
-          frutasOk: data.frutasOk || false,
-          aguaOk: data.aguaOk || false,
+        const checkInData: CheckInDiario = {
+          // Alimentação/hidratação (compatibilidade com dados antigos)
+          proteinaOk: data.proteinaOk ?? false,
+          frutasOk: data.frutasOk ?? false,
+          aguaOk: data.aguaOk ?? false,
+          lixoAlimentar: data.lixoAlimentar ?? false,
+          
+          // Suplementos (novos campos, default false)
+          probioticoTomou: data.probioticoTomou ?? false,
+          wheyTomou: data.wheyTomou ?? false,
+          creatinaTomou: data.creatinaTomou ?? false,
+          
+          // Sintomas gastrointestinais (compatibilidade + novos)
           sintomasGI: data.sintomasGI || 'nenhum',
-          lixoAlimentar: data.lixoAlimentar || false,
-          humorEnergia: data.humorEnergia || 3,
+          nauseas: data.nauseas || 'nenhum',
+          constipacao: data.constipacao || 'nenhum',
+          diarreia: data.diarreia || 'nenhum',
+          
+          // Sono, energia e humor
+          horasSono: data.horasSono || '6-8h',
+          humorEnergia: data.humorEnergia ?? 3,
+          
+          // Movimento / atividade
+          atividadeFisicaHoje: data.atividadeFisicaHoje || 'nenhuma',
+          
+          // Tirzepatida
+          diaAplicacao: data.diaAplicacao || 'nao_foi_dia',
+          localAplicacao: data.localAplicacao,
+          
+          // Metadados
+          observacoes: data.observacoes || '',
           score: data.score || 0,
           data: data.data || doc.id
-        });
+        };
+        
+        checkInsData.push(checkInData);
+        
+        // Verificar se já existe check-in de hoje
+        if (checkInData.data === dataHoje) {
+          hojeExiste = true;
+        }
       });
       
       setCheckIns(checkInsData);
+      setCheckInHojeExiste(hojeExiste);
     } catch (error) {
       console.error('Erro ao carregar check-ins:', error);
     } finally {
@@ -455,22 +540,101 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     }
   };
 
+  /**
+   * Calcula o score de adesão do check-in (0-100)
+   * 
+   * Componentes e pesos:
+   * - Adesão alimentar (40%): proteína, frutas/vegetais, água, sem lixo
+   * - Suplementos (15%): probiótico, whey, creatina
+   * - Sintomas GI (20%): quanto menos sintomas, melhor (nível geral + náuseas + constipação + diarreia)
+   * - Sono e energia (15%): horas de sono adequadas + humor/energia
+   * - Atividade física (5%): qualquer atividade é positiva
+   * - Adesão tirzepatida (5%): se foi dia de aplicação, verificar se aplicou corretamente
+   */
   const calcularScoreCheckIn = (data: CheckInDiario): number => {
-    const valores: number[] = [];
-    valores.push(data.proteinaOk ? 1 : 0);
-    valores.push(data.frutasOk ? 1 : 0);
-    valores.push(data.aguaOk ? 1 : 0);
-    valores.push(data.lixoAlimentar ? 0 : 1);
-    valores.push(data.humorEnergia / 5);
+    let scoreTotal = 0;
+    let pesoTotal = 0;
+    
+    // 1. Adesão Alimentar (40% do total)
+    const pesoAlimentar = 40;
+    pesoTotal += pesoAlimentar;
+    let scoreAlimentar = 0;
+    scoreAlimentar += data.proteinaOk ? 25 : 0; // 25% dentro dos 40%
+    scoreAlimentar += data.frutasOk ? 25 : 0; // 25% dentro dos 40%
+    scoreAlimentar += data.aguaOk ? 25 : 0; // 25% dentro dos 40%
+    scoreAlimentar += !data.lixoAlimentar ? 25 : 0; // 25% dentro dos 40%
+    scoreTotal += (scoreAlimentar / 100) * pesoAlimentar;
+    
+    // 2. Suplementos (15% do total)
+    const pesoSuplementos = 15;
+    pesoTotal += pesoSuplementos;
+    let scoreSuplementos = 0;
+    scoreSuplementos += data.probioticoTomou ? 33.33 : 0;
+    scoreSuplementos += data.wheyTomou ? 33.33 : 0;
+    scoreSuplementos += data.creatinaTomou ? 33.34 : 0;
+    scoreTotal += (scoreSuplementos / 100) * pesoSuplementos;
+    
+    // 3. Sintomas GI (20% do total) - quanto menos sintomas, melhor
+    const pesoGI = 20;
+    pesoTotal += pesoGI;
     const sintomasMap: { [key: string]: number } = {
       'nenhum': 1,
       'leve': 0.75,
       'moderado': 0.5,
       'grave': 0.25
     };
-    valores.push(sintomasMap[data.sintomasGI] || 0);
-    const soma = valores.reduce((acc, val) => acc + val, 0);
-    return Math.round((soma / valores.length) * 100) / 100;
+    const scoreGI = (
+      sintomasMap[data.sintomasGI] * 0.4 +
+      sintomasMap[data.nauseas] * 0.2 +
+      sintomasMap[data.constipacao] * 0.2 +
+      sintomasMap[data.diarreia] * 0.2
+    ) * 100;
+    scoreTotal += (scoreGI / 100) * pesoGI;
+    
+    // 4. Sono e Energia (15% do total)
+    const pesoSonoEnergia = 15;
+    pesoTotal += pesoSonoEnergia;
+    const sonoMap: { [key: string]: number } = {
+      '<6h': 0.5,
+      '6-8h': 1,
+      '>8h': 0.75
+    };
+    const scoreSono = sonoMap[data.horasSono] || 0.5;
+    const scoreEnergia = data.humorEnergia / 5;
+    const scoreSonoEnergia = ((scoreSono * 0.5) + (scoreEnergia * 0.5)) * 100;
+    scoreTotal += (scoreSonoEnergia / 100) * pesoSonoEnergia;
+    
+    // 5. Atividade Física (5% do total)
+    const pesoAtividade = 5;
+    pesoTotal += pesoAtividade;
+    const atividadeMap: { [key: string]: number } = {
+      'nenhuma': 0,
+      'leve': 0.5,
+      'moderada': 0.75,
+      'intensa': 1
+    };
+    const scoreAtividade = atividadeMap[data.atividadeFisicaHoje] || 0;
+    scoreTotal += scoreAtividade * pesoAtividade;
+    
+    // 6. Adesão Tirzepatida (5% do total) - só conta se foi dia de aplicação
+    const pesoTirzepatida = 5;
+    pesoTotal += pesoTirzepatida;
+    let scoreTirzepatida = 0;
+    if (data.diaAplicacao === 'aplicou_no_horario') {
+      scoreTirzepatida = 100;
+    } else if (data.diaAplicacao === 'aplicou_atrasado') {
+      scoreTirzepatida = 70; // Aplicou, mas atrasado
+    } else if (data.diaAplicacao === 'esqueceu') {
+      scoreTirzepatida = 0;
+    } else {
+      // Não foi dia de aplicação, não penaliza nem bonifica
+      scoreTirzepatida = 100; // Considera como "ok" já que não era necessário
+    }
+    scoreTotal += (scoreTirzepatida / 100) * pesoTirzepatida;
+    
+    // Normalizar para 0-100 e arredondar com 1 casa decimal
+    const scoreFinal = (scoreTotal / pesoTotal) * 100;
+    return Math.round(scoreFinal * 10) / 10;
   };
 
   const salvarCheckIn = async () => {
@@ -484,13 +648,54 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       const score = calcularScoreCheckIn(checkInData);
       const dataHoje = new Date().toISOString().split('T')[0];
       
+      // Calcular sintomasGI geral baseado no pior sintoma
+      const sintomasValores = {
+        'nenhum': 0,
+        'leve': 1,
+        'moderado': 2,
+        'grave': 3
+      };
+      const piorSintoma = Math.max(
+        sintomasValores[checkInData.nauseas],
+        sintomasValores[checkInData.constipacao],
+        sintomasValores[checkInData.diarreia],
+        sintomasValores[checkInData.sintomasGI]
+      );
+      const sintomasGIGeral = Object.keys(sintomasValores).find(
+        key => sintomasValores[key as keyof typeof sintomasValores] === piorSintoma
+      ) as 'nenhum' | 'leve' | 'moderado' | 'grave';
+      
       const checkInComScore = { 
+        // Alimentação/hidratação
         proteinaOk: checkInData.proteinaOk,
         frutasOk: checkInData.frutasOk,
         aguaOk: checkInData.aguaOk,
-        sintomasGI: checkInData.sintomasGI,
         lixoAlimentar: checkInData.lixoAlimentar,
+        
+        // Suplementos
+        probioticoTomou: checkInData.probioticoTomou,
+        wheyTomou: checkInData.wheyTomou,
+        creatinaTomou: checkInData.creatinaTomou,
+        
+        // Sintomas gastrointestinais
+        sintomasGI: sintomasGIGeral,
+        nauseas: checkInData.nauseas,
+        constipacao: checkInData.constipacao,
+        diarreia: checkInData.diarreia,
+        
+        // Sono, energia e humor
+        horasSono: checkInData.horasSono,
         humorEnergia: checkInData.humorEnergia,
+        
+        // Movimento / atividade
+        atividadeFisicaHoje: checkInData.atividadeFisicaHoje,
+        
+        // Tirzepatida
+        diaAplicacao: checkInData.diaAplicacao,
+        localAplicacao: checkInData.localAplicacao || null,
+        
+        // Metadados
+        observacoes: checkInData.observacoes || '',
         score: score,
         data: dataHoje,
         timestamp: Timestamp.now()
@@ -503,13 +708,26 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       alert('Check-in salvo com sucesso!');
       await loadCheckIns();
       setView('plano');
+      
+      // Resetar formulário
       setCheckInData({
         proteinaOk: false,
         frutasOk: false,
         aguaOk: false,
-        sintomasGI: 'nenhum',
         lixoAlimentar: false,
+        probioticoTomou: false,
+        wheyTomou: false,
+        creatinaTomou: false,
+        sintomasGI: 'nenhum',
+        nauseas: 'nenhum',
+        constipacao: 'nenhum',
+        diarreia: 'nenhum',
+        horasSono: '6-8h',
         humorEnergia: 3,
+        atividadeFisicaHoje: 'nenhuma',
+        diaAplicacao: 'nao_foi_dia',
+        localAplicacao: undefined,
+        observacoes: '',
         score: 0,
         data: dataHoje
       });
@@ -973,129 +1191,360 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
 
   // Tela de Check-in Diário
   if (view === 'checkin') {
+    const dataHoje = new Date().toLocaleDateString('pt-BR', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    const metaAgua = plano ? `${plano.aguaDia_ml} ml` : '2-3 litros';
+    
     return (
       <div className="space-y-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Check-in Diário</h2>
+          {/* Header do Check-in */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <Calendar className="h-6 w-6 text-green-600" />
+              Check-in Nutri de Hoje
+            </h2>
+            <p className="text-lg font-medium text-gray-700">{dataHoje}</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Leva menos de 1 minuto. Ajuda seu médico e o sistema a ajustar seu plano.
+            </p>
+          </div>
           
           <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-md">
-              <div>
-                <p className="font-medium text-gray-900">Proteína OK hoje?</p>
-                <p className="text-sm text-gray-500">Conseguiu atingir a meta de proteína?</p>
+            {/* Card 1 – Alimentação e Proteína */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <UtensilsCrossed className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Alimentação e Proteína</h3>
               </div>
-              <button
-                onClick={() => setCheckInData({ ...checkInData, proteinaOk: !checkInData.proteinaOk })}
-                className={`px-4 py-2 rounded-md ${
-                  checkInData.proteinaOk
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {checkInData.proteinaOk ? 'Sim' : 'Não'}
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-md">
-              <div>
-                <p className="font-medium text-gray-900">Frutas OK hoje?</p>
-                <p className="text-sm text-gray-500">Consumiu frutas hoje?</p>
+              <div className="space-y-3">
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-green-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Bati a meta de proteína do dia</p>
+                      <p className="text-xs text-gray-500">Conseguiu atingir a meta de proteína?</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checkInData.proteinaOk}
+                    onChange={(e) => setCheckInData({ ...checkInData, proteinaOk: e.target.checked })}
+                    className="h-5 w-5 text-green-600 focus:ring-green-500 rounded"
+                  />
+                </label>
+                
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-green-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Apple className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Comi frutas/vegetais conforme o plano</p>
+                      <p className="text-xs text-gray-500">Consumiu frutas e vegetais hoje?</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checkInData.frutasOk}
+                    onChange={(e) => setCheckInData({ ...checkInData, frutasOk: e.target.checked })}
+                    className="h-5 w-5 text-green-600 focus:ring-green-500 rounded"
+                  />
+                </label>
+                
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-red-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <XCircle className="h-5 w-5 text-red-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Evitei lixos alimentares importantes</p>
+                      <p className="text-xs text-gray-500">Não consumiu alimentos ultraprocessados?</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!checkInData.lixoAlimentar}
+                    onChange={(e) => setCheckInData({ ...checkInData, lixoAlimentar: !e.target.checked })}
+                    className="h-5 w-5 text-green-600 focus:ring-green-500 rounded"
+                  />
+                </label>
               </div>
-              <button
-                onClick={() => setCheckInData({ ...checkInData, frutasOk: !checkInData.frutasOk })}
-                className={`px-4 py-2 rounded-md ${
-                  checkInData.frutasOk
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {checkInData.frutasOk ? 'Sim' : 'Não'}
-              </button>
             </div>
             
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-md">
-              <div>
-                <p className="font-medium text-gray-900">Água OK hoje?</p>
-                <p className="text-sm text-gray-500">Bebeu água suficiente?</p>
+            {/* Card 2 – Água e Suplementos */}
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border border-blue-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Droplet className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Água e Suplementos</h3>
               </div>
-              <button
-                onClick={() => setCheckInData({ ...checkInData, aguaOk: !checkInData.aguaOk })}
-                className={`px-4 py-2 rounded-md ${
-                  checkInData.aguaOk
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {checkInData.aguaOk ? 'Sim' : 'Não'}
-              </button>
-            </div>
-            
-            <div className="p-4 border border-gray-200 rounded-md">
-              <label className="block font-medium text-gray-900 mb-2">Sintomas GI?</label>
-              <select
-                value={checkInData.sintomasGI}
-                onChange={(e) => setCheckInData({ ...checkInData, sintomasGI: e.target.value as any })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
-              >
-                <option value="nenhum">Nenhum</option>
-                <option value="leve">Leve</option>
-                <option value="moderado">Moderado</option>
-                <option value="grave">Grave</option>
-              </select>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-md">
-              <div>
-                <p className="font-medium text-gray-900">Lixo alimentar hoje?</p>
-                <p className="text-sm text-gray-500">Consumiu alimentos ultraprocessados?</p>
+              <div className="space-y-3">
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Droplet className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Bebi pelo menos {metaAgua} de água hoje</p>
+                      <p className="text-xs text-gray-500">Atingiu a meta de hidratação?</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checkInData.aguaOk}
+                    onChange={(e) => setCheckInData({ ...checkInData, aguaOk: e.target.checked })}
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 rounded"
+                  />
+                </label>
+                
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Pill className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Tomei a cápsula de probiótico hoje</p>
+                      <p className="text-xs text-gray-500">Suplemento probiótico diário</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checkInData.probioticoTomou}
+                    onChange={(e) => setCheckInData({ ...checkInData, probioticoTomou: e.target.checked })}
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 rounded"
+                  />
+                </label>
+                
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Tomei o whey protein conforme orientado</p>
+                      <p className="text-xs text-gray-500">Suplemento proteico</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checkInData.wheyTomou}
+                    onChange={(e) => setCheckInData({ ...checkInData, wheyTomou: e.target.checked })}
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 rounded"
+                  />
+                </label>
+                
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Dumbbell className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-gray-900">Tomei creatina hoje (3-5 g)</p>
+                      <p className="text-xs text-gray-500">Suplemento de creatina</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={checkInData.creatinaTomou}
+                    onChange={(e) => setCheckInData({ ...checkInData, creatinaTomou: e.target.checked })}
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 rounded"
+                  />
+                </label>
               </div>
-              <button
-                onClick={() => setCheckInData({ ...checkInData, lixoAlimentar: !checkInData.lixoAlimentar })}
-                className={`px-4 py-2 rounded-md ${
-                  checkInData.lixoAlimentar
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {checkInData.lixoAlimentar ? 'Sim' : 'Não'}
-              </button>
             </div>
             
-            <div className="p-4 border border-gray-200 rounded-md">
-              <label className="block font-medium text-gray-900 mb-2">
-                Humor/Energia (1-5)
-              </label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((valor) => (
-                  <button
-                    key={valor}
-                    onClick={() => setCheckInData({ ...checkInData, humorEnergia: valor })}
-                    className={`flex-1 px-4 py-2 rounded-md ${
-                      checkInData.humorEnergia === valor
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
+            {/* Card 3 – Sintomas Gastrointestinais */}
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-lg border border-orange-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Sintomas Gastrointestinais</h3>
+              </div>
+              <p className="text-xs text-red-600 mb-4">Se estiver grave, avise seu médico.</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Náuseas</label>
+                  <select
+                    value={checkInData.nauseas}
+                    onChange={(e) => setCheckInData({ ...checkInData, nauseas: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-900 bg-white"
                   >
-                    {valor}
-                  </button>
-                ))}
+                    <option value="nenhum">Nenhum</option>
+                    <option value="leve">Leve</option>
+                    <option value="moderado">Moderado</option>
+                    <option value="grave">Grave</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Constipação</label>
+                  <select
+                    value={checkInData.constipacao}
+                    onChange={(e) => setCheckInData({ ...checkInData, constipacao: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-900 bg-white"
+                  >
+                    <option value="nenhum">Nenhum</option>
+                    <option value="leve">Leve</option>
+                    <option value="moderado">Moderado</option>
+                    <option value="grave">Grave</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Diarreia</label>
+                  <select
+                    value={checkInData.diarreia}
+                    onChange={(e) => setCheckInData({ ...checkInData, diarreia: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-900 bg-white"
+                  >
+                    <option value="nenhum">Nenhum</option>
+                    <option value="leve">Leve</option>
+                    <option value="moderado">Moderado</option>
+                    <option value="grave">Grave</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            {/* Card 4 – Sono, Energia e Humor */}
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Moon className="h-5 w-5 text-purple-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Sono, Energia e Humor</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Horas de sono na última noite</label>
+                  <select
+                    value={checkInData.horasSono}
+                    onChange={(e) => setCheckInData({ ...checkInData, horasSono: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white"
+                  >
+                    <option value="<6h">Menos de 6 horas</option>
+                    <option value="6-8h">6 a 8 horas</option>
+                    <option value=">8h">Mais de 8 horas</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Humor/Energia (1 = esgotado, 5 = ótimo)
+                  </label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((valor) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => setCheckInData({ ...checkInData, humorEnergia: valor })}
+                        className={`flex-1 px-4 py-3 rounded-md font-medium transition-colors ${
+                          checkInData.humorEnergia === valor
+                            ? 'bg-purple-600 text-white shadow-md'
+                            : 'bg-white text-gray-600 border border-gray-300 hover:border-purple-300'
+                        }`}
+                      >
+                        {valor}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Card 5 – Dia de aplicação da Tirzepatida */}
+            <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border border-pink-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Syringe className="h-5 w-5 text-pink-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Aplicação da Tirzepatida</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Hoje foi dia de aplicação da tirzepatida?</label>
+                  <select
+                    value={checkInData.diaAplicacao}
+                    onChange={(e) => setCheckInData({ ...checkInData, diaAplicacao: e.target.value as any, localAplicacao: e.target.value === 'nao_foi_dia' ? undefined : checkInData.localAplicacao })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 bg-white"
+                  >
+                    <option value="nao_foi_dia">Não foi dia</option>
+                    <option value="aplicou_no_horario">Apliquei no horário</option>
+                    <option value="aplicou_atrasado">Apliquei atrasado</option>
+                    <option value="esqueceu">Esqueci</option>
+                  </select>
+                </div>
+                
+                {checkInData.diaAplicacao !== 'nao_foi_dia' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Local da aplicação</label>
+                    <select
+                      value={checkInData.localAplicacao || ''}
+                      onChange={(e) => setCheckInData({ ...checkInData, localAplicacao: e.target.value as any })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 bg-white"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="abdome">Abdome</option>
+                      <option value="coxa">Coxa</option>
+                      <option value="braco">Braço</option>
+                      <option value="outro">Outro</option>
+                    </select>
+                  </div>
+                )}
+                
+                {(checkInData.diaAplicacao === 'esqueceu' || checkInData.diaAplicacao === 'aplicou_atrasado') && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Importante:</strong> Se esquecer a dose ou tiver sintomas fortes, entre em contato com seu médico.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Card 6 – Movimento / atividade */}
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg border border-amber-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="h-5 w-5 text-amber-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Movimento / Atividade</h3>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Como foi sua atividade física hoje?</label>
+                <select
+                  value={checkInData.atividadeFisicaHoje}
+                  onChange={(e) => setCheckInData({ ...checkInData, atividadeFisicaHoje: e.target.value as any })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-gray-900 bg-white"
+                >
+                  <option value="nenhuma">Nenhuma</option>
+                  <option value="leve">Leve (caminhada)</option>
+                  <option value="moderada">Moderada</option>
+                  <option value="intensa">Intensa</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Card 7 – Observações */}
+            <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg border border-gray-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageSquare className="h-5 w-5 text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Observações</h3>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quer deixar alguma observação para o seu médico?
+                </label>
+                <textarea
+                  value={checkInData.observacoes || ''}
+                  onChange={(e) => setCheckInData({ ...checkInData, observacoes: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-900 bg-white resize-none"
+                  rows={3}
+                  placeholder="Ex: Tive uma dor de cabeça leve no final da tarde..."
+                />
               </div>
             </div>
           </div>
           
+          {/* Botões de ação */}
           <div className="mt-6 flex gap-4">
             <button
               onClick={() => setView('plano')}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
             >
               Cancelar
             </button>
             <button
               onClick={salvarCheckIn}
               disabled={savingCheckIn}
-              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-md hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md transition-all"
             >
-              {savingCheckIn ? 'Salvando...' : 'Salvar Check-in'}
+              {savingCheckIn ? 'Salvando...' : 'Salvar check-in de hoje'}
             </button>
           </div>
         </div>
@@ -1119,16 +1568,29 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
 
   return (
     <div className="space-y-4">
-      {/* Botão de Check-in Fixo no Topo */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <button
-          onClick={() => setView('checkin')}
-          className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 flex items-center justify-center gap-2 font-medium shadow-md transition-all duration-200 transform hover:scale-[1.02]"
-        >
-          <Calendar className="h-5 w-5" />
-          <span>Check-in Diário</span>
-        </button>
-      </div>
+      {/* Botão de Check-in Fixo no Topo - Só aparece se não houver check-in do dia */}
+      {!checkInHojeExiste && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <button
+            onClick={() => setView('checkin')}
+            className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 flex items-center justify-center gap-2 font-medium shadow-md transition-all duration-200 transform hover:scale-[1.02]"
+          >
+            <Calendar className="h-5 w-5" />
+            <span>Check-in Diário</span>
+          </button>
+        </div>
+      )}
+      
+      {/* Mensagem se já fez check-in hoje */}
+      {checkInHojeExiste && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <p className="text-green-800 font-medium">Check-in de hoje já realizado!</p>
+          </div>
+          <p className="text-sm text-green-700 mt-1">Você poderá fazer um novo check-in amanhã.</p>
+        </div>
+      )}
 
       {/* Sistema de Abas */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -1418,7 +1880,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       <p className="text-sm font-medium text-gray-700">Média (7 dias)</p>
                     </div>
                     <p className="text-2xl font-bold text-green-700">
-                      {(resumoCheckIns.mediaScore7dias * 100).toFixed(0)}%
+                      {resumoCheckIns.mediaScore7dias.toFixed(1)}%
                     </p>
                   </div>
                   
@@ -1438,7 +1900,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       <p className="text-sm font-medium text-gray-700">Melhor Dia</p>
                     </div>
                     <p className="text-2xl font-bold text-purple-700">
-                      {(resumoCheckIns.melhorDia.score * 100).toFixed(0)}%
+                      {resumoCheckIns.melhorDia.score.toFixed(1)}%
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
                       {new Date(resumoCheckIns.melhorDia.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
@@ -1462,7 +1924,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
               ) : (
                 <div className="space-y-4">
                   {checkIns.map((checkIn, idx) => {
-                    const scoreColor = checkIn.score >= 0.8 ? 'green' : checkIn.score >= 0.6 ? 'yellow' : 'red';
+                    const scoreColor = checkIn.score >= 80 ? 'green' : checkIn.score >= 60 ? 'yellow' : 'red';
                     const borderColor = scoreColor === 'green' ? 'border-green-300' : scoreColor === 'yellow' ? 'border-yellow-300' : 'border-red-300';
                     const bgColor = scoreColor === 'green' ? 'bg-green-50' : scoreColor === 'yellow' ? 'bg-yellow-50' : 'bg-red-50';
                     
@@ -1484,46 +1946,91 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`px-4 py-1.5 rounded-full text-sm font-bold ${
-                              checkIn.score >= 0.8 ? 'bg-green-200 text-green-800' :
-                              checkIn.score >= 0.6 ? 'bg-yellow-200 text-yellow-800' :
+                              checkIn.score >= 80 ? 'bg-green-200 text-green-800' :
+                              checkIn.score >= 60 ? 'bg-yellow-200 text-yellow-800' :
                               'bg-red-200 text-red-800'
                             }`}>
-                              Score: {(checkIn.score * 100).toFixed(0)}%
+                              Score: {checkIn.score.toFixed(1)}%
                             </span>
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {/* Alimentação */}
                           <div className="flex items-center gap-2">
                             {checkIn.proteinaOk ? (
-                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
                             ) : (
-                              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                              <XCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
                             )}
-                            <span className="text-sm font-medium text-gray-900">Proteína</span>
+                            <span className="text-xs font-medium text-gray-900">Proteína</span>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             {checkIn.frutasOk ? (
-                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
                             ) : (
-                              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                              <XCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
                             )}
-                            <span className="text-sm font-medium text-gray-900">Frutas</span>
+                            <span className="text-xs font-medium text-gray-900">Frutas</span>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             {checkIn.aguaOk ? (
-                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
                             ) : (
-                              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                              <XCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
                             )}
-                            <span className="text-sm font-medium text-gray-900">Água</span>
+                            <span className="text-xs font-medium text-gray-900">Água</span>
                           </div>
                           
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">Sintomas GI:</span>
-                            <span className={`text-sm font-bold px-2 py-1 rounded ${
+                            {checkIn.lixoAlimentar ? (
+                              <XCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            )}
+                            <span className="text-xs font-medium text-gray-900">Sem lixo</span>
+                          </div>
+                          
+                          {/* Suplementos */}
+                          {checkIn.probioticoTomou !== undefined && (
+                            <div className="flex items-center gap-2">
+                              {checkIn.probioticoTomou ? (
+                                <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              )}
+                              <span className="text-xs font-medium text-gray-900">Probiótico</span>
+                            </div>
+                          )}
+                          
+                          {checkIn.wheyTomou !== undefined && (
+                            <div className="flex items-center gap-2">
+                              {checkIn.wheyTomou ? (
+                                <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              )}
+                              <span className="text-xs font-medium text-gray-900">Whey</span>
+                            </div>
+                          )}
+                          
+                          {checkIn.creatinaTomou !== undefined && (
+                            <div className="flex items-center gap-2">
+                              {checkIn.creatinaTomou ? (
+                                <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              )}
+                              <span className="text-xs font-medium text-gray-900">Creatina</span>
+                            </div>
+                          )}
+                          
+                          {/* Sintomas GI */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-gray-900">GI:</span>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${
                               checkIn.sintomasGI === 'nenhum' ? 'bg-green-100 text-green-700' :
                               checkIn.sintomasGI === 'leve' ? 'bg-yellow-100 text-yellow-700' :
                               checkIn.sintomasGI === 'moderado' ? 'bg-orange-100 text-orange-700' :
@@ -1533,26 +2040,48 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                             </span>
                           </div>
                           
+                          {/* Sono */}
+                          {checkIn.horasSono && (
+                            <div className="flex items-center gap-2">
+                              <Moon className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                              <span className="text-xs font-medium text-gray-900">Sono: {checkIn.horasSono}</span>
+                            </div>
+                          )}
+                          
+                          {/* Energia */}
                           <div className="flex items-center gap-2">
-                            {checkIn.lixoAlimentar ? (
-                              <>
-                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                                <span className="text-sm font-medium text-red-600">Lixo alimentar</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                <span className="text-sm font-medium text-gray-900">Sem lixo</span>
-                              </>
-                            )}
+                            <Zap className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                            <span className="text-xs font-medium text-gray-900">Energia: {checkIn.humorEnergia}/5</span>
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            <Zap className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                            <span className="text-sm font-medium text-gray-900">Energia:</span>
-                            <span className="text-sm font-bold text-gray-900">{checkIn.humorEnergia}/5</span>
-                          </div>
+                          {/* Atividade */}
+                          {checkIn.atividadeFisicaHoje && (
+                            <div className="flex items-center gap-2">
+                              <Activity className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                              <span className="text-xs font-medium text-gray-900 capitalize">{checkIn.atividadeFisicaHoje}</span>
+                            </div>
+                          )}
+                          
+                          {/* Tirzepatida */}
+                          {checkIn.diaAplicacao && checkIn.diaAplicacao !== 'nao_foi_dia' && (
+                            <div className="flex items-center gap-2">
+                              <Syringe className="h-4 w-4 text-pink-600 flex-shrink-0" />
+                              <span className="text-xs font-medium text-gray-900 capitalize">
+                                {checkIn.diaAplicacao === 'aplicou_no_horario' ? 'Aplicou' :
+                                 checkIn.diaAplicacao === 'aplicou_atrasado' ? 'Atrasado' : 'Esqueceu'}
+                              </span>
+                            </div>
+                          )}
                         </div>
+                        
+                        {/* Observações se existirem */}
+                        {checkIn.observacoes && checkIn.observacoes.trim() && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-xs text-gray-600">
+                              <strong>Observação:</strong> {checkIn.observacoes}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
