@@ -724,10 +724,10 @@ export default function MetaPage() {
     }
   }, [user, loadData, loadTrocas, loadFerias, loadMensagens, loadMensagensEnviadas]);
 
-  // Carregar todos os médicos e extrair estados/cidades disponíveis quando entrar na página Médicos
+  // Carregar todos os médicos e extrair estados/cidades disponíveis quando entrar na página Médicos ou Indicar
   useEffect(() => {
     const loadMedicosDisponiveis = async () => {
-      if (user && activeMenu === 'medicos' && abaAtivaMedicos === 'buscar') {
+      if (user && ((activeMenu === 'medicos' && abaAtivaMedicos === 'buscar') || activeMenu === 'indicar')) {
         try {
           const todosMedicos = await MedicoService.getAllMedicos();
           setTodosMedicosDisponiveis(todosMedicos);
@@ -757,7 +757,9 @@ export default function MetaPage() {
       }
     };
 
-    loadMedicosDisponiveis();
+    if (user) {
+      loadMedicosDisponiveis();
+    }
   }, [user, activeMenu, abaAtivaMedicos]);
 
   // Carregar solicitações quando entrar na página Médicos
@@ -2124,12 +2126,7 @@ export default function MetaPage() {
                   Plano de Indicação
                 </button>
                 <button
-                  onClick={() => {
-                    setActiveTabIndicar('minhas');
-                    if (minhasIndicacoes.length === 0 && user?.email && !loadingIndicacoes) {
-                      loadMinhasIndicacoes();
-                    }
-                  }}
+                  onClick={() => setActiveTabIndicar('minhas')}
                   className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                     activeTabIndicar === 'minhas'
                       ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
