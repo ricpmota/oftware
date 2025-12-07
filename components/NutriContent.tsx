@@ -37,6 +37,12 @@ interface PlanoNutricional {
   evitar: string[];
   criadoEm: Date;
   descricaoEstilo?: string; // Campo opcional para descrição do estilo
+  hipoteseComportamental?: string; // Mini parecer Nutro gerado do wizard
+  suplementos?: {
+    probiotico: string;
+    whey: string;
+    creatina: string;
+  };
 }
 
 interface CheckInDiario {
@@ -70,6 +76,9 @@ interface CheckInDiario {
   
   // Metadados
   observacoes?: string;
+  aderenciaPlano?: number; // 0-100%
+  pesoHoje?: number; // kg (opcional, se último peso > 7 dias)
+  sintomasAumentoDose?: 'nenhum' | 'leve' | 'moderado' | 'intenso'; // Para semanas de aumento de dose
   score: number;
   data: string;
 }
@@ -88,6 +97,29 @@ interface WizardData {
   restricoes: string[];
   preferenciasProteina: string[];
   sintomasGI: 'nenhum' | 'leve' | 'moderado' | 'grave';
+  
+  // Histórico de peso e dietas
+  dietaUltimos12Meses: 'sim' | 'nao';
+  tipoDieta?: string;
+  efeitoSanfona: 'sim' | 'nao';
+  kgSanfona?: number;
+  pesoMaximo2Anos?: number;
+  pesoMinimo2Anos?: number;
+  
+  // Padrão de fome / saciedade
+  fomeMatinal: number; // 0-10
+  fomeNoturna: number; // 0-10
+  vontadeDoce: number; // 0-10
+  pulaCafeManha: boolean;
+  chegaComMuitaFomeJantar: boolean;
+  
+  // Sono e cronotipo
+  horarioDormir: '22-00' | '00-02' | 'depois_02h';
+  acordaDescansado: 'sim' | 'nao' | 'as_vezes';
+  
+  // Álcool e finais de semana
+  dosesAlcoolSemana: '0' | '1-3' | '4-7' | '>7';
+  finalSemanaSaiDieta: 'quase_nunca' | 'as_vezes' | 'sempre';
 }
 
 interface NutriContentProps {
@@ -115,7 +147,26 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     compulsaoNoturna: false,
     restricoes: [],
     preferenciasProteina: [],
-    sintomasGI: 'nenhum'
+    sintomasGI: 'nenhum',
+    // Histórico de peso e dietas
+    dietaUltimos12Meses: 'nao',
+    tipoDieta: '',
+    efeitoSanfona: 'nao',
+    kgSanfona: undefined,
+    pesoMaximo2Anos: undefined,
+    pesoMinimo2Anos: undefined,
+    // Padrão de fome / saciedade
+    fomeMatinal: 5,
+    fomeNoturna: 5,
+    vontadeDoce: 5,
+    pulaCafeManha: false,
+    chegaComMuitaFomeJantar: false,
+    // Sono e cronotipo
+    horarioDormir: '22-00',
+    acordaDescansado: 'as_vezes',
+    // Álcool e finais de semana
+    dosesAlcoolSemana: '0',
+    finalSemanaSaiDieta: 'quase_nunca'
   });
   const [peso, setPeso] = useState<number | null>(null);
   const [altura, setAltura] = useState<number | null>(null);
@@ -152,6 +203,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     
     // Metadados
     observacoes: '',
+    aderenciaPlano: 100,
+    pesoHoje: undefined,
+    sintomasAumentoDose: undefined,
     score: 0,
     data: new Date().toISOString().split('T')[0]
   });
@@ -270,8 +324,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   // ============================================
 
   const handleWizardNext = () => {
-    // Wizard agora tem 6 passos
-    if (wizardStep < 6) {
+    // Wizard agora tem 9 passos
+    if (wizardStep < 9) {
       setWizardStep(wizardStep + 1);
     } else {
       gerarPlanoNutricional();
@@ -352,12 +406,17 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       lanche2: `${Math.round(protPorRefeicao * 0.7)}-${Math.round(protPorRefeicao * 0.9)} g`
     };
     
-    // Geração do modelo de dia (melhorado com exemplos específicos)
-    const modeloDia = gerarModeloDia(estilo);
+    // Geração do modelo de dia (melhorado com exemplos específicos e suplementos)
+    const modeloDia = gerarModeloDia(estilo, protDia_g);
+    const suplementos = gerarSuplementos(estilo);
+    
+    // Geração da hipótese comportamental (mini parecer Nutro)
+    const hipoteseComportamental = gerarHipoteseComportamental(wizardData);
     
     // Lista de alimentos a evitar
     const evitar: string[] = ['fritos', 'ultraprocessados'];
-    if (wizardData.comportamentosAlimentares.includes('álcool frequente')) {
+    if (wizardData.comportamentosAlimentares.includes('álcool frequente') || 
+        ['4-7', '>7'].includes(wizardData.dosesAlcoolSemana)) {
       evitar.push('álcool frequente');
     }
     if (wizardData.restricoes.includes('intolerância lactose')) {
@@ -369,6 +428,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     if (wizardData.compulsaoNoturna) {
       evitar.push('refeições pesadas após 20h');
     }
+    if (wizardData.finalSemanaSaiDieta === 'sempre') {
+      evitar.push('excessos nos finais de semana');
+    }
     
     const novoPlano: PlanoNutricional = {
       estilo,
@@ -379,67 +441,136 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       modeloDia,
       evitar,
       criadoEm: new Date(),
-      descricaoEstilo
+      descricaoEstilo,
+      hipoteseComportamental,
+      suplementos
     };
     
     await salvarPlanoNutricional(novoPlano);
   };
 
-  // Função aprimorada para gerar modelo de dia com exemplos específicos
-  const gerarModeloDia = (estilo: PlanoNutricional['estilo']): PlanoNutricional['modeloDia'] => {
+  // Função para gerar hipótese comportamental (mini parecer Nutro)
+  const gerarHipoteseComportamental = (data: WizardData): string => {
+    const partes: string[] = [];
+    
+    // Rotina e atividade
+    if (data.atividadeFisica === 'nunca') {
+      partes.push('rotina sedentária');
+    } else if (data.atividadeFisica === '1-2x') {
+      partes.push('atividade física ocasional');
+    } else {
+      partes.push('atividade física regular');
+    }
+    
+    // Sono
+    partes.push(`sono em torno de ${data.sonoHoras}`);
+    if (data.acordaDescansado === 'nao') {
+      partes.push('com qualidade de sono comprometida');
+    }
+    
+    // Fome e padrões alimentares
+    if (data.vontadeDoce >= 7) {
+      partes.push('com vontade de doce frequente');
+    }
+    if (data.fomeNoturna >= 7) {
+      partes.push('fome noturna elevada');
+    }
+    if (data.pulaCafeManha) {
+      partes.push('tendência a pular café da manhã');
+    }
+    if (data.chegaComMuitaFomeJantar) {
+      partes.push('chega com muita fome no jantar');
+    }
+    
+    // Histórico de dietas
+    if (data.efeitoSanfona === 'sim') {
+      const kgText = data.kgSanfona ? ` (~${data.kgSanfona}kg)` : '';
+      partes.push(`histórico de efeito sanfona${kgText}`);
+    }
+    
+    // Álcool
+    if (data.dosesAlcoolSemana === '>7') {
+      partes.push('consumo frequente de álcool');
+    }
+    
+    // Final de semana
+    if (data.finalSemanaSaiDieta === 'sempre') {
+      partes.push('tendência a sair da dieta nos finais de semana');
+    }
+    
+    return `Paciente com ${partes.join(', ')}.`;
+  };
+  
+  // Função para gerar orientações de suplementos
+  const gerarSuplementos = (estilo: PlanoNutricional['estilo']): PlanoNutricional['suplementos'] => {
+    return {
+      probiotico: '1 cápsula à noite, longe do whey protein (mínimo 2h de intervalo).',
+      whey: '1 scoop (30g) pós-treino ou no lanche da tarde, conforme orientação.',
+      creatina: '3-5g em qualquer refeição, todos os dias. Pode misturar com água, suco ou whey.'
+    };
+  };
+  
+  // Função aprimorada para gerar modelo de dia com exemplos específicos e proteína
+  const gerarModeloDia = (estilo: PlanoNutricional['estilo'], protDia_g: number): PlanoNutricional['modeloDia'] => {
+    const protPorRefeicao = protDia_g / 5;
+    const protCafe = Math.round(protPorRefeicao * 1.3);
+    const protAlmoco = Math.round(protPorRefeicao * 1.3);
+    const protJantar = Math.round(protPorRefeicao * 1.3);
+    const protLanche = Math.round(protPorRefeicao * 0.8);
+    
     switch (estilo) {
       case 'digestiva':
         return {
-          cafe: 'Opção 1: 2 ovos cozidos + 1 fatia de pão branco sem glúten + 1 banana prata madura. Ou: 1 pote de iogurte natural (170g) + 1/2 xícara de frutas cozidas (maçã ou pera) + 1 colher de chá de mel.',
-          almoco: '120-150g de peixe grelhado (pescada, tilápia ou salmão) + 1/2 prato de legumes cozidos (abobrinha, cenoura, chuchu) + 1/4 prato de arroz branco ou batata cozida. Evitar saladas cruas e fibras insolúveis.',
-          jantar: '100-120g de frango desfiado cozido + 1/2 prato de purê de abóbora ou batata doce + salada morna (espinafre refogado). Preparações cozidas e sem temperos fortes.',
-          lanche1: '1 banana prata madura + 1 xícara de chá de camomila ou erva-doce. Ou: 1 pote de iogurte natural (170g) sem lactose se necessário.',
-          lanche2: '1 pote de iogurte natural (170g) + 1/2 xícara de fruta cozida. Ou: 1 fatia de queijo branco + 1 fatia de pão branco sem glúten.'
+          cafe: `Opção 1: 2 ovos cozidos (≈12g proteína) + 1 fatia de pão branco sem glúten + 1 banana prata madura. Total: ~${protCafe}g proteína. Ou: 1 pote de iogurte natural (170g, ≈15g proteína) + 1/2 xícara de frutas cozidas (maçã ou pera) + 1 colher de chá de mel. Total: ~${protCafe}g proteína.`,
+          almoco: `120-150g de peixe grelhado (pescada, tilápia ou salmão, ≈${protAlmoco}g proteína) + 1/2 prato de legumes cozidos (abobrinha, cenoura, chuchu) + 1/4 prato de arroz branco ou batata cozida. Evitar saladas cruas e fibras insolúveis.`,
+          jantar: `100-120g de frango desfiado cozido (≈${protJantar}g proteína) + 1/2 prato de purê de abóbora ou batata doce + salada morna (espinafre refogado). Preparações cozidas e sem temperos fortes.`,
+          lanche1: `1 banana prata madura + 1 xícara de chá de camomila ou erva-doce. Ou: 1 pote de iogurte natural (170g, ≈${protLanche}g proteína) sem lactose se necessário.`,
+          lanche2: `1 pote de iogurte natural (170g, ≈${protLanche}g proteína) + 1/2 xícara de fruta cozida. Ou: 1 fatia de queijo branco (30g, ≈${protLanche}g proteína) + 1 fatia de pão branco sem glúten.`
         };
       
       case 'plant_based':
         return {
-          cafe: 'Opção 1: 1 xícara de aveia em flocos + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes de chia + 1 colher de sopa de amêndoas picadas. Ou: 2 fatias de pão integral + 2 colheres de sopa de pasta de amendoim + 1 banana + 1 copo de bebida vegetal (soja ou amêndoa).',
-          almoco: '1 xícara de lentilha cozida (ou grão-de-bico) + 1/2 xícara de quinoa cozida + salada colorida (folhas, tomate, pepino) + 1 colher de sopa de azeite + 1/4 de abacate. Proteína vegetal completa com todos os aminoácidos essenciais.',
-          jantar: '1 xícara de grão-de-bico cozido + 1/2 prato de vegetais assados (berinjela, abobrinha, pimentão) + 1/2 xícara de batata doce assada + 1 colher de sopa de tahine. Ou: 150g de tofu grelhado + legumes salteados + arroz integral.',
-          lanche1: 'Hummus caseiro (3 colheres de sopa) + palitos de cenoura, pepino e pimentão. Ou: 1 punhado de oleaginosas (castanhas, nozes, amêndoas) + 1 fruta.',
-          lanche2: 'Smoothie proteico: 1 copo de bebida vegetal + 1 scoop de proteína vegetal em pó (30g) + 1/2 xícara de frutas congeladas + 1 colher de sopa de sementes de linhaça. Ou: 1 pote de iogurte vegetal + granola sem glúten + frutas.'
+          cafe: `Opção 1: 1 xícara de aveia em flocos (≈6g proteína) + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes de chia (≈3g) + 1 colher de sopa de amêndoas picadas (≈3g). Total: ~${protCafe}g proteína. Ou: 2 fatias de pão integral (≈8g) + 2 colheres de sopa de pasta de amendoim (≈8g) + 1 banana + 1 copo de bebida vegetal de soja (≈7g). Total: ~${protCafe}g proteína.`,
+          almoco: `1 xícara de lentilha cozida (≈18g proteína) ou grão-de-bico (≈15g) + 1/2 xícara de quinoa cozida (≈4g) + salada colorida (folhas, tomate, pepino) + 1 colher de sopa de azeite + 1/4 de abacate. Total: ~${protAlmoco}g proteína vegetal completa.`,
+          jantar: `1 xícara de grão-de-bico cozido (≈15g proteína) + 1/2 prato de vegetais assados (berinjela, abobrinha, pimentão) + 1/2 xícara de batata doce assada + 1 colher de sopa de tahine (≈3g). Total: ~${protJantar}g proteína. Ou: 150g de tofu grelhado (≈12g) + legumes salteados + arroz integral (≈3g). Total: ~${protJantar}g proteína.`,
+          lanche1: `Hummus caseiro (3 colheres de sopa, ≈${protLanche}g proteína) + palitos de cenoura, pepino e pimentão. Ou: 1 punhado de oleaginosas (castanhas, nozes, amêndoas, ≈${protLanche}g) + 1 fruta.`,
+          lanche2: `Smoothie proteico: 1 copo de bebida vegetal + 1 scoop de proteína vegetal em pó (30g, ≈${protLanche}g) + 1/2 xícara de frutas congeladas + 1 colher de sopa de sementes de linhaça. Ou: 1 pote de iogurte vegetal (≈${protLanche}g) + granola sem glúten + frutas.`
         };
       
       case 'mediterranea':
         return {
-          cafe: 'Opção 1: 1 pote de iogurte grego (170g) + 1/2 xícara de frutas frescas (morangos, mirtilos) + 1 colher de sopa de azeite extra virgem + 1 colher de sopa de nozes picadas. Ou: 2 ovos mexidos + 1 fatia de pão integral + 1/4 de abacate + tomate e azeitonas.',
-          almoco: '150g de salmão grelhado + salada mediterrânea (folhas, tomate, pepino, cebola roxa, azeitonas) + 1 colher de sopa de azeite + 1/4 prato de quinoa ou arroz integral. Ou: 120g de frango grelhado + legumes assados (berinjela, pimentão, abobrinha) + azeite.',
-          jantar: '100-120g de peixe (sardinha, atum ou salmão) + 1 prato de salada verde + 1 colher de sopa de azeite + 1/2 xícara de grão-de-bico. Ou: frango grelhado + ratatouille (legumes cozidos) + azeite.',
-          lanche1: '1 punhado de oleaginosas (castanhas, nozes, amêndoas) + 1 fruta fresca. Ou: 1 fatia de queijo branco + azeitonas + tomate cereja.',
-          lanche2: '1 pote de iogurte grego (170g) + 1 colher de sopa de mel + 1 colher de sopa de nozes. Ou: 1 fatia de pão integral + pasta de azeitona + queijo branco.'
+          cafe: `Opção 1: 1 pote de iogurte grego (170g, ≈15g proteína) + 1/2 xícara de frutas frescas (morangos, mirtilos) + 1 colher de sopa de azeite extra virgem + 1 colher de sopa de nozes picadas (≈3g). Total: ~${protCafe}g proteína. Ou: 2 ovos mexidos (≈12g) + 1 fatia de pão integral (≈4g) + 1/4 de abacate + tomate e azeitonas. Total: ~${protCafe}g proteína.`,
+          almoco: `150g de salmão grelhado (≈${protAlmoco}g proteína) + salada mediterrânea (folhas, tomate, pepino, cebola roxa, azeitonas) + 1 colher de sopa de azeite + 1/4 prato de quinoa ou arroz integral. Ou: 120g de frango grelhado (≈${protAlmoco}g) + legumes assados (berinjela, pimentão, abobrinha) + azeite.`,
+          jantar: `100-120g de peixe (sardinha, atum ou salmão, ≈${protJantar}g proteína) + 1 prato de salada verde + 1 colher de sopa de azeite + 1/2 xícara de grão-de-bico (≈7g). Total: ~${protJantar}g proteína. Ou: frango grelhado (≈${protJantar}g) + ratatouille (legumes cozidos) + azeite.`,
+          lanche1: `1 punhado de oleaginosas (castanhas, nozes, amêndoas, ≈${protLanche}g proteína) + 1 fruta fresca. Ou: 1 fatia de queijo branco (≈${protLanche}g) + azeitonas + tomate cereja.`,
+          lanche2: `1 pote de iogurte grego (170g, ≈${protLanche}g proteína) + 1 colher de sopa de mel + 1 colher de sopa de nozes. Ou: 1 fatia de pão integral (≈4g) + pasta de azeitona + queijo branco (≈${protLanche}g). Total: ~${protLanche}g proteína.`
         };
       
       case 'rico_proteina':
         return {
-          cafe: 'Opção 1: 2 ovos mexidos + 1 fatia de queijo branco (30g) + 1 fatia de peito de peru + 1 fruta pequena (maçã ou pêra). Ou: 1 pote de iogurte grego (170g) + 30g de whey protein + 1 colher de sopa de chia + 1/2 xícara de frutas vermelhas.',
-          almoco: '120-150g de carne magra (patinho, alcatra ou maminha) grelhada + 1/2 prato de salada verde + 1/4 prato de carboidrato complexo (arroz integral, batata doce ou quinoa). Ou: 150g de peito de frango grelhado + legumes cozidos + 1/2 xícara de batata doce assada.',
-          jantar: '120-150g de peito de frango ou peixe grelhado + 1 prato de salada colorida + 1 colher de sopa de azeite. Ou: 150g de carne magra + legumes salteados + 1/4 de abacate.',
-          lanche1: '1 scoop de whey protein (30g) + 1 fruta + 1 punhado de castanhas. Ou: 1 pote de iogurte grego (170g) + 1 colher de sopa de proteína em pó + frutas.',
-          lanche2: '1 lata de atum em água (120g) + 1 fatia de queijo cottage (50g) + 1 fruta. Ou: 2 ovos cozidos + 1 fatia de queijo branco + 1 punhado de oleaginosas.'
+          cafe: `Opção 1: 2 ovos mexidos (≈12g proteína) + 1 fatia de queijo branco (30g, ≈8g) + 1 fatia de peito de peru (≈5g) + 1 fruta pequena. Total: ~${protCafe}g proteína. Ou: 1 pote de iogurte grego (170g, ≈15g) + 30g de whey protein (≈24g) + 1 colher de sopa de chia + 1/2 xícara de frutas vermelhas. Total: ~${protCafe}g proteína.`,
+          almoco: `120-150g de carne magra grelhada (patinho, alcatra ou maminha, ≈${protAlmoco}g proteína) + 1/2 prato de salada verde + 1/4 prato de carboidrato complexo (arroz integral, batata doce ou quinoa). Ou: 150g de peito de frango grelhado (≈${protAlmoco}g) + legumes cozidos + 1/2 xícara de batata doce assada.`,
+          jantar: `120-150g de peito de frango ou peixe grelhado (≈${protJantar}g proteína) + 1 prato de salada colorida + 1 colher de sopa de azeite. Ou: 150g de carne magra (≈${protJantar}g) + legumes salteados + 1/4 de abacate.`,
+          lanche1: `1 scoop de whey protein (30g, ≈24g proteína) + 1 fruta + 1 punhado de castanhas. Total: ~${protLanche}g proteína. Ou: 1 pote de iogurte grego (170g, ≈15g) + 1 colher de sopa de proteína em pó (≈8g) + frutas. Total: ~${protLanche}g proteína.`,
+          lanche2: `1 lata de atum em água (120g, ≈${protLanche}g proteína) + 1 fatia de queijo cottage (50g, ≈5g) + 1 fruta. Total: ~${protLanche}g proteína. Ou: 2 ovos cozidos (≈12g) + 1 fatia de queijo branco (≈8g) + 1 punhado de oleaginosas. Total: ~${protLanche}g proteína.`
         };
       
       case 'low_carb_moderada':
         return {
-          cafe: 'Opção 1: 2 ovos mexidos + 1/4 de abacate + 1 xícara de vegetais (espinafre, tomate, cogumelos) + 1 colher de sopa de azeite. Ou: 1 pote de iogurte grego (170g) + 1 colher de sopa de pasta de amendoim + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes.',
-          almoco: '120-150g de proteína magra (frango, peixe ou carne) grelhada + 1 prato de salada verde variada + 1 colher de sopa de azeite + 1/4 de abacate. Carboidrato reduzido, foco em proteína e gordura saudável.',
-          jantar: '100-120g de peixe grelhado + 1 prato de legumes cozidos ou salteados (brócolis, couve-flor, abobrinha) + 1 colher de sopa de azeite. Ou: frango grelhado + salada verde + 1/4 de abacate.',
-          lanche1: '1 punhado de oleaginosas (castanhas, nozes, amêndoas) + 1 fatia de queijo branco. Ou: 1 pote de iogurte grego (170g) + 1 colher de sopa de pasta de amendoim.',
-          lanche2: '1 pote de iogurte grego (170g) + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes de chia. Ou: 2 ovos cozidos + 1 punhado de castanhas + 1 fruta pequena.'
+          cafe: `Opção 1: 2 ovos mexidos (≈12g proteína) + 1/4 de abacate + 1 xícara de vegetais (espinafre, tomate, cogumelos) + 1 colher de sopa de azeite. Total: ~${protCafe}g proteína. Ou: 1 pote de iogurte grego (170g, ≈15g) + 1 colher de sopa de pasta de amendoim (≈4g) + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes. Total: ~${protCafe}g proteína.`,
+          almoco: `120-150g de proteína magra grelhada (frango, peixe ou carne, ≈${protAlmoco}g proteína) + 1 prato de salada verde variada + 1 colher de sopa de azeite + 1/4 de abacate. Carboidrato reduzido, foco em proteína e gordura saudável.`,
+          jantar: `100-120g de peixe grelhado (≈${protJantar}g proteína) + 1 prato de legumes cozidos ou salteados (brócolis, couve-flor, abobrinha) + 1 colher de sopa de azeite. Ou: frango grelhado (≈${protJantar}g) + salada verde + 1/4 de abacate.`,
+          lanche1: `1 punhado de oleaginosas (castanhas, nozes, amêndoas, ≈${protLanche}g proteína) + 1 fatia de queijo branco (≈8g). Total: ~${protLanche}g proteína. Ou: 1 pote de iogurte grego (170g, ≈15g) + 1 colher de sopa de pasta de amendoim (≈4g). Total: ~${protLanche}g proteína.`,
+          lanche2: `1 pote de iogurte grego (170g, ≈${protLanche}g proteína) + 1/2 xícara de frutas vermelhas + 1 colher de sopa de sementes de chia. Ou: 2 ovos cozidos (≈12g) + 1 punhado de castanhas (≈3g) + 1 fruta pequena. Total: ~${protLanche}g proteína.`
         };
       
       default:
         return {
-          cafe: '2 ovos mexidos + 1 fatia de pão integral + 1 fruta + 1 xícara de café ou chá.',
-          almoco: '120-150g de proteína (carne, frango ou peixe) + salada verde + 1/4 prato de arroz integral ou batata doce.',
-          jantar: '100-120g de proteína magra + legumes cozidos + 1 colher de sopa de azeite.',
-          lanche1: '1 pote de iogurte + frutas + 1 punhado de oleaginosas.',
-          lanche2: '1 fatia de queijo + 1 fruta ou smoothie proteico.'
+          cafe: `2 ovos mexidos (≈12g proteína) + 1 fatia de pão integral (≈4g) + 1 fruta. Total: ~${protCafe}g proteína.`,
+          almoco: `120-150g de proteína (carne, frango ou peixe, ≈${protAlmoco}g) + salada verde + 1/4 prato de arroz integral ou batata doce.`,
+          jantar: `100-120g de proteína magra (≈${protJantar}g) + legumes cozidos + 1 colher de sopa de azeite.`,
+          lanche1: `1 pote de iogurte (≈${protLanche}g proteína) + frutas + 1 punhado de oleaginosas.`,
+          lanche2: `1 fatia de queijo (≈${protLanche}g proteína) + 1 fruta ou smoothie proteico.`
         };
     }
   };
@@ -519,6 +650,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           
           // Metadados
           observacoes: data.observacoes || '',
+          aderenciaPlano: data.aderenciaPlano ?? 100,
+          pesoHoje: data.pesoHoje,
+          sintomasAumentoDose: data.sintomasAumentoDose,
           score: data.score || 0,
           data: data.data || doc.id
         };
@@ -544,28 +678,31 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
    * Calcula o score de adesão do check-in (0-100)
    * 
    * Componentes e pesos:
-   * - Adesão alimentar (40%): proteína, frutas/vegetais, água, sem lixo
+   * - Aderência ao plano (30%): valor direto de aderenciaPlano (0-100%)
+   * - Adesão alimentar (30%): proteína, frutas/vegetais, água, sem lixo
    * - Suplementos (15%): probiótico, whey, creatina
-   * - Sintomas GI (20%): quanto menos sintomas, melhor (nível geral + náuseas + constipação + diarreia)
-   * - Sono e energia (15%): horas de sono adequadas + humor/energia
-   * - Atividade física (5%): qualquer atividade é positiva
-   * - Adesão tirzepatida (5%): se foi dia de aplicação, verificar se aplicou corretamente
+   * - Sintomas GI (15%): quanto menos sintomas, melhor (nível geral + náuseas + constipação + diarreia)
+   * - Sono e energia (5%): horas de sono adequadas + humor/energia
+   * - Atividade física (3%): qualquer atividade é positiva
+   * - Adesão tirzepatida (2%): se foi dia de aplicação, verificar se aplicou corretamente
    */
   const calcularScoreCheckIn = (data: CheckInDiario): number => {
     let scoreTotal = 0;
-    let pesoTotal = 0;
     
-    // 1. Adesão Alimentar (40% do total)
-    const pesoAlimentar = 40;
-    pesoTotal += pesoAlimentar;
+    // 1. Aderência ao Plano (30% do total) - valor direto
+    const aderenciaPlano = data.aderenciaPlano ?? 100;
+    scoreTotal += (aderenciaPlano / 100) * 30;
+    
+    // 2. Adesão Alimentar (30% do total)
+    const pesoAlimentar = 30;
     let scoreAlimentar = 0;
-    scoreAlimentar += data.proteinaOk ? 25 : 0; // 25% dentro dos 40%
-    scoreAlimentar += data.frutasOk ? 25 : 0; // 25% dentro dos 40%
-    scoreAlimentar += data.aguaOk ? 25 : 0; // 25% dentro dos 40%
-    scoreAlimentar += !data.lixoAlimentar ? 25 : 0; // 25% dentro dos 40%
+    scoreAlimentar += data.proteinaOk ? 25 : 0; // 25% dentro dos 30%
+    scoreAlimentar += data.frutasOk ? 25 : 0; // 25% dentro dos 30%
+    scoreAlimentar += data.aguaOk ? 25 : 0; // 25% dentro dos 30%
+    scoreAlimentar += !data.lixoAlimentar ? 25 : 0; // 25% dentro dos 30%
     scoreTotal += (scoreAlimentar / 100) * pesoAlimentar;
     
-    // 2. Suplementos (15% do total)
+    // 3. Suplementos (15% do total)
     const pesoSuplementos = 15;
     pesoTotal += pesoSuplementos;
     let scoreSuplementos = 0;
@@ -574,7 +711,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     scoreSuplementos += data.creatinaTomou ? 33.34 : 0;
     scoreTotal += (scoreSuplementos / 100) * pesoSuplementos;
     
-    // 3. Sintomas GI (20% do total) - quanto menos sintomas, melhor
+    // 4. Sintomas GI (15% do total) - quanto menos sintomas, melhor
     const pesoGI = 20;
     pesoTotal += pesoGI;
     const sintomasMap: { [key: string]: number } = {
@@ -591,7 +728,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     ) * 100;
     scoreTotal += (scoreGI / 100) * pesoGI;
     
-    // 4. Sono e Energia (15% do total)
+    // 5. Sono e Energia (5% do total)
     const pesoSonoEnergia = 15;
     pesoTotal += pesoSonoEnergia;
     const sonoMap: { [key: string]: number } = {
@@ -604,7 +741,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     const scoreSonoEnergia = ((scoreSono * 0.5) + (scoreEnergia * 0.5)) * 100;
     scoreTotal += (scoreSonoEnergia / 100) * pesoSonoEnergia;
     
-    // 5. Atividade Física (5% do total)
+    // 6. Atividade Física (3% do total)
     const pesoAtividade = 5;
     pesoTotal += pesoAtividade;
     const atividadeMap: { [key: string]: number } = {
@@ -616,7 +753,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     const scoreAtividade = atividadeMap[data.atividadeFisicaHoje] || 0;
     scoreTotal += scoreAtividade * pesoAtividade;
     
-    // 6. Adesão Tirzepatida (5% do total) - só conta se foi dia de aplicação
+    // 7. Adesão Tirzepatida (2% do total) - só conta se foi dia de aplicação
     const pesoTirzepatida = 5;
     pesoTotal += pesoTirzepatida;
     let scoreTirzepatida = 0;
@@ -665,7 +802,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         key => sintomasValores[key as keyof typeof sintomasValores] === piorSintoma
       ) as 'nenhum' | 'leve' | 'moderado' | 'grave';
       
-      const checkInComScore = { 
+      const checkInComScore: any = { 
         // Alimentação/hidratação
         proteinaOk: checkInData.proteinaOk,
         frutasOk: checkInData.frutasOk,
@@ -696,6 +833,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         
         // Metadados
         observacoes: checkInData.observacoes || '',
+        aderenciaPlano: checkInData.aderenciaPlano ?? 100,
+        pesoHoje: checkInData.pesoHoje || null,
+        sintomasAumentoDose: checkInData.sintomasAumentoDose || null,
         score: score,
         data: dataHoje,
         timestamp: Timestamp.now()
@@ -830,7 +970,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
 
   // Wizard de anamnese nutricional (melhorado)
   if (view === 'wizard') {
-    const totalSteps = 6;
+    const totalSteps = 9;
     
     return (
       <div className="space-y-4">
@@ -839,7 +979,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Anamnese Nutricional</h2>
             <p className="text-gray-600">Vamos conhecer seus hábitos e objetivos para criar o melhor plano nutricional para você.</p>
             <div className="mt-4 flex gap-2">
-              {[1, 2, 3, 4, 5, 6].map((step) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((step) => (
                 <div
                   key={step}
                   className={`flex-1 h-2 rounded ${
@@ -944,8 +1084,205 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </div>
           )}
           
-          {/* Step 3: Padrão de Atividade Física */}
+          {/* Step 3: Histórico de Peso e Dietas */}
           {wizardStep === 3 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Weight className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Histórico de Peso e Dietas</h3>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Já fez alguma dieta nos últimos 12 meses?</p>
+                  <div className="space-y-2">
+                    {(['sim', 'nao'] as const).map((opcao) => (
+                      <button
+                        key={opcao}
+                        onClick={() => setWizardData({ ...wizardData, dietaUltimos12Meses: opcao })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
+                          wizardData.dietaUltimos12Meses === opcao
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {opcao === 'sim' ? 'Sim' : 'Não'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {wizardData.dietaUltimos12Meses === 'sim' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Qual tipo de dieta?</label>
+                    <input
+                      type="text"
+                      value={wizardData.tipoDieta || ''}
+                      onChange={(e) => setWizardData({ ...wizardData, tipoDieta: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
+                      placeholder="Ex: Low carb, Mediterrânea, etc."
+                    />
+                  </div>
+                )}
+                
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Teve efeito sanfona (ganhou e perdeu peso várias vezes)?</p>
+                  <div className="space-y-2">
+                    {(['sim', 'nao'] as const).map((opcao) => (
+                      <button
+                        key={opcao}
+                        onClick={() => setWizardData({ ...wizardData, efeitoSanfona: opcao })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
+                          wizardData.efeitoSanfona === opcao
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {opcao === 'sim' ? 'Sim' : 'Não'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {wizardData.efeitoSanfona === 'sim' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Aproximadamente quantos kg de variação?</label>
+                    <input
+                      type="number"
+                      value={wizardData.kgSanfona || ''}
+                      onChange={(e) => setWizardData({ ...wizardData, kgSanfona: parseFloat(e.target.value) })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
+                      placeholder="Ex: 10"
+                      min="1"
+                      max="100"
+                    />
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Peso máximo dos últimos 2 anos (kg)</label>
+                    <input
+                      type="number"
+                      value={wizardData.pesoMaximo2Anos || ''}
+                      onChange={(e) => setWizardData({ ...wizardData, pesoMaximo2Anos: parseFloat(e.target.value) })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
+                      placeholder="Ex: 95"
+                      min="20"
+                      max="400"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Peso mínimo dos últimos 2 anos (kg)</label>
+                    <input
+                      type="number"
+                      value={wizardData.pesoMinimo2Anos || ''}
+                      onChange={(e) => setWizardData({ ...wizardData, pesoMinimo2Anos: parseFloat(e.target.value) })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 placeholder:text-gray-400"
+                      placeholder="Ex: 75"
+                      min="20"
+                      max="400"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Step 4: Padrão de Fome / Saciedade */}
+          {wizardStep === 4 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Brain className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Padrão de Fome e Saciedade</h3>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fome matinal (0 = sem fome, 10 = fome extrema)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={wizardData.fomeMatinal}
+                      onChange={(e) => setWizardData({ ...wizardData, fomeMatinal: parseInt(e.target.value) })}
+                      className="flex-1"
+                    />
+                    <span className="text-lg font-bold text-gray-900 w-12 text-center">{wizardData.fomeMatinal}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fome noturna (0 = sem fome, 10 = fome extrema)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={wizardData.fomeNoturna}
+                      onChange={(e) => setWizardData({ ...wizardData, fomeNoturna: parseInt(e.target.value) })}
+                      className="flex-1"
+                    />
+                    <span className="text-lg font-bold text-gray-900 w-12 text-center">{wizardData.fomeNoturna}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Vontade de doce (0 = nenhuma, 10 = muito intensa)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={wizardData.vontadeDoce}
+                      onChange={(e) => setWizardData({ ...wizardData, vontadeDoce: parseInt(e.target.value) })}
+                      className="flex-1"
+                    />
+                    <span className="text-lg font-bold text-gray-900 w-12 text-center">{wizardData.vontadeDoce}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-md cursor-pointer hover:border-gray-300">
+                    <div>
+                      <p className="font-medium text-gray-900">Costuma pular café da manhã?</p>
+                      <p className="text-sm text-gray-600">Não toma café da manhã regularmente</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={wizardData.pulaCafeManha}
+                      onChange={(e) => setWizardData({ ...wizardData, pulaCafeManha: e.target.checked })}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500"
+                    />
+                  </label>
+                  
+                  <label className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-md cursor-pointer hover:border-gray-300">
+                    <div>
+                      <p className="font-medium text-gray-900">Costuma chegar com MUITA fome no jantar?</p>
+                      <p className="text-sm text-gray-600">Fome intensa ao chegar para jantar</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={wizardData.chegaComMuitaFomeJantar}
+                      onChange={(e) => setWizardData({ ...wizardData, chegaComMuitaFomeJantar: e.target.checked })}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Step 5: Padrão de Atividade Física */}
+          {wizardStep === 5 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="h-5 w-5 text-green-600" />
@@ -997,8 +1334,68 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </div>
           )}
           
-          {/* Step 4: Padrão Alimentar */}
-          {wizardStep === 4 && (
+          {/* Step 6: Sono e Cronotipo Detalhado */}
+          {wizardStep === 6 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Moon className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Sono e Cronotipo</h3>
+              </div>
+              
+              <div className="space-y-6">
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Horário em que costuma dormir</p>
+                  <div className="space-y-2">
+                    {([
+                      { value: '22-00', label: 'Entre 22h e 00h', desc: 'Horário ideal para a maioria' },
+                      { value: '00-02', label: 'Entre 00h e 02h', desc: 'Dorme mais tarde' },
+                      { value: 'depois_02h', label: 'Depois das 02h', desc: 'Cronotipo vespertino' }
+                    ] as const).map((opcao) => (
+                      <button
+                        key={opcao.value}
+                        onClick={() => setWizardData({ ...wizardData, horarioDormir: opcao.value })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                          wizardData.horarioDormir === opcao.value
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{opcao.label}</p>
+                        <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-gray-700 font-medium mb-3">Acorda descansado?</p>
+                  <div className="space-y-2">
+                    {([
+                      { value: 'sim', label: 'Sim', desc: 'Sempre acorda descansado' },
+                      { value: 'as_vezes', label: 'Às vezes', desc: 'Depende do dia' },
+                      { value: 'nao', label: 'Não', desc: 'Raramente acorda descansado' }
+                    ] as const).map((opcao) => (
+                      <button
+                        key={opcao.value}
+                        onClick={() => setWizardData({ ...wizardData, acordaDescansado: opcao.value })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                          wizardData.acordaDescansado === opcao.value
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{opcao.label}</p>
+                        <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Step 7: Padrão Alimentar */}
+          {wizardStep === 7 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <UtensilsCrossed className="h-5 w-5 text-green-600" />
@@ -1084,51 +1481,60 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </div>
           )}
           
-          {/* Step 5: Preferências e Restrições */}
-          {wizardStep === 5 && (
+          {/* Step 8: Álcool e Finais de Semana */}
+          {wizardStep === 8 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
-                <Heart className="h-5 w-5 text-green-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Preferências e Restrições Alimentares</h3>
+                <Droplet className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Álcool e Finais de Semana</h3>
               </div>
               
               <div className="space-y-6">
                 <div>
-                  <p className="text-gray-700 font-medium mb-3">Restrições alimentares (selecione todas que se aplicam):</p>
+                  <p className="text-gray-700 font-medium mb-3">Quantas doses de álcool por semana?</p>
                   <div className="space-y-2">
-                    {['vegetariano', 'vegano', 'intolerância lactose', 'sem glúten', 'nada'].map((opcao) => (
-                      <label
-                        key={opcao}
-                        className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
+                    {([
+                      { value: '0', label: '0 doses', desc: 'Não consumo álcool' },
+                      { value: '1-3', label: '1-3 doses', desc: 'Consumo ocasional' },
+                      { value: '4-7', label: '4-7 doses', desc: 'Consumo moderado' },
+                      { value: '>7', label: 'Mais de 7 doses', desc: 'Consumo frequente' }
+                    ] as const).map((opcao) => (
+                      <button
+                        key={opcao.value}
+                        onClick={() => setWizardData({ ...wizardData, dosesAlcoolSemana: opcao.value })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                          wizardData.dosesAlcoolSemana === opcao.value
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={wizardData.restricoes.includes(opcao)}
-                          onChange={() => toggleCheckbox('restricoes', opcao)}
-                          className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="text-gray-900 capitalize">{opcao}</span>
-                      </label>
+                        <p className="font-medium text-gray-900">{opcao.label}</p>
+                        <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
+                      </button>
                     ))}
                   </div>
                 </div>
                 
                 <div>
-                  <p className="text-gray-700 font-medium mb-3">Preferências de proteína (selecione todas que você consome):</p>
+                  <p className="text-gray-700 font-medium mb-3">Final de semana costuma sair da dieta?</p>
                   <div className="space-y-2">
-                    {['Carne', 'Frango', 'Peixe', 'Ovos', 'Laticínios', 'Leguminosas'].map((opcao) => (
-                      <label
-                        key={opcao}
-                        className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
+                    {([
+                      { value: 'quase_nunca', label: 'Quase nunca', desc: 'Mantém a dieta nos finais de semana' },
+                      { value: 'as_vezes', label: 'Às vezes', desc: 'Algumas vezes sai da dieta' },
+                      { value: 'sempre', label: 'Sempre', desc: 'Sempre sai da dieta nos finais de semana' }
+                    ] as const).map((opcao) => (
+                      <button
+                        key={opcao.value}
+                        onClick={() => setWizardData({ ...wizardData, finalSemanaSaiDieta: opcao.value })}
+                        className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                          wizardData.finalSemanaSaiDieta === opcao.value
+                            ? 'border-green-600 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={wizardData.preferenciasProteina.includes(opcao)}
-                          onChange={() => toggleCheckbox('preferenciasProteina', opcao)}
-                          className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="text-gray-900">{opcao}</span>
-                      </label>
+                        <p className="font-medium text-gray-900">{opcao.label}</p>
+                        <p className="text-sm text-gray-600 mt-1">{opcao.desc}</p>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1136,8 +1542,65 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </div>
           )}
           
-          {/* Step 6: Sintomas Gastrointestinais */}
-          {wizardStep === 6 && (
+          {/* Step 9: Preferências e Restrições + Sintomas GI (combinado) */}
+          {wizardStep === 9 && (
+            <div className="space-y-6">
+              {/* Preferências e Restrições */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Heart className="h-5 w-5 text-green-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Preferências e Restrições Alimentares</h3>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-gray-700 font-medium mb-3">Restrições alimentares (selecione todas que se aplicam):</p>
+                    <div className="space-y-2">
+                      {['vegetariano', 'vegano', 'intolerância lactose', 'sem glúten', 'nada'].map((opcao) => (
+                        <label
+                          key={opcao}
+                          className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={wizardData.restricoes.includes(opcao)}
+                            onChange={() => toggleCheckbox('restricoes', opcao)}
+                            className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="text-gray-900 capitalize">{opcao}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-gray-700 font-medium mb-3">Preferências de proteína (selecione todas que você consome):</p>
+                    <div className="space-y-2">
+                      {['Carne', 'Frango', 'Peixe', 'Ovos', 'Laticínios', 'Leguminosas'].map((opcao) => (
+                        <label
+                          key={opcao}
+                          className="flex items-center px-4 py-3 rounded-md border-2 border-gray-200 hover:border-gray-300 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={wizardData.preferenciasProteina.includes(opcao)}
+                            onChange={() => toggleCheckbox('preferenciasProteina', opcao)}
+                            className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="text-gray-900">{opcao}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Sintomas Gastrointestinais */}
+              <div className="space-y-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertCircle className="h-5 w-5 text-green-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Sintomas Gastrointestinais e Digestivos</h3>
+                </div>
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <AlertCircle className="h-5 w-5 text-green-600" />
@@ -1181,7 +1644,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
               onClick={handleWizardNext}
               className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
             >
-              {wizardStep === 6 ? 'Gerar Plano Nutricional' : 'Próximo'}
+              {wizardStep === 9 ? 'Gerar Plano Nutricional' : 'Próximo'}
             </button>
           </div>
         </div>
@@ -1510,7 +1973,128 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
               </div>
             </div>
             
-            {/* Card 7 – Observações */}
+            {/* Card 7 – Aderência ao Plano */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Aderência ao Plano</h3>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Quanto você seguiu o plano nutricional hoje? ({checkInData.aderenciaPlano || 100}%)
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={checkInData.aderenciaPlano || 100}
+                    onChange={(e) => setCheckInData({ ...checkInData, aderenciaPlano: parseInt(e.target.value) })}
+                    className="flex-1"
+                  />
+                  <div className="flex gap-1">
+                    {[25, 50, 75, 100].map((valor) => (
+                      <button
+                        key={valor}
+                        onClick={() => setCheckInData({ ...checkInData, aderenciaPlano: valor })}
+                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                          (checkInData.aderenciaPlano || 100) === valor
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {valor}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Card 8 – Peso (se necessário) */}
+            {(() => {
+              // Verificar se último peso tem mais de 7 dias
+              const ultimoPeso = paciente?.dadosClinicos?.medidasIniciais?.peso;
+              const ultimaDataPeso = paciente?.evolucaoSeguimento?.[0]?.dataRegistro;
+              const diasDesdeUltimoPeso = ultimaDataPeso 
+                ? Math.floor((new Date().getTime() - new Date(ultimaDataPeso).getTime()) / (1000 * 60 * 60 * 24))
+                : 999;
+              
+              if (diasDesdeUltimoPeso > 7 || !ultimoPeso) {
+                return (
+                  <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg border border-teal-200 p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Weight className="h-5 w-5 text-teal-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Peso de Hoje (Opcional)</h3>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Seu último peso registrado foi há mais de 7 dias. Quer registrar seu peso hoje?
+                      </label>
+                      <input
+                        type="number"
+                        value={checkInData.pesoHoje || ''}
+                        onChange={(e) => setCheckInData({ ...checkInData, pesoHoje: parseFloat(e.target.value) })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 placeholder:text-gray-400"
+                        placeholder="Ex: 75.5"
+                        min="20"
+                        max="400"
+                        step="0.1"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">Este dado ajuda a acompanhar sua evolução e ajustar o plano.</p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
+            {/* Card 9 – Sintomas de Aumento de Dose (se aplicável) */}
+            {(() => {
+              // Verificar se está em semana de aumento de dose
+              const planoTerapeutico = paciente?.planoTerapeutico;
+              const historicoDoses = planoTerapeutico?.historicoDoses || [];
+              const ultimaMudanca = historicoDoses.length > 0 
+                ? new Date(historicoDoses[historicoDoses.length - 1].data)
+                : null;
+              const diasDesdeMudanca = ultimaMudanca
+                ? Math.floor((new Date().getTime() - ultimaMudanca.getTime()) / (1000 * 60 * 60 * 24))
+                : 999;
+              
+              // Se mudou de dose nos últimos 7 dias, é semana de aumento
+              if (diasDesdeMudanca <= 7 && historicoDoses.length > 0) {
+                return (
+                  <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-lg border border-orange-200 p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <AlertTriangle className="h-5 w-5 text-orange-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Sintomas na Semana de Aumento de Dose</h3>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Está percebendo aumento de náuseas, vômitos ou falta de apetite em relação à semana passada?
+                      </label>
+                      <select
+                        value={checkInData.sintomasAumentoDose || 'nenhum'}
+                        onChange={(e) => setCheckInData({ ...checkInData, sintomasAumentoDose: e.target.value as any })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-900 bg-white"
+                      >
+                        <option value="nenhum">Nenhum</option>
+                        <option value="leve">Leve</option>
+                        <option value="moderado">Moderado</option>
+                        <option value="intenso">Intenso</option>
+                      </select>
+                      <p className="text-xs text-orange-700 mt-2">
+                        <strong>Importante:</strong> Se os sintomas estiverem moderados ou intensos, avise seu médico imediatamente.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
+            {/* Card 10 – Observações */}
             <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg border border-gray-200 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <MessageSquare className="h-5 w-5 text-gray-600" />
@@ -1566,8 +2150,33 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   const resumoCheckIns = calcularResumoCheckIns();
   const coposAgua = Math.round(plano.aguaDia_ml / 250);
 
+  // Calcular semana de tratamento e dose atual
+  const planoTerapeutico = paciente?.planoTerapeutico;
+  const semanaAtual = planoTerapeutico?.startDate 
+    ? Math.floor((new Date().getTime() - new Date(planoTerapeutico.startDate).getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1
+    : null;
+  const totalSemanas = planoTerapeutico?.numeroSemanasTratamento || 18;
+  const doseAtual = planoTerapeutico?.currentDoseMg;
+
   return (
     <div className="space-y-4">
+      {/* Cabeçalho com informações do tratamento Tirzepatida */}
+      {semanaAtual && doseAtual && (
+        <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border border-pink-200 p-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Syringe className="h-5 w-5 text-pink-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">Tratamento Tirzepatida</p>
+                <p className="text-lg font-bold text-gray-900">
+                  Semana {semanaAtual} de {totalSemanas} • Dose atual: {doseAtual} mg
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Botão de Check-in Fixo no Topo - Só aparece se não houver check-in do dia */}
       {!checkInHojeExiste && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -1669,6 +2278,19 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                 </p>
               </div>
               
+              {/* Hipótese Comportamental (Mini Parecer Nutro) */}
+              {plano.hipoteseComportamental && (
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg border border-purple-200 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Brain className="h-5 w-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Hipótese Comportamental</h3>
+                  </div>
+                  <p className="text-gray-700 leading-relaxed italic">
+                    {plano.hipoteseComportamental}
+                  </p>
+                </div>
+              )}
+              
               {/* Cards de Métricas Principais */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Estilo Alimentar */}
@@ -1729,6 +2351,30 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </p>
                 </div>
               </div>
+              
+              {/* Suplementos */}
+              {plano.suplementos && (
+                <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg border border-amber-200 p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Pill className="h-5 w-5 text-amber-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Suplementos</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">Probiótico</p>
+                      <p className="text-sm text-gray-600">{plano.suplementos.probiotico}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">Whey Protein</p>
+                      <p className="text-sm text-gray-600">{plano.suplementos.whey}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">Creatina</p>
+                      <p className="text-sm text-gray-600">{plano.suplementos.creatina}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1870,6 +2516,72 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                 <Calendar className="h-5 w-5 text-purple-600" />
                 Histórico de Check-ins
               </h2>
+              
+              {/* Badges de Aderência (últimos 7 dias) */}
+              {checkIns.length > 0 && (() => {
+                const ultimos7 = checkIns.slice(0, 7);
+                const proteinaOk = ultimos7.filter(ci => ci.proteinaOk).length;
+                const aguaOk = ultimos7.filter(ci => ci.aguaOk).length;
+                const suplementosOk = ultimos7.filter(ci => 
+                  (ci.probioticoTomou || false) && (ci.wheyTomou || false) && (ci.creatinaTomou || false)
+                ).length;
+                
+                return (
+                  <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg border border-gray-200 p-5">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Aderência (últimos 7 dias)</h3>
+                    <div className="flex flex-wrap gap-3">
+                      <div className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 ${
+                        proteinaOk >= 5 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        <Activity className="h-4 w-4" />
+                        Proteína: {proteinaOk >= 5 ? '🟢' : '🟡'} {proteinaOk}/7
+                      </div>
+                      <div className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 ${
+                        aguaOk >= 5 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        <Droplet className="h-4 w-4" />
+                        Hidratação: {aguaOk >= 5 ? '🟢' : '🟡'} {aguaOk}/7
+                      </div>
+                      <div className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 ${
+                        suplementosOk >= 5 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        <Pill className="h-4 w-4" />
+                        Suplementos: {suplementosOk >= 5 ? '🟢' : '🟡'} {suplementosOk}/7
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Linha do Tempo Condensada (últimos 14 dias) */}
+              {checkIns.length > 0 && (() => {
+                const ultimos14 = checkIns.slice(0, 14).reverse(); // Mais antigo primeiro
+                return (
+                  <div className="bg-white rounded-lg border border-gray-200 p-5">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Evolução do Score (últimos 14 dias)</h3>
+                    <div className="flex items-end gap-1 h-32">
+                      {ultimos14.map((checkIn, idx) => {
+                        const altura = (checkIn.score / 100) * 100; // Altura da barra em %
+                        const cor = checkIn.score >= 80 ? 'bg-green-500' : checkIn.score >= 60 ? 'bg-yellow-500' : 'bg-red-500';
+                        return (
+                          <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                            <div className="w-full flex items-end justify-center" style={{ height: '100px' }}>
+                              <div
+                                className={`w-full ${cor} rounded-t transition-all hover:opacity-80`}
+                                style={{ height: `${altura}%`, minHeight: '4px' }}
+                                title={`${new Date(checkIn.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}: ${checkIn.score.toFixed(1)}%`}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 transform -rotate-45 origin-top-left whitespace-nowrap">
+                              {new Date(checkIn.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               
               {/* Resumo dos Check-ins */}
               {resumoCheckIns && checkIns.length > 0 && (
