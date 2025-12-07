@@ -443,6 +443,36 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   // FUNÇÕES DE DADOS BÁSICOS
   // ============================================
 
+  // Função para obter o peso atual do paciente
+  // Prioriza o último peso da evolução, senão usa o peso inicial
+  const obterPesoAtual = (): number => {
+    // Buscar último peso na evolução de seguimento
+    const evolucao = paciente?.evolucaoSeguimento || [];
+    if (evolucao.length > 0) {
+      // Ordenar por data (mais recente primeiro) e pegar o primeiro
+      const evolucaoOrdenada = [...evolucao].sort((a, b) => {
+        const dataA = a.data ? new Date(a.data).getTime() : 0;
+        const dataB = b.data ? new Date(b.data).getTime() : 0;
+        return dataB - dataA;
+      });
+      
+      const ultimoRegistro = evolucaoOrdenada[0];
+      if (ultimoRegistro?.peso && ultimoRegistro.peso > 0) {
+        return ultimoRegistro.peso;
+      }
+    }
+    
+    // Se não encontrou na evolução, usar peso inicial
+    const pesoInicial = paciente?.dadosClinicos?.medidasIniciais?.peso;
+    if (pesoInicial && pesoInicial > 0) {
+      return pesoInicial;
+    }
+    
+    // Fallback: retornar 70kg como padrão (não deveria chegar aqui)
+    console.warn('Peso não encontrado, usando 70kg como padrão');
+    return 70;
+  };
+
   // Função auxiliar para verificar se hoje é dia de aplicação da Tirzepatida
   const verificarSeHojeEDiaAplicacao = (): boolean => {
     const planoTerapeutico = paciente?.planoTerapeutico;
