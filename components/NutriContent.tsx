@@ -73,6 +73,13 @@ interface PlanoNutricional {
     lanche1: string;
     lanche2: string;
   };
+  macrosPorRefeicao?: {
+    cafe?: { proteinaSugerida_g: number; proteinaEscolhida_g: number; caloriasSugerida_kcal: number; caloriasEscolhida_kcal: number };
+    lanche1?: { proteinaSugerida_g: number; proteinaEscolhida_g: number; caloriasSugerida_kcal: number; caloriasEscolhida_kcal: number };
+    almoco?: { proteinaSugerida_g: number; proteinaEscolhida_g: number; caloriasSugerida_kcal: number; caloriasEscolhida_kcal: number };
+    lanche2?: { proteinaSugerida_g: number; proteinaEscolhida_g: number; caloriasSugerida_kcal: number; caloriasEscolhida_kcal: number };
+    jantar?: { proteinaSugerida_g: number; proteinaEscolhida_g: number; caloriasSugerida_kcal: number; caloriasEscolhida_kcal: number };
+  };
   evitar: string[];
   criadoEm: Date;
   descricaoEstilo?: string; // Campo opcional para descrição do estilo
@@ -1568,11 +1575,30 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       // Regenerar modeloDia
       const modeloDiaAtualizado = gerarModeloDiaFromOpcoes(opcoesAjustadas, opcoesAtualizadas);
       
+      // Calcular macros sugeridas para esta refeição (meta)
+      const proteinaSugerida = config.metaProteina_g;
+      const caloriasSugerida = refeicaoEmEdicao === 'cafe' ? 400 :
+                              refeicaoEmEdicao === 'lanche1' ? 250 :
+                              refeicaoEmEdicao === 'almoco' ? 550 :
+                              refeicaoEmEdicao === 'lanche2' ? 200 : 450;
+      
+      // Atualizar macros por refeição
+      const macrosPorRefeicaoAtualizado = {
+        ...(plano.macrosPorRefeicao || {}),
+        [refeicaoEmEdicao]: {
+          proteinaSugerida_g: proteinaSugerida,
+          proteinaEscolhida_g: macrosRefeicaoAtual.proteinaTotal_g,
+          caloriasSugerida_kcal: caloriasSugerida,
+          caloriasEscolhida_kcal: macrosRefeicaoAtual.caloriasTotal_kcal
+        }
+      };
+      
       // Atualizar plano mantendo outros campos
       const planoAtualizado: PlanoNutricional = {
         ...plano,
         opcoesSelecionadas: opcoesAjustadas,
-        modeloDia: modeloDiaAtualizado
+        modeloDia: modeloDiaAtualizado,
+        macrosPorRefeicao: macrosPorRefeicaoAtualizado
       };
       
       // Salvar no Firestore
@@ -3649,6 +3675,36 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.cafe}</p>
                 </button>
                 
+                {/* Informações de macros - Café da Manhã */}
+                {plano.macrosPorRefeicao?.cafe && (
+                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.cafe.proteinaSugerida_g}g</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className={`font-semibold ${
+                            plano.macrosPorRefeicao.cafe.proteinaEscolhida_g >= plano.macrosPorRefeicao.cafe.proteinaSugerida_g * 0.8
+                              ? 'text-green-700'
+                              : 'text-amber-700'
+                          }`}>
+                            {plano.macrosPorRefeicao.cafe.proteinaEscolhida_g.toFixed(1)}g
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.cafe.caloriasSugerida_kcal} kcal</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.cafe.caloriasEscolhida_kcal} kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Lanche 1 */}
                 <button
                   onClick={() => {
@@ -3666,6 +3722,36 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </div>
                   <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche1}</p>
                 </button>
+                
+                {/* Informações de macros - Lanche 1 */}
+                {plano.macrosPorRefeicao?.lanche1 && (
+                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche1.proteinaSugerida_g}g</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className={`font-semibold ${
+                            plano.macrosPorRefeicao.lanche1.proteinaEscolhida_g >= plano.macrosPorRefeicao.lanche1.proteinaSugerida_g * 0.8
+                              ? 'text-green-700'
+                              : 'text-amber-700'
+                          }`}>
+                            {plano.macrosPorRefeicao.lanche1.proteinaEscolhida_g.toFixed(1)}g
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche1.caloriasSugerida_kcal} kcal</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.lanche1.caloriasEscolhida_kcal} kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Almoço */}
                 <button
@@ -3685,6 +3771,36 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.almoco}</p>
                 </button>
                 
+                {/* Informações de macros - Almoço */}
+                {plano.macrosPorRefeicao?.almoco && (
+                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.almoco.proteinaSugerida_g}g</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className={`font-semibold ${
+                            plano.macrosPorRefeicao.almoco.proteinaEscolhida_g >= plano.macrosPorRefeicao.almoco.proteinaSugerida_g * 0.8
+                              ? 'text-green-700'
+                              : 'text-amber-700'
+                          }`}>
+                            {plano.macrosPorRefeicao.almoco.proteinaEscolhida_g.toFixed(1)}g
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.almoco.caloriasSugerida_kcal} kcal</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.almoco.caloriasEscolhida_kcal} kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Lanche 2 */}
                 <button
                   onClick={() => {
@@ -3703,6 +3819,36 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche2}</p>
                 </button>
                 
+                {/* Informações de macros - Lanche 2 */}
+                {plano.macrosPorRefeicao?.lanche2 && (
+                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche2.proteinaSugerida_g}g</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className={`font-semibold ${
+                            plano.macrosPorRefeicao.lanche2.proteinaEscolhida_g >= plano.macrosPorRefeicao.lanche2.proteinaSugerida_g * 0.8
+                              ? 'text-green-700'
+                              : 'text-amber-700'
+                          }`}>
+                            {plano.macrosPorRefeicao.lanche2.proteinaEscolhida_g.toFixed(1)}g
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche2.caloriasSugerida_kcal} kcal</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.lanche2.caloriasEscolhida_kcal} kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Jantar */}
                 <button
                   onClick={() => {
@@ -3720,6 +3866,36 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </div>
                   <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.jantar}</p>
                 </button>
+                
+                {/* Informações de macros - Jantar */}
+                {plano.macrosPorRefeicao?.jantar && (
+                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.jantar.proteinaSugerida_g}g</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className={`font-semibold ${
+                            plano.macrosPorRefeicao.jantar.proteinaEscolhida_g >= plano.macrosPorRefeicao.jantar.proteinaSugerida_g * 0.8
+                              ? 'text-green-700'
+                              : 'text-amber-700'
+                          }`}>
+                            {plano.macrosPorRefeicao.jantar.proteinaEscolhida_g.toFixed(1)}g
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.jantar.caloriasSugerida_kcal} kcal</strong></span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.jantar.caloriasEscolhida_kcal} kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -3753,11 +3929,19 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     const config = configuracaoBuilder[refeicaoEmEdicao];
                     const categorias: CategoriaItemRefeicao[] = ['proteina', 'carboidrato', 'legumes_salada', 'gordura_boa', 'extra'];
                     const nomesCategorias: Record<CategoriaItemRefeicao, string> = {
-                      proteina: 'Proteína principal',
+                      proteina: 'Proteína Principal',
                       carboidrato: 'Acompanhamentos',
-                      legumes_salada: 'Legumes e salada',
-                      gordura_boa: 'Gorduras boas',
-                      extra: 'Extras'
+                      legumes_salada: 'Legumes',
+                      gordura_boa: 'Gorduras',
+                      extra: 'Extra'
+                    };
+                    
+                    const coresCategorias: Record<CategoriaItemRefeicao, string> = {
+                      proteina: 'from-blue-50 to-blue-100 border-blue-200',
+                      carboidrato: 'from-amber-50 to-amber-100 border-amber-200',
+                      legumes_salada: 'from-green-50 to-green-100 border-green-200',
+                      gordura_boa: 'from-purple-50 to-purple-100 border-purple-200',
+                      extra: 'from-pink-50 to-pink-100 border-pink-200'
                     };
                     
                     return categorias.map(categoria => {
@@ -3772,7 +3956,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                                       config.maxExtras;
                       
                       return (
-                        <section key={categoria} className="space-y-3">
+                        <section key={categoria} className={`bg-gradient-to-br ${coresCategorias[categoria]} rounded-lg border p-4 space-y-3`}>
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                             {nomesCategorias[categoria]}
                             {categoria === 'proteina' && (
@@ -3821,7 +4005,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     });
                   })()}
                   
-                  {/* Resumo de macros da refeição */}
+                  {/* Resumo de macros da refeição - Comparação Sugerida vs Escolhida */}
                   {(() => {
                     const config = configuracaoBuilder[refeicaoEmEdicao];
                     const metaMinima = config.metaProteina_g * 0.8; // 80% da meta
@@ -3830,27 +4014,70 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       i.categoria === 'proteina' && itensSelecionadosRefeicao[i.id]
                     );
                     
+                    // Calcular calorias sugeridas (estimativa baseada no tipo de refeição)
+                    const caloriasSugerida = refeicaoEmEdicao === 'cafe' ? 400 :
+                                            refeicaoEmEdicao === 'lanche1' ? 250 :
+                                            refeicaoEmEdicao === 'almoco' ? 550 :
+                                            refeicaoEmEdicao === 'lanche2' ? 200 : 450;
+                    
                     return (
                       <div className="mt-6 space-y-3">
-                        <div className="p-3 rounded-lg bg-gray-50 flex justify-between items-center text-sm">
-                          <span className="text-gray-800">
-                            Proteína da refeição: <strong className="text-gray-900">{macrosRefeicaoAtual.proteinaTotal_g.toFixed(1)}g</strong>
-                            {' '}/ {config.metaProteina_g}g (meta)
-                          </span>
-                          <span className="text-gray-800">
-                            Calorias estimadas: <strong className="text-gray-900">{macrosRefeicaoAtual.caloriasTotal_kcal} kcal</strong>
-                          </span>
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 p-4">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo da Refeição</h3>
+                          
+                          {/* Proteína */}
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700">Proteína</span>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Sugerida</p>
+                                  <p className="text-sm font-semibold text-gray-700">{config.metaProteina_g}g</p>
+                                </div>
+                                <div className="text-gray-400">→</div>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Escolhida</p>
+                                  <p className={`text-sm font-semibold ${
+                                    macrosRefeicaoAtual.proteinaTotal_g >= metaMinima 
+                                      ? 'text-green-700' 
+                                      : 'text-amber-700'
+                                  }`}>
+                                    {macrosRefeicaoAtual.proteinaTotal_g.toFixed(1)}g
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            {estaAbaixo && temProteina && (
+                              <p className="text-xs text-amber-600 font-medium mt-1">
+                                ⚠️ Proteína abaixo do ideal. Considere adicionar mais proteína.
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Calorias */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700">Calorias</span>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Sugerida</p>
+                                  <p className="text-sm font-semibold text-gray-700">{caloriasSugerida} kcal</p>
+                                </div>
+                                <div className="text-gray-400">→</div>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Escolhida</p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {macrosRefeicaoAtual.caloriasTotal_kcal} kcal
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                         
                         {!temProteina && (
-                          <p className="text-xs text-red-600 font-medium">
+                          <p className="text-xs text-red-600 font-medium bg-red-50 p-2 rounded">
                             ⚠️ Selecione pelo menos uma fonte de proteína.
-                          </p>
-                        )}
-                        
-                        {temProteina && estaAbaixo && (
-                          <p className="text-xs text-amber-600 font-medium">
-                            ⚠️ Proteína abaixo do ideal para esta refeição. Considere adicionar mais proteína ou ajustar o prato.
                           </p>
                         )}
                       </div>
