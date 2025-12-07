@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { AplicacaoAgendada, FiltroAplicacao } from '@/types/calendario';
 import { AplicacaoService } from '@/services/aplicacaoService';
 import { MedicoService } from '@/services/medicoService';
-import { Calendar, CheckCircle, XCircle, Clock, Filter, RefreshCw } from 'lucide-react';
+import { EmailAplicacaoService } from '@/services/emailAplicacaoService';
+import { Calendar, CheckCircle, XCircle, Clock, Filter, RefreshCw, Mail } from 'lucide-react';
 import { PacienteCompleto } from '@/types/obesidade';
 
 interface CalendarioAplicacoesProps {
@@ -15,6 +16,7 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
   const [aplicacoes, setAplicacoes] = useState<AplicacaoAgendada[]>([]);
   const [loading, setLoading] = useState(false);
   const [medicosMap, setMedicosMap] = useState<Map<string, string>>(new Map());
+  const [processandoEmails, setProcessandoEmails] = useState(false);
   
   // Filtro inicial: mês atual
   const hoje = new Date();
@@ -92,14 +94,47 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-          <Calendar className="mr-2" size={28} />
-          Calendário de Aplicações
-        </h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Gerencie as aplicações agendadas. Os e-mails são enviados automaticamente via cron job.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+            <Calendar className="mr-2" size={28} />
+            Calendário de Aplicações
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Gerencie as aplicações agendadas. Os e-mails são enviados automaticamente via cron job.
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            setProcessandoEmails(true);
+            try {
+              const resultado = await EmailAplicacaoService.processarEnviosAutomaticos();
+              let mensagem = `✅ Processamento concluído!\n\n`;
+              mensagem += `📧 E-mails enviados: ${resultado.enviados}\n`;
+              mensagem += `❌ Erros: ${resultado.erros}\n\n`;
+              
+              if (resultado.detalhes.length > 0) {
+                mensagem += `Detalhes:\n`;
+                resultado.detalhes.forEach((d, i) => {
+                  mensagem += `${i + 1}. ${d.aplicacao.pacienteNome} - ${d.tipo === 'antes' ? 'E-mail Antes' : 'E-mail Dia'}: ${d.sucesso ? '✅ Enviado' : '❌ ' + (d.erro || 'Erro')}\n`;
+                });
+              }
+              
+              alert(mensagem);
+              await loadAplicacoes();
+            } catch (error) {
+              console.error('Erro ao processar e-mails:', error);
+              alert(`Erro ao processar e-mails: ${(error as Error).message}`);
+            } finally {
+              setProcessandoEmails(false);
+            }
+          }}
+          disabled={processandoEmails}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          <Mail size={16} className="mr-2" />
+          {processandoEmails ? 'Processando...' : 'Testar E-mails Hoje/Amanhã'}
+        </button>
       </div>
 
       {/* Filtros */}
