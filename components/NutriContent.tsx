@@ -302,10 +302,14 @@ export default function NutriContent({ paciente }: NutriContentProps) {
       const planoRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'plano');
       await setDoc(planoRef, {
         ...planoData,
-        criadoEm: new Date()
+        criadoEm: Timestamp.now()
       });
       
-      setPlano(planoData);
+      // Manter criadoEm como Date no estado local para exibição
+      setPlano({
+        ...planoData,
+        criadoEm: new Date()
+      });
       setView('plano');
     } catch (error) {
       console.error('Erro ao salvar plano nutricional:', error);
