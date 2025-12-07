@@ -6391,7 +6391,7 @@ export default function MetaAdminPage() {
                                   <p className="text-sm text-gray-600">
                                     {indicacao.cidade}, {indicacao.estado}
                                   </p>
-                                  {indicacao.status === 'visualizada' || indicacao.status === 'venda' || indicacao.status === 'paga' ? (
+                                  {indicacao.status !== 'pendente' && (
                                     <div className="mt-2">
                                       <p className="text-sm text-gray-700">
                                         <strong>Telefone:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
@@ -6406,7 +6406,7 @@ export default function MetaAdminPage() {
                                         Entrar em contato via WhatsApp
                                       </a>
                                     </div>
-                                  ) : null}
+                                  )}
                                 </div>
                                 <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
                                   <StatusIcon className="w-3 h-3" />
@@ -6695,16 +6695,16 @@ export default function MetaAdminPage() {
             {/* Navigation */}
             <nav className="flex-1 px-4 py-4 space-y-2">
               <button
-                onClick={() => setActiveMenu('meu-perfil')}
+                onClick={() => setActiveMenu('indicacao')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'meu-perfil'
+                  activeMenu === 'indicacao'
                     ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
-                title={sidebarCollapsed ? 'Meu Perfil' : ''}
+                title={sidebarCollapsed ? 'Indicação' : ''}
               >
-                <Stethoscope size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Meu Perfil Médico'}
+                <DollarSign size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Indicação'}
               </button>
               <button
                 onClick={() => setActiveMenu('estatisticas')}
@@ -14937,15 +14937,15 @@ export default function MetaAdminPage() {
           </button>
 
           <button
-            onClick={() => setActiveMenu('meu-perfil')}
+            onClick={() => setActiveMenu('indicacao')}
             className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'meu-perfil'
+              activeMenu === 'indicacao'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
-            <Stethoscope className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Meu Perfil</span>
+            <DollarSign className="w-4 h-4 mb-1" />
+            <span className="text-xs font-medium">Indicação</span>
           </button>
 
           <button
