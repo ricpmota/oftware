@@ -2267,14 +2267,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     const dataMinima = tresDiasAtras.toISOString().split('T')[0];
     const dataMaxima = hoje.toISOString().split('T')[0];
     
-    // Formatar data selecionada para exibição
-    const dataSelecionada = new Date(checkInDate);
-    const dataFormatada = dataSelecionada.toLocaleDateString('pt-BR', { 
-      weekday: 'long', 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
-    });
+    // Formatar data selecionada para exibição usando função auxiliar
+    const dataFormatada = formatarDataCheckInCompleta(checkInDate);
     
     const metaAgua = plano ? `${plano.aguaDia_ml} ml` : '2-3 litros';
     
@@ -3458,7 +3452,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       {resumoCheckIns.melhorDia.score.toFixed(1)}%
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
-                      {new Date(resumoCheckIns.melhorDia.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+                      {formatarDataCheckIn(resumoCheckIns.melhorDia.data)}
                     </p>
                   </div>
                 </div>
@@ -3491,12 +3485,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                         <div className="flex items-center justify-between mb-4">
                           <div>
                             <p className="font-bold text-gray-900 text-lg">
-                              {new Date(checkIn.data).toLocaleDateString('pt-BR', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              })}
+                              {formatarDataCheckInCompleta(checkIn.data)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
