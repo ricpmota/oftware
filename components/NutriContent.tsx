@@ -2369,6 +2369,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           </div>
           )}
         </div>
+        </div>
       </div>
     );
   }
