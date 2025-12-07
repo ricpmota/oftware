@@ -1740,9 +1740,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   />
                 </label>
                 
-                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-red-300 transition-colors">
+                <label className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-green-300 transition-colors">
                   <div className="flex items-center gap-3">
-                    <XCircle className="h-5 w-5 text-red-600" />
+                    <XCircle className="h-5 w-5 text-green-600" />
                     <div>
                       <p className="font-medium text-gray-900">Evitei lixos alimentares importantes</p>
                       <p className="text-xs text-gray-500">Não consumiu alimentos ultraprocessados?</p>
@@ -1750,7 +1750,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </div>
                   <input
                     type="checkbox"
-                    checked={!checkInData.lixoAlimentar}
+                    checked={checkInData.lixoAlimentar === false}
                     onChange={(e) => setCheckInData({ ...checkInData, lixoAlimentar: !e.target.checked })}
                     className="h-5 w-5 text-green-600 focus:ring-green-500 rounded"
                   />
@@ -2031,12 +2031,12 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     onChange={(e) => setCheckInData({ ...checkInData, aderenciaPlano: parseInt(e.target.value) })}
                     className="flex-1"
                   />
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap">
                     {[25, 50, 75, 100].map((valor) => (
                       <button
                         key={valor}
                         onClick={() => setCheckInData({ ...checkInData, aderenciaPlano: valor })}
-                        className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                        className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded-md transition-colors ${
                           (checkInData.aderenciaPlano || 100) === valor
                             ? 'bg-blue-600 text-white'
                             : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
