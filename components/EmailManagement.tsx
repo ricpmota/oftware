@@ -1305,6 +1305,16 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             nome: 'Recomendações Lidas', 
             descricao: 'Aviso ao médico quando paciente lê recomendações'
           },
+          'bem_vindo_bem_vindo_geral': { 
+            modulo: 'Bem-vindo',
+            nome: 'Bem-vindo Geral', 
+            descricao: 'E-mail enviado automaticamente quando um novo cliente se cadastra'
+          },
+          'bem_vindo_bem_vindo_medico': { 
+            modulo: 'Bem-vindo',
+            nome: 'Bem-vindo Médico', 
+            descricao: 'E-mail enviado quando um médico salva o perfil pela primeira vez'
+          },
           'novidades_novidade': { 
             modulo: 'Novidades',
             nome: 'Novidade', 
