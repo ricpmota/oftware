@@ -17,6 +17,28 @@ import {
 
 type RefeicaoKey = 'cafe' | 'lanche1' | 'almoco' | 'lanche2' | 'jantar';
 
+type CategoriaItemRefeicao = 'proteina' | 'carboidrato' | 'legumes_salada' | 'gordura_boa' | 'extra';
+
+interface ItemRefeicao {
+  id: string;
+  nome: string;
+  categoria: CategoriaItemRefeicao;
+  proteina_g: number;
+  calorias_kcal: number;
+  descricao?: string;
+}
+
+interface ConfiguracaoRefeicao {
+  refeicaoKey: RefeicaoKey;
+  itensDisponiveis: ItemRefeicao[];
+  maxProteinas: number;
+  maxCarboidratos: number;
+  maxLegumesSalada: number;
+  maxGordurasBoas: number;
+  maxExtras: number;
+  metaProteina_g: number; // Meta de proteína para esta refeição
+}
+
 interface OpcaoRefeicao {
   id: string;
   titulo: string;       // nome curto (ex: "Frango + arroz + salada")
@@ -155,6 +177,179 @@ interface NutriContentProps {
  * Gera as opções de refeições baseadas no estilo do plano
  * Cada refeição tem pelo menos 3 opções: alta proteína, equilibrada e leve
  */
+/**
+ * Converte a distribuição de proteína (string) em gramas-alvo por refeição
+ * Ex: "25-30 g" -> 27.5g (média)
+ */
+const converterDistribuicaoProteina = (distribuicao: string): number => {
+  const match = distribuicao.match(/(\d+)-(\d+)/);
+  if (match) {
+    const min = parseInt(match[1]);
+    const max = parseInt(match[2]);
+    return Math.round((min + max) / 2);
+  }
+  // Se não encontrar padrão, tenta extrair número único
+  const numMatch = distribuicao.match(/(\d+)/);
+  return numMatch ? parseInt(numMatch[1]) : 20; // default
+};
+
+/**
+ * Gera configuração de builder por refeição com itens disponíveis e limites
+ */
+const gerarConfiguracaoBuilderPorRefeicao = (
+  plano: PlanoNutricional,
+  restricoes: string[] = [],
+  preferenciasProteina: string[] = []
+): Record<RefeicaoKey, ConfiguracaoRefeicao> => {
+  // Calcular meta de proteína por refeição
+  const protCafe = converterDistribuicaoProteina(plano.distribuicaoProteina.cafe);
+  const protAlmoco = converterDistribuicaoProteina(plano.distribuicaoProteina.almoco);
+  const protJantar = converterDistribuicaoProteina(plano.distribuicaoProteina.jantar);
+  const protLanche = converterDistribuicaoProteina(plano.distribuicaoProteina.lanche1);
+
+  // Itens base disponíveis (serão filtrados por restrições depois)
+  const proteinasBase: ItemRefeicao[] = [
+    { id: 'prot_frango_100g', nome: 'Peito de frango grelhado (100g)', categoria: 'proteina', proteina_g: 31, calorias_kcal: 165, descricao: 'Peito de frango sem pele' },
+    { id: 'prot_frango_150g', nome: 'Peito de frango grelhado (150g)', categoria: 'proteina', proteina_g: 46, calorias_kcal: 248 },
+    { id: 'prot_carne_magra_100g', nome: 'Carne magra/patinho (100g)', categoria: 'proteina', proteina_g: 26, calorias_kcal: 200 },
+    { id: 'prot_peixe_100g', nome: 'Peixe grelhado (100g)', categoria: 'proteina', proteina_g: 25, calorias_kcal: 150 },
+    { id: 'prot_ovos_2un', nome: '2 ovos inteiros', categoria: 'proteina', proteina_g: 12, calorias_kcal: 140 },
+    { id: 'prot_ovos_3un', nome: '3 ovos inteiros', categoria: 'proteina', proteina_g: 18, calorias_kcal: 210 },
+    { id: 'prot_claras_4un', nome: '4 claras de ovo', categoria: 'proteina', proteina_g: 14, calorias_kcal: 68 },
+    { id: 'prot_whey_1dose', nome: 'Whey protein (1 dose)', categoria: 'proteina', proteina_g: 25, calorias_kcal: 120 },
+    { id: 'prot_iogurte_proteico', nome: 'Iogurte proteico (170g)', categoria: 'proteina', proteina_g: 20, calorias_kcal: 150 },
+    { id: 'prot_queijo_cottage', nome: 'Queijo cottage (100g)', categoria: 'proteina', proteina_g: 11, calorias_kcal: 98 },
+    { id: 'prot_tofu_100g', nome: 'Tofu (100g)', categoria: 'proteina', proteina_g: 8, calorias_kcal: 76 },
+    { id: 'prot_peito_peru', nome: 'Peito de peru (100g)', categoria: 'proteina', proteina_g: 30, calorias_kcal: 120 }
+  ];
+
+  const carboidratosBase: ItemRefeicao[] = [
+    { id: 'carb_arroz_integral_3col', nome: 'Arroz integral (3 colheres)', categoria: 'carboidrato', proteina_g: 3, calorias_kcal: 150 },
+    { id: 'carb_arroz_branco_3col', nome: 'Arroz branco (3 colheres)', categoria: 'carboidrato', proteina_g: 2, calorias_kcal: 140 },
+    { id: 'carb_batata_doce_1un', nome: 'Batata doce (1 unidade média)', categoria: 'carboidrato', proteina_g: 2, calorias_kcal: 180 },
+    { id: 'carb_mandioca_100g', nome: 'Mandioca (100g)', categoria: 'carboidrato', proteina_g: 1, calorias_kcal: 160 },
+    { id: 'carb_pao_integral_1fat', nome: 'Pão integral (1 fatia)', categoria: 'carboidrato', proteina_g: 3, calorias_kcal: 80 },
+    { id: 'carb_quinoa_3col', nome: 'Quinoa (3 colheres)', categoria: 'carboidrato', proteina_g: 4, calorias_kcal: 120 }
+  ];
+
+  const legumesSaladaBase: ItemRefeicao[] = [
+    { id: 'leg_salada_grande', nome: 'Prato cheio de salada e legumes', categoria: 'legumes_salada', proteina_g: 2, calorias_kcal: 50 },
+    { id: 'leg_salada_media', nome: 'Meia porção de salada', categoria: 'legumes_salada', proteina_g: 1, calorias_kcal: 25 },
+    { id: 'leg_legumes_cozidos', nome: 'Legumes cozidos variados', categoria: 'legumes_salada', proteina_g: 2, calorias_kcal: 60 }
+  ];
+
+  const gordurasBoasBase: ItemRefeicao[] = [
+    { id: 'gord_azeite_1col', nome: 'Azeite (1 colher de sopa)', categoria: 'gordura_boa', proteina_g: 0, calorias_kcal: 120 },
+    { id: 'gord_castanhas_porcao', nome: 'Castanhas (porção pequena)', categoria: 'gordura_boa', proteina_g: 3, calorias_kcal: 100 }
+  ];
+
+  const extrasBase: ItemRefeicao[] = [
+    { id: 'extra_fruta_pequena', nome: 'Fruta pequena', categoria: 'extra', proteina_g: 0, calorias_kcal: 60 },
+    { id: 'extra_iogurte_extra', nome: 'Iogurte natural extra', categoria: 'extra', proteina_g: 5, calorias_kcal: 80 }
+  ];
+
+  // Filtrar por restrições
+  const filtrarItens = (itens: ItemRefeicao[]): ItemRefeicao[] => {
+    return itens.filter(item => {
+      const nomeLower = item.nome.toLowerCase();
+      const descLower = item.descricao?.toLowerCase() || '';
+      
+      if (restricoes.includes('vegetariano') || restricoes.includes('vegano')) {
+        if (restricoes.includes('vegano')) {
+          if (nomeLower.includes('frango') || nomeLower.includes('carne') || nomeLower.includes('peixe') || 
+              nomeLower.includes('ovos') || nomeLower.includes('queijo') || nomeLower.includes('iogurte') ||
+              nomeLower.includes('whey') || nomeLower.includes('peru')) {
+            return false;
+          }
+        } else if (restricoes.includes('vegetariano')) {
+          if (nomeLower.includes('frango') || nomeLower.includes('carne') || nomeLower.includes('peixe') ||
+              nomeLower.includes('peru')) {
+            return false;
+          }
+        }
+      }
+      
+      if (restricoes.includes('intolerância lactose')) {
+        if ((nomeLower.includes('queijo') || nomeLower.includes('iogurte')) && 
+            !nomeLower.includes('sem lactose') && !nomeLower.includes('vegetal')) {
+          return false;
+        }
+      }
+      
+      if (restricoes.includes('sem glúten')) {
+        if ((nomeLower.includes('pão') || nomeLower.includes('trigo')) && 
+            !nomeLower.includes('sem glúten') && !nomeLower.includes('sem gluten')) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+
+  const proteinas = filtrarItens(proteinasBase);
+  const carboidratos = filtrarItens(carboidratosBase);
+  const legumesSalada = filtrarItens(legumesSaladaBase);
+  const gordurasBoas = filtrarItens(gordurasBoasBase);
+  const extras = filtrarItens(extrasBase);
+
+  // Configuração por refeição
+  const config: Record<RefeicaoKey, ConfiguracaoRefeicao> = {
+    cafe: {
+      refeicaoKey: 'cafe',
+      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas, ...extras],
+      maxProteinas: 1,
+      maxCarboidratos: 1,
+      maxLegumesSalada: 1,
+      maxGordurasBoas: 1,
+      maxExtras: 1,
+      metaProteina_g: protCafe
+    },
+    lanche1: {
+      refeicaoKey: 'lanche1',
+      itensDisponiveis: [...proteinas.filter(p => p.id.includes('whey') || p.id.includes('iogurte') || p.id.includes('ovos')), ...extras],
+      maxProteinas: 1,
+      maxCarboidratos: 0,
+      maxLegumesSalada: 0,
+      maxGordurasBoas: 0,
+      maxExtras: 1,
+      metaProteina_g: protLanche
+    },
+    almoco: {
+      refeicaoKey: 'almoco',
+      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas],
+      maxProteinas: 1,
+      maxCarboidratos: 2,
+      maxLegumesSalada: 3,
+      maxGordurasBoas: 1,
+      maxExtras: 0,
+      metaProteina_g: protAlmoco
+    },
+    lanche2: {
+      refeicaoKey: 'lanche2',
+      itensDisponiveis: [...proteinas.filter(p => p.id.includes('whey') || p.id.includes('iogurte') || p.id.includes('ovos')), ...extras],
+      maxProteinas: 1,
+      maxCarboidratos: 0,
+      maxLegumesSalada: 0,
+      maxGordurasBoas: 0,
+      maxExtras: 1,
+      metaProteina_g: protLanche
+    },
+    jantar: {
+      refeicaoKey: 'jantar',
+      itensDisponiveis: [...proteinas, ...carboidratos, ...legumesSalada, ...gordurasBoas],
+      maxProteinas: 1,
+      maxCarboidratos: 1,
+      maxLegumesSalada: 3,
+      maxGordurasBoas: 1,
+      maxExtras: 0,
+      metaProteina_g: protJantar
+    }
+  };
+
+  return config;
+};
+
 const gerarOpcoesRefeicoes = (
   estilo: PlanoNutricional['estilo'],
   protCafe: number,
@@ -537,6 +732,14 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     lanche2: [],
     jantar: []
   });
+  
+  // Estados para meal builder
+  const [itensSelecionadosRefeicao, setItensSelecionadosRefeicao] = useState<Record<string, boolean>>({});
+  const [macrosRefeicaoAtual, setMacrosRefeicaoAtual] = useState<{ proteinaTotal_g: number; caloriasTotal_kcal: number }>({ 
+    proteinaTotal_g: 0, 
+    caloriasTotal_kcal: 0 
+  });
+  const [configuracaoBuilder, setConfiguracaoBuilder] = useState<Record<RefeicaoKey, ConfiguracaoRefeicao> | null>(null);
 
   // ============================================
   // CARREGAMENTO DE DADOS
@@ -549,6 +752,59 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, plano]);
+
+  // Inicializar builder quando modal abrir
+  useEffect(() => {
+    if (refeicaoEmEdicao && plano) {
+      const config = gerarConfiguracaoBuilderPorRefeicao(
+        plano,
+        plano.restricoesPaciente || [],
+        plano.preferenciasProteinaPaciente || []
+      );
+      setConfiguracaoBuilder(config);
+      
+      // Inicializar itens selecionados (sugestão padrão: proteína + salada)
+      const configRefeicao = config[refeicaoEmEdicao];
+      const itensIniciais: Record<string, boolean> = {};
+      
+      // Sugerir uma proteína padrão
+      const proteinaPadrao = configRefeicao.itensDisponiveis.find(i => 
+        i.categoria === 'proteina' && 
+        (i.id.includes('frango_100g') || i.id.includes('ovos_2un') || i.id.includes('whey'))
+      );
+      if (proteinaPadrao) {
+        itensIniciais[proteinaPadrao.id] = true;
+      }
+      
+      // Para almoço e jantar, sugerir salada
+      if (refeicaoEmEdicao === 'almoco' || refeicaoEmEdicao === 'jantar') {
+        const saladaPadrao = configRefeicao.itensDisponiveis.find(i => 
+          i.categoria === 'legumes_salada' && i.id.includes('salada_grande')
+        );
+        if (saladaPadrao) {
+          itensIniciais[saladaPadrao.id] = true;
+        }
+      }
+      
+      setItensSelecionadosRefeicao(itensIniciais);
+      
+      // Calcular macros iniciais
+      const macros = calcularMacrosRefeicao(configRefeicao, itensIniciais);
+      setMacrosRefeicaoAtual(macros);
+    } else {
+      setItensSelecionadosRefeicao({});
+      setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
+    }
+  }, [refeicaoEmEdicao, plano]);
+
+  // Recalcular macros quando itens selecionados mudarem
+  useEffect(() => {
+    if (refeicaoEmEdicao && configuracaoBuilder) {
+      const configRefeicao = configuracaoBuilder[refeicaoEmEdicao];
+      const macros = calcularMacrosRefeicao(configRefeicao, itensSelecionadosRefeicao);
+      setMacrosRefeicaoAtual(macros);
+    }
+  }, [itensSelecionadosRefeicao, refeicaoEmEdicao, configuracaoBuilder]);
 
   useEffect(() => {
     const loadPlano = async () => {
@@ -1080,6 +1336,29 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   };
 
   /**
+   * Calcula macros da refeição atual baseado nos itens selecionados
+   */
+  const calcularMacrosRefeicao = (
+    config: ConfiguracaoRefeicao,
+    itensSelecionados: Record<string, boolean>
+  ): { proteinaTotal_g: number; caloriasTotal_kcal: number } => {
+    let proteinaTotal_g = 0;
+    let caloriasTotal_kcal = 0;
+
+    Object.entries(itensSelecionados).forEach(([itemId, selecionado]) => {
+      if (selecionado) {
+        const item = config.itensDisponiveis.find(i => i.id === itemId);
+        if (item) {
+          proteinaTotal_g += item.proteina_g;
+          caloriasTotal_kcal += item.calorias_kcal;
+        }
+      }
+    });
+
+    return { proteinaTotal_g, caloriasTotal_kcal };
+  };
+
+  /**
    * Tenta ajustar automaticamente os lanches para manter meta mínima de proteína
    * Retorna opções ajustadas e mensagem de ajuste se aplicado
    */
@@ -1162,27 +1441,132 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   };
 
   /**
-   * Salva alterações do cardápio (apenas opcoesSelecionadas e modeloDia)
+   * Lida com a seleção de um item no builder, respeitando limites por categoria
+   */
+  const handleSelecionarItem = (itemId: string, categoria: CategoriaItemRefeicao) => {
+    if (!refeicaoEmEdicao || !configuracaoBuilder) return;
+    
+    const config = configuracaoBuilder[refeicaoEmEdicao];
+    const item = config.itensDisponiveis.find(i => i.id === itemId);
+    if (!item) return;
+    
+    const novosItens = { ...itensSelecionadosRefeicao };
+    const itensDaCategoria = config.itensDisponiveis.filter(i => i.categoria === categoria);
+    const itensSelecionadosDaCategoria = itensDaCategoria.filter(i => novosItens[i.id]);
+    
+    // Regras por categoria
+    if (categoria === 'proteina') {
+      // Proteína: obrigatório 1, máximo 1
+      // Desmarcar todas as outras proteínas
+      itensDaCategoria.forEach(i => {
+        if (i.id !== itemId) {
+          delete novosItens[i.id];
+        }
+      });
+      // Marcar a nova
+      novosItens[itemId] = !novosItens[itemId];
+    } else {
+      // Outras categorias: verificar limite
+      let maxItens = 0;
+      if (categoria === 'carboidrato') maxItens = config.maxCarboidratos;
+      else if (categoria === 'legumes_salada') maxItens = config.maxLegumesSalada;
+      else if (categoria === 'gordura_boa') maxItens = config.maxGordurasBoas;
+      else if (categoria === 'extra') maxItens = config.maxExtras;
+      
+      if (novosItens[itemId]) {
+        // Desmarcar se já estava marcado
+        delete novosItens[itemId];
+      } else {
+        // Verificar se pode adicionar
+        if (itensSelecionadosDaCategoria.length >= maxItens) {
+          // Desmarcar o mais antigo (primeiro da lista)
+          if (itensSelecionadosDaCategoria.length > 0) {
+            delete novosItens[itensSelecionadosDaCategoria[0].id];
+          }
+        }
+        novosItens[itemId] = true;
+      }
+    }
+    
+    setItensSelecionadosRefeicao(novosItens);
+  };
+
+  /**
+   * Gera texto legível da refeição montada
+   */
+  const gerarTextoRefeicao = (itensSelecionados: Record<string, boolean>, config: ConfiguracaoRefeicao): string => {
+    const itens = config.itensDisponiveis.filter(i => itensSelecionados[i.id]);
+    const partes: string[] = [];
+    
+    // Ordenar por categoria
+    const proteinas = itens.filter(i => i.categoria === 'proteina');
+    const carboidratos = itens.filter(i => i.categoria === 'carboidrato');
+    const legumes = itens.filter(i => i.categoria === 'legumes_salada');
+    const gorduras = itens.filter(i => i.categoria === 'gordura_boa');
+    const extras = itens.filter(i => i.categoria === 'extra');
+    
+    proteinas.forEach(p => partes.push(p.nome));
+    carboidratos.forEach(c => partes.push(c.nome));
+    legumes.forEach(l => partes.push(l.nome));
+    gorduras.forEach(g => partes.push(g.nome));
+    extras.forEach(e => partes.push(e.nome));
+    
+    return partes.join(' + ') || 'Refeição personalizada';
+  };
+
+  /**
+   * Salva alterações do cardápio usando meal builder
    */
   const salvarAlteracoesCardapio = async () => {
-    if (!plano || !refeicaoEmEdicao) return;
+    if (!plano || !refeicaoEmEdicao || !configuracaoBuilder) return;
     
     try {
+      const config = configuracaoBuilder[refeicaoEmEdicao];
+      
+      // Verificar se há pelo menos uma proteína selecionada
+      const temProteina = config.itensDisponiveis.some(i => 
+        i.categoria === 'proteina' && itensSelecionadosRefeicao[i.id]
+      );
+      
+      if (!temProteina) {
+        alert('Por favor, selecione pelo menos uma fonte de proteína.');
+        return;
+      }
+      
+      // Gerar texto da refeição
+      const textoRefeicao = gerarTextoRefeicao(itensSelecionadosRefeicao, config);
+      
+      // Criar opção customizada
+      const opcaoCustom: OpcaoRefeicao = {
+        id: `custom_${refeicaoEmEdicao}_${Date.now()}`,
+        titulo: 'Refeição personalizada',
+        descricao: textoRefeicao,
+        proteina_g: macrosRefeicaoAtual.proteinaTotal_g,
+        calorias_kcal: macrosRefeicaoAtual.caloriasTotal_kcal
+      };
+      
+      // Adicionar opção customizada ao opcoesRefeicoes se não existir
+      const opcoesAtualizadas = { ...opcoesRefeicoes };
+      if (!opcoesAtualizadas[refeicaoEmEdicao].find(o => o.id === opcaoCustom.id)) {
+        opcoesAtualizadas[refeicaoEmEdicao] = [...opcoesAtualizadas[refeicaoEmEdicao], opcaoCustom];
+        setOpcoesRefeicoes(opcoesAtualizadas);
+      }
+      
       // Criar cópia das opções selecionadas com a alteração
       const opcoesSelecionadasAtualizadas = {
         ...(plano.opcoesSelecionadas || {}),
-        [refeicaoEmEdicao]: opcaoSelecionadaTemp
+        [refeicaoEmEdicao]: opcaoCustom.id
       };
       
       // Aplicar ajuste automático se necessário
       const { opcoesAjustadas, mensagemAjuste } = ajustarProteinaAutomaticamente(
         opcoesSelecionadasAtualizadas,
-        opcoesRefeicoes,
+        opcoesAtualizadas,
         plano.protDia_g
       );
       
       // Regenerar modeloDia
-      const modeloDiaAtualizado = gerarModeloDiaFromOpcoes(opcoesAjustadas, opcoesRefeicoes);
+      const modeloDiaAtualizado = gerarModeloDiaFromOpcoes(opcoesAjustadas, opcoesAtualizadas);
       
       // Atualizar plano mantendo outros campos
       const planoAtualizado: PlanoNutricional = {
@@ -1194,9 +1578,11 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       // Salvar no Firestore
       await salvarPlanoNutricional(planoAtualizado);
       
-      // Fechar modal
+      // Fechar modal e limpar estados
       setRefeicaoEmEdicao(null);
       setOpcaoSelecionadaTemp('');
+      setItensSelecionadosRefeicao({});
+      setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
       
       // Mostrar mensagem de ajuste se houver
       if (mensagemAjuste) {
@@ -3338,13 +3724,13 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </div>
           )}
 
-          {/* Modal de Edição de Refeição */}
-          {refeicaoEmEdicao && plano && (
+          {/* Modal de Edição de Refeição - Meal Builder */}
+          {refeicaoEmEdicao && plano && configuracaoBuilder && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
                   <h2 className="text-2xl font-bold text-gray-900">
-                    Editar {refeicaoEmEdicao === 'cafe' ? 'Café da Manhã' : 
+                    Montar {refeicaoEmEdicao === 'cafe' ? 'Café da Manhã' : 
                             refeicaoEmEdicao === 'lanche1' ? 'Lanche da Manhã' :
                             refeicaoEmEdicao === 'almoco' ? 'Almoço' :
                             refeicaoEmEdicao === 'lanche2' ? 'Lanche da Tarde' : 'Jantar'}
@@ -3353,6 +3739,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     onClick={() => {
                       setRefeicaoEmEdicao(null);
                       setOpcaoSelecionadaTemp('');
+                      setItensSelecionadosRefeicao({});
+                      setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
                     }}
                     className="text-gray-400 hover:text-gray-600"
                   >
@@ -3360,71 +3748,111 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </button>
                 </div>
                 
-                <div className="p-6 space-y-4">
-                  {/* Lista de opções */}
-                  <div className="space-y-3">
-                    {opcoesRefeicoes[refeicaoEmEdicao]?.map((opcao) => (
-                      <label
-                        key={opcao.id}
-                        className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                          opcaoSelecionadaTemp === opcao.id
-                            ? 'border-green-500 bg-green-50'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="opcaoRefeicao"
-                          value={opcao.id}
-                          checked={opcaoSelecionadaTemp === opcao.id}
-                          onChange={(e) => setOpcaoSelecionadaTemp(e.target.value)}
-                          className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500"
-                        />
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">{opcao.titulo}</h3>
-                          <p className="text-sm text-gray-700 mb-2">{opcao.descricao}</p>
-                          <div className="flex gap-4 text-xs text-gray-600">
-                            <span>Proteína ~{opcao.proteina_g}g</span>
-                            <span>Calorias ~{opcao.calorias_kcal} kcal</span>
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  
-                  {/* Resumo de macros do dia */}
+                <div className="p-6 space-y-6">
                   {(() => {
-                    const opcoesSimuladas = {
-                      ...(plano.opcoesSelecionadas || {}),
-                      [refeicaoEmEdicao]: opcaoSelecionadaTemp
+                    const config = configuracaoBuilder[refeicaoEmEdicao];
+                    const categorias: CategoriaItemRefeicao[] = ['proteina', 'carboidrato', 'legumes_salada', 'gordura_boa', 'extra'];
+                    const nomesCategorias: Record<CategoriaItemRefeicao, string> = {
+                      proteina: 'Proteína principal',
+                      carboidrato: 'Acompanhamentos',
+                      legumes_salada: 'Legumes e salada',
+                      gordura_boa: 'Gorduras boas',
+                      extra: 'Extras'
                     };
-                    const macrosSimuladas = estimarMacrosDia(opcoesSimuladas, opcoesRefeicoes);
-                    const metaMinima = plano.protDia_g * 0.9;
-                    const estaAbaixo = macrosSimuladas.proteinaTotal_g < metaMinima;
+                    
+                    return categorias.map(categoria => {
+                      const itensDaCategoria = config.itensDisponiveis.filter(i => i.categoria === categoria);
+                      if (itensDaCategoria.length === 0) return null;
+                      
+                      const itensSelecionadosDaCategoria = itensDaCategoria.filter(i => itensSelecionadosRefeicao[i.id]);
+                      const maxItens = categoria === 'proteina' ? config.maxProteinas :
+                                      categoria === 'carboidrato' ? config.maxCarboidratos :
+                                      categoria === 'legumes_salada' ? config.maxLegumesSalada :
+                                      categoria === 'gordura_boa' ? config.maxGordurasBoas :
+                                      config.maxExtras;
+                      
+                      return (
+                        <section key={categoria} className="space-y-3">
+                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            {nomesCategorias[categoria]}
+                            {categoria === 'proteina' && (
+                              <span className="text-xs font-normal text-red-600">(obrigatório)</span>
+                            )}
+                            {maxItens > 0 && (
+                              <span className="text-xs font-normal text-gray-500">
+                                ({itensSelecionadosDaCategoria.length}/{maxItens})
+                              </span>
+                            )}
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {itensDaCategoria.map(item => {
+                              const estaSelecionado = itensSelecionadosRefeicao[item.id] || false;
+                              return (
+                                <button
+                                  key={item.id}
+                                  onClick={() => handleSelecionarItem(item.id, categoria)}
+                                  className={`p-3 border-2 rounded-lg text-left transition-colors ${
+                                    estaSelecionado
+                                      ? 'border-green-500 bg-green-50'
+                                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1">
+                                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{item.nome}</h4>
+                                      {item.descricao && (
+                                        <p className="text-xs text-gray-700 mb-2">{item.descricao}</p>
+                                      )}
+                                      <div className="flex gap-3 text-xs text-gray-600">
+                                        <span>Proteína: ~{item.proteina_g}g</span>
+                                        <span>Calorias: ~{item.calorias_kcal} kcal</span>
+                                      </div>
+                                    </div>
+                                    {estaSelecionado && (
+                                      <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      );
+                    });
+                  })()}
+                  
+                  {/* Resumo de macros da refeição */}
+                  {(() => {
+                    const config = configuracaoBuilder[refeicaoEmEdicao];
+                    const metaMinima = config.metaProteina_g * 0.8; // 80% da meta
+                    const estaAbaixo = macrosRefeicaoAtual.proteinaTotal_g < metaMinima;
+                    const temProteina = config.itensDisponiveis.some(i => 
+                      i.categoria === 'proteina' && itensSelecionadosRefeicao[i.id]
+                    );
                     
                     return (
-                      <div className={`mt-6 p-4 rounded-lg border-2 ${
-                        estaAbaixo ? 'border-yellow-400 bg-yellow-50' : 'border-green-200 bg-green-50'
-                      }`}>
-                        <h3 className="font-semibold text-gray-900 mb-2">Resumo do Dia</h3>
-                        <div className="space-y-1 text-sm text-gray-800">
-                          <p>
-                            <span className="font-medium text-gray-900">Proteína diária estimada:</span>{' '}
-                            <span className={estaAbaixo ? 'text-yellow-700 font-semibold' : 'text-green-700 font-semibold'}>
-                              {macrosSimuladas.proteinaTotal_g.toFixed(1)}g
-                            </span>
-                            {' '}de {plano.protDia_g}g (meta)
-                          </p>
-                          <p>
-                            <span className="font-medium text-gray-900">Calorias diárias estimadas:</span>{' '}
-                            <span className="text-gray-800">{macrosSimuladas.caloriasTotais_kcal.toFixed(0)} kcal</span> (apenas referência)
-                          </p>
-                          {estaAbaixo && (
-                            <p className="text-yellow-700 font-medium mt-2">
-                              ⚠️ Seu dia ficou abaixo da meta mínima de proteína. O sistema pode ajustar automaticamente seus lanches.
-                            </p>
-                          )}
+                      <div className="mt-6 space-y-3">
+                        <div className="p-3 rounded-lg bg-gray-50 flex justify-between items-center text-sm">
+                          <span className="text-gray-800">
+                            Proteína da refeição: <strong className="text-gray-900">{macrosRefeicaoAtual.proteinaTotal_g.toFixed(1)}g</strong>
+                            {' '}/ {config.metaProteina_g}g (meta)
+                          </span>
+                          <span className="text-gray-800">
+                            Calorias estimadas: <strong className="text-gray-900">{macrosRefeicaoAtual.caloriasTotal_kcal} kcal</strong>
+                          </span>
                         </div>
+                        
+                        {!temProteina && (
+                          <p className="text-xs text-red-600 font-medium">
+                            ⚠️ Selecione pelo menos uma fonte de proteína.
+                          </p>
+                        )}
+                        
+                        {temProteina && estaAbaixo && (
+                          <p className="text-xs text-amber-600 font-medium">
+                            ⚠️ Proteína abaixo do ideal para esta refeição. Considere adicionar mais proteína ou ajustar o prato.
+                          </p>
+                        )}
                       </div>
                     );
                   })()}
@@ -3435,6 +3863,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     onClick={() => {
                       setRefeicaoEmEdicao(null);
                       setOpcaoSelecionadaTemp('');
+                      setItensSelecionadosRefeicao({});
+                      setMacrosRefeicaoAtual({ proteinaTotal_g: 0, caloriasTotal_kcal: 0 });
                     }}
                     className="px-6 py-2 rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-semibold"
                   >
@@ -3442,10 +3872,12 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </button>
                   <button
                     onClick={salvarAlteracoesCardapio}
-                    disabled={!opcaoSelecionadaTemp}
-                    className="px-6 py-2 rounded-md bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={!configuracaoBuilder[refeicaoEmEdicao].itensDisponiveis.some(i => 
+                      i.categoria === 'proteina' && itensSelecionadosRefeicao[i.id]
+                    )}
+                    className="px-6 py-2 rounded-md bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Salvar alterações
+                    Salvar refeição
                   </button>
                 </div>
               </div>
