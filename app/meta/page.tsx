@@ -782,7 +782,7 @@ export default function MetaPage() {
     };
 
     if (user) {
-      loadMedicosDisponiveis();
+    loadMedicosDisponiveis();
     }
   }, [user, activeMenu, abaAtivaMedicos]);
 
@@ -2090,13 +2090,10 @@ export default function MetaPage() {
             // Normalizar telefone (remover formatação)
             const telefoneNormalizado = indicacaoForm.telefonePaciente.replace(/\D/g, '');
 
-            // Buscar telefone do paciente que está indicando
-            const telefoneIndicador = paciente?.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '';
-
             await IndicacaoService.criarIndicacao({
               indicadoPor: user.email,
               indicadoPorNome: paciente.nome || user.displayName || 'Paciente',
-              telefoneIndicador: telefoneIndicador,
+              indicadoPorTelefone: paciente.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '',
               nomePaciente: indicacaoForm.nomePaciente.trim(),
               telefonePaciente: telefoneNormalizado,
               estado: indicacaoForm.estado,
@@ -2279,39 +2276,41 @@ export default function MetaPage() {
                                 <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-4">
                                   <div className="flex items-center gap-2 mb-2">
                                     <DollarSign className="w-5 h-5 text-green-600" />
-                                    <h5 className="text-sm font-bold text-green-900">Plano de Comissão Disponível</h5>
+                                    <h5 className="text-sm font-semibold text-green-900">Plano de Comissão</h5>
                                   </div>
-                                  <div className="space-y-2 text-xs text-gray-700">
-                                    <p>
-                                      <strong>Tipo de valor:</strong> {plano.tipoValor === 'negociado' ? 'Negociado com cada cliente' : 'Valor fixo para todos'}
+                                  <p className="text-xs text-gray-700 mb-2">
+                                    <strong>Tipo de valor:</strong> {plano.tipoValor === 'negociado' ? 'Negociado com você' : 'Valor fixo'}
+                                  </p>
+                                  <p className="text-xs text-gray-700 mb-2">
+                                    <strong>Tipo de comissão:</strong> {plano.tipoComissao === 'por_dose' ? 'Por dose' : 'Por tratamento completo'}
+                                  </p>
+                                  {plano.tipoComissao === 'por_dose' && plano.valorPorDose ? (
+                                    <p className="text-sm font-semibold text-green-700">
+                                      Valor por dose: R$ {plano.valorPorDose.toFixed(2)}
                                     </p>
-                                    <p>
-                                      <strong>Tipo de comissão:</strong> {plano.tipoComissao === 'por_dose' ? 'Por dose' : 'Por tratamento completo'}
-                                    </p>
-                                    {plano.tipoComissao === 'por_dose' && plano.valorPorDose ? (
-                                      <p>
-                                        <strong>Valor por dose:</strong> R$ {plano.valorPorDose.toFixed(2)}
+                                  ) : plano.tipoComissao === 'por_tratamento' && plano.valorComissaoTratamento ? (
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-semibold text-green-700">
+                                        Valor por tratamento: R$ {plano.valorComissaoTratamento.toFixed(2)}
                                       </p>
-                                    ) : plano.tipoComissao === 'por_tratamento' && plano.valorComissaoTratamento ? (
-                                      <>
-                                        <p>
-                                          <strong>Duração do tratamento:</strong> {plano.tempoTratamentoMeses} meses
+                                      {plano.tempoTratamentoMeses && (
+                                        <p className="text-xs text-gray-600">
+                                          Duração: {plano.tempoTratamentoMeses} {plano.tempoTratamentoMeses === 1 ? 'mês' : 'meses'}
                                         </p>
-                                        <p>
-                                          <strong>Total de medicamento:</strong> {plano.totalMedicamentoMg} mg
+                                      )}
+                                      {plano.totalMedicamentoMg && (
+                                        <p className="text-xs text-gray-600">
+                                          Total de medicamento: {plano.totalMedicamentoMg} mg
                                         </p>
-                                        <p>
-                                          <strong>Valor da comissão:</strong> R$ {plano.valorComissaoTratamento.toFixed(2)}
-                                        </p>
-                                      </>
-                                    ) : null}
-                                  </div>
+                                      )}
+                                    </div>
+                                  ) : null}
                                 </div>
                               );
                             }
                             return (
                               <p className="text-xs text-gray-500 mt-1">
-                                Médicos com "✓ Plano de Indicação" oferecem comissão por indicações.
+                                Este médico não possui plano de indicação ativo.
                               </p>
                             );
                           })()}
@@ -2487,7 +2486,7 @@ export default function MetaPage() {
                     )}
                   </div>
                 )}
-              </div>
+                </div>
             </div>
           </div>
         );
@@ -4985,8 +4984,8 @@ export default function MetaPage() {
             >
               <UtensilsCrossed className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
               {!sidebarCollapsed && 'Nutri'}
-            </button>
-
+              </button>
+              
             </nav>
 
           {/* Profile button with dropdown */}
@@ -5028,15 +5027,15 @@ export default function MetaPage() {
                   <UserIcon className="w-5 h-5 mr-3 text-gray-600" />
                   Ver dados pessoais
                 </button>
-                <button
-                  onClick={handleLogout}
+            <button
+              onClick={handleLogout}
                   className="w-full flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-200"
-                >
+            >
                   <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
                   Sair
-                </button>
+            </button>
               </div>
             )}
           </div>
@@ -5165,16 +5164,16 @@ export default function MetaPage() {
                         >
                           <UserIcon className="w-5 h-5 mr-3 text-gray-600" />
                           Ver dados pessoais
-                        </button>
-                        <button
-                          onClick={handleLogout}
+                </button>
+                <button
+                  onClick={handleLogout}
                           className="w-full flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-200"
-                        >
+                >
                           <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                           Sair
-                        </button>
+                </button>
                       </div>
                     </>
                   )}

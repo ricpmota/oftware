@@ -255,28 +255,7 @@ export default function MetaAdminPage() {
     setLoadingIndicacoes(true);
     try {
       const indicacoes = await IndicacaoService.getIndicacoesPendentesPorMedico(medicoPerfil.id);
-      
-      // Buscar telefone do indicador para cada indicação que não tiver
-      const indicacoesComTelefone = await Promise.all(indicacoes.map(async (indicacao) => {
-        if (indicacao.telefoneIndicador) {
-          return indicacao; // Já tem telefone
-        }
-        
-        // Buscar telefone do paciente que indicou
-        try {
-          const paciente = await PacienteService.getPacienteByEmail(indicacao.indicadoPor);
-          if (paciente) {
-            const telefone = paciente.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '';
-            return { ...indicacao, telefoneIndicador: telefone };
-          }
-        } catch (error) {
-          console.error('Erro ao buscar telefone do indicador:', error);
-        }
-        
-        return indicacao;
-      }));
-      
-      setIndicacoesPendentes(indicacoesComTelefone);
+      setIndicacoesPendentes(indicacoes);
     } catch (error) {
       console.error('Erro ao carregar indicações pendentes:', error);
       setMessage('Erro ao carregar indicações pendentes.');
@@ -6316,9 +6295,12 @@ export default function MetaAdminPage() {
               temPlanoIndicacao: planoIndicacaoForm.temPlanoIndicacao
             };
             
-            await MedicoService.updateMedico(medicoPerfil.id, {
-              temPlanoIndicacao: planoData.temPlanoIndicacao,
-              planoIndicacao: planoData.temPlanoIndicacao ? {
+            const updates: Partial<Medico> = {
+              temPlanoIndicacao: planoData.temPlanoIndicacao
+            };
+            
+            if (planoData.temPlanoIndicacao) {
+              updates.planoIndicacao = {
                 tipoValor: planoData.tipoValor,
                 tipoComissao: planoData.tipoComissao,
                 ...(planoData.tipoComissao === 'por_dose' ? {
@@ -6328,8 +6310,12 @@ export default function MetaAdminPage() {
                   totalMedicamentoMg: planoData.totalMedicamentoMg,
                   valorComissaoTratamento: planoData.valorComissaoTratamento
                 })
-              } : undefined
-            });
+              };
+            } else {
+              updates.planoIndicacao = undefined;
+            }
+            
+            await MedicoService.updateMedico(medicoPerfil.id, updates);
             
             await loadMedicoPerfil();
             setMessage('Plano de indicação salvo com sucesso!');
@@ -6400,72 +6386,72 @@ export default function MetaAdminPage() {
                           const StatusIcon = statusInfo.icon;
                           
                           return (
-                            <div key={indicacao.id} className="bg-white border-2 border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                              {/* Seção do Cliente (Indicador) - Destaque */}
+                            <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                              {/* Cliente (Quem Indicou) - Destaque */}
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                                 <div className="flex items-center gap-2 mb-2">
                                   <UserIcon className="w-5 h-5 text-blue-600" />
-                                  <h5 className="text-sm font-bold text-blue-900">CLIENTE QUE INDICOU</h5>
+                                  <h5 className="text-sm font-semibold text-blue-900">Cliente (Quem Indicou)</h5>
                                 </div>
-                                <div className="space-y-1">
-                                  <p className="text-sm font-semibold text-gray-900">
-                                    {indicacao.indicadoPorNome}
-                                  </p>
-                                  <p className="text-xs text-gray-600">
-                                    Email: {indicacao.indicadoPor}
-                                  </p>
-                                  <p className="text-xs text-gray-600">
-                                    Telefone: {indicacao.telefoneIndicador ? formatPhoneNumber(indicacao.telefoneIndicador) : 'Não informado'}
-                                  </p>
-                                  {indicacao.telefoneIndicador && (
+                                <p className="text-sm font-medium text-gray-900 mb-1">
+                                  {indicacao.indicadoPorNome || indicacao.indicadoPor}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  Email: {indicacao.indicadoPor}
+                                </p>
+                                {indicacao.indicadoPorTelefone && (
+                                  <div className="mt-2">
+                                    <p className="text-xs text-gray-600 mb-1">
+                                      Telefone: {formatPhoneNumber(indicacao.indicadoPorTelefone)}
+                                    </p>
                                     <a
-                                      href={`https://wa.me/55${indicacao.telefoneIndicador.replace(/\D/g, '')}`}
+                                      href={`https://wa.me/55${indicacao.indicadoPorTelefone.replace(/\D/g, '')}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
+                                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
                                     >
-                                      <MessageCircleIcon size={12} />
-                                      WhatsApp do Cliente
+                                      <MessageCircleIcon size={14} />
+                                      Contatar Cliente
                                     </a>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
                               </div>
 
-                              {/* Seção do Lead (Indicação) */}
-                              <div className="border-t border-gray-200 pt-4">
-                                <div className="flex items-center gap-2 mb-3">
+                              {/* Lead (Paciente Indicado) */}
+                              <div className="border-l-4 border-green-500 pl-4 mb-4">
+                                <div className="flex items-center gap-2 mb-2">
                                   <UserPlus className="w-5 h-5 text-green-600" />
-                                  <h5 className="text-sm font-bold text-green-900">LEAD INDICADO</h5>
+                                  <h5 className="text-sm font-semibold text-green-900">Lead (Paciente Indicado)</h5>
                                 </div>
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex-1">
-                                    <h4 className="text-base font-semibold text-gray-900 mb-1">
-                                      {indicacao.nomePaciente}
-                                    </h4>
-                                    <p className="text-sm text-gray-600">
-                                      {indicacao.cidade}, {indicacao.estado}
+                                <h4 className="text-base font-semibold text-gray-900 mb-1">
+                                  {indicacao.nomePaciente}
+                                </h4>
+                                <p className="text-sm text-gray-600">
+                                  {indicacao.cidade}, {indicacao.estado}
+                                </p>
+                                {indicacao.status !== 'pendente' && (
+                                  <div className="mt-2">
+                                    <p className="text-sm text-gray-700">
+                                      <strong>Telefone do Lead:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
                                     </p>
-                                    {indicacao.status !== 'pendente' && (
-                                      <div className="mt-2">
-                                        <p className="text-sm text-gray-700">
-                                          <strong>Telefone do Lead:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
-                                        </p>
-                                        <a
-                                          href={`https://wa.me/55${indicacao.telefonePaciente.replace(/\D/g, '')}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                                        >
-                                          <MessageCircleIcon size={16} />
-                                          Entrar em contato via WhatsApp
-                                        </a>
-                                      </div>
-                                    )}
+                                    <a
+                                      href={`https://wa.me/55${indicacao.telefonePaciente.replace(/\D/g, '')}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                    >
+                                      <MessageCircleIcon size={16} />
+                                      Contatar Lead via WhatsApp
+                                    </a>
                                   </div>
-                                  <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
-                                    <StatusIcon className="w-3 h-3" />
-                                    {statusInfo.label}
-                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex-1"></div>
+                                <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
+                                  <StatusIcon className="w-3 h-3" />
+                                  {statusInfo.label}
                                 </div>
                               </div>
                               
@@ -6865,15 +6851,15 @@ export default function MetaAdminPage() {
                       <Stethoscope size={16} />
                       Ver dados pessoais
                     </button>
-                    <button
-                      onClick={handleLogout}
+              <button
+                onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
+              >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
                       Sair
-                    </button>
+              </button>
                   </div>
                 )}
               </div>
@@ -6951,15 +6937,15 @@ export default function MetaAdminPage() {
                         <Stethoscope size={16} />
                         Ver dados pessoais
                       </button>
-                      <button
-                        onClick={handleLogout}
+                <button
+                  onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
+                >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                         Sair
-                      </button>
+                </button>
                     </div>
                   )}
                 </div>
