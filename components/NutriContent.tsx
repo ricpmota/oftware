@@ -1611,20 +1611,16 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       // Regenerar modeloDia
       const modeloDiaAtualizado = gerarModeloDiaFromOpcoes(opcoesAjustadas, opcoesAtualizadas);
       
-      // Calcular macros sugeridas para esta refeição (meta)
-      const proteinaSugerida = config.metaProteina_g;
-      const caloriasSugerida = refeicaoEmEdicao === 'cafe' ? 400 :
-                              refeicaoEmEdicao === 'lanche1' ? 250 :
-                              refeicaoEmEdicao === 'almoco' ? 550 :
-                              refeicaoEmEdicao === 'lanche2' ? 200 : 450;
+      // Calcular macros sugeridas para esta refeição usando a função helper
+      const valoresSugeridos = calcularValoresSugeridos(refeicaoEmEdicao, plano);
       
       // Atualizar macros por refeição
       const macrosPorRefeicaoAtualizado = {
         ...(plano.macrosPorRefeicao || {}),
         [refeicaoEmEdicao]: {
-          proteinaSugerida_g: proteinaSugerida,
+          proteinaSugerida_g: valoresSugeridos.proteinaSugerida_g,
           proteinaEscolhida_g: macrosRefeicaoAtual.proteinaTotal_g,
-          caloriasSugerida_kcal: caloriasSugerida,
+          caloriasSugerida_kcal: valoresSugeridos.caloriasSugerida_kcal,
           caloriasEscolhida_kcal: macrosRefeicaoAtual.caloriasTotal_kcal
         }
       };
