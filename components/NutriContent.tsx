@@ -177,7 +177,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     proteinaOk: false,
     frutasOk: false,
     aguaOk: false,
-    lixoAlimentar: false,
+    lixoAlimentar: true, // true = não evitou (checkbox desmarcado), false = evitou (checkbox marcado)
     
     // Suplementos
     probioticoTomou: false,
@@ -852,7 +852,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         proteinaOk: false,
         frutasOk: false,
         aguaOk: false,
-        lixoAlimentar: false,
+        lixoAlimentar: true, // true = não evitou (checkbox desmarcado), false = evitou (checkbox marcado)
         probioticoTomou: false,
         wheyTomou: false,
         creatinaTomou: false,
@@ -979,7 +979,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         proteinaOk: false,
         frutasOk: false,
         aguaOk: false,
-        lixoAlimentar: false,
+        lixoAlimentar: true, // true = não evitou (checkbox desmarcado), false = evitou (checkbox marcado)
         probioticoTomou: false,
         wheyTomou: false,
         creatinaTomou: false,
@@ -1822,17 +1822,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                 value={checkInDate}
                 min={dataMinima}
                 max={dataMaxima}
-                disabled={isEditandoCheckIn}
                 onChange={(e) => {
                   const novaData = e.target.value;
-                  
-                  // Verificar se já existe check-in para essa data
-                  const checkInExistente = checkIns.find(ci => ci.data === novaData);
-                  if (checkInExistente) {
-                    alert('Já existe um check-in registrado para esta data. Você está editando o check-in existente.');
-                    setCheckInDate(novaData);
-                    return;
-                  }
                   
                   // Validar antes de atualizar
                   if (!validarDataCheckIn(novaData)) {
@@ -1851,25 +1842,33 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     setCheckInDate(dataMaxima);
                   }
                 }}
-                className={`w-full max-w-xs px-3 md:px-4 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white ${
-                  isEditandoCheckIn ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''
-                }`}
+                className="w-full max-w-xs px-3 md:px-4 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
               />
               <p className="text-sm text-gray-500 mt-2">
                 {dataFormatada}
               </p>
             </div>
             
-            {/* Mensagem se estiver editando */}
+            {/* Mensagem se já existe check-in para esta data */}
             {isEditandoCheckIn && (
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
-                <p className="text-sm text-blue-800">
-                  <strong>Você está editando o check-in desse dia.</strong> O campo de data está bloqueado para evitar duplicação.
-                </p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-yellow-800 mb-1">
+                      Check-in já realizado para esta data
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      Já existe um check-in registrado para o dia {dataFormatada}. Não é possível criar um novo check-in para esta data.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
           
+          {/* Ocultar formulário se já existe check-in para esta data */}
+          {!isEditandoCheckIn && (
           <div className="space-y-6">
             {/* Card 1 – Alimentação e Proteína */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-5">
@@ -2350,7 +2349,12 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           {/* Botões de ação */}
           <div className="mt-6 flex gap-4">
             <button
-              onClick={() => setView('plano')}
+              onClick={() => {
+                setView('plano');
+                // Resetar para data de hoje ao voltar
+                const hoje = new Date().toISOString().split('T')[0];
+                setCheckInDate(hoje);
+              }}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
             >
               Cancelar
@@ -2363,6 +2367,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
               {savingCheckIn ? 'Salvando...' : 'Salvar check-in de hoje'}
             </button>
           </div>
+          )}
         </div>
       </div>
     );
