@@ -1154,6 +1154,33 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
           </div>
 
           {/* Seleção de E-mail dentro do Módulo */}
+          {activeModulo === 'bem_vindo' && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o tipo de e-mail:</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setActiveEmail('bem_vindo_geral')}
+                  className={`px-4 py-2 rounded-md text-sm ${
+                    activeEmail === 'bem_vindo_geral'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Bem-vindo Geral
+                </button>
+                <button
+                  onClick={() => setActiveEmail('bem_vindo_medico')}
+                  className={`px-4 py-2 rounded-md text-sm ${
+                    activeEmail === 'bem_vindo_medico'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Bem-vindo Médico
+                </button>
+              </div>
+            </div>
+          )}
           {activeModulo === 'leads' && (
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4 text-black">Selecione o E-mail para Configurar</h3>
