@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle, ArrowRight, ArrowLeft, MessageCircle, Printer, Save, DollarSign, ChevronDown, User as UserIcon, MessageCircle as MessageCircleIcon } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle, ArrowRight, ArrowLeft, MessageCircle, Printer, Save, DollarSign, ChevronDown, ChevronUp, User as UserIcon, MessageCircle as MessageCircleIcon } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -237,6 +237,8 @@ export default function MetaAdminPage() {
   const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [activeTabIndicacao, setActiveTabIndicacao] = useState<'minhas' | 'plano'>('minhas');
+  const [showPlanoSalvoDialog, setShowPlanoSalvoDialog] = useState(false);
+  const [indicacoesExpandidas, setIndicacoesExpandidas] = useState<Set<string>>(new Set());
   const [planoIndicacaoForm, setPlanoIndicacaoForm] = useState({
     temPlanoIndicacao: false,
     tipoValor: 'negociado' as 'negociado' | 'fixo',
@@ -6318,7 +6320,7 @@ export default function MetaAdminPage() {
             await MedicoService.updateMedico(medicoPerfil.id, updates);
             
             await loadMedicoPerfil();
-            setMessage('Plano de indicação salvo com sucesso!');
+            setShowPlanoSalvoDialog(true);
           } catch (error) {
             console.error('Erro ao salvar plano:', error);
             alert('Erro ao salvar plano de indicação.');
@@ -6380,143 +6382,249 @@ export default function MetaAdminPage() {
                         <p className="text-gray-600">Nenhuma indicação recebida ainda.</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {indicacoesPendentes.map((indicacao) => {
-                          const statusInfo = getStatusLabel(indicacao.status);
-                          const StatusIcon = statusInfo.icon;
-                          
-                          return (
-                            <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                              {/* Cliente (Quem Indicou) - Destaque */}
-                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <UserIcon className="w-5 h-5 text-blue-600" />
-                                  <h5 className="text-sm font-semibold text-blue-900">Cliente (Quem Indicou)</h5>
-                                </div>
-                                <p className="text-sm font-medium text-gray-900 mb-1">
-                                  {indicacao.indicadoPorNome || indicacao.indicadoPor}
-                                </p>
-                                <p className="text-xs text-gray-600">
-                                  Email: {indicacao.indicadoPor}
-                                </p>
-                                {indicacao.indicadoPorTelefone && (
-                                  <div className="mt-2">
-                                    <p className="text-xs text-gray-600 mb-1">
-                                      Telefone: {formatPhoneNumber(indicacao.indicadoPorTelefone)}
-                                    </p>
-                                    <a
-                                      href={`https://wa.me/55${indicacao.indicadoPorTelefone.replace(/\D/g, '')}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
-                                    >
-                                      <MessageCircleIcon size={14} />
-                                      Contatar Cliente
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Lead (Paciente Indicado) */}
-                              <div className="border-l-4 border-green-500 pl-4 mb-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <UserPlus className="w-5 h-5 text-green-600" />
-                                  <h5 className="text-sm font-semibold text-green-900">Lead (Paciente Indicado)</h5>
-                                </div>
-                                <h4 className="text-base font-semibold text-gray-900 mb-1">
-                                  {indicacao.nomePaciente}
-                                </h4>
-                                <p className="text-sm text-gray-600">
-                                  {indicacao.cidade}, {indicacao.estado}
-                                </p>
-                                {indicacao.status !== 'pendente' && (
-                                  <div className="mt-2">
-                                    <p className="text-sm text-gray-700">
-                                      <strong>Telefone do Lead:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
-                                    </p>
-                                    <a
-                                      href={`https://wa.me/55${indicacao.telefonePaciente.replace(/\D/g, '')}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                                    >
-                                      <MessageCircleIcon size={16} />
-                                      Contatar Lead via WhatsApp
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex-1"></div>
-                                <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
-                                  <StatusIcon className="w-3 h-3" />
-                                  {statusInfo.label}
-                                </div>
-                              </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-200">
-                                <div>
-                                  <p className="text-xs text-gray-500">Data da indicação</p>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {new Date(indicacao.criadoEm).toLocaleDateString('pt-BR')}
-                                  </p>
-                                </div>
-                                {indicacao.visualizadaEm && (
-                                  <div>
-                                    <p className="text-xs text-gray-500">Visualizada em</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                      {new Date(indicacao.visualizadaEm).toLocaleDateString('pt-BR')}
-                                    </p>
-                                  </div>
-                                )}
-                                {indicacao.vendaEm && (
-                                  <div>
-                                    <p className="text-xs text-gray-500">Virou venda em</p>
-                                    <p className="text-sm font-medium text-green-700">
-                                      {new Date(indicacao.vendaEm).toLocaleDateString('pt-BR')}
-                                    </p>
-                                  </div>
-                                )}
-                                {indicacao.pagaEm && (
-                                  <div>
-                                    <p className="text-xs text-gray-500">Paga em</p>
-                                    <p className="text-sm font-medium text-purple-700">
-                                      {new Date(indicacao.pagaEm).toLocaleDateString('pt-BR')}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
-                                {indicacao.status === 'pendente' && (
-                                  <button
-                                    onClick={() => handleVisualizarIndicacao(indicacao.id)}
-                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-                                  >
-                                    <Eye size={16} />
-                                    Visualizar
-                                  </button>
-                                )}
-                                {indicacao.status === 'venda' && (
-                                  <button
-                                    onClick={() => handleMarcarComoPaga(indicacao.id)}
-                                    className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
-                                  >
-                                    <DollarSign size={16} />
-                                    Marcar como Paga
-                                  </button>
-                                )}
-                              </div>
+                      <>
+                        {/* Estatísticas */}
+                        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-gray-900">{indicacoesPendentes.length}</p>
+                              <p className="text-xs text-gray-600">Total de Indicações</p>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-yellow-600">
+                                {indicacoesPendentes.filter(i => i.status === 'pendente' || i.status === 'visualizada').length}
+                              </p>
+                              <p className="text-xs text-gray-600">Pendentes</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-green-600">
+                                {indicacoesPendentes.filter(i => i.status === 'venda' || i.status === 'paga').length}
+                              </p>
+                              <p className="text-xs text-gray-600">Convertidas</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-purple-600">
+                                {indicacoesPendentes.filter(i => i.status === 'paga').length}
+                              </p>
+                              <p className="text-xs text-gray-600">Pagas</p>
+                            </div>
+                          </div>
+                          {indicacoesPendentes.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-green-200">
+                              <p className="text-sm text-gray-700 text-center">
+                                Taxa de conversão: {((indicacoesPendentes.filter(i => i.status === 'venda' || i.status === 'paga').length / indicacoesPendentes.length) * 100).toFixed(1)}%
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Lista de Indicações */}
+                        <div className="space-y-3">
+                          {indicacoesPendentes.map((indicacao, index) => {
+                            const statusInfo = getStatusLabel(indicacao.status);
+                            const StatusIcon = statusInfo.icon;
+                            const isExpanded = indicacoesExpandidas.has(indicacao.id);
+                            
+                            return (
+                              <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                                {/* Cabeçalho Compacto */}
+                                <div 
+                                  className="p-3 cursor-pointer"
+                                  onClick={() => {
+                                    const newExpanded = new Set(indicacoesExpandidas);
+                                    if (isExpanded) {
+                                      newExpanded.delete(indicacao.id);
+                                    } else {
+                                      newExpanded.add(indicacao.id);
+                                    }
+                                    setIndicacoesExpandidas(newExpanded);
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                      <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                        <span className="text-xs font-semibold text-gray-700">{index + 1}</span>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="text-sm font-semibold text-gray-900 truncate">
+                                            {indicacao.nomePaciente}
+                                          </h4>
+                                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
+                                            <StatusIcon className="w-3 h-3" />
+                                            {statusInfo.label}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 truncate">
+                                          Indicado por: {indicacao.indicadoPorNome || indicacao.indicadoPor}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {indicacao.status !== 'pendente' && (
+                                        <a
+                                          href={`https://wa.me/55${indicacao.telefonePaciente.replace(/\D/g, '')}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                          title="Contatar Lead via WhatsApp"
+                                        >
+                                          <MessageCircleIcon size={16} />
+                                        </a>
+                                      )}
+                                      {indicacao.indicadoPorTelefone && (
+                                        <a
+                                          href={`https://wa.me/55${indicacao.indicadoPorTelefone.replace(/\D/g, '')}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                          title="Contatar Cliente via WhatsApp"
+                                        >
+                                          <MessageCircleIcon size={16} />
+                                        </a>
+                                      )}
+                                      {isExpanded ? (
+                                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                                      ) : (
+                                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Conteúdo Expandido */}
+                                {isExpanded && (
+                                  <div className="border-t border-gray-200 p-4 space-y-4">
+                                    {/* Cliente (Quem Indicou) */}
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <UserIcon className="w-4 h-4 text-blue-600" />
+                                        <h5 className="text-xs font-semibold text-blue-900">Cliente (Quem Indicou)</h5>
+                                      </div>
+                                      <p className="text-sm font-medium text-gray-900 mb-1">
+                                        {indicacao.indicadoPorNome || indicacao.indicadoPor}
+                                      </p>
+                                      <p className="text-xs text-gray-600">
+                                        Email: {indicacao.indicadoPor}
+                                      </p>
+                                      {indicacao.indicadoPorTelefone && (
+                                        <p className="text-xs text-gray-600 mt-1">
+                                          Telefone: {formatPhoneNumber(indicacao.indicadoPorTelefone)}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {/* Lead (Paciente Indicado) */}
+                                    <div className="border-l-4 border-green-500 pl-3">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <UserPlus className="w-4 h-4 text-green-600" />
+                                        <h5 className="text-xs font-semibold text-green-900">Lead (Paciente Indicado)</h5>
+                                      </div>
+                                      <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                                        {indicacao.nomePaciente}
+                                      </h4>
+                                      <p className="text-xs text-gray-600">
+                                        {indicacao.cidade}, {indicacao.estado}
+                                      </p>
+                                      {indicacao.status !== 'pendente' && (
+                                        <p className="text-xs text-gray-700 mt-1">
+                                          <strong>Telefone:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {/* Datas */}
+                                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Data da indicação</p>
+                                        <p className="text-sm font-medium text-gray-900">
+                                          {new Date(indicacao.criadoEm).toLocaleDateString('pt-BR')}
+                                        </p>
+                                      </div>
+                                      {indicacao.visualizadaEm && (
+                                        <div>
+                                          <p className="text-xs text-gray-500">Visualizada em</p>
+                                          <p className="text-sm font-medium text-gray-900">
+                                            {new Date(indicacao.visualizadaEm).toLocaleDateString('pt-BR')}
+                                          </p>
+                                        </div>
+                                      )}
+                                      {indicacao.vendaEm && (
+                                        <div>
+                                          <p className="text-xs text-gray-500">Virou venda em</p>
+                                          <p className="text-sm font-medium text-green-700">
+                                            {new Date(indicacao.vendaEm).toLocaleDateString('pt-BR')}
+                                          </p>
+                                        </div>
+                                      )}
+                                      {indicacao.pagaEm && (
+                                        <div>
+                                          <p className="text-xs text-gray-500">Paga em</p>
+                                          <p className="text-sm font-medium text-purple-700">
+                                            {new Date(indicacao.pagaEm).toLocaleDateString('pt-BR')}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Ações */}
+                                    <div className="flex gap-2 pt-3 border-t border-gray-200">
+                                      {indicacao.status === 'pendente' && (
+                                        <button
+                                          onClick={() => handleVisualizarIndicacao(indicacao.id)}
+                                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                                        >
+                                          <Eye size={14} />
+                                          Visualizar
+                                        </button>
+                                      )}
+                                      {indicacao.status === 'venda' && (
+                                        <button
+                                          onClick={() => handleMarcarComoPaga(indicacao.id)}
+                                          className="px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-md hover:bg-purple-700 transition-colors flex items-center gap-1.5"
+                                        >
+                                          <DollarSign size={14} />
+                                          Marcar como Paga
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold text-gray-900">Configurar Plano de Indicação</h3>
+                    
+                    {/* Dialog de Sucesso */}
+                    {showPlanoSalvoDialog && (
+                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowPlanoSalvoDialog(false)}>
+                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                              <CheckCircle className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900">Plano Salvo!</h3>
+                              <p className="text-sm text-gray-600">Plano de indicação salvo com sucesso.</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setShowPlanoSalvoDialog(false)}
+                            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
+                          >
+                            OK
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <label className="flex items-center gap-3 cursor-pointer">
