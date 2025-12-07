@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PacienteCompleto } from '@/types/obesidade';
-import { UtensilsCrossed, Calendar, AlertCircle } from 'lucide-react';
+import { UtensilsCrossed, Calendar, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
 interface PlanoNutricional {
   estilo: 'digestiva' | 'plant_based' | 'mediterranea' | 'rico_proteina' | 'low_carb_moderada';
@@ -79,6 +79,8 @@ export default function NutriContent({ paciente }: NutriContentProps) {
     data: new Date().toISOString().split('T')[0]
   });
   const [savingCheckIn, setSavingCheckIn] = useState(false);
+  const [checkIns, setCheckIns] = useState<CheckInDiario[]>([]);
+  const [loadingCheckIns, setLoadingCheckIns] = useState(false);
 
   useEffect(() => {
     const loadPlano = async () => {
@@ -93,6 +95,8 @@ export default function NutriContent({ paciente }: NutriContentProps) {
             criadoEm: planoData.criadoEm?.toDate() || new Date()
           } as PlanoNutricional);
           setView('plano');
+          // Carregar check-ins quando o plano existir
+          await loadCheckIns();
         } else {
           const medidasIniciais = paciente.dadosClinicos?.medidasIniciais;
           const imc = medidasIniciais?.imc;
@@ -311,9 +315,44 @@ export default function NutriContent({ paciente }: NutriContentProps) {
         criadoEm: new Date()
       });
       setView('plano');
+      // Carregar check-ins após salvar o plano
+      await loadCheckIns();
     } catch (error) {
       console.error('Erro ao salvar plano nutricional:', error);
       alert('Erro ao salvar plano. Tente novamente.');
+    }
+  };
+
+  const loadCheckIns = async () => {
+    if (!paciente || !paciente.id) return;
+    
+    try {
+      setLoadingCheckIns(true);
+      const nutricaoDadosRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'dados');
+      const checkInsRef = collection(nutricaoDadosRef, 'checkins');
+      const checkInsQuery = query(checkInsRef, orderBy('timestamp', 'desc'));
+      const checkInsSnapshot = await getDocs(checkInsQuery);
+      
+      const checkInsData: CheckInDiario[] = [];
+      checkInsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        checkInsData.push({
+          proteinaOk: data.proteinaOk || false,
+          frutasOk: data.frutasOk || false,
+          aguaOk: data.aguaOk || false,
+          sintomasGI: data.sintomasGI || 'nenhum',
+          lixoAlimentar: data.lixoAlimentar || false,
+          humorEnergia: data.humorEnergia || 3,
+          score: data.score || 0,
+          data: data.data || doc.id
+        });
+      });
+      
+      setCheckIns(checkInsData);
+    } catch (error) {
+      console.error('Erro ao carregar check-ins:', error);
+    } finally {
+      setLoadingCheckIns(false);
     }
   };
 
@@ -369,6 +408,8 @@ export default function NutriContent({ paciente }: NutriContentProps) {
       
       console.log('Check-in salvo com sucesso!');
       alert('Check-in salvo com sucesso!');
+      // Recarregar check-ins após salvar
+      await loadCheckIns();
       setView('plano');
       setCheckInData({
         proteinaOk: false,
@@ -904,6 +945,114 @@ export default function NutriContent({ paciente }: NutriContentProps) {
           </div>
         </div>
       )}
+      
+      {/* Histórico de Check-ins */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Check-ins</h3>
+        {loadingCheckIns ? (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+            <p className="text-gray-600">Carregando check-ins...</p>
+          </div>
+        ) : checkIns.length === 0 ? (
+          <div className="text-center py-8">
+            <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-600">Nenhum check-in registrado ainda.</p>
+            <p className="text-sm text-gray-500 mt-2">Use o botão "Check-in Diário" para começar a registrar.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {checkIns.map((checkIn, idx) => (
+              <div
+                key={idx}
+                className="p-4 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {new Date(checkIn.data).toLocaleDateString('pt-BR', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      checkIn.score >= 0.8 ? 'bg-green-100 text-green-700' :
+                      checkIn.score >= 0.6 ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      Score: {(checkIn.score * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+                  <div className="flex items-center gap-2">
+                    {checkIn.proteinaOk ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span className="text-sm text-gray-900">Proteína</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {checkIn.frutasOk ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span className="text-sm text-gray-900">Frutas</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {checkIn.aguaOk ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span className="text-sm text-gray-900">Água</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-900">Sintomas GI:</span>
+                    <span className={`text-sm font-medium ${
+                      checkIn.sintomasGI === 'nenhum' ? 'text-green-600' :
+                      checkIn.sintomasGI === 'leve' ? 'text-yellow-600' :
+                      checkIn.sintomasGI === 'moderado' ? 'text-orange-600' :
+                      'text-red-600'
+                    }`}>
+                      {checkIn.sintomasGI.charAt(0).toUpperCase() + checkIn.sintomasGI.slice(1)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {checkIn.lixoAlimentar ? (
+                      <>
+                        <XCircle className="h-5 w-5 text-red-600" />
+                        <span className="text-sm text-red-600">Lixo alimentar</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <span className="text-sm text-gray-900">Sem lixo</span>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-900">Humor/Energia:</span>
+                    <span className="text-sm font-semibold text-gray-900">{checkIn.humorEnergia}/5</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
