@@ -32,6 +32,7 @@ import NutriContent from '@/components/NutriContent';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [locais, setLocais] = useState<Local[]>([]);
@@ -1950,6 +1951,30 @@ export default function MetaPage() {
         }
         
         return <NutriContent paciente={paciente} />;
+      }
+
+      case 'indicar': {
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Indicar</h2>
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <UserIcon className="w-12 h-12 text-gray-400" />
+                </div>
+                <h3 className="text-2xl font-semibold text-gray-900 mb-4">Em Manutenção</h3>
+                <p className="text-gray-600 mb-6">
+                  Esta funcionalidade está em desenvolvimento e estará disponível em breve.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    Em breve você poderá indicar amigos e familiares para conhecerem o tratamento.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
       }
 
       case 'perfil': {
@@ -4461,18 +4486,56 @@ export default function MetaPage() {
               
             </nav>
 
-          {/* Logout button */}
-          <div className="px-4 py-4 border-t border-gray-200">
+          {/* Profile button with dropdown */}
+          <div className="px-4 py-4 border-t border-gray-200 relative">
             <button
-              onClick={handleLogout}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
-              title={sidebarCollapsed ? 'Sair' : ''}
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+              title={sidebarCollapsed ? 'Perfil' : ''}
             >
-              <svg className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              {!sidebarCollapsed && 'Sair'}
+              {user?.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt="Foto do perfil" 
+                  className={`w-8 h-8 rounded-full ${sidebarCollapsed ? '' : 'mr-3'}`}
+                />
+              ) : (
+                <div className={`w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center ${sidebarCollapsed ? '' : 'mr-3'}`}>
+                  <UserIcon className="w-5 h-5 text-gray-600" />
+                </div>
+              )}
+              {!sidebarCollapsed && (
+                <span className="flex-1 text-left">{user?.displayName || 'Perfil'}</span>
+              )}
+              {!sidebarCollapsed && (
+                <ChevronDown className={`w-4 h-4 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              )}
             </button>
+            
+            {/* Dropdown menu */}
+            {showProfileDropdown && (
+              <div className="absolute bottom-full left-4 right-4 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
+                <button
+                  onClick={() => {
+                    setActiveMenu('perfil');
+                    setShowProfileDropdown(false);
+                  }}
+                  className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <UserIcon className="w-5 h-5 mr-3 text-gray-600" />
+                  Ver dados pessoais
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-200"
+                >
+                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Sair
+                </button>
+              </div>
+            )}
           </div>
         </div>
         
@@ -4666,15 +4729,15 @@ export default function MetaPage() {
           </button>
 
           <button
-            onClick={() => setActiveMenu('perfil')}
+            onClick={() => setActiveMenu('indicar')}
             className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
-              activeMenu === 'perfil'
+              activeMenu === 'indicar'
                 ? 'bg-green-100 text-green-700'
                 : 'text-gray-600'
             }`}
           >
             <UserIcon className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-medium leading-tight">Perfil</span>
+            <span className="text-[10px] font-medium leading-tight">Indicar</span>
           </button>
 
         </div>
