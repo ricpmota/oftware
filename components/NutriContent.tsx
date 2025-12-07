@@ -76,6 +76,7 @@ interface NutriContentProps {
 
 export default function NutriContent({ paciente, setPaciente }: NutriContentProps) {
   const [view, setView] = useState<'loading' | 'wizard' | 'plano' | 'checkin'>('loading');
+  const [activeTab, setActiveTab] = useState<'plano' | 'proteinas' | 'cardapio' | 'alertas' | 'historico'>('plano');
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardData>({
     objetivoPrincipal: 'perda_peso',
@@ -1109,32 +1110,452 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   const coposAgua = Math.round(plano.aguaDia_ml / 250);
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho do Plano */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <UtensilsCrossed className="h-6 w-6 text-green-600" />
-              Plano Nutricional Personalizado
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Criado em {new Date(plano.criadoEm).toLocaleDateString('pt-BR', { 
-                day: 'numeric', 
-                month: 'long', 
-                year: 'numeric' 
-              })}
-            </p>
+    <div className="space-y-4">
+      {/* Botão de Check-in Fixo no Topo */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <button
+          onClick={() => setView('checkin')}
+          className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 flex items-center justify-center gap-2 font-medium shadow-md transition-all duration-200 transform hover:scale-[1.02]"
+        >
+          <Calendar className="h-5 w-5" />
+          <span>Check-in Diário</span>
+        </button>
+      </div>
+
+      {/* Sistema de Abas */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {/* Navegação das Abas */}
+        <div className="border-b border-gray-200">
+          <div className="flex overflow-x-auto scrollbar-hide">
+            <button
+              onClick={() => setActiveTab('plano')}
+              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'plano'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              Plano Nutri
+            </button>
+            <button
+              onClick={() => setActiveTab('proteinas')}
+              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'proteinas'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              Proteínas
+            </button>
+            <button
+              onClick={() => setActiveTab('cardapio')}
+              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'cardapio'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              Cardápio
+            </button>
+            <button
+              onClick={() => setActiveTab('alertas')}
+              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'alertas'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              Alertas
+            </button>
+            <button
+              onClick={() => setActiveTab('historico')}
+              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'historico'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              Histórico
+            </button>
           </div>
-          <button
-            onClick={() => setView('checkin')}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
-          >
-            <Calendar className="h-4 w-4" />
-            Check-in Diário
-          </button>
+        </div>
+
+        {/* Conteúdo das Abas */}
+        <div className="p-6">
+          {/* Aba: Plano Nutri */}
+          {activeTab === 'plano' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <UtensilsCrossed className="h-5 w-5 text-green-600" />
+                  Plano Nutricional Personalizado
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  Criado em {new Date(plano.criadoEm).toLocaleDateString('pt-BR', { 
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
+                </p>
+              </div>
+              
+              {/* Cards de Métricas Principais */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Estilo Alimentar */}
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <UtensilsCrossed className="h-5 w-5 text-green-600" />
+                    <h3 className="text-sm font-medium text-gray-700">Estilo Alimentar</h3>
+                  </div>
+                  <p className="text-xl font-bold text-green-700 capitalize mb-2">
+                    {plano.estilo.replace('_', ' ')}
+                  </p>
+                  {plano.descricaoEstilo && (
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      {plano.descricaoEstilo}
+                    </p>
+                  )}
+                </div>
+                
+                {/* Meta de Proteína */}
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-sm font-medium text-gray-700">Meta de Proteína</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-700 mb-1">
+                    {plano.protDia_g} g/dia
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Meta diária aproximada de proteína total
+                  </p>
+                </div>
+                
+                {/* Meta de Água */}
+                <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg border border-cyan-200 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Droplet className="h-5 w-5 text-cyan-600" />
+                    <h3 className="text-sm font-medium text-gray-700">Meta de Água</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-cyan-700 mb-1">
+                    {plano.aguaDia_ml} ml
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Equivalente a {coposAgua}-{coposAgua + 1} copos por dia
+                  </p>
+                </div>
+                
+                {/* Refeições */}
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-5 w-5 text-purple-600" />
+                    <h3 className="text-sm font-medium text-gray-700">Refeições</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-700 mb-1">
+                    {plano.refeicoes} refeições
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Distribuídas ao longo do dia
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Aba: Proteínas */}
+          {activeTab === 'proteinas' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-blue-600" />
+                Distribuição de Proteína por Refeição
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Coffee className="h-4 w-4 text-green-700" />
+                    <p className="text-sm font-semibold text-gray-700">Café da Manhã</p>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.cafe}</p>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sun className="h-4 w-4 text-blue-700" />
+                    <p className="text-sm font-semibold text-gray-700">Lanche 1</p>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.lanche1}</p>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sunset className="h-4 w-4 text-orange-700" />
+                    <p className="text-sm font-semibold text-gray-700">Almoço</p>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.almoco}</p>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sun className="h-4 w-4 text-purple-700" />
+                    <p className="text-sm font-semibold text-gray-700">Lanche 2</p>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.lanche2}</p>
+                </div>
+                <div className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg border border-indigo-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Moon className="h-4 w-4 text-indigo-700" />
+                    <p className="text-sm font-semibold text-gray-700">Jantar</p>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.jantar}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Aba: Cardápio */}
+          {activeTab === 'cardapio' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <UtensilsCrossed className="h-5 w-5 text-orange-600" />
+                Modelo de Dia - Sugestões de Refeições
+              </h2>
+              <div className="space-y-4">
+                {/* Café da Manhã */}
+                <div className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border-l-4 border-amber-500">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Coffee className="h-5 w-5 text-amber-700" />
+                    <h4 className="font-semibold text-gray-900">Café da Manhã</h4>
+                  </div>
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.cafe}</p>
+                </div>
+                
+                {/* Lanche 1 */}
+                <div className="p-5 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border-l-4 border-blue-500">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Sun className="h-5 w-5 text-blue-700" />
+                    <h4 className="font-semibold text-gray-900">Lanche da Manhã</h4>
+                  </div>
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche1}</p>
+                </div>
+                
+                {/* Almoço */}
+                <div className="p-5 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border-l-4 border-orange-500">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Sunset className="h-5 w-5 text-orange-700" />
+                    <h4 className="font-semibold text-gray-900">Almoço</h4>
+                  </div>
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.almoco}</p>
+                </div>
+                
+                {/* Lanche 2 */}
+                <div className="p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-500">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Sun className="h-5 w-5 text-purple-700" />
+                    <h4 className="font-semibold text-gray-900">Lanche da Tarde</h4>
+                  </div>
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche2}</p>
+                </div>
+                
+                {/* Jantar */}
+                <div className="p-5 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Moon className="h-5 w-5 text-indigo-700" />
+                    <h4 className="font-semibold text-gray-900">Jantar</h4>
+                  </div>
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.jantar}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Aba: Alertas */}
+          {activeTab === 'alertas' && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+                Alimentos e Hábitos a Evitar
+              </h2>
+              {plano.evitar.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {plano.evitar.map((item, idx) => (
+                    <span
+                      key={idx}
+                      className="px-4 py-2 bg-red-50 text-red-700 rounded-lg text-sm font-medium border border-red-200 flex items-center gap-2"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                  <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
+                  <p className="text-gray-600">Nenhum alimento ou hábito a evitar no momento.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Aba: Histórico */}
+          {activeTab === 'historico' && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-purple-600" />
+                Histórico de Check-ins
+              </h2>
+              
+              {/* Resumo dos Check-ins */}
+              {resumoCheckIns && checkIns.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-5 w-5 text-green-700" />
+                      <p className="text-sm font-medium text-gray-700">Média (7 dias)</p>
+                    </div>
+                    <p className="text-2xl font-bold text-green-700">
+                      {(resumoCheckIns.mediaScore7dias * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="h-5 w-5 text-blue-700" />
+                      <p className="text-sm font-medium text-gray-700">Total de Check-ins</p>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {resumoCheckIns.totalCheckIns}
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="h-5 w-5 text-purple-700" />
+                      <p className="text-sm font-medium text-gray-700">Melhor Dia</p>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-700">
+                      {(resumoCheckIns.melhorDia.score * 100).toFixed(0)}%
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {new Date(resumoCheckIns.melhorDia.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Lista de Check-ins */}
+              {loadingCheckIns ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+                  <p className="text-gray-600">Carregando check-ins...</p>
+                </div>
+              ) : checkIns.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                  <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-gray-600">Nenhum check-in registrado ainda.</p>
+                  <p className="text-sm text-gray-500 mt-2">Use o botão "Check-in Diário" para começar a registrar.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {checkIns.map((checkIn, idx) => {
+                    const scoreColor = checkIn.score >= 0.8 ? 'green' : checkIn.score >= 0.6 ? 'yellow' : 'red';
+                    const borderColor = scoreColor === 'green' ? 'border-green-300' : scoreColor === 'yellow' ? 'border-yellow-300' : 'border-red-300';
+                    const bgColor = scoreColor === 'green' ? 'bg-green-50' : scoreColor === 'yellow' ? 'bg-yellow-50' : 'bg-red-50';
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-5 rounded-lg border-l-4 ${borderColor} ${bgColor} hover:shadow-md transition-shadow`}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <p className="font-bold text-gray-900 text-lg">
+                              {new Date(checkIn.data).toLocaleDateString('pt-BR', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-4 py-1.5 rounded-full text-sm font-bold ${
+                              checkIn.score >= 0.8 ? 'bg-green-200 text-green-800' :
+                              checkIn.score >= 0.6 ? 'bg-yellow-200 text-yellow-800' :
+                              'bg-red-200 text-red-800'
+                            }`}>
+                              Score: {(checkIn.score * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          <div className="flex items-center gap-2">
+                            {checkIn.proteinaOk ? (
+                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                            )}
+                            <span className="text-sm font-medium text-gray-900">Proteína</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {checkIn.frutasOk ? (
+                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                            )}
+                            <span className="text-sm font-medium text-gray-900">Frutas</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {checkIn.aguaOk ? (
+                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                            )}
+                            <span className="text-sm font-medium text-gray-900">Água</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">Sintomas GI:</span>
+                            <span className={`text-sm font-bold px-2 py-1 rounded ${
+                              checkIn.sintomasGI === 'nenhum' ? 'bg-green-100 text-green-700' :
+                              checkIn.sintomasGI === 'leve' ? 'bg-yellow-100 text-yellow-700' :
+                              checkIn.sintomasGI === 'moderado' ? 'bg-orange-100 text-orange-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {checkIn.sintomasGI.charAt(0).toUpperCase() + checkIn.sintomasGI.slice(1)}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {checkIn.lixoAlimentar ? (
+                              <>
+                                <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                                <span className="text-sm font-medium text-red-600">Lixo alimentar</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                <span className="text-sm font-medium text-gray-900">Sem lixo</span>
+                              </>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                            <span className="text-sm font-medium text-gray-900">Energia:</span>
+                            <span className="text-sm font-bold text-gray-900">{checkIn.humorEnergia}/5</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
       
       {/* Cards de Métricas Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1195,271 +1616,6 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             Distribuídas ao longo do dia
           </p>
         </div>
-      </div>
-      
-      {/* Distribuição de Proteína */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Distribuição de Proteína por Refeição</h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
-            <div className="flex items-center gap-2 mb-2">
-              <Coffee className="h-4 w-4 text-green-700" />
-              <p className="text-sm font-semibold text-gray-700">Café da Manhã</p>
-            </div>
-            <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.cafe}</p>
-          </div>
-          <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-2 mb-2">
-              <Sun className="h-4 w-4 text-blue-700" />
-              <p className="text-sm font-semibold text-gray-700">Lanche 1</p>
-            </div>
-            <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.lanche1}</p>
-          </div>
-          <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border border-orange-200">
-            <div className="flex items-center gap-2 mb-2">
-              <Sunset className="h-4 w-4 text-orange-700" />
-              <p className="text-sm font-semibold text-gray-700">Almoço</p>
-            </div>
-            <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.almoco}</p>
-          </div>
-          <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
-            <div className="flex items-center gap-2 mb-2">
-              <Sun className="h-4 w-4 text-purple-700" />
-              <p className="text-sm font-semibold text-gray-700">Lanche 2</p>
-            </div>
-            <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.lanche2}</p>
-          </div>
-          <div className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg border border-indigo-200">
-            <div className="flex items-center gap-2 mb-2">
-              <Moon className="h-4 w-4 text-indigo-700" />
-              <p className="text-sm font-semibold text-gray-700">Jantar</p>
-            </div>
-            <p className="text-lg font-bold text-gray-900">{plano.distribuicaoProteina.jantar}</p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Modelo de Dia (melhorado) */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Modelo de Dia - Sugestões de Refeições</h3>
-        <div className="space-y-4">
-          {/* Café da Manhã */}
-          <div className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border-l-4 border-amber-500">
-            <div className="flex items-center gap-3 mb-2">
-              <Coffee className="h-5 w-5 text-amber-700" />
-              <h4 className="font-semibold text-gray-900">Café da Manhã</h4>
-            </div>
-            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.cafe}</p>
-          </div>
-          
-          {/* Lanche 1 */}
-          <div className="p-5 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border-l-4 border-blue-500">
-            <div className="flex items-center gap-3 mb-2">
-              <Sun className="h-5 w-5 text-blue-700" />
-              <h4 className="font-semibold text-gray-900">Lanche da Manhã</h4>
-            </div>
-            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche1}</p>
-          </div>
-          
-          {/* Almoço */}
-          <div className="p-5 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border-l-4 border-orange-500">
-            <div className="flex items-center gap-3 mb-2">
-              <Sunset className="h-5 w-5 text-orange-700" />
-              <h4 className="font-semibold text-gray-900">Almoço</h4>
-            </div>
-            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.almoco}</p>
-          </div>
-          
-          {/* Lanche 2 */}
-          <div className="p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-500">
-            <div className="flex items-center gap-3 mb-2">
-              <Sun className="h-5 w-5 text-purple-700" />
-              <h4 className="font-semibold text-gray-900">Lanche da Tarde</h4>
-            </div>
-            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche2}</p>
-          </div>
-          
-          {/* Jantar */}
-          <div className="p-5 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500">
-            <div className="flex items-center gap-3 mb-2">
-              <Moon className="h-5 w-5 text-indigo-700" />
-              <h4 className="font-semibold text-gray-900">Jantar</h4>
-            </div>
-            <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.jantar}</p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Alimentos a Evitar */}
-      {plano.evitar.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Alimentos e Hábitos a Evitar</h3>
-          <div className="flex flex-wrap gap-2">
-            {plano.evitar.map((item, idx) => (
-              <span
-                key={idx}
-                className="px-3 py-1.5 bg-red-50 text-red-700 rounded-full text-sm font-medium border border-red-200"
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {/* Histórico de Check-ins (melhorado) */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Check-ins</h3>
-        
-        {/* Resumo dos Check-ins */}
-        {resumoCheckIns && checkIns.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-5 w-5 text-green-700" />
-                <p className="text-sm font-medium text-gray-700">Média (7 dias)</p>
-              </div>
-              <p className="text-2xl font-bold text-green-700">
-                {(resumoCheckIns.mediaScore7dias * 100).toFixed(0)}%
-              </p>
-            </div>
-            
-            <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="h-5 w-5 text-blue-700" />
-                <p className="text-sm font-medium text-gray-700">Total de Check-ins</p>
-              </div>
-              <p className="text-2xl font-bold text-blue-700">
-                {resumoCheckIns.totalCheckIns}
-              </p>
-            </div>
-            
-            <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="h-5 w-5 text-purple-700" />
-                <p className="text-sm font-medium text-gray-700">Melhor Dia</p>
-              </div>
-              <p className="text-2xl font-bold text-purple-700">
-                {(resumoCheckIns.melhorDia.score * 100).toFixed(0)}%
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                {new Date(resumoCheckIns.melhorDia.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
-              </p>
-            </div>
-          </div>
-        )}
-        
-        {/* Lista de Check-ins */}
-        {loadingCheckIns ? (
-          <div className="text-center py-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
-            <p className="text-gray-600">Carregando check-ins...</p>
-          </div>
-        ) : checkIns.length === 0 ? (
-          <div className="text-center py-8">
-            <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-600">Nenhum check-in registrado ainda.</p>
-            <p className="text-sm text-gray-500 mt-2">Use o botão "Check-in Diário" para começar a registrar.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {checkIns.map((checkIn, idx) => {
-              const scoreColor = checkIn.score >= 0.8 ? 'green' : checkIn.score >= 0.6 ? 'yellow' : 'red';
-              const borderColor = scoreColor === 'green' ? 'border-green-300' : scoreColor === 'yellow' ? 'border-yellow-300' : 'border-red-300';
-              const bgColor = scoreColor === 'green' ? 'bg-green-50' : scoreColor === 'yellow' ? 'bg-yellow-50' : 'bg-red-50';
-              
-              return (
-                <div
-                  key={idx}
-                  className={`p-5 rounded-lg border-l-4 ${borderColor} ${bgColor} hover:shadow-md transition-shadow`}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="font-bold text-gray-900 text-lg">
-                        {new Date(checkIn.data).toLocaleDateString('pt-BR', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-4 py-1.5 rounded-full text-sm font-bold ${
-                        checkIn.score >= 0.8 ? 'bg-green-200 text-green-800' :
-                        checkIn.score >= 0.6 ? 'bg-yellow-200 text-yellow-800' :
-                        'bg-red-200 text-red-800'
-                      }`}>
-                        Score: {(checkIn.score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="flex items-center gap-2">
-                      {checkIn.proteinaOk ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                      )}
-                      <span className="text-sm font-medium text-gray-900">Proteína</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {checkIn.frutasOk ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                      )}
-                      <span className="text-sm font-medium text-gray-900">Frutas</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {checkIn.aguaOk ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                      )}
-                      <span className="text-sm font-medium text-gray-900">Água</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">Sintomas GI:</span>
-                      <span className={`text-sm font-bold px-2 py-1 rounded ${
-                        checkIn.sintomasGI === 'nenhum' ? 'bg-green-100 text-green-700' :
-                        checkIn.sintomasGI === 'leve' ? 'bg-yellow-100 text-yellow-700' :
-                        checkIn.sintomasGI === 'moderado' ? 'bg-orange-100 text-orange-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {checkIn.sintomasGI.charAt(0).toUpperCase() + checkIn.sintomasGI.slice(1)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {checkIn.lixoAlimentar ? (
-                        <>
-                          <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                          <span className="text-sm font-medium text-red-600">Lixo alimentar</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                          <span className="text-sm font-medium text-gray-900">Sem lixo</span>
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                      <span className="text-sm font-medium text-gray-900">Energia:</span>
-                      <span className="text-sm font-bold text-gray-900">{checkIn.humorEnergia}/5</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
