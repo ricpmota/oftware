@@ -213,6 +213,13 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   const [checkIns, setCheckIns] = useState<CheckInDiario[]>([]);
   const [loadingCheckIns, setLoadingCheckIns] = useState(false);
   const [checkInHojeExiste, setCheckInHojeExiste] = useState(false);
+  
+  // Estado para a data do check-in (permite até 3 dias retroativos)
+  const [checkInDate, setCheckInDate] = useState<string>(() => {
+    // Inicializar com data de hoje (YYYY-MM-DD)
+    return new Date().toISOString().split('T')[0];
+  });
+  const [isEditandoCheckIn, setIsEditandoCheckIn] = useState(false);
 
   // ============================================
   // CARREGAMENTO DE DADOS
@@ -640,8 +647,13 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       const dataHoje = new Date().toISOString().split('T')[0];
       let hojeExiste = false;
       
-      checkInsSnapshot.forEach((doc) => {
-        const data = doc.data();
+      checkInsSnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        // Usar doc.id como data (se for formato YYYY-MM-DD) ou data.data como fallback
+        const dataCheckIn = docSnapshot.id.match(/^\d{4}-\d{2}-\d{2}$/) 
+          ? docSnapshot.id 
+          : (data.data || docSnapshot.id);
+        
         const checkInData: CheckInDiario = {
           // Alimentação/hidratação (compatibilidade com dados antigos)
           proteinaOk: data.proteinaOk ?? false,
@@ -677,7 +689,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           pesoHoje: data.pesoHoje,
           sintomasAumentoDose: data.sintomasAumentoDose,
           score: data.score || 0,
-          data: data.data || doc.id
+          data: dataCheckIn
         };
         
         checkInsData.push(checkInData);
@@ -801,16 +813,77 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     return Math.round(scoreFinal * 10) / 10;
   };
 
+  // Função para validar se a data está dentro da janela permitida (hoje até 3 dias atrás)
+  const validarDataCheckIn = (data: string): boolean => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const dataSelecionada = new Date(data);
+    dataSelecionada.setHours(0, 0, 0, 0);
+    const tresDiasAtras = new Date(hoje);
+    tresDiasAtras.setDate(tresDiasAtras.getDate() - 3);
+    
+    return dataSelecionada >= tresDiasAtras && dataSelecionada <= hoje;
+  };
+
+  // Função para carregar check-in existente quando a data mudar
+  const carregarCheckInPorData = (data: string) => {
+    const checkInExistente = checkIns.find(ci => ci.data === data);
+    if (checkInExistente) {
+      setCheckInData(checkInExistente);
+      setIsEditandoCheckIn(true);
+    } else {
+      // Resetar para valores padrão, mas manter a data
+      setCheckInData({
+        proteinaOk: false,
+        frutasOk: false,
+        aguaOk: false,
+        lixoAlimentar: false,
+        probioticoTomou: false,
+        wheyTomou: false,
+        creatinaTomou: false,
+        sintomasGI: 'nenhum',
+        nauseas: 'nenhum',
+        constipacao: 'nenhum',
+        diarreia: 'nenhum',
+        horasSono: '6-8h',
+        humorEnergia: 3,
+        atividadeFisicaHoje: 'nenhuma',
+        diaAplicacao: 'nao_foi_dia',
+        localAplicacao: undefined,
+        observacoes: '',
+        aderenciaPlano: 100,
+        pesoHoje: undefined,
+        sintomasAumentoDose: undefined,
+        score: 0,
+        data: data
+      });
+      setIsEditandoCheckIn(false);
+    }
+  };
+
+  // useEffect para carregar check-in quando a data mudar
+  useEffect(() => {
+    if (view === 'checkin' && checkInDate) {
+      carregarCheckInPorData(checkInDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkInDate, view]);
+
   const salvarCheckIn = async () => {
     if (!paciente || !paciente.id) {
       alert('Erro: Paciente não encontrado. Recarregue a página.');
       return;
     }
 
+    // Validar janela de 3 dias
+    if (!validarDataCheckIn(checkInDate)) {
+      alert('Você só pode registrar check-ins até 3 dias atrás.');
+      return;
+    }
+
     try {
       setSavingCheckIn(true);
       const score = calcularScoreCheckIn(checkInData);
-      const dataHoje = new Date().toISOString().split('T')[0];
       
       // Calcular sintomasGI geral baseado no pior sintoma
       const sintomasValores = {
@@ -864,19 +937,21 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         pesoHoje: checkInData.pesoHoje || null,
         sintomasAumentoDose: checkInData.sintomasAumentoDose || null,
         score: score,
-        data: dataHoje,
+        data: checkInDate, // Usar checkInDate em vez de dataHoje
         timestamp: Timestamp.now()
       };
       
       const nutricaoDadosRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'dados');
-      const checkInRef = doc(nutricaoDadosRef, 'checkins', dataHoje);
+      const checkInRef = doc(nutricaoDadosRef, 'checkins', checkInDate); // Usar checkInDate como ID
       await setDoc(checkInRef, checkInComScore);
       
-      alert('Check-in salvo com sucesso!');
+      alert(isEditandoCheckIn ? 'Check-in atualizado com sucesso!' : 'Check-in salvo com sucesso!');
       await loadCheckIns();
       setView('plano');
       
-      // Resetar formulário
+      // Resetar formulário para valores padrão
+      const dataHoje = new Date().toISOString().split('T')[0];
+      setCheckInDate(dataHoje);
       setCheckInData({
         proteinaOk: false,
         frutasOk: false,
@@ -895,9 +970,13 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         diaAplicacao: 'nao_foi_dia',
         localAplicacao: undefined,
         observacoes: '',
+        aderenciaPlano: 100,
+        pesoHoje: undefined,
+        sintomasAumentoDose: undefined,
         score: 0,
         data: dataHoje
       });
+      setIsEditandoCheckIn(false);
     } catch (error: any) {
       console.error('Erro ao salvar check-in:', error);
       alert(`Erro ao salvar check-in: ${error?.message || 'Erro desconhecido'}.`);
@@ -1677,12 +1756,24 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
 
   // Tela de Check-in Diário
   if (view === 'checkin') {
-    const dataHoje = new Date().toLocaleDateString('pt-BR', { 
+    // Calcular datas mínima e máxima (hoje até 3 dias atrás)
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const tresDiasAtras = new Date(hoje);
+    tresDiasAtras.setDate(tresDiasAtras.getDate() - 3);
+    
+    const dataMinima = tresDiasAtras.toISOString().split('T')[0];
+    const dataMaxima = hoje.toISOString().split('T')[0];
+    
+    // Formatar data selecionada para exibição
+    const dataSelecionada = new Date(checkInDate);
+    const dataFormatada = dataSelecionada.toLocaleDateString('pt-BR', { 
       weekday: 'long', 
       day: 'numeric', 
       month: 'long', 
       year: 'numeric' 
     });
+    
     const metaAgua = plano ? `${plano.aguaDia_ml} ml` : '2-3 litros';
     
     return (
@@ -1692,12 +1783,45 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
               <Calendar className="h-6 w-6 text-green-600" />
-              Check-in Nutri de Hoje
+              Check-in Nutri
             </h2>
-            <p className="text-lg font-medium text-gray-700">{dataHoje}</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Leva menos de 1 minuto. Ajuda seu médico e o sistema a ajustar seu plano.
+            <p className="text-sm text-gray-600 mb-4">
+              Escolha o dia que você quer registrar (até 3 dias atrás).
             </p>
+            
+            {/* Campo de Data */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Este check-in é referente a qual dia?
+              </label>
+              <input
+                type="date"
+                value={checkInDate}
+                min={dataMinima}
+                max={dataMaxima}
+                onChange={(e) => {
+                  const novaData = e.target.value;
+                  if (validarDataCheckIn(novaData)) {
+                    setCheckInDate(novaData);
+                  } else {
+                    alert('Você só pode registrar check-ins até 3 dias atrás.');
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                {dataFormatada}
+              </p>
+            </div>
+            
+            {/* Mensagem se estiver editando */}
+            {isEditandoCheckIn && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Você está editando o check-in desse dia.</strong>
+                </p>
+              </div>
+            )}
           </div>
           
           <div className="space-y-6">
