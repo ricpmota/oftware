@@ -603,7 +603,6 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     };
     
     // Cálculo de proteína por refeição para gerar opções
-    const protPorRefeicao = protDia_g / 5;
     const protCafe = Math.round(protPorRefeicao * 1.3);
     const protAlmoco = Math.round(protPorRefeicao * 1.3);
     const protJantar = Math.round(protPorRefeicao * 1.3);
