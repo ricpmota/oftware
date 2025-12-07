@@ -210,29 +210,116 @@ const gerarOpcoesRefeicoes = (
     // Por questões de espaço, vou criar uma função helper que gera opções baseadas no estilo
   };
 
-  // Retornar opções baseadas no estilo
-  if (estilo === 'digestiva' && baseOpcoes.digestiva) {
-    return baseOpcoes.digestiva as Record<RefeicaoKey, OpcaoRefeicao[]>;
-  }
+  // Função auxiliar para filtrar opções baseadas em restrições e preferências
+  const filtrarOpcoes = (opcoes: OpcaoRefeicao[]): OpcaoRefeicao[] => {
+    return opcoes.filter(opcao => {
+      const descricaoLower = opcao.descricao.toLowerCase();
+      const tituloLower = opcao.titulo.toLowerCase();
+      
+      // Verificar restrições
+      if (restricoes.includes('vegetariano') || restricoes.includes('vegano')) {
+        // Remover opções com carne, frango, peixe, ovos (exceto se for vegano, aí pode ter ovos)
+        if (restricoes.includes('vegano')) {
+          if (descricaoLower.includes('carne') || descricaoLower.includes('frango') || 
+              descricaoLower.includes('peixe') || descricaoLower.includes('ovos') ||
+              descricaoLower.includes('atum') || descricaoLower.includes('salmão') ||
+              descricaoLower.includes('queijo') || descricaoLower.includes('iogurte') ||
+              descricaoLower.includes('laticínios') || descricaoLower.includes('whey')) {
+            return false;
+          }
+        } else if (restricoes.includes('vegetariano')) {
+          // Vegetariano pode ter ovos e laticínios, mas não carne/peixe/frango
+          if (descricaoLower.includes('carne') || descricaoLower.includes('frango') || 
+              descricaoLower.includes('peixe') || descricaoLower.includes('atum') ||
+              descricaoLower.includes('salmão') || descricaoLower.includes('patinho') ||
+              descricaoLower.includes('alcatra') || descricaoLower.includes('maminha')) {
+            return false;
+          }
+        }
+      }
+      
+      // Verificar intolerância à lactose
+      if (restricoes.includes('intolerância lactose')) {
+        if (descricaoLower.includes('iogurte') && !descricaoLower.includes('sem lactose') &&
+            !descricaoLower.includes('vegetal')) {
+          return false;
+        }
+        if (descricaoLower.includes('queijo') && !descricaoLower.includes('sem lactose')) {
+          return false;
+        }
+        if (descricaoLower.includes('laticínios') && !descricaoLower.includes('sem lactose')) {
+          return false;
+        }
+      }
+      
+      // Verificar sem glúten
+      if (restricoes.includes('sem glúten')) {
+        if ((descricaoLower.includes('pão') || descricaoLower.includes('trigo') || 
+             descricaoLower.includes('farinha')) && !descricaoLower.includes('sem glúten') &&
+            !descricaoLower.includes('sem gluten')) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+  
+  // Função auxiliar para ordenar opções por preferências
+  const ordenarPorPreferencias = (opcoes: OpcaoRefeicao[]): OpcaoRefeicao[] => {
+    if (preferenciasProteina.length === 0) return opcoes;
+    
+    return opcoes.sort((a, b) => {
+      const descA = a.descricao.toLowerCase();
+      const descB = b.descricao.toLowerCase();
+      
+      // Verificar quantas preferências cada opção atende
+      let scoreA = 0;
+      let scoreB = 0;
+      
+      preferenciasProteina.forEach(pref => {
+        const prefLower = pref.toLowerCase();
+        if (prefLower.includes('carne') && (descA.includes('carne') || descA.includes('patinho') || descA.includes('alcatra'))) scoreA++;
+        if (prefLower.includes('carne') && (descB.includes('carne') || descB.includes('patinho') || descB.includes('alcatra'))) scoreB++;
+        if (prefLower.includes('frango') && descA.includes('frango')) scoreA++;
+        if (prefLower.includes('frango') && descB.includes('frango')) scoreB++;
+        if (prefLower.includes('peixe') && (descA.includes('peixe') || descA.includes('salmão') || descA.includes('atum'))) scoreA++;
+        if (prefLower.includes('peixe') && (descB.includes('peixe') || descB.includes('salmão') || descB.includes('atum'))) scoreB++;
+        if (prefLower.includes('ovos') && descA.includes('ovos')) scoreA++;
+        if (prefLower.includes('ovos') && descB.includes('ovos')) scoreB++;
+        if (prefLower.includes('laticínios') && (descA.includes('queijo') || descA.includes('iogurte'))) scoreA++;
+        if (prefLower.includes('laticínios') && (descB.includes('queijo') || descB.includes('iogurte'))) scoreB++;
+        if (prefLower.includes('leguminosas') && (descA.includes('lentilha') || descA.includes('grão') || descA.includes('feijão') || descA.includes('tofu'))) scoreA++;
+        if (prefLower.includes('leguminosas') && (descB.includes('lentilha') || descB.includes('grão') || descB.includes('feijão') || descB.includes('tofu'))) scoreB++;
+      });
+      
+      return scoreB - scoreA; // Ordenar do maior para o menor score
+    });
+  };
 
-  // Para outros estilos, criar opções genéricas por enquanto
-  // (será expandido depois se necessário)
-  return {
-    cafe: [
-      { id: 'cafe_padrao', titulo: 'Café padrão', descricao: `Opção padrão de café da manhã com ~${protCafe}g de proteína.`, proteina_g: protCafe, calorias_kcal: 350 }
-    ],
-    lanche1: [
-      { id: 'lanche1_padrao', titulo: 'Lanche padrão', descricao: `Opção padrão de lanche com ~${protLanche}g de proteína.`, proteina_g: protLanche, calorias_kcal: 200 }
-    ],
-    almoco: [
-      { id: 'almoco_padrao', titulo: 'Almoço padrão', descricao: `Opção padrão de almoço com ~${protAlmoco}g de proteína.`, proteina_g: protAlmoco, calorias_kcal: 500 }
-    ],
-    lanche2: [
-      { id: 'lanche2_padrao', titulo: 'Lanche padrão', descricao: `Opção padrão de lanche com ~${protLanche}g de proteína.`, proteina_g: protLanche, calorias_kcal: 200 }
-    ],
-    jantar: [
-      { id: 'jantar_padrao', titulo: 'Jantar padrão', descricao: `Opção padrão de jantar com ~${protJantar}g de proteína.`, proteina_g: protJantar, calorias_kcal: 450 }
-    ]
+  // Retornar opções baseadas no estilo
+  let opcoesFinais: Record<RefeicaoKey, OpcaoRefeicao[]>;
+  
+  if (estilo === 'digestiva' && baseOpcoes.digestiva) {
+    opcoesFinais = baseOpcoes.digestiva as Record<RefeicaoKey, OpcaoRefeicao[]>;
+  } else {
+    // Para outros estilos, criar opções genéricas por enquanto
+    opcoesFinais = {
+      cafe: [
+        { id: 'cafe_padrao', titulo: 'Café padrão', descricao: `Opção padrão de café da manhã com ~${protCafe}g de proteína.`, proteina_g: protCafe, calorias_kcal: 350 }
+      ],
+      lanche1: [
+        { id: 'lanche1_padrao', titulo: 'Lanche padrão', descricao: `Opção padrão de lanche com ~${protLanche}g de proteína.`, proteina_g: protLanche, calorias_kcal: 200 }
+      ],
+      almoco: [
+        { id: 'almoco_padrao', titulo: 'Almoço padrão', descricao: `Opção padrão de almoço com ~${protAlmoco}g de proteína.`, proteina_g: protAlmoco, calorias_kcal: 500 }
+      ],
+      lanche2: [
+        { id: 'lanche2_padrao', titulo: 'Lanche padrão', descricao: `Opção padrão de lanche com ~${protLanche}g de proteína.`, proteina_g: protLanche, calorias_kcal: 200 }
+      ],
+      jantar: [
+        { id: 'jantar_padrao', titulo: 'Jantar padrão', descricao: `Opção padrão de jantar com ~${protJantar}g de proteína.`, proteina_g: protJantar, calorias_kcal: 450 }
+      ]
     };
   }
   
