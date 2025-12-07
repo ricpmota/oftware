@@ -93,6 +93,8 @@ interface PlanoNutricional {
   // Restrições e preferências do paciente (para filtrar opções de cardápio)
   restricoesPaciente?: string[];
   preferenciasProteinaPaciente?: string[];
+  // Opções customizadas criadas pelo meal builder
+  opcoesCustomizadas?: Record<RefeicaoKey, OpcaoRefeicao[]>;
 }
 
 interface CheckInDiario {
@@ -1624,6 +1626,12 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         setOpcoesRefeicoes(opcoesAtualizadas);
       }
       
+      // Atualizar opções customizadas no plano
+      const opcoesCustomizadasAtualizadas = {
+        ...(plano.opcoesCustomizadas || {}),
+        [refeicaoEmEdicao]: opcoesAtualizadas[refeicaoEmEdicao].filter(o => o.id.startsWith('custom_'))
+      };
+      
       // Criar cópia das opções selecionadas com a alteração
       const opcoesSelecionadasAtualizadas = {
         ...(plano.opcoesSelecionadas || {}),
@@ -1659,7 +1667,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         ...plano,
         opcoesSelecionadas: opcoesAjustadas,
         modeloDia: modeloDiaAtualizado,
-        macrosPorRefeicao: macrosPorRefeicaoAtualizado
+        macrosPorRefeicao: macrosPorRefeicaoAtualizado,
+        opcoesCustomizadas: opcoesCustomizadasAtualizadas
       };
       
       // Salvar no Firestore e atualizar estado
