@@ -396,7 +396,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                 type="number"
                 value={peso || ''}
                 onChange={(e) => setPeso(parseFloat(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
                 placeholder="Ex: 75.5"
                 min="20"
                 max="400"
@@ -412,7 +412,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                 type="number"
                 value={altura || ''}
                 onChange={(e) => setAltura(parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
                 placeholder="Ex: 170"
                 min="120"
                 max="230"
@@ -677,7 +677,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
               <select
                 value={checkInData.sintomasGI}
                 onChange={(e) => setCheckInData({ ...checkInData, sintomasGI: e.target.value as any })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black"
               >
                 <option value="nenhum">Nenhum</option>
                 <option value="leve">Leve</option>
