@@ -816,14 +816,28 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
 
   // Função para validar se a data está dentro da janela permitida (hoje até 3 dias atrás)
   const validarDataCheckIn = (data: string): boolean => {
+    if (!data) return false;
+    
     const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    const dataSelecionada = new Date(data);
-    dataSelecionada.setHours(0, 0, 0, 0);
+    hoje.setHours(23, 59, 59, 999); // Fim do dia de hoje
+    const dataSelecionada = new Date(data + 'T00:00:00'); // Garantir timezone local
     const tresDiasAtras = new Date(hoje);
     tresDiasAtras.setDate(tresDiasAtras.getDate() - 3);
+    tresDiasAtras.setHours(0, 0, 0, 0);
     
-    return dataSelecionada >= tresDiasAtras && dataSelecionada <= hoje;
+    // Não permitir datas futuras (maior que hoje)
+    const hojeInicio = new Date(hoje);
+    hojeInicio.setHours(0, 0, 0, 0);
+    if (dataSelecionada > hojeInicio) {
+      return false;
+    }
+    
+    // Não permitir datas anteriores a 3 dias atrás
+    if (dataSelecionada < tresDiasAtras) {
+      return false;
+    }
+    
+    return true;
   };
 
   // Função para carregar check-in existente quando a data mudar
