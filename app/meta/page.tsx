@@ -2491,15 +2491,15 @@ export default function MetaPage() {
                     >
                       {salvandoIndicacao ? 'Enviando...' : 'Enviar Indicação'}
                     </button>
-                  </div>
 
-                  {/* Seção de Link de Indicação */}
-                  {user?.email && paciente && (
-                    <LinkIndicacaoComponent 
-                      emailIndicador={user.email}
-                      nomeIndicador={paciente.nome || user.displayName || 'Paciente'}
-                    />
-                  )}
+                    {/* Seção de Link de Indicação */}
+                    {user?.email && paciente && (
+                      <LinkIndicacaoComponent 
+                        emailIndicador={user.email}
+                        nomeIndicador={paciente.nome || user.displayName || 'Paciente'}
+                      />
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     <div>
