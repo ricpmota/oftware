@@ -5761,6 +5761,42 @@ export default function MetaPage() {
             {
               question: "Como funciona a comunicação com meu médico?",
               answer: "Você pode enviar mensagens para seu médico através da área de Mensagens. Seu médico pode enviar lembretes, orientações e responder suas dúvidas. Todas as mensagens ficam registradas para consulta posterior."
+            },
+            {
+              question: "Como funciona o plano nutricional personalizado?",
+              answer: "O plano nutricional é gerado automaticamente após você responder um questionário sobre seus hábitos, preferências e restrições alimentares. O sistema calcula sua meta de proteína diária baseada no seu IMC, determina o estilo alimentar mais adequado (digestiva, rica em proteína, mediterrânea, etc.) e cria um cardápio personalizado com opções para cada refeição do dia."
+            },
+            {
+              question: "Como fazer o check-in diário?",
+              answer: "Na aba Nutri, clique no botão 'Check-in Diário' no topo da página. Você pode registrar o check-in para hoje ou até 3 dias atrás. O check-in inclui perguntas sobre alimentação, suplementos, sintomas gastrointestinais, sono, energia e aderência ao plano. Um score de 0 a 100 é calculado automaticamente para acompanhar sua evolução."
+            },
+            {
+              question: "Posso personalizar meu cardápio?",
+              answer: "Sim! Na aba 'Cardápio' dentro de Nutri, você pode clicar em qualquer refeição para ver opções alternativas. Cada opção mostra a quantidade aproximada de proteína e calorias. O sistema ajusta automaticamente os lanches se necessário para garantir que você atinja sua meta mínima de proteína diária."
+            },
+            {
+              question: "O que é a hipótese comportamental?",
+              answer: "A hipótese comportamental é um resumo gerado automaticamente pelo sistema baseado nas suas respostas no questionário inicial. Ela descreve seu perfil nutricional, incluindo padrões de fome, qualidade do sono, rotina de atividade física e comportamentos alimentares. Isso ajuda a entender melhor seu perfil e ajustar o plano conforme necessário."
+            },
+            {
+              question: "Como funciona o score de aderência do check-in?",
+              answer: "O score é calculado considerando: aderência ao plano (30%), alimentação e hidratação (30%), suplementos (15%), sintomas gastrointestinais (15%), sono e energia (5%), atividade física (3%) e adesão à Tirzepatida (2%). Quanto maior o score, melhor sua aderência ao tratamento. Você pode acompanhar sua evolução no histórico de check-ins."
+            },
+            {
+              question: "Quais suplementos são recomendados?",
+              answer: "O sistema pode recomendar probiótico (importante para saúde intestinal com Tirzepatida), whey protein (para ajudar a atingir a meta de proteína) e creatina (para pacientes com atividade física regular). As recomendações aparecem na aba 'Plano Nutri' e são baseadas no seu estilo alimentar e necessidades individuais."
+            },
+            {
+              question: "Como é calculada minha meta de proteína?",
+              answer: "A meta de proteína diária é calculada baseada no seu peso e IMC: se IMC < 27, usa 1.2g por kg; se IMC entre 27-32, usa 1.4g por kg; se IMC > 32, usa 1.5g por kg. A proteína é distribuída ao longo do dia: café, almoço e jantar recebem mais proteína (cerca de 30% cada), enquanto os lanches recebem menos (cerca de 20% cada)."
+            },
+            {
+              question: "O que fazer se tiver sintomas gastrointestinais?",
+              answer: "Registre os sintomas no check-in diário (náuseas, constipação, diarreia). Se os sintomas forem graves, entre em contato imediatamente com seu médico. O sistema ajusta automaticamente o estilo alimentar para 'digestiva' se você tiver sintomas moderados ou graves, priorizando alimentos mais leves e de fácil digestão."
+            },
+            {
+              question: "Posso editar um check-in que já fiz?",
+              answer: "Sim! Você pode editar check-ins até 3 dias atrás. Ao selecionar uma data no campo de data do check-in, se já existir um registro para aquela data, o formulário será preenchido automaticamente e você poderá fazer alterações. Isso é útil para corrigir informações ou completar dados que faltaram."
             }
           ]}
           position="left"
