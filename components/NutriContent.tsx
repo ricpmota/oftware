@@ -1810,13 +1810,24 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                 max={dataMaxima}
                 onChange={(e) => {
                   const novaData = e.target.value;
-                  if (validarDataCheckIn(novaData)) {
-                    setCheckInDate(novaData);
-                  } else {
-                    alert('Você só pode registrar check-ins até 3 dias atrás.');
+                  // Validar antes de atualizar
+                  if (!validarDataCheckIn(novaData)) {
+                    alert('Você só pode registrar check-ins até 3 dias atrás. Não é permitido selecionar datas futuras.');
+                    // Resetar para a data atual se inválida
+                    setCheckInDate(dataMaxima);
+                    return;
+                  }
+                  setCheckInDate(novaData);
+                }}
+                onBlur={(e) => {
+                  // Validação adicional ao perder o foco
+                  const dataSelecionada = e.target.value;
+                  if (dataSelecionada && !validarDataCheckIn(dataSelecionada)) {
+                    alert('Você só pode registrar check-ins até 3 dias atrás. Não é permitido selecionar datas futuras.');
+                    setCheckInDate(dataMaxima);
                   }
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                className="w-full max-w-xs px-3 md:px-4 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
               />
               <p className="text-sm text-gray-500 mt-2">
                 {dataFormatada}
@@ -2345,33 +2356,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   const resumoCheckIns = calcularResumoCheckIns();
   const coposAgua = Math.round(plano.aguaDia_ml / 250);
 
-  // Calcular semana de tratamento e dose atual
-  const planoTerapeutico = paciente?.planoTerapeutico;
-  const semanaAtual = planoTerapeutico?.startDate 
-    ? Math.floor((new Date().getTime() - new Date(planoTerapeutico.startDate).getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1
-    : null;
-  const totalSemanas = planoTerapeutico?.numeroSemanasTratamento || 18;
-  const doseAtual = planoTerapeutico?.currentDoseMg;
-
   return (
     <div className="space-y-4">
-      {/* Cabeçalho com informações do tratamento Tirzepatida */}
-      {semanaAtual && doseAtual && (
-        <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border border-pink-200 p-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <Syringe className="h-5 w-5 text-pink-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-700">Tratamento Tirzepatida</p>
-                <p className="text-lg font-bold text-gray-900">
-                  Semana {semanaAtual} de {totalSemanas} • Dose atual: {doseAtual} mg
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Botão de Check-in Fixo no Topo */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <button
