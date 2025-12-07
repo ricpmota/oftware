@@ -420,61 +420,66 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
     return <div className="p-6">Erro ao carregar configuração</div>;
   }
 
-  const getVariaveisDisponiveis = (modulo: EmailModulo, emailTipo?: string): { variaveis: string[]; descricao: string } => {
+  const getVariaveisDisponiveis = (modulo: EmailModulo, emailTipo?: string): { variaveis: Array<{ nome: string; descricao: string }> } => {
+    // Variável {nome} - Nome da pessoa cadastrada, independente se é paciente ou médico
+    const variavelNome = { nome: '{nome}', descricao: 'Nome da pessoa cadastrada (paciente ou médico)' };
+    
+    // Variável {medico} - Nome do médico responsável pelo tratamento do paciente
+    const variavelMedico = { nome: '{medico}', descricao: 'Nome do médico responsável pelo tratamento do paciente' };
+    
+    // Variável {inicio} - Data de início do tratamento configurada pelo médico
+    const variavelInicio = { nome: '{inicio}', descricao: 'Data de início do tratamento configurada pelo médico' };
+    
+    // Variável {semanas} - Duração do tratamento definida pelo médico (ex: 12 semanas)
+    const variavelSemanas = { nome: '{semanas}', descricao: 'Duração do tratamento definida pelo médico (ex: 12 semanas)' };
+    
+    // Variável {numero} - Número da aplicação da Tirzepatida (aplicação 1, 2, 3…)
+    const variavelNumero = { nome: '{numero}', descricao: 'Número da aplicação da Tirzepatida (aplicação 1, 2, 3…)' };
+    
     if (modulo === 'leads') {
       return {
-        variaveis: ['{nome}'],
-        descricao: '{nome} - Nome da pessoa cadastrada (paciente ou médico)'
+        variaveis: [variavelNome]
       };
     } else if (modulo === 'solicitado_medico') {
       return {
-        variaveis: ['{nome}', '{medico}'],
-        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico responsável pelo tratamento'
+        variaveis: [variavelNome, variavelMedico]
       };
     } else if (modulo === 'em_tratamento') {
       return {
-        variaveis: ['{nome}', '{medico}', '{inicio}', '{semanas}'],
-        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico | {inicio} - Data de início do tratamento | {semanas} - Duração do tratamento em semanas'
+        variaveis: [variavelNome, variavelMedico, variavelInicio, variavelSemanas]
       };
     } else if (modulo === 'novo_lead_medico') {
       return {
-        variaveis: ['{nome}', '{medico}'],
-        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico que receberá o aviso'
+        variaveis: [variavelNome, variavelMedico]
       };
     } else if (modulo === 'aplicacao') {
       return {
-        variaveis: ['{nome}', '{medico}', '{numero}'],
-        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico responsável | {numero} - Número da aplicação (1, 2, 3...)'
+        variaveis: [variavelNome, variavelMedico, variavelNumero]
       };
     } else if (modulo === 'lead_avulso') {
       return {
-        variaveis: ['{nome}'],
-        descricao: '{nome} - Nome da pessoa cadastrada (novo lead)'
+        variaveis: [variavelNome]
       };
     } else if (modulo === 'check_recomendacoes') {
       return {
-        variaveis: ['{nome}', '{medico}'],
-        descricao: '{nome} - Nome do paciente | {medico} - Nome do médico que receberá o aviso'
+        variaveis: [variavelNome, variavelMedico]
       };
     } else if (modulo === 'bem_vindo') {
       if (emailTipo === 'bem_vindo_medico') {
         return {
-          variaveis: ['{nome}'],
-          descricao: '{nome} - Nome do médico cadastrado'
+          variaveis: [{ nome: '{nome}', descricao: 'Nome do médico cadastrado' }]
         };
       } else {
         return {
-          variaveis: ['{nome}'],
-          descricao: '{nome} - Nome da pessoa cadastrada (paciente ou médico)'
+          variaveis: [variavelNome]
         };
       }
     } else if (modulo === 'novidades') {
       return {
-        variaveis: ['{nome}'],
-        descricao: '{nome} - Nome da pessoa cadastrada (paciente ou médico)'
+        variaveis: [variavelNome]
       };
     }
-    return { variaveis: [], descricao: '' };
+    return { variaveis: [] };
   };
 
   const renderEmailEditor = () => {
@@ -667,20 +672,25 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
               if (variaveisInfo.variaveis.length === 0) return null;
               return (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs font-semibold text-blue-900 mb-1">Variáveis Disponíveis:</p>
+                  <p className="text-xs font-semibold text-blue-900 mb-2">Variáveis Disponíveis:</p>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {variaveisInfo.variaveis.map((variavel) => (
                       <code
-                        key={variavel}
-                        className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono"
+                        key={variavel.nome}
+                        className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono font-semibold"
                       >
-                        {variavel}
+                        {variavel.nome}
                       </code>
                     ))}
                   </div>
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    {variaveisInfo.descricao}
-                  </p>
+                  <div className="space-y-1">
+                    {variaveisInfo.variaveis.map((variavel) => (
+                      <div key={variavel.nome} className="text-xs text-blue-700">
+                        <span className="font-mono font-semibold">{variavel.nome}</span>
+                        <span className="ml-2">{variavel.descricao}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               );
             })()}
