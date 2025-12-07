@@ -4434,11 +4434,38 @@ export default function MetaAdminGeralPage() {
             descricao: 'E-mail em massa para pacientes ou médicos',
             cor: 'pink'
           },
-          'leads_email1': { nome: 'Leads - E-mail 1', descricao: 'E-mail imediato (1h)', cor: 'cyan' },
-          'leads_email2': { nome: 'Leads - E-mail 2', descricao: 'E-mail 24h depois', cor: 'teal' },
-          'leads_email3': { nome: 'Leads - E-mail 3', descricao: 'E-mail 72h depois', cor: 'emerald' },
-          'leads_email4': { nome: 'Leads - E-mail 4', descricao: 'E-mail 7 dias depois', cor: 'lime' },
-          'leads_email5': { nome: 'Leads - E-mail 5', descricao: 'E-mail 14 dias depois', cor: 'green' },
+          // E-mails de leads - usando os valores reais do banco de dados
+          'email1': { 
+            nome: 'Bem-vindo ao Oftware!', 
+            descricao: 'E-mail imediato (1h após cadastro)',
+            cor: 'cyan' 
+          },
+          'email2': { 
+            nome: 'Você ainda está aqui?', 
+            descricao: 'E-mail 24h depois do cadastro',
+            cor: 'teal' 
+          },
+          'email3': { 
+            nome: 'Reacenda sua jornada', 
+            descricao: 'E-mail 72h (3 dias) depois do cadastro',
+            cor: 'emerald' 
+          },
+          'email4': { 
+            nome: 'Superando objeções', 
+            descricao: 'E-mail 7 dias depois do cadastro',
+            cor: 'lime' 
+          },
+          'email5': { 
+            nome: 'Última chance', 
+            descricao: 'E-mail 14 dias depois do cadastro',
+            cor: 'green' 
+          },
+          // Fallback para outros formatos possíveis
+          'leads_email1': { nome: 'Bem-vindo ao Oftware!', descricao: 'E-mail imediato (1h)', cor: 'cyan' },
+          'leads_email2': { nome: 'Você ainda está aqui?', descricao: 'E-mail 24h depois', cor: 'teal' },
+          'leads_email3': { nome: 'Reacenda sua jornada', descricao: 'E-mail 72h depois', cor: 'emerald' },
+          'leads_email4': { nome: 'Superando objeções', descricao: 'E-mail 7 dias depois', cor: 'lime' },
+          'leads_email5': { nome: 'Última chance', descricao: 'E-mail 14 dias depois', cor: 'green' },
         };
 
         // Calcular estatísticas por tipo
