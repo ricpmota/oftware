@@ -356,7 +356,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
 
   const gerarPlanoNutricional = async () => {
     const medidasIniciais = paciente.dadosClinicos?.medidasIniciais;
-    const pesoKg = medidasIniciais?.peso || 0;
+    const pesoKg = obterPesoAtual();
     const imc = medidasIniciais?.imc || 0;
     
     // Cálculo de proteína diária baseado em IMC
