@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle, ArrowRight, ArrowLeft, MessageCircle, Printer, Save, DollarSign } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, UserCircle, Stethoscope, Clock, Activity, CheckCircle, ArrowRight, ArrowLeft, MessageCircle, Printer, Save, DollarSign, ChevronDown, User as UserIcon, MessageCircle as MessageCircleIcon } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -235,6 +235,55 @@ export default function MetaAdminPage() {
   // Estados para Indicações
   const [indicacoesPendentes, setIndicacoesPendentes] = useState<Indicacao[]>([]);
   const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [activeTabIndicacao, setActiveTabIndicacao] = useState<'minhas' | 'plano'>('minhas');
+  const [planoIndicacaoForm, setPlanoIndicacaoForm] = useState({
+    temPlanoIndicacao: false,
+    tipoValor: 'negociado' as 'negociado' | 'fixo',
+    tipoComissao: 'por_dose' as 'por_dose' | 'por_tratamento',
+    valorPorDose: 0,
+    tempoTratamentoMeses: 0,
+    totalMedicamentoMg: 0,
+    valorComissaoTratamento: 0
+  });
+  const [indicacoesVisualizadas, setIndicacoesVisualizadas] = useState<Set<string>>(new Set());
+
+  // Função para carregar indicações pendentes
+  const loadIndicacoesPendentes = useCallback(async () => {
+    if (!medicoPerfil) return;
+    
+    setLoadingIndicacoes(true);
+    try {
+      const indicacoes = await IndicacaoService.getIndicacoesPendentesPorMedico(medicoPerfil.id);
+      setIndicacoesPendentes(indicacoes);
+    } catch (error) {
+      console.error('Erro ao carregar indicações pendentes:', error);
+    } finally {
+      setLoadingIndicacoes(false);
+    }
+  }, [medicoPerfil]);
+
+  // Carregar indicações quando médico perfil mudar
+  useEffect(() => {
+    if (medicoPerfil && activeMenu === 'indicacao' && activeTabIndicacao === 'minhas') {
+      loadIndicacoesPendentes();
+    }
+  }, [medicoPerfil, activeMenu, activeTabIndicacao, loadIndicacoesPendentes]);
+
+  // Carregar plano de indicação quando entrar na aba
+  useEffect(() => {
+    if (medicoPerfil && activeMenu === 'indicacao' && activeTabIndicacao === 'plano') {
+      setPlanoIndicacaoForm({
+        temPlanoIndicacao: medicoPerfil.temPlanoIndicacao || false,
+        tipoValor: medicoPerfil.planoIndicacao?.tipoValor || 'negociado',
+        tipoComissao: medicoPerfil.planoIndicacao?.tipoComissao || 'por_dose',
+        valorPorDose: medicoPerfil.planoIndicacao?.valorPorDose || 0,
+        tempoTratamentoMeses: medicoPerfil.planoIndicacao?.tempoTratamentoMeses || 0,
+        totalMedicamentoMg: medicoPerfil.planoIndicacao?.totalMedicamentoMg || 0,
+        valorComissaoTratamento: medicoPerfil.planoIndicacao?.valorComissaoTratamento || 0
+      });
+    }
+  }, [medicoPerfil, activeMenu, activeTabIndicacao]);
   
   // Estados para Pasta 4 (Exames Laboratoriais)
   const [exameDataSelecionada, setExameDataSelecionada] = useState<string>('');
@@ -6205,6 +6254,364 @@ export default function MetaAdminPage() {
         );
       }
 
+      case 'indicacao': {
+        const formatPhoneNumber = (phone: string) => {
+          if (!phone) return '';
+          const numbers = phone.replace(/\D/g, '');
+          if (numbers.length <= 2) return `(${numbers}`;
+          if (numbers.length <= 7) return `(${numbers.substring(0, 2)}) ${numbers.substring(2)}`;
+          return `(${numbers.substring(0, 2)}) ${numbers.substring(2, 7)}-${numbers.substring(7)}`;
+        };
+
+        const getStatusLabel = (status: string) => {
+          switch (status) {
+            case 'pendente':
+              return { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock };
+            case 'visualizada':
+              return { label: 'Visualizada', color: 'bg-blue-100 text-blue-800', icon: Eye };
+            case 'venda':
+              return { label: 'Virou Venda', color: 'bg-green-100 text-green-800', icon: CheckCircle };
+            case 'paga':
+              return { label: 'Paga', color: 'bg-purple-100 text-purple-800', icon: DollarSign };
+            default:
+              return { label: 'Pendente', color: 'bg-gray-100 text-gray-800', icon: Clock };
+          }
+        };
+
+        const handleVisualizarIndicacao = async (indicacaoId: string) => {
+          try {
+            await IndicacaoService.marcarComoVisualizada(indicacaoId);
+            await loadIndicacoesPendentes();
+            setMessage('Indicação marcada como visualizada.');
+          } catch (error) {
+            console.error('Erro ao marcar como visualizada:', error);
+            alert('Erro ao marcar indicação como visualizada.');
+          }
+        };
+
+        const handleMarcarComoPaga = async (indicacaoId: string) => {
+          try {
+            await IndicacaoService.marcarComoPaga(indicacaoId);
+            await loadIndicacoesPendentes();
+            setMessage('Indicação marcada como paga.');
+          } catch (error) {
+            console.error('Erro ao marcar como paga:', error);
+            alert('Erro ao marcar indicação como paga.');
+          }
+        };
+
+        const handleSalvarPlanoIndicacao = async () => {
+          if (!medicoPerfil) return;
+          
+          try {
+            const planoData = {
+              ...planoIndicacaoForm,
+              temPlanoIndicacao: planoIndicacaoForm.temPlanoIndicacao
+            };
+            
+            await MedicoService.updateMedico(medicoPerfil.id, {
+              temPlanoIndicacao: planoData.temPlanoIndicacao,
+              planoIndicacao: planoData.temPlanoIndicacao ? {
+                tipoValor: planoData.tipoValor,
+                tipoComissao: planoData.tipoComissao,
+                ...(planoData.tipoComissao === 'por_dose' ? {
+                  valorPorDose: planoData.valorPorDose
+                } : {
+                  tempoTratamentoMeses: planoData.tempoTratamentoMeses,
+                  totalMedicamentoMg: planoData.totalMedicamentoMg,
+                  valorComissaoTratamento: planoData.valorComissaoTratamento
+                })
+              } : undefined
+            });
+            
+            await loadMedicoPerfil();
+            setMessage('Plano de indicação salvo com sucesso!');
+          } catch (error) {
+            console.error('Erro ao salvar plano:', error);
+            alert('Erro ao salvar plano de indicação.');
+          }
+        };
+
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Indicação</h2>
+            
+            {/* Tabs */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTabIndicacao('minhas')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTabIndicacao === 'minhas'
+                      ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Minhas Indicações
+                </button>
+                <button
+                  onClick={() => setActiveTabIndicacao('plano')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTabIndicacao === 'plano'
+                      ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Plano de Indicação
+                </button>
+              </div>
+
+              <div className="p-6">
+                {activeTabIndicacao === 'minhas' ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold text-gray-900">Indicações Recebidas</h3>
+                      <button
+                        onClick={loadIndicacoesPendentes}
+                        disabled={loadingIndicacoes}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw size={16} className={loadingIndicacoes ? 'animate-spin' : ''} />
+                        Atualizar
+                      </button>
+                    </div>
+
+                    {loadingIndicacoes ? (
+                      <div className="text-center py-8">
+                        <RefreshCw className="mx-auto h-8 w-8 text-gray-400 animate-spin" />
+                        <p className="mt-2 text-gray-600">Carregando indicações...</p>
+                      </div>
+                    ) : indicacoesPendentes.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                        <UserIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-600">Nenhuma indicação recebida ainda.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {indicacoesPendentes.map((indicacao) => {
+                          const statusInfo = getStatusLabel(indicacao.status);
+                          const StatusIcon = statusInfo.icon;
+                          
+                          return (
+                            <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <h4 className="text-base font-semibold text-gray-900 mb-1">
+                                    {indicacao.nomePaciente}
+                                  </h4>
+                                  <p className="text-sm text-gray-600">
+                                    Indicado por: {indicacao.indicadoPorNome}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {indicacao.cidade}, {indicacao.estado}
+                                  </p>
+                                  {indicacao.status === 'visualizada' || indicacao.status === 'venda' || indicacao.status === 'paga' ? (
+                                    <div className="mt-2">
+                                      <p className="text-sm text-gray-700">
+                                        <strong>Telefone:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
+                                      </p>
+                                      <a
+                                        href={`https://wa.me/55${indicacao.telefonePaciente.replace(/\D/g, '')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                      >
+                                        <MessageCircleIcon size={16} />
+                                        Entrar em contato via WhatsApp
+                                      </a>
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
+                                  <StatusIcon className="w-3 h-3" />
+                                  {statusInfo.label}
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-200">
+                                <div>
+                                  <p className="text-xs text-gray-500">Data da indicação</p>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {new Date(indicacao.criadoEm).toLocaleDateString('pt-BR')}
+                                  </p>
+                                </div>
+                                {indicacao.visualizadaEm && (
+                                  <div>
+                                    <p className="text-xs text-gray-500">Visualizada em</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {new Date(indicacao.visualizadaEm).toLocaleDateString('pt-BR')}
+                                    </p>
+                                  </div>
+                                )}
+                                {indicacao.vendaEm && (
+                                  <div>
+                                    <p className="text-xs text-gray-500">Virou venda em</p>
+                                    <p className="text-sm font-medium text-green-700">
+                                      {new Date(indicacao.vendaEm).toLocaleDateString('pt-BR')}
+                                    </p>
+                                  </div>
+                                )}
+                                {indicacao.pagaEm && (
+                                  <div>
+                                    <p className="text-xs text-gray-500">Paga em</p>
+                                    <p className="text-sm font-medium text-purple-700">
+                                      {new Date(indicacao.pagaEm).toLocaleDateString('pt-BR')}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
+                                {indicacao.status === 'pendente' && (
+                                  <button
+                                    onClick={() => handleVisualizarIndicacao(indicacao.id)}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                  >
+                                    <Eye size={16} />
+                                    Visualizar
+                                  </button>
+                                )}
+                                {indicacao.status === 'venda' && (
+                                  <button
+                                    onClick={() => handleMarcarComoPaga(indicacao.id)}
+                                    className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
+                                  >
+                                    <DollarSign size={16} />
+                                    Marcar como Paga
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Configurar Plano de Indicação</h3>
+                    
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={planoIndicacaoForm.temPlanoIndicacao}
+                          onChange={(e) => setPlanoIndicacaoForm({ ...planoIndicacaoForm, temPlanoIndicacao: e.target.checked })}
+                          className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        />
+                        <span className="text-sm font-medium text-gray-900">
+                          Ativar plano de indicação (aparecerá para pacientes como médico que paga comissão)
+                        </span>
+                      </label>
+                    </div>
+
+                    {planoIndicacaoForm.temPlanoIndicacao && (
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Tipo de Valor
+                          </label>
+                          <select
+                            value={planoIndicacaoForm.tipoValor}
+                            onChange={(e) => setPlanoIndicacaoForm({ ...planoIndicacaoForm, tipoValor: e.target.value as 'negociado' | 'fixo' })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                          >
+                            <option value="negociado">Valor negociado com cada cliente</option>
+                            <option value="fixo">Valor fixo para todos</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Tipo de Comissão
+                          </label>
+                          <select
+                            value={planoIndicacaoForm.tipoComissao}
+                            onChange={(e) => setPlanoIndicacaoForm({ ...planoIndicacaoForm, tipoComissao: e.target.value as 'por_dose' | 'por_tratamento' })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                          >
+                            <option value="por_dose">Por dose</option>
+                            <option value="por_tratamento">Por tratamento completo</option>
+                          </select>
+                        </div>
+
+                        {planoIndicacaoForm.tipoComissao === 'por_dose' ? (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Valor da comissão por dose (R$)
+                            </label>
+                            <input
+                              type="number"
+                              value={planoIndicacaoForm.valorPorDose}
+                              onChange={(e) => setPlanoIndicacaoForm({ ...planoIndicacaoForm, valorPorDose: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Duração do tratamento (meses)
+                              </label>
+                              <input
+                                type="number"
+                                value={planoIndicacaoForm.tempoTratamentoMeses}
+                                onChange={(e) => setPlanoIndicacaoForm({ ...planoIndicacaoForm, tempoTratamentoMeses: parseInt(e.target.value) || 0 })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                                placeholder="0"
+                                min="1"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Total de medicamento por tratamento (mg)
+                              </label>
+                              <input
+                                type="number"
+                                value={planoIndicacaoForm.totalMedicamentoMg}
+                                onChange={(e) => setPlanoIndicacaoForm({ ...planoIndicacaoForm, totalMedicamentoMg: parseFloat(e.target.value) || 0 })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Valor da comissão por tratamento (R$)
+                              </label>
+                              <input
+                                type="number"
+                                value={planoIndicacaoForm.valorComissaoTratamento}
+                                onChange={(e) => setPlanoIndicacaoForm({ ...planoIndicacaoForm, valorComissaoTratamento: parseFloat(e.target.value) || 0 })}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                                placeholder="0.00"
+                                step="0.01"
+                                min="0"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        <button
+                          onClick={handleSalvarPlanoIndicacao}
+                          className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 transition-colors"
+                        >
+                          Salvar Plano de Indicação
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       default:
         return null;
     }
@@ -6381,18 +6788,54 @@ export default function MetaAdminPage() {
               </button>
             </nav>
 
-            {/* Logout button */}
+            {/* Profile button */}
             <div className="px-4 py-4 border-t border-gray-200">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                title={sidebarCollapsed ? 'Sair' : ''}
-              >
-                <svg className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                {!sidebarCollapsed && 'Sair'}
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                  className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  title={sidebarCollapsed ? 'Perfil' : ''}
+                >
+                  {user?.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt="Profile"
+                      className={`w-8 h-8 rounded-full ${sidebarCollapsed ? '' : 'mr-3'}`}
+                    />
+                  ) : (
+                    <UserCircle size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                  )}
+                  {!sidebarCollapsed && (
+                    <>
+                      <span className="flex-1 text-left">Perfil</span>
+                      <ChevronDown size={16} className={showProfileDropdown ? 'rotate-180' : ''} />
+                    </>
+                  )}
+                </button>
+                {showProfileDropdown && !sidebarCollapsed && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                    <button
+                      onClick={() => {
+                        setActiveMenu('meu-perfil');
+                        setShowProfileDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <Stethoscope size={16} />
+                      Ver dados pessoais
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Sair
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
