@@ -8,7 +8,7 @@ import {
   UtensilsCrossed, Calendar, AlertCircle, CheckCircle, XCircle, 
   Droplet, Apple, Activity, Target, Clock, Moon, Coffee, 
   Sun, Sunset, TrendingUp, Zap, Heart, Pill, Syringe, 
-  Wind, Brain, Dumbbell, MessageSquare
+  Wind, Brain, Dumbbell, MessageSquare, Weight, AlertTriangle
 } from 'lucide-react';
 
 // ============================================
