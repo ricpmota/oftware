@@ -44,9 +44,10 @@ export interface EmailConfig {
   check_recomendacoes: {
     recomendacoes_lidas: EmailTemplate; // Enviado quando paciente lê recomendações
   };
-  // Módulo 8: Bem-vindo - E-mail automático enviado quando um novo cliente se cadastra
+  // Módulo 8: Bem-vindo - E-mails automáticos de boas-vindas
   bem_vindo: {
-    bem_vindo: EmailTemplate; // Enviado automaticamente quando um novo usuário se cadastra
+    bem_vindo_geral: EmailTemplate; // Enviado automaticamente quando um novo cliente se cadastra
+    bem_vindo_medico: EmailTemplate; // Enviado quando um médico salva o perfil pela primeira vez
   };
   // Módulo 9: Novidades - E-mail em massa para pacientes ou médicos
   novidades: {

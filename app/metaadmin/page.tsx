@@ -388,6 +388,35 @@ export default function MetaAdminPage() {
 
       const medicoId = await MedicoService.createOrUpdateMedico(medicoData);
       console.log('Médico salvo com ID:', medicoId);
+      
+      // Verificar se é a primeira vez que o médico salva o perfil (não tinha perfil antes)
+      const isNovoMedico = !medicoPerfil;
+      
+      // Enviar e-mail de bem-vindo médico se for a primeira vez
+      if (isNovoMedico && user.email) {
+        try {
+          const bemVindoMedicoResponse = await fetch('/api/send-email-bem-vindo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.uid,
+              userEmail: user.email,
+              userName: medicoData.nome,
+              tipo: 'medico',
+            }),
+          });
+          
+          if (bemVindoMedicoResponse.ok) {
+            console.log('✅ E-mail de bem-vindo médico enviado com sucesso');
+          } else {
+            console.error('❌ Erro ao enviar e-mail de bem-vindo médico');
+          }
+        } catch (emailError) {
+          console.error('❌ Erro ao enviar e-mail de bem-vindo médico (não crítico):', emailError);
+          // Não bloquear o fluxo se o e-mail falhar
+        }
+      }
+      
       await loadMedicoPerfil();
       setMessage('Perfil salvo com sucesso!');
     } catch (error) {

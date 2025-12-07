@@ -184,6 +184,28 @@ export async function GET(request: NextRequest) {
       },
     };
     
+    // Buscar e-mails do módulo Bem-vindo
+    const bemVindoGeralDoc = await emailsCollection.doc('bem_vindo_bem_vindo_geral').get();
+    const bemVindoMedicoDoc = await emailsCollection.doc('bem_vindo_bem_vindo_medico').get();
+    const bem_vindo = {
+      bem_vindo_geral: bemVindoGeralDoc.exists ? {
+        assunto: bemVindoGeralDoc.data()?.assunto || '',
+        corpoHtml: bemVindoGeralDoc.data()?.corpoHtml || '',
+        corpoTexto: bemVindoGeralDoc.data()?.corpoTexto || '',
+      } : {
+        assunto: 'Bem-vindo ao Oftware!',
+        corpoHtml: '<p>Olá {nome},</p><p>Bem-vindo ao Oftware! Estamos muito felizes em tê-lo conosco.</p><p>Seu cadastro foi realizado com sucesso!</p>',
+      },
+      bem_vindo_medico: bemVindoMedicoDoc.exists ? {
+        assunto: bemVindoMedicoDoc.data()?.assunto || '',
+        corpoHtml: bemVindoMedicoDoc.data()?.corpoHtml || '',
+        corpoTexto: bemVindoMedicoDoc.data()?.corpoTexto || '',
+      } : {
+        assunto: 'Bem-vindo ao Oftware, Dr(a). {nome}!',
+        corpoHtml: '<p>Olá Dr(a). {nome},</p><p>Bem-vindo ao Oftware! Seu perfil médico foi criado com sucesso.</p><p>Estamos felizes em tê-lo em nossa plataforma!</p>',
+      },
+    };
+    
     // Buscar e-mail do módulo Novidades
     const novidadesDoc = await emailsCollection.doc('novidades_novidade').get();
     const novidades = {
@@ -210,6 +232,7 @@ export async function GET(request: NextRequest) {
       aplicacao: aplicacao,
       lead_avulso: lead_avulso,
       check_recomendacoes: check_recomendacoes,
+      bem_vindo: bem_vindo,
       novidades: novidades,
       envioAutomatico: configData?.envioAutomatico || { ativo: false },
       createdAt: configData?.createdAt?.toDate(),
@@ -577,30 +600,50 @@ export async function POST(request: NextRequest) {
       await checkRecomendacoesRef.set(cleanedCheckRecomendacoes);
       console.log('✅ check_recomendacoes_recomendacoes_lidas salvo com sucesso');
       
-      // Salvar e-mail do módulo Bem-vindo
-      if (config.bem_vindo && config.bem_vindo.bem_vindo) {
-        const bemVindoData = config.bem_vindo.bem_vindo;
-        const bemVindoRef = emailsCollection.doc('bem_vindo_bem_vindo');
-        const existingBemVindo = await bemVindoRef.get();
-        
-        const bemVindoDoc: any = {
-          assunto: String(bemVindoData.assunto || '').trim(),
-          corpoHtml: String(bemVindoData.corpoHtml || '').trim(),
-          updatedAt: agora,
-        };
-        
-        if (bemVindoData.corpoTexto && bemVindoData.corpoTexto.trim()) {
-          bemVindoDoc.corpoTexto = String(bemVindoData.corpoTexto).trim();
-        }
-        
-        if (!existingBemVindo.exists) {
-          bemVindoDoc.createdAt = agora;
-        }
-        
-        const cleanedBemVindo = removeUndefined(bemVindoDoc);
-        await bemVindoRef.set(cleanedBemVindo);
-        console.log('✅ bem_vindo_bem_vindo salvo com sucesso');
+      // Salvar e-mails do módulo Bem-vindo
+      const bemVindoGeralData = config.bem_vindo.bem_vindo_geral;
+      const bemVindoGeralRef = emailsCollection.doc('bem_vindo_bem_vindo_geral');
+      const existingBemVindoGeral = await bemVindoGeralRef.get();
+      
+      const bemVindoGeralDoc: any = {
+        assunto: String(bemVindoGeralData.assunto || '').trim(),
+        corpoHtml: String(bemVindoGeralData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (bemVindoGeralData.corpoTexto && bemVindoGeralData.corpoTexto.trim()) {
+        bemVindoGeralDoc.corpoTexto = String(bemVindoGeralData.corpoTexto).trim();
       }
+      
+      if (!existingBemVindoGeral.exists) {
+        bemVindoGeralDoc.createdAt = agora;
+      }
+      
+      const cleanedBemVindoGeral = removeUndefined(bemVindoGeralDoc);
+      await bemVindoGeralRef.set(cleanedBemVindoGeral);
+      console.log('✅ bem_vindo_bem_vindo_geral salvo com sucesso');
+      
+      const bemVindoMedicoData = config.bem_vindo.bem_vindo_medico;
+      const bemVindoMedicoRef = emailsCollection.doc('bem_vindo_bem_vindo_medico');
+      const existingBemVindoMedico = await bemVindoMedicoRef.get();
+      
+      const bemVindoMedicoDoc: any = {
+        assunto: String(bemVindoMedicoData.assunto || '').trim(),
+        corpoHtml: String(bemVindoMedicoData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (bemVindoMedicoData.corpoTexto && bemVindoMedicoData.corpoTexto.trim()) {
+        bemVindoMedicoDoc.corpoTexto = String(bemVindoMedicoData.corpoTexto).trim();
+      }
+      
+      if (!existingBemVindoMedico.exists) {
+        bemVindoMedicoDoc.createdAt = agora;
+      }
+      
+      const cleanedBemVindoMedico = removeUndefined(bemVindoMedicoDoc);
+      await bemVindoMedicoRef.set(cleanedBemVindoMedico);
+      console.log('✅ bem_vindo_bem_vindo_medico salvo com sucesso');
       
       // Salvar e-mail do módulo Novidades
       const novidadesData = config.novidades.novidade;

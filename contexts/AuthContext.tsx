@@ -80,9 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const leadId = await LeadService.createOrUpdateLead(novoLead);
                 console.log('✅ Lead criado:', leadId);
 
-                // Enviar e-mails simultaneamente: bem-vindo para o cliente e lead avulso para o admin
+                // Enviar e-mails simultaneamente: bem-vindo geral para o cliente e lead avulso para o admin
                 try {
-                  // Enviar e-mail de boas-vindas para o cliente
+                  // Enviar e-mail de boas-vindas geral para o cliente
                   const bemVindoResponse = fetch('/api/send-email-bem-vindo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       userId: firebaseUser.uid,
                       userEmail: novoLead.email,
                       userName: novoLead.name,
+                      tipo: 'geral',
                     }),
                   });
 

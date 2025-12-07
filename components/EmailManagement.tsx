@@ -49,7 +49,8 @@ const emailInfoNovidades = {
 };
 
 const emailInfoBemVindo = {
-  bem_vindo: { nome: 'Bem-vindo', descricao: 'E-mail enviado automaticamente quando um novo cliente se cadastra' },
+  bem_vindo_geral: { nome: 'Bem-vindo Geral', descricao: 'E-mail enviado automaticamente quando um novo cliente se cadastra' },
+  bem_vindo_medico: { nome: 'Bem-vindo Médico', descricao: 'E-mail enviado quando um médico salva o perfil pela primeira vez' },
 };
 
 export default function EmailManagement({ leads }: EmailManagementProps) {
@@ -136,9 +137,13 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             const configCompleto = {
               ...data,
               bem_vindo: data.bem_vindo || {
-                bem_vindo: {
+                bem_vindo_geral: {
                   assunto: 'Bem-vindo ao Oftware!',
                   corpoHtml: '<p>Olá {nome},</p><p>Bem-vindo ao Oftware! Estamos muito felizes em tê-lo conosco.</p><p>Seu cadastro foi realizado com sucesso!</p>',
+                },
+                bem_vindo_medico: {
+                  assunto: 'Bem-vindo ao Oftware, Dr(a). {nome}!',
+                  corpoHtml: '<p>Olá Dr(a). {nome},</p><p>Bem-vindo ao Oftware! Seu perfil médico foi criado com sucesso.</p><p>Estamos felizes em tê-lo em nossa plataforma!</p>',
                 },
               },
               novidades: data.novidades || {
@@ -216,9 +221,13 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
               },
             },
             bem_vindo: {
-              bem_vindo: {
+              bem_vindo_geral: {
                 assunto: 'Bem-vindo ao Oftware!',
                 corpoHtml: '<p>Olá {nome},</p><p>Bem-vindo ao Oftware! Estamos muito felizes em tê-lo conosco.</p><p>Seu cadastro foi realizado com sucesso!</p>',
+              },
+              bem_vindo_medico: {
+                assunto: 'Bem-vindo ao Oftware, Dr(a). {nome}!',
+                corpoHtml: '<p>Olá Dr(a). {nome},</p><p>Bem-vindo ao Oftware! Seu perfil médico foi criado com sucesso.</p><p>Estamos felizes em tê-lo em nossa plataforma!</p>',
               },
             },
             novidades: {
@@ -291,8 +300,13 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       return;
     }
 
-    if (!config.bem_vindo?.bem_vindo?.assunto || !config.bem_vindo?.bem_vindo?.corpoHtml) {
-      alert('Por favor, preencha o e-mail de Bem-vindo do módulo Bem-vindo completamente');
+    if (!config.bem_vindo?.bem_vindo_geral?.assunto || !config.bem_vindo?.bem_vindo_geral?.corpoHtml) {
+      alert('Por favor, preencha o e-mail de Bem-vindo Geral do módulo Bem-vindo completamente');
+      return;
+    }
+
+    if (!config.bem_vindo?.bem_vindo_medico?.assunto || !config.bem_vindo?.bem_vindo_medico?.corpoHtml) {
+      alert('Por favor, preencha o e-mail de Bem-vindo Médico do módulo Bem-vindo completamente');
       return;
     }
 
@@ -454,8 +468,13 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       emailTemplate = config.check_recomendacoes.recomendacoes_lidas;
       emailInfo = emailInfoCheckRecomendacoes.recomendacoes_lidas;
     } else if (activeModulo === 'bem_vindo') {
-      emailTemplate = config.bem_vindo.bem_vindo;
-      emailInfo = emailInfoBemVindo.bem_vindo;
+      if (activeEmail === 'bem_vindo_medico') {
+        emailTemplate = config.bem_vindo.bem_vindo_medico;
+        emailInfo = emailInfoBemVindo.bem_vindo_medico;
+      } else {
+        emailTemplate = config.bem_vindo.bem_vindo_geral;
+        emailInfo = emailInfoBemVindo.bem_vindo_geral;
+      }
     } else if (activeModulo === 'novidades') {
       emailTemplate = config.novidades.novidade;
       emailInfo = emailInfoNovidades.novidade;
@@ -541,12 +560,23 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                     }
                   });
                 } else if (activeModulo === 'bem_vindo') {
-                  setConfig({
-                    ...config,
-                    bem_vindo: {
-                      bem_vindo: { ...config.bem_vindo.bem_vindo, assunto: e.target.value }
-                    }
-                  });
+                  if (activeEmail === 'bem_vindo_medico') {
+                    setConfig({
+                      ...config,
+                      bem_vindo: {
+                        ...config.bem_vindo,
+                        bem_vindo_medico: { ...config.bem_vindo.bem_vindo_medico, assunto: e.target.value }
+                      }
+                    });
+                  } else {
+                    setConfig({
+                      ...config,
+                      bem_vindo: {
+                        ...config.bem_vindo,
+                        bem_vindo_geral: { ...config.bem_vindo.bem_vindo_geral, assunto: e.target.value }
+                      }
+                    });
+                  }
                 } else if (activeModulo === 'novidades') {
                   setConfig({
                     ...config,
@@ -634,12 +664,23 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                     }
                   });
                 } else if (activeModulo === 'bem_vindo') {
-                  setConfig({
-                    ...config,
-                    bem_vindo: {
-                      bem_vindo: { ...config.bem_vindo.bem_vindo, corpoHtml: e.target.value }
-                    }
-                  });
+                  if (activeEmail === 'bem_vindo_medico') {
+                    setConfig({
+                      ...config,
+                      bem_vindo: {
+                        ...config.bem_vindo,
+                        bem_vindo_medico: { ...config.bem_vindo.bem_vindo_medico, corpoHtml: e.target.value }
+                      }
+                    });
+                  } else {
+                    setConfig({
+                      ...config,
+                      bem_vindo: {
+                        ...config.bem_vindo,
+                        bem_vindo_geral: { ...config.bem_vindo.bem_vindo_geral, corpoHtml: e.target.value }
+                      }
+                    });
+                  }
                 } else if (activeModulo === 'novidades') {
                   setConfig({
                     ...config,
@@ -1082,7 +1123,7 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
               <button
                 onClick={() => {
                   setActiveModulo('bem_vindo');
-                  setActiveEmail('bem_vindo');
+                  setActiveEmail('bem_vindo_geral');
                 }}
                 className={`p-4 rounded-lg border-2 transition-all text-left ${
                   activeModulo === 'bem_vindo'
@@ -1092,7 +1133,7 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
               >
                 <UserCheck className="inline mr-2 mb-1" size={20} />
                 <div className="font-semibold text-black">Bem-vindo</div>
-                <div className="text-sm text-gray-600 mt-1">E-mail automático ao cadastrar</div>
+                <div className="text-sm text-gray-600 mt-1">E-mails automáticos de boas-vindas</div>
               </button>
               <button
                 onClick={() => {

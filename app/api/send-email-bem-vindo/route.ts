@@ -41,12 +41,13 @@ function getFirebaseAdmin() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, userEmail, userName } = await request.json();
+    const { userId, userEmail, userName, tipo = 'geral' } = await request.json();
 
     console.log('📧 [send-email-bem-vindo] Recebida requisição para enviar e-mail de boas-vindas', {
       userId,
       userEmail,
       userName,
+      tipo,
       timestamp: new Date().toISOString()
     });
 
@@ -57,18 +58,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (tipo !== 'geral' && tipo !== 'medico') {
+      return NextResponse.json(
+        { error: 'tipo deve ser "geral" ou "medico"' },
+        { status: 400 }
+      );
+    }
+
     const db = getFirebaseAdmin();
     
-    // 1. Buscar template do e-mail de bem-vindo
-    const emailDoc = await db.collection('emails').doc('bem_vindo_bem_vindo').get();
+    // 1. Buscar template do e-mail de bem-vindo (geral ou médico)
+    const emailDocId = tipo === 'medico' ? 'bem_vindo_bem_vindo_medico' : 'bem_vindo_bem_vindo_geral';
+    const emailDoc = await db.collection('emails').doc(emailDocId).get();
     if (!emailDoc.exists) {
-      console.log('⚠️ [send-email-bem-vindo] Template não encontrado, usando template padrão');
-      // Usar template padrão se não existir
+      console.log(`⚠️ [send-email-bem-vindo] Template ${emailDocId} não encontrado, usando template padrão`);
     }
 
     const emailTemplate = emailDoc.exists ? emailDoc.data() : null;
-    const assunto = emailTemplate?.assunto || 'Bem-vindo ao Oftware!';
-    const htmlTemplate = emailTemplate?.corpoHtml || '<p>Olá {nome},</p><p>Bem-vindo ao Oftware! Estamos muito felizes em tê-lo conosco.</p><p>Seu cadastro foi realizado com sucesso!</p>';
+    const assunto = emailTemplate?.assunto || (tipo === 'medico' 
+      ? 'Bem-vindo ao Oftware, Dr(a). {nome}!' 
+      : 'Bem-vindo ao Oftware!');
+    const htmlTemplate = emailTemplate?.corpoHtml || (tipo === 'medico'
+      ? '<p>Olá Dr(a). {nome},</p><p>Bem-vindo ao Oftware! Seu perfil médico foi criado com sucesso.</p><p>Estamos felizes em tê-lo em nossa plataforma!</p>'
+      : '<p>Olá {nome},</p><p>Bem-vindo ao Oftware! Estamos muito felizes em tê-lo conosco.</p><p>Seu cadastro foi realizado com sucesso!</p>');
 
     // 2. Substituir variáveis
     const nome = userName || userEmail.split('@')[0] || 'Cliente';
@@ -150,11 +162,12 @@ export async function POST(request: NextRequest) {
 
     // 5. Registrar envio
     const enviosCollection = db.collection('email_envios');
+    const emailTipo = tipo === 'medico' ? 'bem_vindo_bem_vindo_medico' : 'bem_vindo_bem_vindo_geral';
     await enviosCollection.add({
       leadId: userId,
       leadEmail: userEmail,
       leadNome: nome,
-      emailTipo: 'bem_vindo_bem_vindo',
+      emailTipo: emailTipo,
       assunto,
       enviadoEm: new Date(),
       status: envioSucesso ? 'enviado' : 'falhou',
