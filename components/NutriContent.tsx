@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PacienteCompleto } from '@/types/obesidade';
 import { UtensilsCrossed, Calendar, AlertCircle } from 'lucide-react';
@@ -361,7 +361,10 @@ export default function NutriContent({ paciente }: NutriContentProps) {
       console.log('Salvando check-in:', checkInComScore);
       console.log('Paciente ID:', paciente.id);
       
-      const checkInRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'checkins', dataHoje);
+      // Firestore requer número par de segmentos: collection/document/collection/document
+      // Criar documento "dados" em nutricao primeiro, depois checkins como subcoleção
+      const nutricaoDadosRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'dados');
+      const checkInRef = doc(nutricaoDadosRef, 'checkins', dataHoje);
       await setDoc(checkInRef, checkInComScore);
       
       console.log('Check-in salvo com sucesso!');
