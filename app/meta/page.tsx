@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
@@ -29,6 +28,7 @@ import { getLabRange, Sex } from '@/types/labRanges';
 import { LabRangeBar } from '@/components/LabRangeBar';
 import TrendLine from '@/components/TrendLine';
 import FAQChat from '@/components/FAQChat';
+import NutriContent from '@/components/NutriContent';
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -167,6 +167,7 @@ export default function MetaPage() {
     };
     loadCidadesCustomizadas();
   }, []);
+
 
   // Funções auxiliares para status das férias
   const getFeriasStatus = (dataInicio: Date, dataFim: Date) => {
@@ -1936,17 +1937,19 @@ export default function MetaPage() {
       }
 
       case 'nutri': {
-        // A página nutri está em /meta/nutri como rota separada
-        // Este case não deve ser alcançado se o redirecionamento funcionar
-        return (
-          <div className="space-y-4">
-            <div className="bg-white p-8 rounded-lg shadow text-center">
-              <UtensilsCrossed className="mx-auto h-16 w-16 text-green-600 mb-4 animate-pulse" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Carregando Nutri...</h3>
-              <p className="text-gray-500">Se esta mensagem aparecer, clique novamente no menu Nutri.</p>
+        if (!paciente) {
+          return (
+            <div className="space-y-4">
+              <div className="bg-white p-8 rounded-lg shadow text-center">
+                <AlertCircle className="mx-auto h-16 w-16 text-red-500 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Paciente não encontrado</h3>
+                <p className="text-gray-500">Não foi possível carregar seus dados.</p>
+              </div>
             </div>
-          </div>
-        );
+          );
+        }
+        
+        return <NutriContent paciente={paciente} />;
       }
 
       case 'perfil': {
@@ -4431,10 +4434,7 @@ export default function MetaPage() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveMenu('nutri');
-                router.push('/meta/nutri');
-              }}
+              onClick={() => setActiveMenu('nutri')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeMenu === 'nutri'
                   ? 'bg-green-100 text-green-700'
@@ -4654,10 +4654,7 @@ export default function MetaPage() {
           </button>
 
           <button
-            onClick={() => {
-              setActiveMenu('nutri');
-              router.push('/meta/nutri');
-            }}
+            onClick={() => setActiveMenu('nutri')}
             className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'nutri'
                 ? 'bg-green-100 text-green-700'
