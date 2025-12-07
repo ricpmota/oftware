@@ -5764,6 +5764,12 @@ export default function MetaPage() {
             },
             {
               question: "Como funciona o plano nutricional personalizado?",
+              answer: "Clique aqui para ver todas as dúvidas sobre Nutri."
+            }
+          ]}
+          nutriFaqItems={[
+            {
+              question: "Como funciona o plano nutricional personalizado?",
               answer: "O plano nutricional é gerado automaticamente após você responder um questionário sobre seus hábitos, preferências e restrições alimentares. O sistema calcula sua meta de proteína diária baseada no seu IMC, determina o estilo alimentar mais adequado (digestiva, rica em proteína, mediterrânea, etc.) e cria um cardápio personalizado com opções para cada refeição do dia."
             },
             {

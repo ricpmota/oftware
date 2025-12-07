@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, X, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageCircle, X, ChevronDown, ChevronLeft, ChevronRight, UtensilsCrossed } from 'lucide-react';
 
 // Interface para mensagens do chat
 interface ChatMessage {
@@ -19,16 +19,18 @@ interface FAQItem {
 interface FAQChatProps {
   userName: string;
   faqItems: FAQItem[];
+  nutriFaqItems?: FAQItem[]; // Perguntas específicas sobre Nutri
   position?: 'left' | 'right';
   inHeader?: boolean;
   onToggle?: (isOpen: boolean) => void;
 }
 
-export default function FAQChat({ userName, faqItems, position = 'left', inHeader = false, onToggle }: FAQChatProps) {
+export default function FAQChat({ userName, faqItems, nutriFaqItems = [], position = 'left', inHeader = false, onToggle }: FAQChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [showNutriModal, setShowNutriModal] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
 
@@ -47,6 +49,14 @@ export default function FAQChat({ userName, faqItems, position = 'left', inHeade
   }, [isOpen, userName, hasInitialized]);
 
   const handleOptionClick = (item: FAQItem) => {
+    // Verificar se é a pergunta sobre plano nutricional
+    if (item.question.toLowerCase().includes('plano nutricional') && nutriFaqItems.length > 0) {
+      // Fechar modal atual e abrir modal de Nutri
+      setShowOptionsModal(false);
+      setShowNutriModal(true);
+      return;
+    }
+    
     // Fechar modal
     setShowOptionsModal(false);
     
@@ -74,6 +84,36 @@ export default function FAQChat({ userName, faqItems, position = 'left', inHeade
       };
       setMessages(prev => [...prev, botMessage]);
     }, 1500 + Math.random() * 1000); // Delay variável entre 1.5s e 2.5s para parecer mais real
+  };
+
+  const handleNutriOptionClick = (item: FAQItem) => {
+    // Fechar modal de Nutri
+    setShowNutriModal(false);
+    
+    // Adicionar mensagem do usuário
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      type: 'user',
+      text: item.question,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
+    // Mostrar indicador de "digitando..."
+    setIsTyping(true);
+
+    // Adicionar resposta do bot após um delay (simulando digitação)
+    setTimeout(() => {
+      setIsTyping(false);
+      const botMessage: ChatMessage = {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        text: item.answer,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, botMessage]);
+    }, 1500 + Math.random() * 1000);
   };
 
 
@@ -215,44 +255,83 @@ export default function FAQChat({ userName, faqItems, position = 'left', inHeade
           </button>
         </div>
 
-        {/* Modal de opções de perguntas */}
-        {showOptionsModal && (
-          <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setShowOptionsModal(false)}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-              {/* Header do modal */}
-              <div className="bg-gradient-to-r from-purple-600 to-orange-600 text-white p-4 rounded-t-xl flex items-center justify-between">
-                <h3 className="text-lg font-bold">Perguntas Frequentes</h3>
-                <button
-                  onClick={() => setShowOptionsModal(false)}
-                  className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
-                  aria-label="Fechar modal"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+      {/* Modal de opções de perguntas */}
+      {showOptionsModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setShowOptionsModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header do modal */}
+            <div className="bg-gradient-to-r from-purple-600 to-orange-600 text-white p-4 rounded-t-xl flex items-center justify-between">
+              <h3 className="text-lg font-bold">Perguntas Frequentes</h3>
+              <button
+                onClick={() => setShowOptionsModal(false)}
+                className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                aria-label="Fechar modal"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-              {/* Lista de perguntas */}
-              <div className="overflow-y-auto flex-1 p-4">
-                <div className="space-y-2">
-                  {faqItems.map((item, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleOptionClick(item)}
-                      className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors"
-                    >
-                      <p className="text-sm font-medium text-gray-900">
-                        {item.question}
-                      </p>
-                    </button>
-                  ))}
-                </div>
+            {/* Lista de perguntas */}
+            <div className="overflow-y-auto flex-1 p-4">
+              <div className="space-y-2">
+                {faqItems.map((item, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleOptionClick(item)}
+                    className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900">
+                      {item.question}
+                    </p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
-        )}
-      </div>
-    );
-  }
+        </div>
+      )}
+
+      {/* Modal de perguntas sobre Nutri */}
+      {showNutriModal && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setShowNutriModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header do modal */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 rounded-t-xl flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UtensilsCrossed size={20} />
+                <h3 className="text-lg font-bold">Dúvidas sobre Nutri</h3>
+              </div>
+              <button
+                onClick={() => setShowNutriModal(false)}
+                className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                aria-label="Fechar modal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Lista de perguntas */}
+            <div className="overflow-y-auto flex-1 p-4">
+              <div className="space-y-2">
+                {nutriFaqItems.map((item, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleNutriOptionClick(item)}
+                    className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900">
+                      {item.question}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
   return (
     <div className={`${positionClasses} z-50`}>
@@ -387,6 +466,45 @@ export default function FAQChat({ userName, faqItems, position = 'left', inHeade
                     key={index}
                     onClick={() => handleOptionClick(item)}
                     className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-gray-900">
+                      {item.question}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de perguntas sobre Nutri */}
+      {showNutriModal && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setShowNutriModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header do modal */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 rounded-t-xl flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UtensilsCrossed size={20} />
+                <h3 className="text-lg font-bold">Dúvidas sobre Nutri</h3>
+              </div>
+              <button
+                onClick={() => setShowNutriModal(false)}
+                className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                aria-label="Fechar modal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Lista de perguntas */}
+            <div className="overflow-y-auto flex-1 p-4">
+              <div className="space-y-2">
+                {nutriFaqItems.map((item, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleNutriOptionClick(item)}
+                    className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors"
                   >
                     <p className="text-sm font-medium text-gray-900">
                       {item.question}
