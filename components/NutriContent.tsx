@@ -381,12 +381,16 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             const protJantar = Math.round(protPorRefeicao * 1.3);
             const protLanche = Math.round(protPorRefeicao * 0.8);
             
+            // Carregar restrições e preferências do plano (se salvos) ou usar arrays vazios
+            // Em uma versão futura, podemos salvar essas informações no plano
             const opcoesDisponiveis = gerarOpcoesRefeicoes(
               planoCarregado.estilo,
               protCafe,
               protAlmoco,
               protJantar,
-              protLanche
+              protLanche,
+              [], // restrições - pode ser expandido para salvar no plano
+              [] // preferências - pode ser expandido para salvar no plano
             );
             setOpcoesRefeicoes(opcoesDisponiveis);
             
@@ -412,12 +416,15 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             const protJantar = Math.round(protPorRefeicao * 1.3);
             const protLanche = Math.round(protPorRefeicao * 0.8);
             
+            // Carregar restrições e preferências do plano (se salvos) ou usar arrays vazios
             const opcoesDisponiveis = gerarOpcoesRefeicoes(
               planoCarregado.estilo,
               protCafe,
               protAlmoco,
               protJantar,
-              protLanche
+              protLanche,
+              [], // restrições - pode ser expandido para salvar no plano
+              [] // preferências - pode ser expandido para salvar no plano
             );
             setOpcoesRefeicoes(opcoesDisponiveis);
           }
