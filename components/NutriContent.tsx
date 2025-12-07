@@ -1822,8 +1822,18 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                 value={checkInDate}
                 min={dataMinima}
                 max={dataMaxima}
+                disabled={isEditandoCheckIn}
                 onChange={(e) => {
                   const novaData = e.target.value;
+                  
+                  // Verificar se já existe check-in para essa data
+                  const checkInExistente = checkIns.find(ci => ci.data === novaData);
+                  if (checkInExistente) {
+                    alert('Já existe um check-in registrado para esta data. Você está editando o check-in existente.');
+                    setCheckInDate(novaData);
+                    return;
+                  }
+                  
                   // Validar antes de atualizar
                   if (!validarDataCheckIn(novaData)) {
                     alert('Você só pode registrar check-ins até 3 dias atrás. Não é permitido selecionar datas futuras.');
@@ -1841,7 +1851,9 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     setCheckInDate(dataMaxima);
                   }
                 }}
-                className="w-full max-w-xs px-3 md:px-4 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                className={`w-full max-w-xs px-3 md:px-4 py-2 text-sm md:text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white ${
+                  isEditandoCheckIn ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''
+                }`}
               />
               <p className="text-sm text-gray-500 mt-2">
                 {dataFormatada}
@@ -1852,7 +1864,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             {isEditandoCheckIn && (
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
                 <p className="text-sm text-blue-800">
-                  <strong>Você está editando o check-in desse dia.</strong>
+                  <strong>Você está editando o check-in desse dia.</strong> O campo de data está bloqueado para evitar duplicação.
                 </p>
               </div>
             )}
