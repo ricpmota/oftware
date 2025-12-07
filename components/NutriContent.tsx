@@ -303,22 +303,122 @@ const gerarOpcoesRefeicoes = (
   if (estilo === 'digestiva' && baseOpcoes.digestiva) {
     opcoesFinais = baseOpcoes.digestiva as Record<RefeicaoKey, OpcaoRefeicao[]>;
   } else {
-    // Para outros estilos, criar opções genéricas por enquanto
+    // Para todos os estilos, criar opções completas e adequadas para pacientes com Tirzepatida
     opcoesFinais = {
       cafe: [
-        { id: 'cafe_padrao', titulo: 'Café padrão', descricao: `Opção padrão de café da manhã com ~${protCafe}g de proteína.`, proteina_g: protCafe, calorias_kcal: 350 }
+        {
+          id: 'cafe_ovos_whey',
+          titulo: 'Ovos mexidos + whey + fruta',
+          descricao: '2 ovos mexidos + 1 dose de whey com água ou leite desnatado + 1 fruta (maçã ou banana pequena).',
+          proteina_g: protCafe,
+          calorias_kcal: 400
+        },
+        {
+          id: 'cafe_omelete_cottage',
+          titulo: 'Omelete de claras com cottage',
+          descricao: 'Omelete com 2 claras e 1 ovo inteiro + 2 colheres de sopa de cottage + 1 fatia de pão integral.',
+          proteina_g: protCafe,
+          calorias_kcal: 380
+        },
+        {
+          id: 'cafe_iogurte_whey',
+          titulo: 'Iogurte + whey + chia',
+          descricao: 'Iogurte proteico ou desnatado + 1/2 dose de whey misturada + 1 colher de sopa de chia + 1 fruta.',
+          proteina_g: protCafe,
+          calorias_kcal: 350
+        }
       ],
       lanche1: [
-        { id: 'lanche1_padrao', titulo: 'Lanche padrão', descricao: `Opção padrão de lanche com ~${protLanche}g de proteína.`, proteina_g: protLanche, calorias_kcal: 200 }
+        {
+          id: 'lanche1_whey_fruta',
+          titulo: 'Whey + fruta',
+          descricao: '1 dose de whey com água + 1 fruta de baixo índice glicêmico (maçã, pera ou morango).',
+          proteina_g: protLanche,
+          calorias_kcal: 250
+        },
+        {
+          id: 'lanche1_iogurte_castanhas',
+          titulo: 'Iogurte com castanhas',
+          descricao: '1 pote de iogurte proteico ou natural desnatado + 1 punhado pequeno de castanhas (nozes, amêndoas).',
+          proteina_g: protLanche,
+          calorias_kcal: 230
+        },
+        {
+          id: 'lanche1_queijo_peito_peru',
+          titulo: 'Queijo branco + peito de peru',
+          descricao: '2 fatias de queijo branco + 2 fatias de peito de peru + 1 fatia de pão integral.',
+          proteina_g: protLanche,
+          calorias_kcal: 260
+        }
       ],
       almoco: [
-        { id: 'almoco_padrao', titulo: 'Almoço padrão', descricao: `Opção padrão de almoço com ~${protAlmoco}g de proteína.`, proteina_g: protAlmoco, calorias_kcal: 500 }
+        {
+          id: 'almoco_frango_legumes',
+          titulo: 'Frango grelhado + salada + legumes',
+          descricao: 'Filé de frango grelhado + grande volume de salada (folhas, tomate, cenoura) + legumes cozidos + 2 colheres de arroz integral.',
+          proteina_g: protAlmoco,
+          calorias_kcal: 550
+        },
+        {
+          id: 'almoco_carne_magras',
+          titulo: 'Carne magra + salada + feijão',
+          descricao: 'Carne bovina magra ou patinho moído + salada variada + 2 colheres de arroz + 1 concha pequena de feijão.',
+          proteina_g: protAlmoco,
+          calorias_kcal: 570
+        },
+        {
+          id: 'almoco_peixe_legumes',
+          titulo: 'Peixe grelhado + legumes',
+          descricao: 'Filé de peixe grelhado + legumes cozidos ou assados + salada crua variada + pequena porção de carboidrato (batata, mandioca ou arroz).',
+          proteina_g: protAlmoco,
+          calorias_kcal: 520
+        }
       ],
       lanche2: [
-        { id: 'lanche2_padrao', titulo: 'Lanche padrão', descricao: `Opção padrão de lanche com ~${protLanche}g de proteína.`, proteina_g: protLanche, calorias_kcal: 200 }
+        {
+          id: 'lanche2_whey_agua',
+          titulo: 'Whey com água',
+          descricao: '1 dose de whey com água, para reforçar a meta de proteína diária com poucas calorias.',
+          proteina_g: protLanche,
+          calorias_kcal: 180
+        },
+        {
+          id: 'lanche2_iogurte_fruta',
+          titulo: 'Iogurte + fruta',
+          descricao: 'Iogurte natural ou proteico + 1 fruta pequena (maçã, pera, kiwi).',
+          proteina_g: protLanche,
+          calorias_kcal: 200
+        },
+        {
+          id: 'lanche2_ovo_cozido',
+          titulo: 'Ovos cozidos + legumes crus',
+          descricao: '2 ovos cozidos + palitos de cenoura ou pepino.',
+          proteina_g: protLanche,
+          calorias_kcal: 210
+        }
       ],
       jantar: [
-        { id: 'jantar_padrao', titulo: 'Jantar padrão', descricao: `Opção padrão de jantar com ~${protJantar}g de proteína.`, proteina_g: protJantar, calorias_kcal: 450 }
+        {
+          id: 'jantar_frango_salada',
+          titulo: 'Prato leve com frango e salada',
+          descricao: 'Filé de frango grelhado ou desfiado + grande volume de salada e legumes, com pouco ou nenhum carboidrato.',
+          proteina_g: protJantar,
+          calorias_kcal: 450
+        },
+        {
+          id: 'jantar_omelete_legumes',
+          titulo: 'Omelete proteica com legumes',
+          descricao: 'Omelete com 2 ovos + 2 claras + legumes variados (tomate, espinafre, cebola).',
+          proteina_g: protJantar,
+          calorias_kcal: 420
+        },
+        {
+          id: 'jantar_sopa_proteica',
+          titulo: 'Sopa proteica',
+          descricao: 'Sopa de legumes com frango desfiado ou carne magra, com pouco carboidrato.',
+          proteina_g: protJantar,
+          calorias_kcal: 430
+        }
       ]
     };
   }
@@ -1070,7 +1170,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     try {
       // Criar cópia das opções selecionadas com a alteração
       const opcoesSelecionadasAtualizadas = {
-        ...plano.opcoesSelecionadas!,
+        ...(plano.opcoesSelecionadas || {}),
         [refeicaoEmEdicao]: opcaoSelecionadaTemp
       };
       
@@ -3269,7 +3369,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                         className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                           opcaoSelecionadaTemp === opcao.id
                             ? 'border-green-500 bg-green-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
                         }`}
                       >
                         <input
@@ -3282,10 +3382,10 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                         />
                         <div className="flex-1">
                           <h3 className="font-semibold text-gray-900 mb-1">{opcao.titulo}</h3>
-                          <p className="text-sm text-gray-600 mb-2">{opcao.descricao}</p>
-                          <div className="flex gap-4 text-xs text-gray-500">
-                            <span>Proteína: ~{opcao.proteina_g}g</span>
-                            <span>Calorias: ~{opcao.calorias_kcal} kcal</span>
+                          <p className="text-sm text-gray-700 mb-2">{opcao.descricao}</p>
+                          <div className="flex gap-4 text-xs text-gray-600">
+                            <span>Proteína ~{opcao.proteina_g}g</span>
+                            <span>Calorias ~{opcao.calorias_kcal} kcal</span>
                           </div>
                         </div>
                       </label>
@@ -3295,7 +3395,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   {/* Resumo de macros do dia */}
                   {(() => {
                     const opcoesSimuladas = {
-                      ...plano.opcoesSelecionadas!,
+                      ...(plano.opcoesSelecionadas || {}),
                       [refeicaoEmEdicao]: opcaoSelecionadaTemp
                     };
                     const macrosSimuladas = estimarMacrosDia(opcoesSimuladas, opcoesRefeicoes);
@@ -3307,17 +3407,17 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                         estaAbaixo ? 'border-yellow-400 bg-yellow-50' : 'border-green-200 bg-green-50'
                       }`}>
                         <h3 className="font-semibold text-gray-900 mb-2">Resumo do Dia</h3>
-                        <div className="space-y-1 text-sm">
+                        <div className="space-y-1 text-sm text-gray-800">
                           <p>
-                            <span className="font-medium">Proteína diária estimada:</span>{' '}
-                            <span className={estaAbaixo ? 'text-yellow-700 font-semibold' : 'text-green-700'}>
+                            <span className="font-medium text-gray-900">Proteína diária estimada:</span>{' '}
+                            <span className={estaAbaixo ? 'text-yellow-700 font-semibold' : 'text-green-700 font-semibold'}>
                               {macrosSimuladas.proteinaTotal_g.toFixed(1)}g
                             </span>
                             {' '}de {plano.protDia_g}g (meta)
                           </p>
                           <p>
-                            <span className="font-medium">Calorias diárias estimadas:</span>{' '}
-                            {macrosSimuladas.caloriasTotais_kcal.toFixed(0)} kcal (apenas referência)
+                            <span className="font-medium text-gray-900">Calorias diárias estimadas:</span>{' '}
+                            <span className="text-gray-800">{macrosSimuladas.caloriasTotais_kcal.toFixed(0)} kcal</span> (apenas referência)
                           </p>
                           {estaAbaixo && (
                             <p className="text-yellow-700 font-medium mt-2">
@@ -3336,13 +3436,14 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                       setRefeicaoEmEdicao(null);
                       setOpcaoSelecionadaTemp('');
                     }}
-                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 font-medium"
+                    className="px-6 py-2 rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-semibold"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={salvarAlteracoesCardapio}
-                    className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
+                    disabled={!opcaoSelecionadaTemp}
+                    className="px-6 py-2 rounded-md bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     Salvar alterações
                   </button>
