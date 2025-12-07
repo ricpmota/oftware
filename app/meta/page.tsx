@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell, Eye, DollarSign, CheckCircle, Copy } from 'lucide-react';
