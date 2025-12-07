@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -463,8 +463,9 @@ export default function MetaPage() {
     
     const loadMinhasIndicacoes = async () => {
       if (!user?.email || activeMenu !== 'indicar' || activeTabIndicar !== 'minhas') return;
-      if (loadingIndicacoes) return; // Evitar chamadas duplicadas
+      if (loadingIndicacoesRef.current) return; // Evitar chamadas duplicadas
       
+      loadingIndicacoesRef.current = true;
       setLoadingIndicacoes(true);
       try {
         const indicacoes = await IndicacaoService.getIndicacoesPorPaciente(user.email);
@@ -479,6 +480,7 @@ export default function MetaPage() {
       } finally {
         if (isMounted) {
           setLoadingIndicacoes(false);
+          loadingIndicacoesRef.current = false;
         }
       }
     };
