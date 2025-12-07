@@ -4403,6 +4403,19 @@ export default function MetaPage() {
             </button>
 
             <button
+              onClick={() => router.push('/meta/nutri')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeMenu === 'nutri'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={sidebarCollapsed ? 'Nutri' : ''}
+            >
+              <UtensilsCrossed className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
+              {!sidebarCollapsed && 'Nutri'}
+            </button>
+
+            <button
               onClick={() => setActiveMenu('medicos')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeMenu === 'medicos'
@@ -4608,6 +4621,18 @@ export default function MetaPage() {
           >
             <FileText className="w-5 h-5 mb-1" />
             <span className="text-xs font-medium">Plano</span>
+          </button>
+
+          <button
+            onClick={() => router.push('/meta/nutri')}
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
+              activeMenu === 'nutri'
+                ? 'bg-green-100 text-green-700'
+                : 'text-gray-600'
+            }`}
+          >
+            <UtensilsCrossed className="w-5 h-5 mb-1" />
+            <span className="text-xs font-medium">Nutri</span>
           </button>
 
           <button
