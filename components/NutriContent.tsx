@@ -488,7 +488,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                   <button
                     key={opcao}
                     onClick={() => setWizardData({ ...wizardData, atividadeFisica: opcao })}
-                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
                       wizardData.atividadeFisica === opcao
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
@@ -513,7 +513,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                   <button
                     key={opcao}
                     onClick={() => setWizardData({ ...wizardData, horasSentado: opcao })}
-                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
                       wizardData.horasSentado === opcao
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
@@ -544,7 +544,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                       onChange={() => toggleCheckbox('comportamentosAlimentares', opcao)}
                       className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-gray-700 capitalize">{opcao}</span>
+                    <span className="text-gray-900 capitalize">{opcao}</span>
                   </label>
                 ))}
               </div>
@@ -567,7 +567,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                       onChange={() => toggleCheckbox('restricoes', opcao)}
                       className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-gray-700 capitalize">{opcao}</span>
+                    <span className="text-gray-900 capitalize">{opcao}</span>
                   </label>
                 ))}
               </div>
@@ -590,7 +590,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                       onChange={() => toggleCheckbox('preferenciasProteina', opcao)}
                       className="mr-3 h-4 w-4 text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-gray-700">{opcao}</span>
+                    <span className="text-gray-900">{opcao}</span>
                   </label>
                 ))}
               </div>
@@ -606,7 +606,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
                   <button
                     key={opcao}
                     onClick={() => setWizardData({ ...wizardData, sintomasGI: opcao })}
-                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                    className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors text-gray-900 ${
                       wizardData.sintomasGI === opcao
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
