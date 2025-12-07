@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, Target, Mail } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, Target, Mail, Folder } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -94,6 +94,34 @@ export default function MetaAdminGeralPage() {
     excluido: [],
   });
   const [leadsQualificadosDesaparecidos, setLeadsQualificadosDesaparecidos] = useState<number>(0);
+  
+  // Estados para monitoramento de e-mails
+  const [emailEnvios, setEmailEnvios] = useState<any[]>([]);
+  const [loadingEmailEnvios, setLoadingEmailEnvios] = useState(false);
+  const [pastaEmailSelecionada, setPastaEmailSelecionada] = useState<string | null>(null);
+
+  // Função para carregar e-mails enviados
+  const loadEmailEnvios = useCallback(async () => {
+    setLoadingEmailEnvios(true);
+    try {
+      const response = await fetch('/api/email-envios');
+      if (response.ok) {
+        const data = await response.json();
+        setEmailEnvios(data.envios || []);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar e-mails enviados:', error);
+    } finally {
+      setLoadingEmailEnvios(false);
+    }
+  }, []);
+
+  // Carregar e-mails quando o menu de e-mails for ativado
+  useEffect(() => {
+    if (activeMenu === 'emails') {
+      loadEmailEnvios();
+    }
+  }, [activeMenu, loadEmailEnvios]);
   
   // Estados para modais de edição
   const [showEditarMedicoModal, setShowEditarMedicoModal] = useState(false);
@@ -4352,10 +4380,282 @@ export default function MetaAdminGeralPage() {
         );
       }
 
-      case 'emails':
+      case 'emails': {
+
+        // Organizar e-mails por tipo
+        const emailsPorTipo: Record<string, any[]> = {};
+        emailEnvios.forEach((envio) => {
+          const tipo = envio.emailTipo || 'outros';
+          if (!emailsPorTipo[tipo]) {
+            emailsPorTipo[tipo] = [];
+          }
+          emailsPorTipo[tipo].push(envio);
+        });
+
+        // Mapear tipos de e-mail para nomes amigáveis
+        const tiposEmail: Record<string, { nome: string; descricao: string; cor: string }> = {
+          'lead_avulso_novo_lead': { 
+            nome: 'Lead Avulso - Novo Lead', 
+            descricao: 'E-mail enviado quando um novo usuário se cadastra',
+            cor: 'blue'
+          },
+          'novo_lead_medico_novo_lead': { 
+            nome: 'Novo Lead Médico', 
+            descricao: 'Aviso ao médico sobre novo paciente',
+            cor: 'green'
+          },
+          'solicitado_medico_boas_vindas': { 
+            nome: 'Solicitado Médico - Boas-vindas', 
+            descricao: 'E-mail de boas-vindas quando solicitação é aceita',
+            cor: 'purple'
+          },
+          'em_tratamento_plano_editado': { 
+            nome: 'Em Tratamento - Plano Editado', 
+            descricao: 'E-mail quando o plano de tratamento é editado',
+            cor: 'orange'
+          },
+          'aplicacao_aplicacao_antes': { 
+            nome: 'Aplicação - Antes', 
+            descricao: 'Lembrete 1 dia antes da aplicação',
+            cor: 'yellow'
+          },
+          'aplicacao_aplicacao_dia': { 
+            nome: 'Aplicação - Dia', 
+            descricao: 'Lembrete no dia da aplicação',
+            cor: 'amber'
+          },
+          'check_recomendacoes_recomendacoes_lidas': { 
+            nome: 'Check Recomendações', 
+            descricao: 'Aviso ao médico quando paciente lê recomendações',
+            cor: 'indigo'
+          },
+          'novidades_novidade': { 
+            nome: 'Novidades', 
+            descricao: 'E-mail em massa para pacientes ou médicos',
+            cor: 'pink'
+          },
+          'leads_email1': { nome: 'Leads - E-mail 1', descricao: 'E-mail imediato (1h)', cor: 'cyan' },
+          'leads_email2': { nome: 'Leads - E-mail 2', descricao: 'E-mail 24h depois', cor: 'teal' },
+          'leads_email3': { nome: 'Leads - E-mail 3', descricao: 'E-mail 72h depois', cor: 'emerald' },
+          'leads_email4': { nome: 'Leads - E-mail 4', descricao: 'E-mail 7 dias depois', cor: 'lime' },
+          'leads_email5': { nome: 'Leads - E-mail 5', descricao: 'E-mail 14 dias depois', cor: 'green' },
+        };
+
+        // Calcular estatísticas por tipo
+        const getEstatisticasTipo = (tipo: string) => {
+          const envios = emailsPorTipo[tipo] || [];
+          const enviados = envios.filter(e => e.status === 'enviado').length;
+          const falharam = envios.filter(e => e.status === 'falhou').length;
+          const pendentes = envios.filter(e => e.status === 'pendente').length;
+          return { total: envios.length, enviados, falharam, pendentes };
+        };
+
+        // Filtrar e-mails da pasta selecionada
+        const emailsFiltrados = pastaEmailSelecionada 
+          ? emailsPorTipo[pastaEmailSelecionada] || []
+          : [];
+
         return (
-          <EmailManagement leads={leads} />
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                <Mail className="mr-2" size={24} />
+                Monitoramento de E-mails
+              </h2>
+              <button
+                onClick={loadEmailEnvios}
+                disabled={loadingEmailEnvios}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+              >
+                <RefreshCw className={`mr-2 ${loadingEmailEnvios ? 'animate-spin' : ''}`} size={18} />
+                Atualizar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Painel de Pastas */}
+              <div className="lg:col-span-1">
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Folder className="mr-2" size={20} />
+                    Pastas
+                  </h3>
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    <button
+                      onClick={() => setPastaEmailSelecionada(null)}
+                      className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                        pastaEmailSelecionada === null
+                          ? 'bg-green-100 text-green-700 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>Todos os E-mails</span>
+                        <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                          {emailEnvios.length}
+                        </span>
+                      </div>
+                    </button>
+                    {Object.keys(emailsPorTipo).map((tipo) => {
+                      const info = tiposEmail[tipo] || { nome: tipo, descricao: '', cor: 'gray' };
+                      const stats = getEstatisticasTipo(tipo);
+                      return (
+                        <button
+                          key={tipo}
+                          onClick={() => setPastaEmailSelecionada(tipo)}
+                          className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                            pastaEmailSelecionada === tipo
+                              ? 'bg-green-100 text-green-700 font-semibold'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{info.nome}</span>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              stats.falharam > 0 
+                                ? 'bg-red-100 text-red-700'
+                                : stats.enviados > 0
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-200 text-gray-700'
+                            }`}>
+                              {stats.total}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 truncate" title={info.descricao}>
+                            {info.descricao}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-green-600">✓ {stats.enviados}</span>
+                            {stats.falharam > 0 && (
+                              <span className="text-xs text-red-600">✗ {stats.falharam}</span>
+                            )}
+                            {stats.pendentes > 0 && (
+                              <span className="text-xs text-yellow-600">⏳ {stats.pendentes}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {Object.keys(emailsPorTipo).length === 0 && (
+                      <div className="text-center py-4 text-gray-500 text-sm">
+                        Nenhum e-mail enviado ainda
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de E-mails */}
+              <div className="lg:col-span-3">
+                <div className="bg-white rounded-lg shadow">
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {pastaEmailSelecionada 
+                        ? tiposEmail[pastaEmailSelecionada]?.nome || pastaEmailSelecionada
+                        : 'Todos os E-mails Enviados'}
+                    </h3>
+                    {pastaEmailSelecionada && tiposEmail[pastaEmailSelecionada] && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        {tiposEmail[pastaEmailSelecionada].descricao}
+                      </p>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    {loadingEmailEnvios ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Carregando e-mails...</p>
+                      </div>
+                    ) : emailsFiltrados.length === 0 && pastaEmailSelecionada ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Mail size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p>Nenhum e-mail deste tipo encontrado</p>
+                      </div>
+                    ) : emailEnvios.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Mail size={48} className="mx-auto mb-4 text-gray-300" />
+                        <p>Nenhum e-mail enviado ainda</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {(pastaEmailSelecionada ? emailsFiltrados : emailEnvios)
+                          .sort((a, b) => {
+                            const dateA = a.enviadoEm?.toDate ? a.enviadoEm.toDate() : new Date(a.enviadoEm);
+                            const dateB = b.enviadoEm?.toDate ? b.enviadoEm.toDate() : new Date(b.enviadoEm);
+                            return dateB.getTime() - dateA.getTime();
+                          })
+                          .map((envio) => {
+                            const dataEnvio = envio.enviadoEm?.toDate 
+                              ? envio.enviadoEm.toDate() 
+                              : new Date(envio.enviadoEm);
+                            const tipoInfo = tiposEmail[envio.emailTipo] || { nome: envio.emailTipo, cor: 'gray' };
+                            
+                            return (
+                              <div
+                                key={envio.id}
+                                className={`border rounded-lg p-4 transition-colors ${
+                                  envio.status === 'enviado'
+                                    ? 'border-green-200 bg-green-50'
+                                    : envio.status === 'falhou'
+                                    ? 'border-red-200 bg-red-50'
+                                    : 'border-yellow-200 bg-yellow-50'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-semibold text-gray-900">
+                                        {envio.assunto || 'Sem assunto'}
+                                      </span>
+                                      <span className={`px-2 py-1 text-xs rounded-full ${
+                                        envio.status === 'enviado'
+                                          ? 'bg-green-100 text-green-700'
+                                          : envio.status === 'falhou'
+                                          ? 'bg-red-100 text-red-700'
+                                          : 'bg-yellow-100 text-yellow-700'
+                                      }`}>
+                                        {envio.status === 'enviado' ? '✓ Enviado' : envio.status === 'falhou' ? '✗ Falhou' : '⏳ Pendente'}
+                                      </span>
+                                      {!pastaEmailSelecionada && (
+                                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                                          {tipoInfo.nome}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-gray-600 space-y-1">
+                                      <div>
+                                        <span className="font-medium">Para:</span>{' '}
+                                        {envio.leadEmail || envio.destinatarioEmail || 'N/A'}
+                                        {envio.leadNome && ` (${envio.leadNome})`}
+                                      </div>
+                                      {envio.medicoNome && (
+                                        <div>
+                                          <span className="font-medium">Médico:</span> {envio.medicoNome}
+                                        </div>
+                                      )}
+                                      <div className="text-xs text-gray-500">
+                                        {dataEnvio.toLocaleString('pt-BR')}
+                                      </div>
+                                    </div>
+                                    {envio.erro && (
+                                      <div className="mt-2 text-xs text-red-600 p-2 bg-red-100 rounded">
+                                        <span className="font-medium">Erro:</span> {envio.erro}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         );
+      }
 
       default:
         return null;
