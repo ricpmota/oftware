@@ -41,20 +41,6 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtro.dataInicio, filtro.dataFim, filtro.pacienteId, filtro.dose, filtro.statusEmail]);
 
-  const handleProcessarEmails = async () => {
-    setProcessandoEmails(true);
-    try {
-      const resultado = await EmailAplicacaoService.processarEnviosAutomaticos();
-      alert(`Processamento concluído!\nEnviados: ${resultado.enviados}\nErros: ${resultado.erros}`);
-      await loadAplicacoes(); // Recarregar para atualizar status
-    } catch (error) {
-      console.error('Erro ao processar e-mails:', error);
-      alert('Erro ao processar e-mails. Verifique o console.');
-    } finally {
-      setProcessandoEmails(false);
-    }
-  };
-
   const getStatusBadge = (status: 'enviado' | 'nao_enviado' | 'pendente') => {
     switch (status) {
       case 'enviado':
