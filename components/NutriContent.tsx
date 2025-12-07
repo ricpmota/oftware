@@ -184,21 +184,33 @@ interface NutriContentProps {
  * Gera as opções de refeições baseadas no estilo do plano
  * Cada refeição tem pelo menos 3 opções: alta proteína, equilibrada e leve
  */
-/**
- * Converte a distribuição de proteína (string) em gramas-alvo por refeição
- * Ex: "25-30 g" -> 27.5g (média)
- */
-const converterDistribuicaoProteina = (distribuicao: string): number => {
-  const match = distribuicao.match(/(\d+)-(\d+)/);
-  if (match) {
-    const min = parseInt(match[1]);
-    const max = parseInt(match[2]);
-    return Math.round((min + max) / 2);
-  }
-  // Se não encontrar padrão, tenta extrair número único
-  const numMatch = distribuicao.match(/(\d+)/);
-  return numMatch ? parseInt(numMatch[1]) : 20; // default
-};
+  /**
+   * Converte a distribuição de proteína (string) em gramas-alvo por refeição
+   * Ex: "25-30 g" -> 27.5g (média)
+   */
+  const converterDistribuicaoProteina = (distribuicao: string): number => {
+    const match = distribuicao.match(/(\d+)-(\d+)/);
+    if (match) {
+      const min = parseInt(match[1]);
+      const max = parseInt(match[2]);
+      return Math.round((min + max) / 2);
+    }
+    // Se não encontrar padrão, tenta extrair número único
+    const numMatch = distribuicao.match(/(\d+)/);
+    return numMatch ? parseInt(numMatch[1]) : 20; // default
+  };
+
+  /**
+   * Calcula valores sugeridos para uma refeição baseado no plano
+   */
+  const calcularValoresSugeridos = (refeicaoKey: RefeicaoKey, plano: PlanoNutricional) => {
+    const proteinaSugerida = converterDistribuicaoProteina(plano.distribuicaoProteina[refeicaoKey]);
+    const caloriasSugerida = refeicaoKey === 'cafe' ? 400 :
+                             refeicaoKey === 'lanche1' ? 250 :
+                             refeicaoKey === 'almoco' ? 550 :
+                             refeicaoKey === 'lanche2' ? 200 : 450;
+    return { proteinaSugerida_g: proteinaSugerida, caloriasSugerida_kcal: caloriasSugerida };
+  };
 
 /**
  * Gera configuração de builder por refeição com itens disponíveis e limites
@@ -885,6 +897,25 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             );
             setOpcoesRefeicoes(opcoesDisponiveis);
           }
+          
+          // Inicializar macrosPorRefeicao com valores sugeridos para todas as refeições
+          // (mesmo que não tenham sido modificadas)
+          if (!planoCarregado.macrosPorRefeicao) {
+            planoCarregado.macrosPorRefeicao = {};
+          }
+          
+          const refeicoes: RefeicaoKey[] = ['cafe', 'lanche1', 'almoco', 'lanche2', 'jantar'];
+          refeicoes.forEach(refeicaoKey => {
+            if (!planoCarregado.macrosPorRefeicao![refeicaoKey]) {
+              const valoresSugeridos = calcularValoresSugeridos(refeicaoKey, planoCarregado);
+              planoCarregado.macrosPorRefeicao![refeicaoKey] = {
+                proteinaSugerida_g: valoresSugeridos.proteinaSugerida_g,
+                proteinaEscolhida_g: 0, // Ainda não foi modificado
+                caloriasSugeridas_kcal: valoresSugeridos.caloriasSugerida_kcal,
+                caloriasEscolhidas_kcal: 0 // Ainda não foi modificado
+              };
+            }
+          });
           
           setPlano(planoCarregado);
           setView('plano');
@@ -3664,244 +3695,334 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
               </h2>
               <div className="space-y-4">
                 {/* Café da Manhã */}
-                <button
-                  onClick={() => {
-                    setRefeicaoEmEdicao('cafe');
-                    setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.cafe || opcoesRefeicoes.cafe[0]?.id || '');
-                  }}
-                  className="w-full text-left p-5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border-l-4 border-amber-500 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
-                      <Coffee className="h-5 w-5 text-amber-700" />
-                      <h4 className="font-semibold text-gray-900">Café da Manhã</h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setRefeicaoEmEdicao('cafe');
+                      setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.cafe || opcoesRefeicoes.cafe[0]?.id || '');
+                    }}
+                    className="w-full text-left p-5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border-l-4 border-amber-500 hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-3">
+                        <Coffee className="h-5 w-5 text-amber-700" />
+                        <h4 className="font-semibold text-gray-900">Café da Manhã</h4>
+                      </div>
+                      <Edit className="h-4 w-4 text-gray-500" />
                     </div>
-                    <Edit className="h-4 w-4 text-gray-500" />
-                  </div>
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.cafe}</p>
-                </button>
-                
-                {/* Informações de macros - Café da Manhã */}
-                {plano.macrosPorRefeicao?.cafe && (
-                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.cafe.proteinaSugerida_g}g</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className={`font-semibold ${
-                            plano.macrosPorRefeicao.cafe.proteinaEscolhida_g >= plano.macrosPorRefeicao.cafe.proteinaSugerida_g * 0.8
-                              ? 'text-green-700'
-                              : 'text-amber-700'
-                          }`}>
-                            {plano.macrosPorRefeicao.cafe.proteinaEscolhida_g.toFixed(1)}g
-                          </span>
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.cafe}</p>
+                  </button>
+                  
+                  {/* Informações de macros - Café da Manhã */}
+                  {(() => {
+                    const valoresSugeridos = calcularValoresSugeridos('cafe', plano);
+                    const macrosSalvas = plano.macrosPorRefeicao?.cafe;
+                    const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
+                    
+                    return (
+                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-amber-200 shadow-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.proteinaSugerida_g}g</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className={`text-base font-bold ${
+                                    macrosSalvas.proteinaEscolhida_g >= valoresSugeridos.proteinaSugerida_g * 0.8
+                                      ? 'text-green-600'
+                                      : 'text-amber-600'
+                                  }`}>
+                                    {macrosSalvas.proteinaEscolhida_g.toFixed(1)}g
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Calorias</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.caloriasSugerida_kcal} kcal</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-base font-bold text-gray-900">{macrosSalvas.caloriasEscolhida_kcal} kcal</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.cafe.caloriasSugerida_kcal} kcal</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.cafe.caloriasEscolhida_kcal} kcal</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    );
+                  })()}
+                </div>
                 
                 {/* Lanche 1 */}
-                <button
-                  onClick={() => {
-                    setRefeicaoEmEdicao('lanche1');
-                    setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.lanche1 || opcoesRefeicoes.lanche1[0]?.id || '');
-                  }}
-                  className="w-full text-left p-5 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
-                      <Sun className="h-5 w-5 text-blue-700" />
-                      <h4 className="font-semibold text-gray-900">Lanche da Manhã</h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setRefeicaoEmEdicao('lanche1');
+                      setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.lanche1 || opcoesRefeicoes.lanche1[0]?.id || '');
+                    }}
+                    className="w-full text-left p-5 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-3">
+                        <Sun className="h-5 w-5 text-blue-700" />
+                        <h4 className="font-semibold text-gray-900">Lanche da Manhã</h4>
+                      </div>
+                      <Edit className="h-4 w-4 text-gray-500" />
                     </div>
-                    <Edit className="h-4 w-4 text-gray-500" />
-                  </div>
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche1}</p>
-                </button>
-                
-                {/* Informações de macros - Lanche 1 */}
-                {plano.macrosPorRefeicao?.lanche1 && (
-                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche1.proteinaSugerida_g}g</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className={`font-semibold ${
-                            plano.macrosPorRefeicao.lanche1.proteinaEscolhida_g >= plano.macrosPorRefeicao.lanche1.proteinaSugerida_g * 0.8
-                              ? 'text-green-700'
-                              : 'text-amber-700'
-                          }`}>
-                            {plano.macrosPorRefeicao.lanche1.proteinaEscolhida_g.toFixed(1)}g
-                          </span>
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche1}</p>
+                  </button>
+                  
+                  {/* Informações de macros - Lanche 1 */}
+                  {(() => {
+                    const valoresSugeridos = calcularValoresSugeridos('lanche1', plano);
+                    const macrosSalvas = plano.macrosPorRefeicao?.lanche1;
+                    const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
+                    
+                    return (
+                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-blue-200 shadow-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.proteinaSugerida_g}g</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className={`text-base font-bold ${
+                                    macrosSalvas.proteinaEscolhida_g >= valoresSugeridos.proteinaSugerida_g * 0.8
+                                      ? 'text-green-600'
+                                      : 'text-amber-600'
+                                  }`}>
+                                    {macrosSalvas.proteinaEscolhida_g.toFixed(1)}g
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Calorias</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.caloriasSugerida_kcal} kcal</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-base font-bold text-gray-900">{macrosSalvas.caloriasEscolhida_kcal} kcal</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche1.caloriasSugerida_kcal} kcal</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.lanche1.caloriasEscolhida_kcal} kcal</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    );
+                  })()}
+                </div>
                 
                 {/* Almoço */}
-                <button
-                  onClick={() => {
-                    setRefeicaoEmEdicao('almoco');
-                    setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.almoco || opcoesRefeicoes.almoco[0]?.id || '');
-                  }}
-                  className="w-full text-left p-5 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
-                      <Sunset className="h-5 w-5 text-orange-700" />
-                      <h4 className="font-semibold text-gray-900">Almoço</h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setRefeicaoEmEdicao('almoco');
+                      setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.almoco || opcoesRefeicoes.almoco[0]?.id || '');
+                    }}
+                    className="w-full text-left p-5 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border-l-4 border-orange-500 hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-3">
+                        <Sunset className="h-5 w-5 text-orange-700" />
+                        <h4 className="font-semibold text-gray-900">Almoço</h4>
+                      </div>
+                      <Edit className="h-4 w-4 text-gray-500" />
                     </div>
-                    <Edit className="h-4 w-4 text-gray-500" />
-                  </div>
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.almoco}</p>
-                </button>
-                
-                {/* Informações de macros - Almoço */}
-                {plano.macrosPorRefeicao?.almoco && (
-                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.almoco.proteinaSugerida_g}g</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className={`font-semibold ${
-                            plano.macrosPorRefeicao.almoco.proteinaEscolhida_g >= plano.macrosPorRefeicao.almoco.proteinaSugerida_g * 0.8
-                              ? 'text-green-700'
-                              : 'text-amber-700'
-                          }`}>
-                            {plano.macrosPorRefeicao.almoco.proteinaEscolhida_g.toFixed(1)}g
-                          </span>
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.almoco}</p>
+                  </button>
+                  
+                  {/* Informações de macros - Almoço */}
+                  {(() => {
+                    const valoresSugeridos = calcularValoresSugeridos('almoco', plano);
+                    const macrosSalvas = plano.macrosPorRefeicao?.almoco;
+                    const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
+                    
+                    return (
+                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-orange-200 shadow-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.proteinaSugerida_g}g</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className={`text-base font-bold ${
+                                    macrosSalvas.proteinaEscolhida_g >= valoresSugeridos.proteinaSugerida_g * 0.8
+                                      ? 'text-green-600'
+                                      : 'text-amber-600'
+                                  }`}>
+                                    {macrosSalvas.proteinaEscolhida_g.toFixed(1)}g
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Calorias</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.caloriasSugerida_kcal} kcal</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-base font-bold text-gray-900">{macrosSalvas.caloriasEscolhida_kcal} kcal</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.almoco.caloriasSugerida_kcal} kcal</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.almoco.caloriasEscolhida_kcal} kcal</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    );
+                  })()}
+                </div>
                 
                 {/* Lanche 2 */}
-                <button
-                  onClick={() => {
-                    setRefeicaoEmEdicao('lanche2');
-                    setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.lanche2 || opcoesRefeicoes.lanche2[0]?.id || '');
-                  }}
-                  className="w-full text-left p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
-                      <Sun className="h-5 w-5 text-purple-700" />
-                      <h4 className="font-semibold text-gray-900">Lanche da Tarde</h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setRefeicaoEmEdicao('lanche2');
+                      setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.lanche2 || opcoesRefeicoes.lanche2[0]?.id || '');
+                    }}
+                    className="w-full text-left p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-3">
+                        <Sun className="h-5 w-5 text-purple-700" />
+                        <h4 className="font-semibold text-gray-900">Lanche da Tarde</h4>
+                      </div>
+                      <Edit className="h-4 w-4 text-gray-500" />
                     </div>
-                    <Edit className="h-4 w-4 text-gray-500" />
-                  </div>
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche2}</p>
-                </button>
-                
-                {/* Informações de macros - Lanche 2 */}
-                {plano.macrosPorRefeicao?.lanche2 && (
-                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche2.proteinaSugerida_g}g</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className={`font-semibold ${
-                            plano.macrosPorRefeicao.lanche2.proteinaEscolhida_g >= plano.macrosPorRefeicao.lanche2.proteinaSugerida_g * 0.8
-                              ? 'text-green-700'
-                              : 'text-amber-700'
-                          }`}>
-                            {plano.macrosPorRefeicao.lanche2.proteinaEscolhida_g.toFixed(1)}g
-                          </span>
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.lanche2}</p>
+                  </button>
+                  
+                  {/* Informações de macros - Lanche 2 */}
+                  {(() => {
+                    const valoresSugeridos = calcularValoresSugeridos('lanche2', plano);
+                    const macrosSalvas = plano.macrosPorRefeicao?.lanche2;
+                    const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
+                    
+                    return (
+                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-purple-200 shadow-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.proteinaSugerida_g}g</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className={`text-base font-bold ${
+                                    macrosSalvas.proteinaEscolhida_g >= valoresSugeridos.proteinaSugerida_g * 0.8
+                                      ? 'text-green-600'
+                                      : 'text-amber-600'
+                                  }`}>
+                                    {macrosSalvas.proteinaEscolhida_g.toFixed(1)}g
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Calorias</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.caloriasSugerida_kcal} kcal</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-base font-bold text-gray-900">{macrosSalvas.caloriasEscolhida_kcal} kcal</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.lanche2.caloriasSugerida_kcal} kcal</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.lanche2.caloriasEscolhida_kcal} kcal</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    );
+                  })()}
+                </div>
                 
                 {/* Jantar */}
-                <button
-                  onClick={() => {
-                    setRefeicaoEmEdicao('jantar');
-                    setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.jantar || opcoesRefeicoes.jantar[0]?.id || '');
-                  }}
-                  className="w-full text-left p-5 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
-                      <Moon className="h-5 w-5 text-indigo-700" />
-                      <h4 className="font-semibold text-gray-900">Jantar</h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setRefeicaoEmEdicao('jantar');
+                      setOpcaoSelecionadaTemp(plano.opcoesSelecionadas?.jantar || opcoesRefeicoes.jantar[0]?.id || '');
+                    }}
+                    className="w-full text-left p-5 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500 hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-3">
+                        <Moon className="h-5 w-5 text-indigo-700" />
+                        <h4 className="font-semibold text-gray-900">Jantar</h4>
+                      </div>
+                      <Edit className="h-4 w-4 text-gray-500" />
                     </div>
-                    <Edit className="h-4 w-4 text-gray-500" />
-                  </div>
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.jantar}</p>
-                </button>
-                
-                {/* Informações de macros - Jantar */}
-                {plano.macrosPorRefeicao?.jantar && (
-                  <div className="ml-4 mr-4 mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Proteína</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.jantar.proteinaSugerida_g}g</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className={`font-semibold ${
-                            plano.macrosPorRefeicao.jantar.proteinaEscolhida_g >= plano.macrosPorRefeicao.jantar.proteinaSugerida_g * 0.8
-                              ? 'text-green-700'
-                              : 'text-amber-700'
-                          }`}>
-                            {plano.macrosPorRefeicao.jantar.proteinaEscolhida_g.toFixed(1)}g
-                          </span>
+                    <p className="text-gray-800 leading-relaxed whitespace-pre-line">{plano.modeloDia.jantar}</p>
+                  </button>
+                  
+                  {/* Informações de macros - Jantar */}
+                  {(() => {
+                    const valoresSugeridos = calcularValoresSugeridos('jantar', plano);
+                    const macrosSalvas = plano.macrosPorRefeicao?.jantar;
+                    const temEscolhido = macrosSalvas && macrosSalvas.proteinaEscolhida_g > 0;
+                    
+                    return (
+                      <div className="ml-4 mr-4 p-3 bg-white rounded-lg border border-indigo-200 shadow-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Proteína</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.proteinaSugerida_g}g</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className={`text-base font-bold ${
+                                    macrosSalvas.proteinaEscolhida_g >= valoresSugeridos.proteinaSugerida_g * 0.8
+                                      ? 'text-green-600'
+                                      : 'text-amber-600'
+                                  }`}>
+                                    {macrosSalvas.proteinaEscolhida_g.toFixed(1)}g
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Calorias</p>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm text-gray-600">Sugerida:</span>
+                              <span className="text-base font-semibold text-gray-900">{valoresSugeridos.caloriasSugerida_kcal} kcal</span>
+                              {temEscolhido && (
+                                <>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-base font-bold text-gray-900">{macrosSalvas.caloriasEscolhida_kcal} kcal</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Calorias</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Sugerida: <strong className="text-gray-900">{plano.macrosPorRefeicao.jantar.caloriasSugerida_kcal} kcal</strong></span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-semibold text-gray-900">{plano.macrosPorRefeicao.jantar.caloriasEscolhida_kcal} kcal</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           )}
