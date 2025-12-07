@@ -3656,32 +3656,74 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                 </div>
                 
                 {/* Meta de Proteína */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Activity className="h-5 w-5 text-blue-600" />
-                    <h3 className="text-sm font-medium text-gray-700">Meta de Proteína</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-blue-700 mb-1">
-                    {plano.protDia_g} g/dia
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Meta diária aproximada de proteína total
-                  </p>
-                </div>
+                {(() => {
+                  const pesoAtual = obterPesoAtual();
+                  const protMin = plano.protDia_g;
+                  const protMax = Math.round(plano.protDia_g * 1.3);
+                  
+                  // Calcular semana do tratamento
+                  let semanaTratamento = 1;
+                  if (paciente?.planoTerapeutico?.startDate) {
+                    const dataInicio = new Date(paciente.planoTerapeutico.startDate);
+                    const hoje = new Date();
+                    const diffTime = hoje.getTime() - dataInicio.getTime();
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    semanaTratamento = Math.max(1, Math.floor(diffDays / 7) + 1);
+                  }
+                  
+                  return (
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Activity className="h-5 w-5 text-blue-600" />
+                        <h3 className="text-sm font-medium text-gray-700">Meta de Proteína</h3>
+                      </div>
+                      <p className="text-2xl font-bold text-blue-700 mb-1">
+                        {protMin}-{protMax} g/dia
+                      </p>
+                      <p className="text-xs text-gray-600 mb-1">
+                        Meta diária aproximada de proteína total
+                      </p>
+                      <p className="text-xs text-gray-500 italic">
+                        Calculado em relação ao Peso {pesoAtual.toFixed(1)}kg e Semana {semanaTratamento} do tratamento
+                      </p>
+                    </div>
+                  );
+                })()}
                 
                 {/* Meta de Água */}
-                <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg border border-cyan-200 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Droplet className="h-5 w-5 text-cyan-600" />
-                    <h3 className="text-sm font-medium text-gray-700">Meta de Água</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-cyan-700 mb-1">
-                    {plano.aguaDia_ml} ml
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Equivalente a {coposAgua}-{coposAgua + 1} copos por dia
-                  </p>
-                </div>
+                {(() => {
+                  const pesoAtual = obterPesoAtual();
+                  const aguaMin = plano.aguaDia_ml;
+                  const aguaMax = Math.round(plano.aguaDia_ml * 1.3);
+                  
+                  // Calcular semana do tratamento
+                  let semanaTratamento = 1;
+                  if (paciente?.planoTerapeutico?.startDate) {
+                    const dataInicio = new Date(paciente.planoTerapeutico.startDate);
+                    const hoje = new Date();
+                    const diffTime = hoje.getTime() - dataInicio.getTime();
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    semanaTratamento = Math.max(1, Math.floor(diffDays / 7) + 1);
+                  }
+                  
+                  return (
+                    <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg border border-cyan-200 p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Droplet className="h-5 w-5 text-cyan-600" />
+                        <h3 className="text-sm font-medium text-gray-700">Meta de Água</h3>
+                      </div>
+                      <p className="text-2xl font-bold text-cyan-700 mb-1">
+                        {aguaMin}-{aguaMax} ml
+                      </p>
+                      <p className="text-xs text-gray-600 mb-1">
+                        Equivalente a {coposAgua}-{coposAgua + 1} copos por dia
+                      </p>
+                      <p className="text-xs text-gray-500 italic">
+                        Calculado em relação ao Peso {pesoAtual.toFixed(1)}kg e Semana {semanaTratamento} do tratamento
+                      </p>
+                    </div>
+                  );
+                })()}
                 
                 {/* Refeições */}
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-5">
@@ -4218,7 +4260,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           {/* Modal de Edição de Refeição - Meal Builder */}
           {refeicaoEmEdicao && plano && configuracaoBuilder && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[81vh] overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
                   <h2 className="text-2xl font-bold text-gray-900">
                     Montar {refeicaoEmEdicao === 'cafe' ? 'Café da Manhã' : 
