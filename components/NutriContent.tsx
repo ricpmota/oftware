@@ -114,6 +114,14 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   // CARREGAMENTO DE DADOS
   // ============================================
 
+  // Carregar check-ins quando a aba Histórico for selecionada
+  useEffect(() => {
+    if (activeTab === 'historico' && plano && checkIns.length === 0 && !loadingCheckIns) {
+      loadCheckIns();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, plano]);
+
   useEffect(() => {
     const loadPlano = async () => {
       try {
