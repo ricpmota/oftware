@@ -457,6 +457,27 @@ export default function MetaPage() {
     }
   }, [paciente?.id, user?.email, verificarAutorizacaoGoogleCalendar]);
 
+  // Carregar minhas indicações quando mudar para aba "minhas"
+  useEffect(() => {
+    const loadMinhasIndicacoes = async () => {
+      if (!user?.email || activeMenu !== 'indicar' || activeTabIndicar !== 'minhas') return;
+      if (loadingIndicacoes) return; // Evitar chamadas duplicadas
+      
+      setLoadingIndicacoes(true);
+      try {
+        const indicacoes = await IndicacaoService.getIndicacoesPorPaciente(user.email);
+        setMinhasIndicacoes(indicacoes);
+      } catch (error) {
+        console.error('Erro ao carregar indicações:', error);
+        setMessage('Erro ao carregar suas indicações. Tente novamente.');
+      } finally {
+        setLoadingIndicacoes(false);
+      }
+    };
+
+    loadMinhasIndicacoes();
+  }, [activeMenu, activeTabIndicar, user?.email]);
+
   // Verificar callback do Google Calendar
   useEffect(() => {
     const checkCalendarCallback = async () => {
