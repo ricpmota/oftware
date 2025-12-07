@@ -1319,6 +1319,39 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     return true;
   };
 
+  /**
+   * Formata data do check-in (formato 'YYYY-MM-DD') para exibição curta
+   * Evita problemas de timezone criando a data localmente
+   */
+  const formatarDataCheckIn = (dataStr: string): string => {
+    if (!dataStr || !dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dataStr;
+    }
+    const [ano, mes, dia] = dataStr.split('-').map(Number);
+    const data = new Date(ano, mes - 1, dia);
+    return data.toLocaleDateString('pt-BR', { 
+      day: 'numeric', 
+      month: 'short'
+    });
+  };
+
+  /**
+   * Formata data do check-in para exibição completa
+   */
+  const formatarDataCheckInCompleta = (dataStr: string): string => {
+    if (!dataStr || !dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dataStr;
+    }
+    const [ano, mes, dia] = dataStr.split('-').map(Number);
+    const data = new Date(ano, mes - 1, dia);
+    return data.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   // Função para carregar check-in existente quando a data mudar
   const carregarCheckInPorData = (data: string) => {
     const checkInExistente = checkIns.find(ci => ci.data === data);
@@ -3406,11 +3439,11 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                               <div
                                 className={`w-full ${cor} rounded-t transition-all hover:opacity-80`}
                                 style={{ height: `${altura}%`, minHeight: '4px' }}
-                                title={`${new Date(checkIn.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}: ${checkIn.score.toFixed(1)}%`}
+                                title={`${formatarDataCheckIn(checkIn.data)}: ${checkIn.score.toFixed(1)}%`}
                               />
                             </div>
                             <span className="text-xs text-gray-500 transform -rotate-45 origin-top-left whitespace-nowrap">
-                              {new Date(checkIn.data).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+                              {formatarDataCheckIn(checkIn.data)}
                             </span>
                           </div>
                         );
