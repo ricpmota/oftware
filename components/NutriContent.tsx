@@ -2364,29 +2364,21 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
         </div>
       )}
       
-      {/* Botão de Check-in Fixo no Topo - Só aparece se não houver check-in do dia */}
-      {!checkInHojeExiste && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <button
-            onClick={() => setView('checkin')}
-            className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 flex items-center justify-center gap-2 font-medium shadow-md transition-all duration-200 transform hover:scale-[1.02]"
-          >
-            <Calendar className="h-5 w-5" />
-            <span>Check-in Diário</span>
-          </button>
-        </div>
-      )}
-      
-      {/* Mensagem se já fez check-in hoje */}
-      {checkInHojeExiste && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <p className="text-green-800 font-medium">Check-in de hoje já realizado!</p>
-          </div>
-          <p className="text-sm text-green-700 mt-1">Você poderá fazer um novo check-in amanhã.</p>
-        </div>
-      )}
+      {/* Botão de Check-in Fixo no Topo */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <button
+          onClick={() => {
+            // Resetar para data de hoje ao abrir o check-in
+            const dataHoje = new Date().toISOString().split('T')[0];
+            setCheckInDate(dataHoje);
+            setView('checkin');
+          }}
+          className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 flex items-center justify-center gap-2 font-medium shadow-md transition-all duration-200 transform hover:scale-[1.02]"
+        >
+          <Calendar className="h-5 w-5" />
+          <span>Check-in Diário</span>
+        </button>
+      </div>
 
       {/* Sistema de Abas */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
