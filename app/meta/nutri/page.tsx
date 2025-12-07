@@ -131,7 +131,9 @@ export default function NutriPage() {
       
       if (!pacienteData) {
         console.error('Paciente não encontrado');
-        router.push('/meta');
+        // Não redirecionar, apenas mostrar erro
+        setLoadingPaciente(false);
+        setLoading(false);
         return;
       }
       
@@ -142,7 +144,9 @@ export default function NutriPage() {
       
     } catch (error) {
       console.error('Erro ao carregar paciente:', error);
-      router.push('/meta');
+      // Não redirecionar, apenas mostrar erro
+      setLoadingPaciente(false);
+      setLoading(false);
     } finally {
       setLoadingPaciente(false);
       setLoading(false);
@@ -594,8 +598,36 @@ export default function NutriPage() {
     );
   }
 
-  if (!user || !paciente) {
-    return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!paciente) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+            <AlertCircle className="mx-auto h-16 w-16 text-red-500 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Paciente não encontrado</h2>
+            <p className="text-gray-600 mb-4">
+              Não foi possível carregar seus dados. Por favor, tente novamente ou entre em contato com o suporte.
+            </p>
+            <button
+              onClick={() => router.push('/meta')}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              Voltar para a página inicial
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ===== VIEW: FORMULÁRIO PESO/ALTURA =====
