@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PacienteCompleto } from '@/types/obesidade';
 import { UtensilsCrossed, Calendar, AlertCircle } from 'lucide-react';
@@ -351,7 +351,7 @@ export default function NutriContent({ paciente }: NutriContentProps) {
         humorEnergia: checkInData.humorEnergia,
         score: score,
         data: dataHoje,
-        timestamp: new Date()
+        timestamp: Timestamp.now()
       };
       
       console.log('Salvando check-in:', checkInComScore);
