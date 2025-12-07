@@ -1137,7 +1137,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
           <div className="flex overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveTab('plano')}
-              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex-shrink-0 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'plano'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -1147,7 +1147,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('proteinas')}
-              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex-shrink-0 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'proteinas'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -1157,7 +1157,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('cardapio')}
-              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex-shrink-0 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'cardapio'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -1167,7 +1167,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('alertas')}
-              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex-shrink-0 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'alertas'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -1177,7 +1177,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('historico')}
-              className={`flex-1 md:flex-none px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex-shrink-0 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'historico'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
