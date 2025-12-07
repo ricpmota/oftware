@@ -2011,10 +2011,34 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             {/* Card 8 – Peso (se necessário) */}
             {(() => {
               // Verificar se último peso tem mais de 7 dias
-              const ultimoPeso = paciente?.dadosClinicos?.medidasIniciais?.peso;
-              const ultimaDataPeso = paciente?.evolucaoSeguimento?.[0]?.dataRegistro;
+              const evolucao = paciente?.evolucaoSeguimento || [];
+              let ultimoPeso: number | undefined;
+              let ultimaDataPeso: Date | undefined;
+              
+              // Buscar último peso na evolução
+              if (evolucao.length > 0) {
+                const evolucaoOrdenada = [...evolucao].sort((a, b) => {
+                  const dataA = a.dataRegistro instanceof Date ? a.dataRegistro.getTime() : new Date(a.dataRegistro).getTime();
+                  const dataB = b.dataRegistro instanceof Date ? b.dataRegistro.getTime() : new Date(b.dataRegistro).getTime();
+                  return dataB - dataA; // Mais recente primeiro
+                });
+                
+                const ultimoRegistroComPeso = evolucaoOrdenada.find(s => s.peso && s.peso > 0);
+                if (ultimoRegistroComPeso) {
+                  ultimoPeso = ultimoRegistroComPeso.peso;
+                  ultimaDataPeso = ultimoRegistroComPeso.dataRegistro instanceof Date 
+                    ? ultimoRegistroComPeso.dataRegistro 
+                    : new Date(ultimoRegistroComPeso.dataRegistro);
+                }
+              }
+              
+              // Se não houver peso na evolução, usar peso inicial
+              if (!ultimoPeso) {
+                ultimoPeso = paciente?.dadosClinicos?.medidasIniciais?.peso;
+              }
+              
               const diasDesdeUltimoPeso = ultimaDataPeso 
-                ? Math.floor((new Date().getTime() - new Date(ultimaDataPeso).getTime()) / (1000 * 60 * 60 * 24))
+                ? Math.floor((new Date().getTime() - ultimaDataPeso.getTime()) / (1000 * 60 * 60 * 24))
                 : 999;
               
               if (diasDesdeUltimoPeso > 7 || !ultimoPeso) {
