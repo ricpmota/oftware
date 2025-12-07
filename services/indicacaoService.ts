@@ -26,6 +26,10 @@ export class IndicacaoService {
         indicacaoData.indicadoPorNome = indicacao.indicadoPorNome;
       }
 
+      if (indicacao.telefoneIndicador) {
+        indicacaoData.telefoneIndicador = indicacao.telefoneIndicador;
+      }
+
       const docRef = await addDoc(collection(db, this.COLLECTION), indicacaoData);
       return docRef.id;
     } catch (error) {
@@ -56,6 +60,7 @@ export class IndicacaoService {
           id: doc.id,
           indicadoPor: data.indicadoPor,
           indicadoPorNome: data.indicadoPorNome,
+          telefoneIndicador: data.telefoneIndicador,
           nomePaciente: data.nomePaciente,
           telefonePaciente: data.telefonePaciente,
           estado: data.estado,
@@ -101,6 +106,7 @@ export class IndicacaoService {
           id: doc.id,
           indicadoPor: data.indicadoPor,
           indicadoPorNome: data.indicadoPorNome,
+          telefoneIndicador: data.telefoneIndicador,
           nomePaciente: data.nomePaciente,
           telefonePaciente: data.telefonePaciente,
           estado: data.estado,
@@ -144,6 +150,7 @@ export class IndicacaoService {
           id: doc.id,
           indicadoPor: data.indicadoPor,
           indicadoPorNome: data.indicadoPorNome,
+          telefoneIndicador: data.telefoneIndicador,
           nomePaciente: data.nomePaciente,
           telefonePaciente: data.telefonePaciente,
           estado: data.estado,

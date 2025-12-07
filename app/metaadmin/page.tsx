@@ -255,7 +255,28 @@ export default function MetaAdminPage() {
     setLoadingIndicacoes(true);
     try {
       const indicacoes = await IndicacaoService.getIndicacoesPendentesPorMedico(medicoPerfil.id);
-      setIndicacoesPendentes(indicacoes);
+      
+      // Buscar telefone do indicador para cada indicação que não tiver
+      const indicacoesComTelefone = await Promise.all(indicacoes.map(async (indicacao) => {
+        if (indicacao.telefoneIndicador) {
+          return indicacao; // Já tem telefone
+        }
+        
+        // Buscar telefone do paciente que indicou
+        try {
+          const paciente = await PacienteService.getPacienteByEmail(indicacao.indicadoPor);
+          if (paciente) {
+            const telefone = paciente.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '';
+            return { ...indicacao, telefoneIndicador: telefone };
+          }
+        } catch (error) {
+          console.error('Erro ao buscar telefone do indicador:', error);
+        }
+        
+        return indicacao;
+      }));
+      
+      setIndicacoesPendentes(indicacoesComTelefone);
     } catch (error) {
       console.error('Erro ao carregar indicações pendentes:', error);
       setMessage('Erro ao carregar indicações pendentes.');
@@ -6379,38 +6400,62 @@ export default function MetaAdminPage() {
                           const StatusIcon = statusInfo.icon;
                           
                           return (
-                            <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <h4 className="text-base font-semibold text-gray-900 mb-1">
-                                    {indicacao.nomePaciente}
-                                  </h4>
-                                  <p className="text-sm text-gray-600">
-                                    Indicado por: {indicacao.indicadoPorNome}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    {indicacao.cidade}, {indicacao.estado}
-                                  </p>
-                                  {indicacao.status !== 'pendente' && (
-                                    <div className="mt-2">
-                                      <p className="text-sm text-gray-700">
-                                        <strong>Telefone:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
-                                      </p>
-                                      <a
-                                        href={`https://wa.me/55${indicacao.telefonePaciente.replace(/\D/g, '')}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                                      >
-                                        <MessageCircleIcon size={16} />
-                                        Entrar em contato via WhatsApp
-                                      </a>
-                                    </div>
-                                  )}
+                            <div key={indicacao.id} className="bg-white border-2 border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                              {/* Seção do Cliente (Indicador) - Destaque */}
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <UserIcon className="w-5 h-5 text-blue-600" />
+                                  <h5 className="text-sm font-bold text-blue-900">CLIENTE QUE INDICOU</h5>
                                 </div>
-                                <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
-                                  <StatusIcon className="w-3 h-3" />
-                                  {statusInfo.label}
+                                <div className="space-y-1">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {indicacao.indicadoPorNome}
+                                  </p>
+                                  <p className="text-xs text-gray-600">
+                                    Email: {indicacao.indicadoPor}
+                                  </p>
+                                  {/* Buscar telefone do indicador */}
+                                  <p className="text-xs text-gray-600">
+                                    Telefone: {indicacao.telefoneIndicador ? formatPhoneNumber(indicacao.telefoneIndicador) : 'Não informado'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Seção do Lead (Indicação) */}
+                              <div className="border-t border-gray-200 pt-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <UserPlus className="w-5 h-5 text-green-600" />
+                                  <h5 className="text-sm font-bold text-green-900">LEAD INDICADO</h5>
+                                </div>
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex-1">
+                                    <h4 className="text-base font-semibold text-gray-900 mb-1">
+                                      {indicacao.nomePaciente}
+                                    </h4>
+                                    <p className="text-sm text-gray-600">
+                                      {indicacao.cidade}, {indicacao.estado}
+                                    </p>
+                                    {indicacao.status !== 'pendente' && (
+                                      <div className="mt-2">
+                                        <p className="text-sm text-gray-700">
+                                          <strong>Telefone do Lead:</strong> {formatPhoneNumber(indicacao.telefonePaciente)}
+                                        </p>
+                                        <a
+                                          href={`https://wa.me/55${indicacao.telefonePaciente.replace(/\D/g, '')}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                        >
+                                          <MessageCircleIcon size={16} />
+                                          Entrar em contato via WhatsApp
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
+                                    <StatusIcon className="w-3 h-3" />
+                                    {statusInfo.label}
+                                  </div>
                                 </div>
                               </div>
                               

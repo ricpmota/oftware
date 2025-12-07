@@ -2090,9 +2090,13 @@ export default function MetaPage() {
             // Normalizar telefone (remover formatação)
             const telefoneNormalizado = indicacaoForm.telefonePaciente.replace(/\D/g, '');
 
+            // Buscar telefone do paciente que está indicando
+            const telefoneIndicador = paciente?.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '';
+
             await IndicacaoService.criarIndicacao({
               indicadoPor: user.email,
               indicadoPorNome: paciente.nome || user.displayName || 'Paciente',
+              telefoneIndicador: telefoneIndicador,
               nomePaciente: indicacaoForm.nomePaciente.trim(),
               telefonePaciente: telefoneNormalizado,
               estado: indicacaoForm.estado,
@@ -2263,13 +2267,54 @@ export default function MetaPage() {
                             {medicosFiltrados.map((medico) => (
                               <option key={medico.id} value={medico.id}>
                                 {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
-                                {medico.temPlanoIndicacao !== false ? ' ✓ Plano de Indicação' : ' (Sem plano)'}
+                                {medico.temPlanoIndicacao ? ' ✓ Plano de Indicação' : ' (Sem plano)'}
                               </option>
                             ))}
                           </select>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Médicos com "✓ Plano de Indicação" oferecem comissão por indicações.
-                          </p>
+                          {indicacaoForm.medicoId && (() => {
+                            const medicoSelecionado = medicosFiltrados.find(m => m.id === indicacaoForm.medicoId);
+                            if (medicoSelecionado?.temPlanoIndicacao && medicoSelecionado?.planoIndicacao) {
+                              const plano = medicoSelecionado.planoIndicacao;
+                              return (
+                                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <DollarSign className="w-5 h-5 text-green-600" />
+                                    <h5 className="text-sm font-bold text-green-900">Plano de Comissão Disponível</h5>
+                                  </div>
+                                  <div className="space-y-2 text-xs text-gray-700">
+                                    <p>
+                                      <strong>Tipo de valor:</strong> {plano.tipoValor === 'negociado' ? 'Negociado com cada cliente' : 'Valor fixo para todos'}
+                                    </p>
+                                    <p>
+                                      <strong>Tipo de comissão:</strong> {plano.tipoComissao === 'por_dose' ? 'Por dose' : 'Por tratamento completo'}
+                                    </p>
+                                    {plano.tipoComissao === 'por_dose' && plano.valorPorDose ? (
+                                      <p>
+                                        <strong>Valor por dose:</strong> R$ {plano.valorPorDose.toFixed(2)}
+                                      </p>
+                                    ) : plano.tipoComissao === 'por_tratamento' && plano.valorComissaoTratamento ? (
+                                      <>
+                                        <p>
+                                          <strong>Duração do tratamento:</strong> {plano.tempoTratamentoMeses} meses
+                                        </p>
+                                        <p>
+                                          <strong>Total de medicamento:</strong> {plano.totalMedicamentoMg} mg
+                                        </p>
+                                        <p>
+                                          <strong>Valor da comissão:</strong> R$ {plano.valorComissaoTratamento.toFixed(2)}
+                                        </p>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Médicos com "✓ Plano de Indicação" oferecem comissão por indicações.
+                              </p>
+                            );
+                          })()}
                         </div>
                       )}
 

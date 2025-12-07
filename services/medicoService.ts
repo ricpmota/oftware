@@ -158,6 +158,18 @@ export class MedicoService {
     }
   }
 
+  // Atualizar médico por ID
+  static async updateMedico(medicoId: string, updates: Partial<Medico>): Promise<void> {
+    try {
+      const medicoRef = doc(db, 'medicos', medicoId);
+      const medicoData = removeUndefined(updates);
+      await updateDoc(medicoRef, medicoData);
+    } catch (error) {
+      console.error('Erro ao atualizar médico:', error);
+      throw error;
+    }
+  }
+
   // Deletar médico
   static async deleteMedico(medicoId: string): Promise<void> {
     try {

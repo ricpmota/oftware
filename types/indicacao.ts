@@ -2,6 +2,7 @@ export interface Indicacao {
   id: string;
   indicadoPor: string; // Email do paciente que indicou
   indicadoPorNome?: string; // Nome do paciente que indicou (opcional, para facilitar)
+  telefoneIndicador?: string; // Telefone do paciente que indicou (para contato do médico)
   nomePaciente: string; // Nome do paciente indicado
   telefonePaciente: string; // Telefone do paciente indicado (usado para matching)
   estado: string; // Estado selecionado
