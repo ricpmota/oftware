@@ -45,6 +45,7 @@ interface OpcaoRefeicao {
   descricao: string;    // descrição completa
   proteina_g: number;   // proteína aproximada dessa combinação
   calorias_kcal: number;// calorias aproximadas
+  itensSelecionados?: string[]; // IDs dos itens selecionados (para opções customizadas)
 }
 
 interface PlanoNutricional {
@@ -786,26 +787,48 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       // Resetar aba para proteína ao abrir modal
       setAbaBuilderAtiva('proteina');
       
-      // Inicializar itens selecionados (sugestão padrão: proteína + salada)
+      // Inicializar itens selecionados
       const configRefeicao = config[refeicaoEmEdicao];
       const itensIniciais: Record<string, boolean> = {};
       
-      // Sugerir uma proteína padrão
-      const proteinaPadrao = configRefeicao.itensDisponiveis.find(i => 
-        i.categoria === 'proteina' && 
-        (i.id.includes('frango_100g') || i.id.includes('ovos_2un') || i.id.includes('whey'))
-      );
-      if (proteinaPadrao) {
-        itensIniciais[proteinaPadrao.id] = true;
+      // Verificar se já existe uma opção selecionada para esta refeição
+      const opcaoSelecionadaId = plano.opcoesSelecionadas?.[refeicaoEmEdicao];
+      
+      if (opcaoSelecionadaId && opcaoSelecionadaId.startsWith('custom_')) {
+        // Se é uma opção customizada, tentar carregar os itens salvos
+        const opcaoCustom = opcoesRefeicoes[refeicaoEmEdicao]?.find(o => o.id === opcaoSelecionadaId);
+        
+        if (opcaoCustom && opcaoCustom.itensSelecionados) {
+          // Restaurar itens selecionados da opção customizada
+          opcaoCustom.itensSelecionados.forEach(itemId => {
+            // Verificar se o item ainda existe na lista de disponíveis
+            const itemExiste = configRefeicao.itensDisponiveis.some(i => i.id === itemId);
+            if (itemExiste) {
+              itensIniciais[itemId] = true;
+            }
+          });
+        }
       }
       
-      // Para almoço e jantar, sugerir salada
-      if (refeicaoEmEdicao === 'almoco' || refeicaoEmEdicao === 'jantar') {
-        const saladaPadrao = configRefeicao.itensDisponiveis.find(i => 
-          i.categoria === 'legumes_salada' && i.id.includes('salada_grande')
+      // Se não encontrou itens salvos ou não é customizada, usar sugestão padrão
+      if (Object.keys(itensIniciais).length === 0) {
+        // Sugerir uma proteína padrão
+        const proteinaPadrao = configRefeicao.itensDisponiveis.find(i => 
+          i.categoria === 'proteina' && 
+          (i.id.includes('frango_100g') || i.id.includes('ovos_2un') || i.id.includes('whey'))
         );
-        if (saladaPadrao) {
-          itensIniciais[saladaPadrao.id] = true;
+        if (proteinaPadrao) {
+          itensIniciais[proteinaPadrao.id] = true;
+        }
+        
+        // Para almoço e jantar, sugerir salada
+        if (refeicaoEmEdicao === 'almoco' || refeicaoEmEdicao === 'jantar') {
+          const saladaPadrao = configRefeicao.itensDisponiveis.find(i => 
+            i.categoria === 'legumes_salada' && i.id.includes('salada_grande')
+          );
+          if (saladaPadrao) {
+            itensIniciais[saladaPadrao.id] = true;
+          }
         }
       }
       
@@ -1579,13 +1602,19 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       // Gerar texto da refeição
       const textoRefeicao = gerarTextoRefeicao(itensSelecionadosRefeicao, config);
       
+      // Extrair IDs dos itens selecionados
+      const idsItensSelecionados = Object.keys(itensSelecionadosRefeicao).filter(
+        id => itensSelecionadosRefeicao[id]
+      );
+      
       // Criar opção customizada
       const opcaoCustom: OpcaoRefeicao = {
         id: `custom_${refeicaoEmEdicao}_${Date.now()}`,
         titulo: 'Refeição personalizada',
         descricao: textoRefeicao,
         proteina_g: macrosRefeicaoAtual.proteinaTotal_g,
-        calorias_kcal: macrosRefeicaoAtual.caloriasTotal_kcal
+        calorias_kcal: macrosRefeicaoAtual.caloriasTotal_kcal,
+        itensSelecionados: idsItensSelecionados // Salvar IDs para reconstruir depois
       };
       
       // Adicionar opção customizada ao opcoesRefeicoes se não existir
