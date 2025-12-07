@@ -6414,10 +6414,20 @@ export default function MetaAdminPage() {
                                   <p className="text-xs text-gray-600">
                                     Email: {indicacao.indicadoPor}
                                   </p>
-                                  {/* Buscar telefone do indicador */}
                                   <p className="text-xs text-gray-600">
                                     Telefone: {indicacao.telefoneIndicador ? formatPhoneNumber(indicacao.telefoneIndicador) : 'Não informado'}
                                   </p>
+                                  {indicacao.telefoneIndicador && (
+                                    <a
+                                      href={`https://wa.me/55${indicacao.telefoneIndicador.replace(/\D/g, '')}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
+                                    >
+                                      <MessageCircleIcon size={12} />
+                                      WhatsApp do Cliente
+                                    </a>
+                                  )}
                                 </div>
                               </div>
 
