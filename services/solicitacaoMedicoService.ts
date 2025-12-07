@@ -5,8 +5,13 @@ import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 export class SolicitacaoMedicoService {
   /**
    * Criar uma nova solicitação de médico
+   * @param solicitacao - Dados da solicitação
+   * @param emailIndicador - Email do paciente que indicou (opcional, para indicação por link)
    */
-  static async criarSolicitacao(solicitacao: Omit<SolicitacaoMedico, 'id' | 'criadoEm'>): Promise<string> {
+  static async criarSolicitacao(
+    solicitacao: Omit<SolicitacaoMedico, 'id' | 'criadoEm'>,
+    emailIndicador?: string
+  ): Promise<string> {
     try {
       // Remove campos undefined antes de salvar
       const solicitacaoData: any = {
@@ -27,6 +32,50 @@ export class SolicitacaoMedicoService {
       }
 
       const docRef = await addDoc(collection(db, 'solicitacoes_medico'), solicitacaoData);
+      
+      // Se houver emailIndicador, criar indicação automaticamente
+      if (emailIndicador && solicitacao.pacienteTelefone) {
+        try {
+          const { IndicacaoService } = await import('@/services/indicacaoService');
+          const { MedicoService } = await import('@/services/medicoService');
+          
+          // Buscar dados do médico para obter cidade/estado
+          const medico = await MedicoService.getMedicoById(solicitacao.medicoId);
+          if (medico && medico.cidades.length > 0) {
+            const primeiraCidade = medico.cidades[0];
+            
+            // Buscar dados do indicador (paciente que indicou)
+            const { PacienteService } = await import('@/services/pacienteService');
+            // Buscar paciente por userId (email)
+            const pacientesQuery = query(
+              collection(db, 'pacientes_completos'),
+              where('userId', '==', emailIndicador)
+            );
+            const pacientesSnapshot = await getDocs(pacientesQuery);
+            const pacienteIndicador = pacientesSnapshot.empty ? null : {
+              nome: pacientesSnapshot.docs[0].data().nome || emailIndicador.split('@')[0],
+              dadosIdentificacao: pacientesSnapshot.docs[0].data().dadosIdentificacao || {}
+            };
+            
+            await IndicacaoService.criarIndicacao({
+              indicadoPor: emailIndicador,
+              indicadoPorNome: pacienteIndicador?.nome || emailIndicador.split('@')[0],
+              indicadoPorTelefone: pacienteIndicador?.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '',
+              nomePaciente: solicitacao.pacienteNome,
+              telefonePaciente: solicitacao.pacienteTelefone.replace(/\D/g, ''),
+              estado: primeiraCidade.estado,
+              cidade: primeiraCidade.cidade,
+              medicoId: solicitacao.medicoId,
+              medicoNome: solicitacao.medicoNome
+            });
+            
+            console.log('✅ Indicação criada automaticamente via link para:', emailIndicador);
+          }
+        } catch (indicacaoError) {
+          console.error('❌ Erro ao criar indicação automática:', indicacaoError);
+          // Não bloquear o fluxo se a indicação falhar
+        }
+      }
       
       // Enviar e-mail para o médico sobre o novo lead
       try {

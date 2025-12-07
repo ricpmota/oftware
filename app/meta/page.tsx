@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell, Eye, DollarSign, CheckCircle } from 'lucide-react';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell, Eye, DollarSign, CheckCircle, Copy } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -31,6 +31,73 @@ import FAQChat from '@/components/FAQChat';
 import NutriContent from '@/components/NutriContent';
 import { IndicacaoService } from '@/services/indicacaoService';
 import { Indicacao } from '@/types/indicacao';
+
+// Componente para o link de indicação
+function LinkIndicacaoComponent({ emailIndicador, nomeIndicador }: { emailIndicador: string; nomeIndicador: string }) {
+  const [copiado, setCopiado] = useState(false);
+  const linkIndicacao = typeof window !== 'undefined' 
+    ? `${window.location.origin}/meta?ref=${encodeURIComponent(emailIndicador)}`
+    : '';
+  
+  const copiarLink = async () => {
+    if (!linkIndicacao) return;
+    try {
+      await navigator.clipboard.writeText(linkIndicacao);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch (error) {
+      console.error('Erro ao copiar link:', error);
+      alert('Erro ao copiar link. Tente selecionar e copiar manualmente.');
+    }
+  };
+  
+  return (
+    <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <UserPlus className="w-5 h-5 text-blue-600" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Compartilhe seu link de indicação</h3>
+          <p className="text-sm text-gray-700 mb-4">
+            Compartilhe este link com seus amigos e familiares. Quando eles se cadastrarem usando seu link e escolherem um médico, você receberá automaticamente a comissão!
+          </p>
+          
+          {/* Link gerado */}
+          <div className="space-y-3">
+            <div className="bg-white border border-gray-300 rounded-lg p-3 flex items-center gap-2">
+              <input
+                type="text"
+                value={linkIndicacao}
+                readOnly
+                className="flex-1 text-sm text-gray-700 bg-transparent border-none outline-none"
+              />
+              <button
+                onClick={copiarLink}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                {copiado ? (
+                  <>
+                    <CheckCircle size={16} />
+                    Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} />
+                    Copiar
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-gray-600">
+              💡 Dica: Compartilhe este link via WhatsApp, email ou redes sociais. Quando alguém se cadastrar usando seu link e escolher um médico, a indicação será criada automaticamente!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MetaPage() {
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -169,6 +236,9 @@ export default function MetaPage() {
   const [minhasIndicacoes, setMinhasIndicacoes] = useState<Indicacao[]>([]);
   const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
   const loadingIndicacoesRef = useRef(false);
+  
+  // Estado para armazenar o email do indicador (quando paciente acessa via link)
+  const [emailIndicadorRef, setEmailIndicadorRef] = useState<string | null>(null);
 
   // Carregar cidades customizadas
   useEffect(() => {
@@ -457,6 +527,26 @@ export default function MetaPage() {
       verificarAutorizacaoGoogleCalendar();
     }
   }, [paciente?.id, user?.email, verificarAutorizacaoGoogleCalendar]);
+
+  // Capturar parâmetro de indicação da URL
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const ref = searchParams?.get('ref');
+    if (ref) {
+      const emailIndicador = decodeURIComponent(ref);
+      setEmailIndicadorRef(emailIndicador);
+      // Salvar no localStorage para persistir mesmo após navegação
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('indicacao_ref', emailIndicador);
+      }
+    } else if (typeof window !== 'undefined') {
+      // Tentar recuperar do localStorage se não estiver na URL
+      const savedRef = localStorage.getItem('indicacao_ref');
+      if (savedRef) {
+        setEmailIndicadorRef(savedRef);
+      }
+    }
+  }, [searchParams]);
 
   // Carregar minhas indicações quando mudar para aba "minhas"
   useEffect(() => {
@@ -2402,6 +2492,14 @@ export default function MetaPage() {
                       {salvandoIndicacao ? 'Enviando...' : 'Enviar Indicação'}
                     </button>
                   </div>
+
+                  {/* Seção de Link de Indicação */}
+                  {user?.email && paciente && (
+                    <LinkIndicacaoComponent 
+                      emailIndicador={user.email}
+                      nomeIndicador={paciente.nome || user.displayName || 'Paciente'}
+                    />
+                  )}
                 ) : (
                   <div className="space-y-4">
                     <div>
@@ -4486,6 +4584,118 @@ export default function MetaPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Modal de Solicitação de Médico */}
+        {showModalMedico && medicoSelecionado && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Solicitar Tratamento
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowModalMedico(false);
+                      setMedicoSelecionado(null);
+                      setTelefonePaciente('');
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  {medicoSelecionado.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoSelecionado.nome}
+                </p>
+              </div>
+              
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seu telefone *
+                  </label>
+                  <input
+                    type="tel"
+                    value={telefonePaciente}
+                    onChange={(e) => setTelefonePaciente(e.target.value)}
+                    placeholder="(11) 98765-4321"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    O médico usará este telefone para entrar em contato com você.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowModalMedico(false);
+                    setMedicoSelecionado(null);
+                    setTelefonePaciente('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!telefonePaciente.trim()) {
+                      alert('Por favor, informe seu telefone.');
+                      return;
+                    }
+                    
+                    if (!user?.email || !paciente) {
+                      alert('Erro: Usuário não encontrado. Recarregue a página.');
+                      return;
+                    }
+                    
+                    try {
+                      setLoading(true);
+                      
+                      // Criar solicitação passando o emailIndicadorRef se houver
+                      await SolicitacaoMedicoService.criarSolicitacao({
+                        pacienteEmail: user.email,
+                        pacienteNome: paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || user.displayName || 'Paciente',
+                        pacienteTelefone: telefonePaciente.replace(/\D/g, ''),
+                        pacienteId: paciente.id,
+                        medicoId: medicoSelecionado.id,
+                        medicoNome: medicoSelecionado.nome,
+                        status: 'pendente'
+                      }, emailIndicadorRef || undefined);
+                      
+                      alert('Solicitação enviada com sucesso! O médico será notificado.');
+                      
+                      // Limpar estados
+                      setShowModalMedico(false);
+                      setMedicoSelecionado(null);
+                      setTelefonePaciente('');
+                      
+                      // Limpar referência de indicação após criar a solicitação
+                      if (emailIndicadorRef && typeof window !== 'undefined') {
+                        localStorage.removeItem('indicacao_ref');
+                        setEmailIndicadorRef(null);
+                      }
+                      
+                      // Recarregar solicitações
+                      await loadMinhasSolicitacoes();
+                    } catch (error) {
+                      console.error('Erro ao criar solicitação:', error);
+                      alert('Erro ao enviar solicitação. Tente novamente.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading || !telefonePaciente.trim()}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Enviando...' : 'Enviar Solicitação'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
           </div>
         );
