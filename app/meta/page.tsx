@@ -459,6 +459,8 @@ export default function MetaPage() {
 
   // Carregar minhas indicações quando mudar para aba "minhas"
   useEffect(() => {
+    let isMounted = true;
+    
     const loadMinhasIndicacoes = async () => {
       if (!user?.email || activeMenu !== 'indicar' || activeTabIndicar !== 'minhas') return;
       if (loadingIndicacoes) return; // Evitar chamadas duplicadas
@@ -466,16 +468,26 @@ export default function MetaPage() {
       setLoadingIndicacoes(true);
       try {
         const indicacoes = await IndicacaoService.getIndicacoesPorPaciente(user.email);
-        setMinhasIndicacoes(indicacoes);
+        if (isMounted) {
+          setMinhasIndicacoes(indicacoes);
+        }
       } catch (error) {
         console.error('Erro ao carregar indicações:', error);
-        setMessage('Erro ao carregar suas indicações. Tente novamente.');
+        if (isMounted) {
+          setMessage('Erro ao carregar suas indicações. Tente novamente.');
+        }
       } finally {
-        setLoadingIndicacoes(false);
+        if (isMounted) {
+          setLoadingIndicacoes(false);
+        }
       }
     };
 
     loadMinhasIndicacoes();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [activeMenu, activeTabIndicar, user?.email]);
 
   // Verificar callback do Google Calendar
