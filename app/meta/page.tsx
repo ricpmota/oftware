@@ -528,25 +528,25 @@ export default function MetaPage() {
     }
   }, [paciente?.id, user?.email, verificarAutorizacaoGoogleCalendar]);
 
-  // Capturar parâmetro de indicação da URL
-  const searchParams = useSearchParams();
+  // Capturar parâmetro de indicação da URL (usando useEffect para evitar problemas com SSR)
   useEffect(() => {
-    const ref = searchParams?.get('ref');
-    if (ref) {
-      const emailIndicador = decodeURIComponent(ref);
-      setEmailIndicadorRef(emailIndicador);
-      // Salvar no localStorage para persistir mesmo após navegação
-      if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get('ref');
+      if (ref) {
+        const emailIndicador = decodeURIComponent(ref);
+        setEmailIndicadorRef(emailIndicador);
+        // Salvar no localStorage para persistir mesmo após navegação
         localStorage.setItem('indicacao_ref', emailIndicador);
-      }
-    } else if (typeof window !== 'undefined') {
-      // Tentar recuperar do localStorage se não estiver na URL
-      const savedRef = localStorage.getItem('indicacao_ref');
-      if (savedRef) {
-        setEmailIndicadorRef(savedRef);
+      } else {
+        // Tentar recuperar do localStorage se não estiver na URL
+        const savedRef = localStorage.getItem('indicacao_ref');
+        if (savedRef) {
+          setEmailIndicadorRef(savedRef);
+        }
       }
     }
-  }, [searchParams]);
+  }, []);
 
   // Carregar minhas indicações quando mudar para aba "minhas"
   useEffect(() => {
