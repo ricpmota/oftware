@@ -236,6 +236,8 @@ export default function MetaPage() {
   const [minhasIndicacoes, setMinhasIndicacoes] = useState<Indicacao[]>([]);
   const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
   const loadingIndicacoesRef = useRef(false);
+  const [indicacoesExpandidas, setIndicacoesExpandidas] = useState<Set<string>>(new Set());
+  const [medicosIndicacoes, setMedicosIndicacoes] = useState<Record<string, Medico>>({});
   
   // Estado para armazenar o email do indicador (quando paciente acessa via link)
   const [emailIndicadorRef, setEmailIndicadorRef] = useState<string | null>(null);
@@ -2501,95 +2503,253 @@ export default function MetaPage() {
                       {salvandoIndicacao ? 'Enviando...' : 'Enviar Indicação'}
                     </button>
 
-                    {/* Seção de Link de Indicação */}
-                    {user?.email && paciente && (
+                    {/* Seção de Link de Indicação - OCULTO TEMPORARIAMENTE */}
+                    {/* {user?.email && paciente && (
                       <LinkIndicacaoComponent 
                         emailIndicador={user.email}
                         nomeIndicador={paciente.nome || user.displayName || 'Paciente'}
                       />
-                    )}
+                    )} */}
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Minhas Indicações</h3>
-                      <p className="text-sm text-gray-600 mb-6">
-                        Acompanhe o status das suas indicações e quando elas viram venda.
-                      </p>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Minhas Indicações</h3>
+                        <p className="text-sm text-gray-600">
+                          Acompanhe o status das suas indicações e quando elas viram venda.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!user?.email) return;
+                          setLoadingIndicacoes(true);
+                          try {
+                            const indicacoes = await IndicacaoService.getIndicacoesPorPaciente(user.email);
+                            setMinhasIndicacoes(indicacoes);
+                            // Buscar dados dos médicos
+                            const medicosMap: Record<string, Medico> = {};
+                            for (const indicacao of indicacoes) {
+                              if (indicacao.medicoId && !medicosMap[indicacao.medicoId]) {
+                                try {
+                                  const medico = await MedicoService.getMedicoById(indicacao.medicoId);
+                                  if (medico) medicosMap[indicacao.medicoId] = medico;
+                                } catch (error) {
+                                  console.error(`Erro ao buscar médico ${indicacao.medicoId}:`, error);
+                                }
+                              }
+                            }
+                            setMedicosIndicacoes(medicosMap);
+                          } catch (error) {
+                            console.error('Erro ao atualizar indicações:', error);
+                          } finally {
+                            setLoadingIndicacoes(false);
+                          }
+                        }}
+                        disabled={loadingIndicacoes}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw size={16} className={loadingIndicacoes ? 'animate-spin' : ''} />
+                        Atualizar
+                      </button>
                     </div>
 
                     {loadingIndicacoes ? (
                       <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                        <p className="text-sm text-gray-600 mt-4">Carregando indicações...</p>
+                        <RefreshCw className="mx-auto h-8 w-8 text-gray-400 animate-spin" />
+                        <p className="mt-2 text-gray-600">Carregando indicações...</p>
                       </div>
                     ) : minhasIndicacoes.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
-                        <UserIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <UserIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                         <p className="text-gray-600">Você ainda não fez nenhuma indicação.</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {minhasIndicacoes.map((indicacao) => {
-                          const statusInfo = getStatusLabel(indicacao.status);
-                          const StatusIcon = statusInfo.icon;
-                          
-                          return (
-                            <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <h4 className="text-base font-semibold text-gray-900 mb-1">
-                                    {indicacao.nomePaciente}
-                                  </h4>
-                                  <p className="text-sm text-gray-600">
-                                    {indicacao.cidade}, {indicacao.estado}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    Indicado para: {indicacao.medicoNome}
-                                  </p>
-                                </div>
-                                <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
-                                  <StatusIcon className="w-3 h-3" />
-                                  {statusInfo.label}
-                                </div>
-                              </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-200">
-                                <div>
-                                  <p className="text-xs text-gray-500">Data da indicação</p>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {indicacao.criadoEm.toLocaleDateString('pt-BR')}
-                                  </p>
-                                </div>
-                                {indicacao.visualizadaEm && (
-                                  <div>
-                                    <p className="text-xs text-gray-500">Visualizada em</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                      {indicacao.visualizadaEm.toLocaleDateString('pt-BR')}
-                                    </p>
-                                  </div>
-                                )}
-                                {indicacao.virouVendaEm && (
-                                  <div>
-                                    <p className="text-xs text-gray-500">Virou venda em</p>
-                                    <p className="text-sm font-medium text-green-700">
-                                      {indicacao.virouVendaEm.toLocaleDateString('pt-BR')}
-                                    </p>
-                                  </div>
-                                )}
-                                {indicacao.pagaEm && (
-                                  <div>
-                                    <p className="text-xs text-gray-500">Paga em</p>
-                                    <p className="text-sm font-medium text-purple-700">
-                                      {indicacao.pagaEm.toLocaleDateString('pt-BR')}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
+                      <>
+                        {/* Estatísticas */}
+                        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-gray-900">{minhasIndicacoes.length}</p>
+                              <p className="text-xs text-gray-600">Total de Indicações</p>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-yellow-600">
+                                {minhasIndicacoes.filter(i => i.status === 'pendente' || i.status === 'visualizada').length}
+                              </p>
+                              <p className="text-xs text-gray-600">Pendentes</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-green-600">
+                                {minhasIndicacoes.filter(i => i.status === 'venda' || i.status === 'paga').length}
+                              </p>
+                              <p className="text-xs text-gray-600">Convertidas</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-purple-600">
+                                {minhasIndicacoes.filter(i => i.status === 'paga').length}
+                              </p>
+                              <p className="text-xs text-gray-600">Pagas</p>
+                            </div>
+                          </div>
+                          {minhasIndicacoes.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-green-200">
+                              <p className="text-sm text-gray-700 text-center">
+                                Taxa de conversão: {((minhasIndicacoes.filter(i => i.status === 'venda' || i.status === 'paga').length / minhasIndicacoes.length) * 100).toFixed(1)}%
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Lista de Indicações com Accordion */}
+                        <div className="space-y-3">
+                          {minhasIndicacoes.map((indicacao, index) => {
+                            const statusInfo = getStatusLabel(indicacao.status);
+                            const StatusIcon = statusInfo.icon;
+                            const isExpanded = indicacoesExpandidas.has(indicacao.id);
+                            const medico = medicosIndicacoes[indicacao.medicoId];
+                            const planoComissao = medico?.planoIndicacao;
+                            
+                            return (
+                              <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                                {/* Cabeçalho Compacto */}
+                                <div 
+                                  className="p-3 cursor-pointer"
+                                  onClick={() => {
+                                    const newExpanded = new Set(indicacoesExpandidas);
+                                    if (isExpanded) {
+                                      newExpanded.delete(indicacao.id);
+                                    } else {
+                                      newExpanded.add(indicacao.id);
+                                    }
+                                    setIndicacoesExpandidas(newExpanded);
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                      <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                        <span className="text-xs font-semibold text-gray-700">{index + 1}</span>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="text-sm font-semibold text-gray-900 truncate">
+                                            {indicacao.nomePaciente}
+                                          </h4>
+                                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${statusInfo.color}`}>
+                                            <StatusIcon className="w-3 h-3" />
+                                            {statusInfo.label}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 truncate">
+                                          {indicacao.cidade}, {indicacao.estado} • {indicacao.medicoNome}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {isExpanded ? (
+                                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                                      ) : (
+                                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Conteúdo Expandido */}
+                                {isExpanded && (
+                                  <div className="border-t border-gray-200 p-4 space-y-4">
+                                    {/* Informações do Médico */}
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Stethoscope className="w-4 h-4 text-blue-600" />
+                                        <h5 className="text-xs font-semibold text-blue-900">Médico Indicado</h5>
+                                      </div>
+                                      <p className="text-sm font-medium text-gray-900 mb-1">
+                                        {indicacao.medicoNome}
+                                      </p>
+                                      <p className="text-xs text-gray-600">
+                                        {indicacao.cidade}, {indicacao.estado}
+                                      </p>
+                                    </div>
+
+                                    {/* Plano de Comissão (se disponível) */}
+                                    {medico?.temPlanoIndicacao && planoComissao && (
+                                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <DollarSign className="w-4 h-4 text-purple-600" />
+                                          <h5 className="text-xs font-semibold text-purple-900">Plano de Comissão</h5>
+                                        </div>
+                                        {planoComissao.tipoValor === 'fixo' && (
+                                          <div className="space-y-1">
+                                            {planoComissao.tipoComissao === 'por_dose' && planoComissao.valorPorDose && (
+                                              <p className="text-sm text-gray-900">
+                                                <strong>Valor por dose:</strong> R$ {planoComissao.valorPorDose.toFixed(2)}
+                                              </p>
+                                            )}
+                                            {planoComissao.tipoComissao === 'por_tratamento' && planoComissao.valorComissaoTratamento && (
+                                              <p className="text-sm text-gray-900">
+                                                <strong>Valor do tratamento:</strong> R$ {planoComissao.valorComissaoTratamento.toFixed(2)}
+                                              </p>
+                                            )}
+                                            {indicacao.status === 'venda' || indicacao.status === 'paga' ? (
+                                              <p className="text-xs text-purple-700 font-medium mt-2">
+                                                ✓ Comissão estimada disponível
+                                              </p>
+                                            ) : (
+                                              <p className="text-xs text-gray-600 mt-2">
+                                                Comissão será calculada quando virar venda
+                                              </p>
+                                            )}
+                                          </div>
+                                        )}
+                                        {planoComissao.tipoValor === 'negociado' && (
+                                          <p className="text-sm text-gray-900">
+                                            Valor negociado diretamente com o médico
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Datas */}
+                                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200">
+                                      <div>
+                                        <p className="text-xs text-gray-500">Data da indicação</p>
+                                        <p className="text-sm font-medium text-gray-900">
+                                          {new Date(indicacao.criadoEm).toLocaleDateString('pt-BR')}
+                                        </p>
+                                      </div>
+                                      {indicacao.visualizadaEm && (
+                                        <div>
+                                          <p className="text-xs text-gray-500">Visualizada em</p>
+                                          <p className="text-sm font-medium text-gray-900">
+                                            {new Date(indicacao.visualizadaEm).toLocaleDateString('pt-BR')}
+                                          </p>
+                                        </div>
+                                      )}
+                                      {indicacao.virouVendaEm && (
+                                        <div>
+                                          <p className="text-xs text-gray-500">Virou venda em</p>
+                                          <p className="text-sm font-medium text-green-700">
+                                            {new Date(indicacao.virouVendaEm).toLocaleDateString('pt-BR')}
+                                          </p>
+                                        </div>
+                                      )}
+                                      {indicacao.pagaEm && (
+                                        <div>
+                                          <p className="text-xs text-gray-500">Paga em</p>
+                                          <p className="text-sm font-medium text-purple-700">
+                                            {new Date(indicacao.pagaEm).toLocaleDateString('pt-BR')}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
                     )}
                   </div>
                 )}
