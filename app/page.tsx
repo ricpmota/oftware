@@ -5,7 +5,8 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import FAQChat from '@/components/FAQChat';
-import { faqPacienteTotal, nutriFaqItems } from '@/components/FAQpaciente';
+import { faqPacienteTotal, nutriFaqItems, faqCategoriesPaciente } from '@/components/FAQpaciente';
+import { faqCategoriesMedico } from '@/components/FAQmedico';
 import { 
   Home as HomeIcon,
   Settings, 

@@ -31,12 +31,17 @@ interface FAQChatProps {
   faqItems?: FAQItem[]; // Array opcional de FAQs customizados (modo simplificado - sem categorias)
   faqCategories?: FAQCategory[]; // Array opcional de categorias de FAQ (modo com categorias)
   nutriFaqItems?: FAQItem[]; // Array opcional de FAQs de nutrição (para paciente)
+  hideToggleButton?: boolean; // Se true, não mostra o botão de ocultar chat
+  showTabs?: boolean; // Se true, mostra abas Médico/Paciente no modal principal
+  faqCategoriesMedico?: FAQCategory[]; // Categorias para médico (quando showTabs=true)
+  faqCategoriesPaciente?: FAQCategory[]; // Categorias para paciente (quando showTabs=true)
+  nutriFaqItemsPaciente?: FAQItem[]; // FAQs de nutrição para paciente (quando showTabs=true)
 }
 
 type CategoryType = 'plataforma' | 'medicamento' | 'efeitos' | 'nutri' | 'resultados' | 'seguranca' | 'medico' | null;
 type PlatformSubType = 'paciente' | 'medico' | null;
 
-export default function FAQChat({ userName, position = 'left', inHeader = false, onToggle, faqItems, faqCategories, nutriFaqItems }: FAQChatProps) {
+export default function FAQChat({ userName, position = 'left', inHeader = false, onToggle, faqItems, faqCategories, nutriFaqItems, hideToggleButton = false, showTabs = false, faqCategoriesMedico, faqCategoriesPaciente, nutriFaqItemsPaciente }: FAQChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -47,6 +52,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'paciente' | 'medico'>('paciente'); // Para abas Médico/Paciente
 
   // Inicializar com mensagem de boas-vindas apenas na primeira vez
   useEffect(() => {
@@ -117,6 +123,19 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   };
 
   const getCategoryItems = (): FAQItem[] => {
+    // Se showTabs está ativo, usar categorias baseadas na aba selecionada
+    if (showTabs) {
+      const categoriesToUse = activeTab === 'medico' ? faqCategoriesMedico : faqCategoriesPaciente;
+      if (categoriesToUse && selectedCategoryIndex !== null && categoriesToUse[selectedCategoryIndex]) {
+        return categoriesToUse[selectedCategoryIndex].items;
+      }
+      // Se nutriFaqItemsPaciente foi fornecido e estamos na aba paciente
+      if (activeTab === 'paciente' && nutriFaqItemsPaciente && nutriFaqItemsPaciente.length > 0 && currentCategory === 'nutri') {
+        return nutriFaqItemsPaciente;
+      }
+      return [];
+    }
+    
     // Se faqCategories foi fornecido, usar categorias customizadas
     if (faqCategories && faqCategories.length > 0) {
       if (selectedCategoryIndex !== null && faqCategories[selectedCategoryIndex]) {
@@ -370,13 +389,15 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
           >
             <MessageCircle size={20} />
           </button>
-          <button
-            onClick={handleToggleHidden}
-            className="flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-            title="Esconder chat"
-          >
-            <ChevronLeft size={20} />
-          </button>
+          {!hideToggleButton && (
+            <button
+              onClick={handleToggleHidden}
+              className="flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              title="Esconder chat"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
         </div>
 
       {/* Modal principal de categorias */}
@@ -395,64 +416,171 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
               </button>
             </div>
 
+            {/* Abas Médico/Paciente (quando showTabs=true) */}
+            {showTabs && (
+              <div className="flex border-b border-gray-200 bg-gray-50">
+                <button
+                  onClick={() => setActiveTab('paciente')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'paciente'
+                      ? 'text-orange-600 border-b-2 border-orange-600 bg-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Paciente
+                </button>
+                <button
+                  onClick={() => setActiveTab('medico')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'medico'
+                      ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Médico
+                </button>
+              </div>
+            )}
+
             {/* Lista de categorias */}
             <div className="overflow-y-auto flex-1 p-4">
               <div className="space-y-2">
-                <button
-                  onClick={() => handleCategoryClick('plataforma')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Users size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Como funciona a plataforma</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('medicamento')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Pill size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Medicamento</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('efeitos')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <AlertTriangle size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Efeitos colaterais</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('nutri')}
-                  className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <UtensilsCrossed size={20} className="text-green-600" />
-                  <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('resultados')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Target size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Resultados e metas</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('seguranca')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Shield size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Segurança e situações especiais</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('medico')}
-                  className="w-full text-left bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Stethoscope size={20} className="text-blue-600" />
-                  <p className="text-sm font-medium text-gray-900">Sou médico</p>
-                </button>
+                {/* Se showTabs está ativo, mostrar categorias baseadas na aba */}
+                {showTabs ? (
+                  <>
+                    {(activeTab === 'paciente' ? faqCategoriesPaciente : faqCategoriesMedico)?.map((category, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setSelectedCategoryIndex(index);
+                          setShowMainModal(false);
+                          setShowCategoryModal(true);
+                        }}
+                        className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                      >
+                        {category.icon || <Users size={20} className="text-purple-600" />}
+                        <p className="text-sm font-medium text-gray-900">{category.name}</p>
+                      </button>
+                    ))}
+                    {/* Se nutriFaqItemsPaciente foi fornecido e estamos na aba paciente, adicionar Nutrição */}
+                    {activeTab === 'paciente' && nutriFaqItemsPaciente && nutriFaqItemsPaciente.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setCurrentCategory('nutri');
+                          setShowMainModal(false);
+                          setShowCategoryModal(true);
+                        }}
+                        className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                      >
+                        <UtensilsCrossed size={20} className="text-green-600" />
+                        <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Se faqCategories foi fornecido, usar categorias customizadas */}
+                    {faqCategories && faqCategories.length > 0 ? (
+                      <>
+                        {faqCategories.map((category, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              setSelectedCategoryIndex(index);
+                              setShowMainModal(false);
+                              setShowCategoryModal(true);
+                            }}
+                            className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                          >
+                            {category.icon || <Users size={20} className="text-purple-600" />}
+                            <p className="text-sm font-medium text-gray-900">{category.name}</p>
+                          </button>
+                        ))}
+                        {/* Se nutriFaqItems foi fornecido separadamente, adicionar categoria Nutrição */}
+                        {nutriFaqItems && nutriFaqItems.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setCurrentCategory('nutri');
+                              setShowMainModal(false);
+                              setShowCategoryModal(true);
+                            }}
+                            className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                          >
+                            <UtensilsCrossed size={20} className="text-green-600" />
+                            <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Categorias padrão (modo legado - apenas se faqItems não foi fornecido) */}
+                        {!faqItems && (
+                          <>
+                            <button
+                              onClick={() => handleCategoryClick('plataforma')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Users size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Como funciona a plataforma</p>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleCategoryClick('medicamento')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Pill size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Medicamento</p>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleCategoryClick('efeitos')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <AlertTriangle size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Efeitos colaterais</p>
+                            </button>
+                            
+                            {nutriFaqItems && nutriFaqItems.length > 0 && (
+                              <button
+                                onClick={() => handleCategoryClick('nutri')}
+                                className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                              >
+                                <UtensilsCrossed size={20} className="text-green-600" />
+                                <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
+                              </button>
+                            )}
+                            
+                            <button
+                              onClick={() => handleCategoryClick('resultados')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Target size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Resultados e metas</p>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleCategoryClick('seguranca')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Shield size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Segurança e situações especiais</p>
+                            </button>
+                            
+                            {!showTabs && (
+                              <button
+                                onClick={() => handleCategoryClick('medico')}
+                                className="w-full text-left bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                              >
+                                <Stethoscope size={20} className="text-blue-600" />
+                                <p className="text-sm font-medium text-gray-900">Sou médico</p>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -695,64 +823,171 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
               </button>
             </div>
 
+            {/* Abas Médico/Paciente (quando showTabs=true) */}
+            {showTabs && (
+              <div className="flex border-b border-gray-200 bg-gray-50">
+                <button
+                  onClick={() => setActiveTab('paciente')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'paciente'
+                      ? 'text-orange-600 border-b-2 border-orange-600 bg-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Paciente
+                </button>
+                <button
+                  onClick={() => setActiveTab('medico')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'medico'
+                      ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Médico
+                </button>
+              </div>
+            )}
+
             {/* Lista de categorias */}
             <div className="overflow-y-auto flex-1 p-4">
               <div className="space-y-2">
-                <button
-                  onClick={() => handleCategoryClick('plataforma')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Users size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Como funciona a plataforma</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('medicamento')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Pill size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Medicamento</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('efeitos')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <AlertTriangle size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Efeitos colaterais</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('nutri')}
-                  className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <UtensilsCrossed size={20} className="text-green-600" />
-                  <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('resultados')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Target size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Resultados e metas</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('seguranca')}
-                  className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Shield size={20} className="text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900">Segurança e situações especiais</p>
-                </button>
-                
-                <button
-                  onClick={() => handleCategoryClick('medico')}
-                  className="w-full text-left bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
-                >
-                  <Stethoscope size={20} className="text-blue-600" />
-                  <p className="text-sm font-medium text-gray-900">Sou médico</p>
-                </button>
+                {/* Se showTabs está ativo, mostrar categorias baseadas na aba */}
+                {showTabs ? (
+                  <>
+                    {(activeTab === 'paciente' ? faqCategoriesPaciente : faqCategoriesMedico)?.map((category, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setSelectedCategoryIndex(index);
+                          setShowMainModal(false);
+                          setShowCategoryModal(true);
+                        }}
+                        className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                      >
+                        {category.icon || <Users size={20} className="text-purple-600" />}
+                        <p className="text-sm font-medium text-gray-900">{category.name}</p>
+                      </button>
+                    ))}
+                    {/* Se nutriFaqItemsPaciente foi fornecido e estamos na aba paciente, adicionar Nutrição */}
+                    {activeTab === 'paciente' && nutriFaqItemsPaciente && nutriFaqItemsPaciente.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setCurrentCategory('nutri');
+                          setShowMainModal(false);
+                          setShowCategoryModal(true);
+                        }}
+                        className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                      >
+                        <UtensilsCrossed size={20} className="text-green-600" />
+                        <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Se faqCategories foi fornecido, usar categorias customizadas */}
+                    {faqCategories && faqCategories.length > 0 ? (
+                      <>
+                        {faqCategories.map((category, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              setSelectedCategoryIndex(index);
+                              setShowMainModal(false);
+                              setShowCategoryModal(true);
+                            }}
+                            className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                          >
+                            {category.icon || <Users size={20} className="text-purple-600" />}
+                            <p className="text-sm font-medium text-gray-900">{category.name}</p>
+                          </button>
+                        ))}
+                        {/* Se nutriFaqItems foi fornecido separadamente, adicionar categoria Nutrição */}
+                        {nutriFaqItems && nutriFaqItems.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setCurrentCategory('nutri');
+                              setShowMainModal(false);
+                              setShowCategoryModal(true);
+                            }}
+                            className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                          >
+                            <UtensilsCrossed size={20} className="text-green-600" />
+                            <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Categorias padrão (modo legado - apenas se faqItems não foi fornecido) */}
+                        {!faqItems && (
+                          <>
+                            <button
+                              onClick={() => handleCategoryClick('plataforma')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Users size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Como funciona a plataforma</p>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleCategoryClick('medicamento')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Pill size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Medicamento</p>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleCategoryClick('efeitos')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <AlertTriangle size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Efeitos colaterais</p>
+                            </button>
+                            
+                            {nutriFaqItems && nutriFaqItems.length > 0 && (
+                              <button
+                                onClick={() => handleCategoryClick('nutri')}
+                                className="w-full text-left bg-gray-50 hover:bg-green-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                              >
+                                <UtensilsCrossed size={20} className="text-green-600" />
+                                <p className="text-sm font-medium text-gray-900">Nutrição e cardápio</p>
+                              </button>
+                            )}
+                            
+                            <button
+                              onClick={() => handleCategoryClick('resultados')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Target size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Resultados e metas</p>
+                            </button>
+                            
+                            <button
+                              onClick={() => handleCategoryClick('seguranca')}
+                              className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                            >
+                              <Shield size={20} className="text-purple-600" />
+                              <p className="text-sm font-medium text-gray-900">Segurança e situações especiais</p>
+                            </button>
+                            
+                            {!showTabs && (
+                              <button
+                                onClick={() => handleCategoryClick('medico')}
+                                className="w-full text-left bg-gray-50 hover:bg-blue-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
+                              >
+                                <Stethoscope size={20} className="text-blue-600" />
+                                <p className="text-sm font-medium text-gray-900">Sou médico</p>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>

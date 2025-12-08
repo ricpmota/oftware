@@ -1,3 +1,6 @@
+import React from 'react';
+import { Users, Stethoscope, DollarSign, Edit, Pill, Shield, UtensilsCrossed } from 'lucide-react';
+
 // Interface para itens de FAQ
 export interface FAQItem {
   question: string;
@@ -190,4 +193,56 @@ export const faqMedicoTotal: FAQItem[] = [
   ...faqMedicoMedicamento,
   ...faqMedicoSeguranca,
   ...faqMedicoNutricao
+];
+
+// Categorias para médico (para uso com showTabs)
+export const faqCategoriesMedico = [
+  {
+    name: 'Como funciona a plataforma',
+    items: faqMedicoPlataforma,
+    icon: <Users size={20} />,
+    color: 'from-blue-600 to-indigo-600'
+  },
+  {
+    name: 'Leads',
+    items: faqMedicoLeads,
+    icon: <Users size={20} />,
+    color: 'from-green-600 to-emerald-600'
+  },
+  {
+    name: 'Indicação',
+    items: faqMedicoIndicacao,
+    icon: <DollarSign size={20} />,
+    color: 'from-purple-600 to-pink-600'
+  },
+  {
+    name: 'Edição Paciente',
+    items: faqMedicoEdicaoPaciente,
+    icon: <Edit size={20} />,
+    color: 'from-orange-600 to-red-600'
+  },
+  {
+    name: 'Plano Terapêutico',
+    items: faqMedicoPlanoTerapeutico,
+    icon: <Stethoscope size={20} />,
+    color: 'from-teal-600 to-cyan-600'
+  },
+  {
+    name: 'Medicamento',
+    items: faqMedicoMedicamento,
+    icon: <Pill size={20} />,
+    color: 'from-purple-600 to-pink-600'
+  },
+  {
+    name: 'Segurança',
+    items: faqMedicoSeguranca,
+    icon: <Shield size={20} />,
+    color: 'from-gray-600 to-slate-600'
+  },
+  {
+    name: 'Nutrição',
+    items: faqMedicoNutricao,
+    icon: <UtensilsCrossed size={20} />,
+    color: 'from-green-600 to-emerald-600'
+  }
 ];

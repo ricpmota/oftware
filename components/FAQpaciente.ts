@@ -1,3 +1,6 @@
+import React from 'react';
+import { Users, Pill, AlertTriangle, Target, Shield, UtensilsCrossed } from 'lucide-react';
+
 // Interface para itens de FAQ
 export interface FAQItem {
   question: string;
@@ -155,4 +158,38 @@ export const faqPacienteTotal: FAQItem[] = [
   ...faqEfeitosColaterais,
   ...faqResultados,
   ...faqSeguranca
+];
+
+// Categorias para paciente (para uso com showTabs)
+export const faqCategoriesPaciente = [
+  {
+    name: 'Como funciona a plataforma',
+    items: faqPlatformClient,
+    icon: <Users size={20} />,
+    color: 'from-blue-600 to-indigo-600'
+  },
+  {
+    name: 'Medicamento',
+    items: faqMedicamento,
+    icon: <Pill size={20} />,
+    color: 'from-purple-600 to-pink-600'
+  },
+  {
+    name: 'Efeitos Colaterais',
+    items: faqEfeitosColaterais,
+    icon: <AlertTriangle size={20} />,
+    color: 'from-orange-600 to-red-600'
+  },
+  {
+    name: 'Resultados e Metas',
+    items: faqResultados,
+    icon: <Target size={20} />,
+    color: 'from-teal-600 to-cyan-600'
+  },
+  {
+    name: 'Segurança e situações especiais',
+    items: faqSeguranca,
+    icon: <Shield size={20} />,
+    color: 'from-gray-600 to-slate-600'
+  }
 ];

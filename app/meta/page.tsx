@@ -6720,6 +6720,7 @@ export default function MetaPage() {
           position="left"
           faqItems={faqPacienteTotal}
           nutriFaqItems={nutriFaqItems}
+          hideToggleButton={true}
         />
       )}
 
