@@ -28,7 +28,7 @@ import { getLabRange, Sex } from '@/types/labRanges';
 import { LabRangeBar } from '@/components/LabRangeBar';
 import TrendLine from '@/components/TrendLine';
 import FAQChat from '@/components/FAQChat';
-import { faqPacienteTotal, nutriFaqItems } from '@/components/FAQpaciente';
+import { faqPacienteTotal, nutriFaqItems, faqCategoriesPaciente } from '@/components/FAQpaciente';
 import NutriContent from '@/components/NutriContent';
 import { IndicacaoService } from '@/services/indicacaoService';
 import { Indicacao } from '@/types/indicacao';
@@ -6718,7 +6718,7 @@ export default function MetaPage() {
         <FAQChat
           userName={(paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome || user.displayName || 'Paciente').split(' ')[0]}
           position="left"
-          faqItems={faqPacienteTotal}
+          faqCategories={faqCategoriesPaciente}
           nutriFaqItems={nutriFaqItems}
           hideToggleButton={true}
         />
