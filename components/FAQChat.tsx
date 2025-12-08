@@ -312,10 +312,20 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
                     <div className="flex justify-start mt-2">
                       <button
                         onClick={() => {
+                          // Se faqCategories foi fornecido, mostrar modal de categorias
+                          if (faqCategories && faqCategories.length > 0) {
+                            setShowMainModal(true);
+                            setSelectedCategoryIndex(null);
+                          }
+                          // Se nutriFaqItems foi fornecido separadamente, mostrar modal com nutri também
+                          else if (nutriFaqItems && nutriFaqItems.length > 0) {
+                            setShowMainModal(true);
+                          }
                           // Se faqItems foi fornecido, abrir diretamente o modal de perguntas
-                          if (faqItems && faqItems.length > 0) {
+                          else if (faqItems && faqItems.length > 0) {
                             setCurrentCategory(null);
                             setPlatformSubType(null);
+                            setSelectedCategoryIndex(null);
                             setShowCategoryModal(true);
                           } else {
                             setShowMainModal(true);
@@ -469,17 +479,21 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
       )}
 
       {/* Modal de perguntas específicas da categoria */}
-      {showCategoryModal && currentCategory && (currentCategory !== 'plataforma' || platformSubType !== null) && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); }}>
+      {showCategoryModal && (currentCategory && (currentCategory !== 'plataforma' || platformSubType !== null) || selectedCategoryIndex !== null || (faqItems && faqItems.length > 0 && !faqCategories)) && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); setSelectedCategoryIndex(null); }}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header do modal */}
-            <div className={`bg-gradient-to-r ${getCategoryColor()} text-white p-4 rounded-t-xl flex items-center justify-between`}>
+            <div className={`bg-gradient-to-r ${selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].color || 'from-purple-600 to-orange-600') : getCategoryColor()} text-white p-4 rounded-t-xl flex items-center justify-between`}>
               <div className="flex items-center gap-2">
-                {getCategoryIcon()}
-                <h3 className="text-lg font-bold">{getCategoryTitle()}</h3>
+                {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].icon || getCategoryIcon()) : getCategoryIcon()}
+                <h3 className="text-lg font-bold">
+                  {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] 
+                    ? faqCategories[selectedCategoryIndex].name 
+                    : getCategoryTitle()}
+                </h3>
               </div>
               <button
-                onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); }}
+                onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); setSelectedCategoryIndex(null); }}
                 className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
                 aria-label="Fechar modal"
               >
@@ -602,7 +616,26 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
                 {messages.length > 0 && !isTyping && (
                   <div className="flex justify-start mt-2">
                     <button
-                      onClick={() => setShowMainModal(true)}
+                      onClick={() => {
+                        // Se faqCategories foi fornecido, mostrar modal de categorias
+                        if (faqCategories && faqCategories.length > 0) {
+                          setShowMainModal(true);
+                          setSelectedCategoryIndex(null);
+                        }
+                        // Se nutriFaqItems foi fornecido separadamente, mostrar modal com nutri também
+                        else if (nutriFaqItems && nutriFaqItems.length > 0) {
+                          setShowMainModal(true);
+                        }
+                        // Se faqItems foi fornecido, abrir diretamente o modal de perguntas
+                        else if (faqItems && faqItems.length > 0) {
+                          setCurrentCategory(null);
+                          setPlatformSubType(null);
+                          setSelectedCategoryIndex(null);
+                          setShowCategoryModal(true);
+                        } else {
+                          setShowMainModal(true);
+                        }
+                      }}
                       className="bg-white hover:bg-gray-50 rounded-lg px-4 py-2 shadow-sm border border-gray-200 transition-colors flex items-center gap-2"
                     >
                       <span className="text-sm font-medium text-gray-900">Ver opções de perguntas</span>
@@ -746,17 +779,21 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
       )}
 
       {/* Modal de perguntas específicas da categoria */}
-      {showCategoryModal && currentCategory && (currentCategory !== 'plataforma' || platformSubType !== null) && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); }}>
+      {showCategoryModal && (currentCategory && (currentCategory !== 'plataforma' || platformSubType !== null) || selectedCategoryIndex !== null || (faqItems && faqItems.length > 0 && !faqCategories)) && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); setSelectedCategoryIndex(null); }}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header do modal */}
-            <div className={`bg-gradient-to-r ${getCategoryColor()} text-white p-4 rounded-t-xl flex items-center justify-between`}>
+            <div className={`bg-gradient-to-r ${selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].color || 'from-purple-600 to-orange-600') : getCategoryColor()} text-white p-4 rounded-t-xl flex items-center justify-between`}>
               <div className="flex items-center gap-2">
-                {getCategoryIcon()}
-                <h3 className="text-lg font-bold">{getCategoryTitle()}</h3>
+                {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].icon || getCategoryIcon()) : getCategoryIcon()}
+                <h3 className="text-lg font-bold">
+                  {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] 
+                    ? faqCategories[selectedCategoryIndex].name 
+                    : getCategoryTitle()}
+                </h3>
               </div>
               <button
-                onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); }}
+                onClick={() => { setShowCategoryModal(false); setCurrentCategory(null); setPlatformSubType(null); setSelectedCategoryIndex(null); }}
                 className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
                 aria-label="Fechar modal"
               >
