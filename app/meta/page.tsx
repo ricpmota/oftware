@@ -2276,18 +2276,21 @@ export default function MetaPage() {
                 {activeTabIndicar === 'indicar' ? (
                   <div className="space-y-6">
                     <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6 border border-green-200">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">💰 Ganhe dinheiro indicando!</h3>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-1">Indicar Paciente</h2>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Rede de Encaminhamento Médico</h3>
+                      <p className="text-sm font-medium text-gray-700 mb-2">📌 Encaminhe pacientes com segurança</p>
                       <p className="text-sm text-gray-700 mb-4">
-                        Indique pacientes para médicos cadastrados e ganhe comissão quando eles se tornarem clientes.
+                        Encaminhe pacientes para médicos cadastrados na plataforma, garantindo continuidade do cuidado e acesso ao tratamento adequado.
                       </p>
                       <div className="bg-white rounded-lg p-4 border border-gray-200">
                         <p className="text-xs text-gray-600 mb-2">
                           <strong>Como funciona:</strong>
                         </p>
                         <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
-                          <li>Selecione o médico que receberá a indicação</li>
-                          <li>Preencha os dados do paciente que você está indicando</li>
-                          <li>Quando o paciente se cadastrar e iniciar o tratamento, você recebe sua comissão daquele médico que possui plano de comissão</li>
+                          <li>Escolha o médico responsável pelo atendimento</li>
+                          <li>Preencha os dados do paciente que será encaminhado</li>
+                          <li>O paciente será informado sobre o médico selecionado</li>
+                          <li>O acompanhamento clínico será realizado diretamente entre o médico e o paciente</li>
                         </ul>
                       </div>
                     </div>
