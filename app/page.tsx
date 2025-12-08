@@ -502,6 +502,7 @@ export default function OftalmoPage() {
         faqCategoriesMedico={faqCategoriesMedico}
         faqCategoriesPaciente={faqCategoriesPaciente}
         nutriFaqItemsPaciente={nutriFaqItems}
+        hideToggleButton={true}
       />
       
       {/* Mensagem de erro de login (se houver) */}
