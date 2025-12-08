@@ -476,7 +476,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
                         }}
                         className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
                       >
-                        {category.icon || <Users size={20} className="text-purple-600" />}
+                        <span className="text-purple-600 flex items-center">{category.icon || <Users size={20} />}</span>
                         <p className="text-sm font-medium text-gray-900">{category.name}</p>
                       </button>
                     ))}
@@ -510,7 +510,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
                             }}
                             className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
                           >
-                            {category.icon || <Users size={20} className="text-purple-600" />}
+                            <span className="text-purple-600 flex items-center">{category.icon || <Users size={20} />}</span>
                             <p className="text-sm font-medium text-gray-900">{category.name}</p>
                           </button>
                         ))}
@@ -898,7 +898,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
                         }}
                         className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
                       >
-                        {category.icon || <Users size={20} className="text-purple-600" />}
+                        <span className="text-purple-600 flex items-center">{category.icon || <Users size={20} />}</span>
                         <p className="text-sm font-medium text-gray-900">{category.name}</p>
                       </button>
                     ))}
@@ -932,7 +932,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
                             }}
                             className="w-full text-left bg-gray-50 hover:bg-purple-50 rounded-lg px-4 py-3 border border-gray-200 transition-colors flex items-center gap-3"
                           >
-                            {category.icon || <Users size={20} className="text-purple-600" />}
+                            <span className="text-purple-600 flex items-center">{category.icon || <Users size={20} />}</span>
                             <p className="text-sm font-medium text-gray-900">{category.name}</p>
                           </button>
                         ))}
