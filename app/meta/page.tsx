@@ -61,7 +61,7 @@ function LinkIndicacaoComponent({ emailIndicador, nomeIndicador }: { emailIndica
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Compartilhe seu link de indicação</h3>
           <p className="text-sm text-gray-700 mb-4">
-            Compartilhe este link com seus amigos e familiares. Quando eles se cadastrarem usando seu link e escolherem um médico, você receberá automaticamente a comissão!
+            Compartilhe este link com seus amigos e familiares. Quando eles se cadastrarem usando seu link e escolherem um médico, o encaminhamento será criado automaticamente.
           </p>
           
           {/* Link gerado */}
@@ -587,7 +587,7 @@ export default function MetaPage() {
       } catch (error) {
         console.error('Erro ao carregar indicações:', error);
         if (isMounted) {
-          setMessage('Erro ao carregar suas indicações. Tente novamente.');
+          setMessage('Erro ao carregar seus encaminhamentos. Tente novamente.');
         }
       } finally {
         if (isMounted) {
@@ -2257,7 +2257,7 @@ export default function MetaPage() {
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  Plano de Indicação
+                  Encaminhar
                 </button>
                 <button
                   onClick={() => setActiveTabIndicar('minhas')}
@@ -2267,7 +2267,7 @@ export default function MetaPage() {
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  Minhas Indicações
+                  Meus Encaminhamentos
                 </button>
               </div>
 
@@ -2369,56 +2369,9 @@ export default function MetaPage() {
                             {medicosFiltrados.map((medico) => (
                               <option key={medico.id} value={medico.id}>
                                 {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
-                                {medico.temPlanoIndicacao ? ' ✓ Plano de Indicação' : ' (Sem plano)'}
                               </option>
                             ))}
                           </select>
-                          {indicacaoForm.medicoId && (() => {
-                            const medicoSelecionado = medicosFiltrados.find(m => m.id === indicacaoForm.medicoId);
-                            if (medicoSelecionado?.temPlanoIndicacao && medicoSelecionado?.planoIndicacao) {
-                              const plano = medicoSelecionado.planoIndicacao;
-                              return (
-                                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-4">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <DollarSign className="w-5 h-5 text-green-600" />
-                                    <h5 className="text-sm font-semibold text-green-900">Plano de Comissão</h5>
-                                  </div>
-                                  <p className="text-xs text-gray-700 mb-2">
-                                    <strong>Tipo de valor:</strong> {plano.tipoValor === 'negociado' ? 'Negociado com você' : 'Valor fixo'}
-                                  </p>
-                                  <p className="text-xs text-gray-700 mb-2">
-                                    <strong>Tipo de comissão:</strong> {plano.tipoComissao === 'por_dose' ? 'Por dose' : 'Por tratamento completo'}
-                                  </p>
-                                  {plano.tipoComissao === 'por_dose' && plano.valorPorDose ? (
-                                    <p className="text-sm font-semibold text-green-700">
-                                      Valor por dose: R$ {plano.valorPorDose.toFixed(2)}
-                                    </p>
-                                  ) : plano.tipoComissao === 'por_tratamento' && plano.valorComissaoTratamento ? (
-                                    <div className="space-y-1">
-                                      <p className="text-sm font-semibold text-green-700">
-                                        Valor por tratamento: R$ {plano.valorComissaoTratamento.toFixed(2)}
-                                      </p>
-                                      {plano.tempoTratamentoMeses && (
-                                        <p className="text-xs text-gray-600">
-                                          Duração: {plano.tempoTratamentoMeses} {plano.tempoTratamentoMeses === 1 ? 'mês' : 'meses'}
-                                        </p>
-                                      )}
-                                      {plano.totalMedicamentoMg && (
-                                        <p className="text-xs text-gray-600">
-                                          Total de medicamento: {plano.totalMedicamentoMg} mg
-                                        </p>
-                                      )}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              );
-                            }
-                            return (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Este médico não possui plano de indicação ativo.
-                              </p>
-                            );
-                          })()}
                         </div>
                       )}
 
@@ -2519,9 +2472,9 @@ export default function MetaPage() {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Minhas Indicações</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">Meus Encaminhamentos</h3>
                         <p className="text-sm text-gray-600">
-                          Acompanhe o status das suas indicações e quando elas viram venda.
+                          Acompanhe o status dos pacientes que você encaminhou para outros médicos na plataforma.
                         </p>
                       </div>
                       <button
@@ -2561,12 +2514,12 @@ export default function MetaPage() {
                     {loadingIndicacoes ? (
                       <div className="text-center py-8">
                         <RefreshCw className="mx-auto h-8 w-8 text-gray-400 animate-spin" />
-                        <p className="mt-2 text-gray-600">Carregando indicações...</p>
+                        <p className="mt-2 text-gray-600">Carregando encaminhamentos...</p>
                       </div>
                     ) : minhasIndicacoes.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
                         <UserIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <p className="text-gray-600">Você ainda não fez nenhuma indicação.</p>
+                        <p className="text-gray-600">Você ainda não fez nenhum encaminhamento.</p>
                       </div>
                     ) : (
                       <>
@@ -2575,31 +2528,31 @@ export default function MetaPage() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="text-center">
                               <p className="text-2xl font-bold text-gray-900">{minhasIndicacoes.length}</p>
-                              <p className="text-xs text-gray-600">Total de Indicações</p>
+                              <p className="text-xs text-gray-600">Total de encaminhamentos</p>
                             </div>
                             <div className="text-center">
                               <p className="text-2xl font-bold text-yellow-600">
                                 {minhasIndicacoes.filter(i => i.status === 'pendente' || i.status === 'visualizada').length}
                               </p>
-                              <p className="text-xs text-gray-600">Pendentes</p>
+                              <p className="text-xs text-gray-600">Aguardando contato</p>
                             </div>
                             <div className="text-center">
                               <p className="text-2xl font-bold text-green-600">
                                 {minhasIndicacoes.filter(i => i.status === 'venda' || i.status === 'paga').length}
                               </p>
-                              <p className="text-xs text-gray-600">Convertidas</p>
+                              <p className="text-xs text-gray-600">Em acompanhamento</p>
                             </div>
                             <div className="text-center">
                               <p className="text-2xl font-bold text-purple-600">
                                 {minhasIndicacoes.filter(i => i.status === 'paga').length}
                               </p>
-                              <p className="text-xs text-gray-600">Pagas</p>
+                              <p className="text-xs text-gray-600">Encerrados</p>
                             </div>
                           </div>
                           {minhasIndicacoes.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-green-200">
                               <p className="text-sm text-gray-700 text-center">
-                                Taxa de conversão: {((minhasIndicacoes.filter(i => i.status === 'venda' || i.status === 'paga').length / minhasIndicacoes.length) * 100).toFixed(1)}%
+                                Adesão ao acompanhamento: {((minhasIndicacoes.filter(i => i.status === 'venda' || i.status === 'paga').length / minhasIndicacoes.length) * 100).toFixed(1)}%
                               </p>
                             </div>
                           )}
@@ -2612,7 +2565,6 @@ export default function MetaPage() {
                             const StatusIcon = statusInfo.icon;
                             const isExpanded = indicacoesExpandidas.has(indicacao.id);
                             const medico = medicosIndicacoes[indicacao.medicoId];
-                            const planoComissao = medico?.planoIndicacao;
                             
                             return (
                               <div key={indicacao.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
@@ -2676,48 +2628,11 @@ export default function MetaPage() {
                                       </p>
                                     </div>
 
-                                    {/* Plano de Comissão (se disponível) */}
-                                    {medico?.temPlanoIndicacao && planoComissao && (
-                                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <DollarSign className="w-4 h-4 text-purple-600" />
-                                          <h5 className="text-xs font-semibold text-purple-900">Plano de Comissão</h5>
-                                        </div>
-                                        {planoComissao.tipoValor === 'fixo' && (
-                                          <div className="space-y-1">
-                                            {planoComissao.tipoComissao === 'por_dose' && planoComissao.valorPorDose && (
-                                              <p className="text-sm text-gray-900">
-                                                <strong>Valor por dose:</strong> R$ {planoComissao.valorPorDose.toFixed(2)}
-                                              </p>
-                                            )}
-                                            {planoComissao.tipoComissao === 'por_tratamento' && planoComissao.valorComissaoTratamento && (
-                                              <p className="text-sm text-gray-900">
-                                                <strong>Valor do tratamento:</strong> R$ {planoComissao.valorComissaoTratamento.toFixed(2)}
-                                              </p>
-                                            )}
-                                            {indicacao.status === 'venda' || indicacao.status === 'paga' ? (
-                                              <p className="text-xs text-purple-700 font-medium mt-2">
-                                                ✓ Comissão estimada disponível
-                                              </p>
-                                            ) : (
-                                              <p className="text-xs text-gray-600 mt-2">
-                                                Comissão será calculada quando virar venda
-                                              </p>
-                                            )}
-                                          </div>
-                                        )}
-                                        {planoComissao.tipoValor === 'negociado' && (
-                                          <p className="text-sm text-gray-900">
-                                            Valor negociado diretamente com o médico
-                                          </p>
-                                        )}
-                                      </div>
-                                    )}
 
                                     {/* Datas */}
                                     <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200">
                                       <div>
-                                        <p className="text-xs text-gray-500">Data da indicação</p>
+                                        <p className="text-xs text-gray-500">Data do encaminhamento</p>
                                         <p className="text-sm font-medium text-gray-900">
                                           {new Date(indicacao.criadoEm).toLocaleDateString('pt-BR')}
                                         </p>
