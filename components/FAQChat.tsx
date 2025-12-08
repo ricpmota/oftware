@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, X, ChevronDown, ChevronLeft, ChevronRight, UtensilsCrossed, Stethoscope, Pill, AlertTriangle, Target, Shield, Users } from 'lucide-react';
+import { MessageCircle, X, ChevronDown, ChevronLeft, ChevronRight, UtensilsCrossed, Stethoscope, Pill, AlertTriangle, Target, Shield, Users, ArrowLeft } from 'lucide-react';
 // Interface para itens de FAQ
 export interface FAQItem {
   question: string;
@@ -154,9 +154,27 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
       return nutriFaqItems;
     }
     
-    // Se faqItems foi fornecido, usar diretamente (modo simplificado)
+    // Se faqItems foi fornecido, usar baseado na categoria selecionada
     if (faqItems && faqItems.length > 0) {
-      return faqItems;
+      // Se uma categoria específica foi selecionada, filtrar os itens
+      if (currentCategory === 'plataforma' && platformSubType === 'paciente') {
+        // Retornar apenas FAQs de plataforma (primeiros 5 itens de faqPacienteTotal)
+        return faqItems.slice(0, 5);
+      } else if (currentCategory === 'medicamento') {
+        // Retornar FAQs de medicamento (próximos 4 itens)
+        return faqItems.slice(5, 9);
+      } else if (currentCategory === 'efeitos') {
+        // Retornar FAQs de efeitos colaterais (próximos 4 itens)
+        return faqItems.slice(9, 13);
+      } else if (currentCategory === 'resultados') {
+        // Retornar FAQs de resultados (próximos 4 itens)
+        return faqItems.slice(13, 17);
+      } else if (currentCategory === 'seguranca') {
+        // Retornar FAQs de segurança (últimos 4 itens)
+        return faqItems.slice(17);
+      }
+      // Se nenhuma categoria específica foi selecionada, retornar vazio para mostrar modal de categorias
+      return [];
     }
     
     // Comportamento padrão com categorias (modo legado - não usado mais, mas mantido para compatibilidade)
@@ -634,7 +652,22 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
             {/* Header do modal */}
             <div className={`bg-gradient-to-r ${selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].color || 'from-purple-600 to-orange-600') : getCategoryColor()} text-white p-4 rounded-t-xl flex items-center justify-between`}>
               <div className="flex items-center gap-2">
-                {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].icon || getCategoryIcon()) : getCategoryIcon()}
+                <button
+                  onClick={() => { 
+                    setShowCategoryModal(false); 
+                    setCurrentCategory(null); 
+                    setPlatformSubType(null); 
+                    setSelectedCategoryIndex(null);
+                    setShowMainModal(true);
+                  }}
+                  className="text-white hover:bg-white/20 rounded-full p-1 transition-colors mr-1"
+                  aria-label="Voltar ao menu principal"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <span className="text-white">
+                  {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].icon || getCategoryIcon()) : getCategoryIcon()}
+                </span>
                 <h3 className="text-lg font-bold">
                   {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] 
                     ? faqCategories[selectedCategoryIndex].name 
@@ -1041,7 +1074,22 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
             {/* Header do modal */}
             <div className={`bg-gradient-to-r ${selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].color || 'from-purple-600 to-orange-600') : getCategoryColor()} text-white p-4 rounded-t-xl flex items-center justify-between`}>
               <div className="flex items-center gap-2">
-                {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].icon || getCategoryIcon()) : getCategoryIcon()}
+                <button
+                  onClick={() => { 
+                    setShowCategoryModal(false); 
+                    setCurrentCategory(null); 
+                    setPlatformSubType(null); 
+                    setSelectedCategoryIndex(null);
+                    setShowMainModal(true);
+                  }}
+                  className="text-white hover:bg-white/20 rounded-full p-1 transition-colors mr-1"
+                  aria-label="Voltar ao menu principal"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <span className="text-white">
+                  {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] ? (faqCategories[selectedCategoryIndex].icon || getCategoryIcon()) : getCategoryIcon()}
+                </span>
                 <h3 className="text-lg font-bold">
                   {selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] 
                     ? faqCategories[selectedCategoryIndex].name 

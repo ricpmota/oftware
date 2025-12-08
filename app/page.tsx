@@ -498,8 +498,11 @@ export default function OftalmoPage() {
       <FAQChat 
         userName={firstName || 'Visitante'}
         position="right"
-        faqItems={faqPacienteTotal}
-        nutriFaqItems={nutriFaqItems}
+        showTabs={true}
+        faqCategoriesMedico={faqCategoriesMedico}
+        faqCategoriesPaciente={faqCategoriesPaciente}
+        nutriFaqItemsPaciente={nutriFaqItems}
+        hideToggleButton={true}
       />
       
       {/* Mensagem de erro de login (se houver) */}
