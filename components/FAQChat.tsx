@@ -146,6 +146,13 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   };
 
   const getCategoryTitle = (): string => {
+    if (selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex]) {
+      return faqCategories[selectedCategoryIndex].name;
+    }
+    // Se faqItems foi fornecido sem categorias, mostrar título genérico
+    if (faqItems && faqItems.length > 0 && !faqCategories) {
+      return 'Perguntas Frequentes';
+    }
     if (currentCategory === 'plataforma') {
       return platformSubType === 'paciente' ? 'Como funciona a plataforma (Paciente)' : 'Como funciona a plataforma (Médico)';
     } else if (currentCategory === 'medicamento') {
@@ -161,10 +168,17 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
     } else if (currentCategory === 'medico') {
       return 'Sou médico';
     }
-    return '';
+    return 'Perguntas Frequentes';
   };
 
   const getCategoryIcon = () => {
+    if (selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] && faqCategories[selectedCategoryIndex].icon) {
+      return faqCategories[selectedCategoryIndex].icon;
+    }
+    // Se faqItems foi fornecido sem categorias, usar ícone padrão
+    if (faqItems && faqItems.length > 0 && !faqCategories) {
+      return <MessageCircle size={20} />;
+    }
     if (currentCategory === 'plataforma' || currentCategory === 'medico') {
       return <Users size={20} />;
     } else if (currentCategory === 'medicamento') {
@@ -178,10 +192,17 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
     } else if (currentCategory === 'seguranca') {
       return <Shield size={20} />;
     }
-    return null;
+    return <MessageCircle size={20} />;
   };
 
   const getCategoryColor = (): string => {
+    if (selectedCategoryIndex !== null && faqCategories && faqCategories[selectedCategoryIndex] && faqCategories[selectedCategoryIndex].color) {
+      return faqCategories[selectedCategoryIndex].color;
+    }
+    // Se faqItems foi fornecido sem categorias, usar cor padrão
+    if (faqItems && faqItems.length > 0 && !faqCategories) {
+      return 'from-purple-600 to-orange-600';
+    }
     if (currentCategory === 'nutri') {
       return 'from-green-600 to-emerald-600';
     } else if (currentCategory === 'medico' || currentCategory === 'plataforma') {
