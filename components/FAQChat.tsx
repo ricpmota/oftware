@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, X, ChevronDown, ChevronLeft, ChevronRight, UtensilsCrossed, Stethoscope, Pill, AlertTriangle, Target, Shield, Users } from 'lucide-react';
-import { FAQItem, faqPlatformClient, faqPlatformDoctor, faqMedicamento, faqEfeitosColaterais, faqResultados, faqSeguranca, nutriFaqItems } from '@/components/faqData';
+// Interface para itens de FAQ
+export interface FAQItem {
+  question: string;
+  answer: string;
+}
 
 // Interface para mensagens do chat
 interface ChatMessage {
@@ -12,18 +16,27 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+interface FAQCategory {
+  name: string;
+  items: FAQItem[];
+  icon?: React.ReactNode;
+  color?: string;
+}
+
 interface FAQChatProps {
   userName: string;
   position?: 'left' | 'right';
   inHeader?: boolean;
   onToggle?: (isOpen: boolean) => void;
-  faqItems?: FAQItem[]; // Array opcional de FAQs customizados
+  faqItems?: FAQItem[]; // Array opcional de FAQs customizados (modo simplificado - sem categorias)
+  faqCategories?: FAQCategory[]; // Array opcional de categorias de FAQ (modo com categorias)
+  nutriFaqItems?: FAQItem[]; // Array opcional de FAQs de nutrição (para paciente)
 }
 
 type CategoryType = 'plataforma' | 'medicamento' | 'efeitos' | 'nutri' | 'resultados' | 'seguranca' | 'medico' | null;
 type PlatformSubType = 'paciente' | 'medico' | null;
 
-export default function FAQChat({ userName, position = 'left', inHeader = false, onToggle, faqItems }: FAQChatProps) {
+export default function FAQChat({ userName, position = 'left', inHeader = false, onToggle, faqItems, faqCategories, nutriFaqItems }: FAQChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -33,6 +46,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   const [platformSubType, setPlatformSubType] = useState<PlatformSubType>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedCategoryIndex, setSelectedCategoryIndex] = useState<number | null>(null);
 
   // Inicializar com mensagem de boas-vindas apenas na primeira vez
   useEffect(() => {
@@ -103,27 +117,31 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   };
 
   const getCategoryItems = (): FAQItem[] => {
+    // Se faqCategories foi fornecido, usar categorias customizadas
+    if (faqCategories && faqCategories.length > 0) {
+      if (selectedCategoryIndex !== null && faqCategories[selectedCategoryIndex]) {
+        return faqCategories[selectedCategoryIndex].items;
+      }
+      // Se nutriFaqItems foi fornecido separadamente (para paciente), incluir também
+      if (nutriFaqItems && nutriFaqItems.length > 0 && selectedCategoryIndex === null) {
+        // Retornar vazio para mostrar modal de categorias primeiro
+        return [];
+      }
+      return [];
+    }
+    
+    // Se nutriFaqItems foi fornecido separadamente (para paciente) e não há categorias
+    if (nutriFaqItems && nutriFaqItems.length > 0 && currentCategory === 'nutri') {
+      return nutriFaqItems;
+    }
+    
     // Se faqItems foi fornecido, usar diretamente (modo simplificado)
     if (faqItems && faqItems.length > 0) {
       return faqItems;
     }
     
-    // Comportamento padrão com categorias
-    if (currentCategory === 'plataforma') {
-      return platformSubType === 'paciente' ? faqPlatformClient : faqPlatformDoctor;
-    } else if (currentCategory === 'medicamento') {
-      return faqMedicamento;
-    } else if (currentCategory === 'efeitos') {
-      return faqEfeitosColaterais;
-    } else if (currentCategory === 'nutri') {
-      return nutriFaqItems;
-    } else if (currentCategory === 'resultados') {
-      return faqResultados;
-    } else if (currentCategory === 'seguranca') {
-      return faqSeguranca;
-    } else if (currentCategory === 'medico') {
-      return faqPlatformDoctor;
-    }
+    // Comportamento padrão com categorias (modo legado - não usado mais, mas mantido para compatibilidade)
+    // Este código não será executado se faqItems ou faqCategories forem fornecidos
     return [];
   };
 

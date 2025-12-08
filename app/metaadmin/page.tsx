@@ -43,7 +43,7 @@ import { TirzepatidaService, TirzepatidaPreco } from '@/services/tirzepatidaServ
 import { ShoppingCart, Minus, Pill, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import FAQChat from '@/components/FAQChat';
-import { faqPlatformDoctor } from '@/components/faqData';
+import { faqMedicoTotal, faqMedicoPlataforma, faqMedicoLeads, faqMedicoIndicacao, faqMedicoEdicaoPaciente, faqMedicoPlanoTerapeutico, faqMedicoMedicamento, faqMedicoSeguranca, faqMedicoNutricao } from '@/components/FAQmedico';
 import { PrescricaoService } from '@/services/prescricaoService';
 import { Prescricao, PrescricaoItem } from '@/types/prescricao';
 import { IndicacaoService } from '@/services/indicacaoService';
@@ -15933,7 +15933,56 @@ export default function MetaAdminPage() {
       {user && (
         <FAQChat
           userName={medicoPerfil?.nome ? medicoPerfil.nome.split(' ')[0] : user.displayName?.split(' ')[0] || 'Médico'}
-          faqItems={faqPlatformDoctor}
+          faqCategories={[
+            {
+              name: 'Plataforma',
+              items: faqMedicoPlataforma,
+              icon: <Users size={20} />,
+              color: 'from-blue-600 to-indigo-600'
+            },
+            {
+              name: 'Leads',
+              items: faqMedicoLeads,
+              icon: <Users size={20} />,
+              color: 'from-green-600 to-emerald-600'
+            },
+            {
+              name: 'Indicação',
+              items: faqMedicoIndicacao,
+              icon: <DollarSign size={20} />,
+              color: 'from-purple-600 to-pink-600'
+            },
+            {
+              name: 'Edição Paciente',
+              items: faqMedicoEdicaoPaciente,
+              icon: <Edit size={20} />,
+              color: 'from-orange-600 to-red-600'
+            },
+            {
+              name: 'Plano Terapêutico',
+              items: faqMedicoPlanoTerapeutico,
+              icon: <Stethoscope size={20} />,
+              color: 'from-teal-600 to-cyan-600'
+            },
+            {
+              name: 'Medicamento',
+              items: faqMedicoMedicamento,
+              icon: <Pill size={20} />,
+              color: 'from-purple-600 to-pink-600'
+            },
+            {
+              name: 'Segurança',
+              items: faqMedicoSeguranca,
+              icon: <Shield size={20} />,
+              color: 'from-gray-600 to-slate-600'
+            },
+            {
+              name: 'Nutrição',
+              items: faqMedicoNutricao,
+              icon: <UtensilsCrossed size={20} />,
+              color: 'from-green-600 to-emerald-600'
+            }
+          ]}
           position="left"
         />
       )}
