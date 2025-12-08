@@ -390,6 +390,15 @@ export default function MetaPage() {
       setLoading(false);
       
       if (!user) {
+        // Se não estiver autenticado, salvar parâmetro ref no localStorage antes de redirecionar
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const ref = urlParams.get('ref');
+          if (ref) {
+            const emailIndicador = decodeURIComponent(ref);
+            localStorage.setItem('indicacao_ref', emailIndicador);
+          }
+        }
         // Se não estiver autenticado, redirecionar para a página principal
         // O usuário será induzido a fazer login ao clicar nos botões
         router.push('/');
@@ -546,7 +555,7 @@ export default function MetaPage() {
         }
       }
     }
-  }, []);
+  }, [user]); // Re-executar quando o usuário fizer login
 
   // Carregar minhas indicações quando mudar para aba "minhas"
   useEffect(() => {

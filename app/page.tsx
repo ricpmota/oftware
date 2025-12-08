@@ -740,8 +740,10 @@ export default function OftalmoPage() {
                           provider.addScope('email');
                           provider.setCustomParameters({ prompt: 'select_account' });
                           await signInWithPopup(auth, provider);
-                          // Após login, redirecionar
-                          router.push('/meta');
+                          // Após login, verificar se há ref no localStorage e incluir na URL
+                          const ref = typeof window !== 'undefined' ? localStorage.getItem('indicacao_ref') : null;
+                          const urlComRef = ref ? `/meta?ref=${encodeURIComponent(ref)}` : '/meta';
+                          router.push(urlComRef);
                         } catch (error: unknown) {
                           console.error('Error signing in with Google:', error);
                           const errorCode = (error as { code?: string }).code;
@@ -756,8 +758,11 @@ export default function OftalmoPage() {
                         }
                       } else {
                         setIsNavigating(true);
+                        // Verificar se há ref no localStorage e incluir na URL
+                        const ref = typeof window !== 'undefined' ? localStorage.getItem('indicacao_ref') : null;
+                        const urlComRef = ref ? `/meta?ref=${encodeURIComponent(ref)}` : '/meta';
                         setTimeout(() => {
-                          router.push('/meta');
+                          router.push(urlComRef);
                         }, 100);
                       }
                     }}
