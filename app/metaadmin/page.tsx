@@ -43,6 +43,7 @@ import { TirzepatidaService, TirzepatidaPreco } from '@/services/tirzepatidaServ
 import { ShoppingCart, Minus, Pill, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import FAQChat from '@/components/FAQChat';
+import { faqPlatformDoctor } from '@/components/faqData';
 import { PrescricaoService } from '@/services/prescricaoService';
 import { Prescricao, PrescricaoItem } from '@/types/prescricao';
 import { IndicacaoService } from '@/services/indicacaoService';
@@ -15932,64 +15933,7 @@ export default function MetaAdminPage() {
       {user && (
         <FAQChat
           userName={medicoPerfil?.nome ? medicoPerfil.nome.split(' ')[0] : user.displayName?.split(' ')[0] || 'Médico'}
-          faqItems={[
-            {
-              question: "Quais são os benefícios da plataforma para mim como médico?",
-              answer: "A plataforma é 100% gratuita e oferece: gestão completa de pacientes em um só lugar, sistema de leads que traz pacientes direto para você, organização automática de dados clínicos em 9 pastas, gráficos e alertas automáticos que facilitam o acompanhamento, comunicação integrada com pacientes, prescrições pré-configuradas que economizam tempo, e estatísticas detalhadas do seu trabalho. Tudo isso sem custos, aumentando sua produtividade e organização."
-            },
-            {
-              question: "Como a plataforma me ajuda a conseguir mais pacientes?",
-              answer: "Ao cadastrar suas cidades de atendimento no perfil, pacientes interessados em tratamento com Tirzepatida podem encontrá-lo na busca por localização. Eles enviam solicitações de contato diretamente pela plataforma, criando um pipeline de leads organizado. Você recebe notificações de novas solicitações e pode gerenciar todo o processo de conversão em leads até transformá-los em pacientes em tratamento."
-            },
-            {
-              question: "Como gerenciar meus Leads?",
-              answer: "Na seção 'Leads', você encontra todos os pacientes que solicitaram contato. O sistema organiza os leads em um pipeline visual com 5 status: 'Não qualificado', 'Enviado contato', 'Contato Feito', 'Em tratamento' e 'Excluído'. Você pode arrastar os cards entre as colunas para atualizar o status. Cada lead mostra nome, cidade, data de solicitação e um ícone do WhatsApp para contato direto."
-            },
-            {
-              question: "Como entrar em contato com um Lead?",
-              answer: "Ao lado do nome de cada lead, há um ícone do WhatsApp. Clique nele para abrir uma conversa direta no WhatsApp com o paciente. Isso facilita o primeiro contato e a negociação do tratamento. Após o contato, mova o lead para 'Contato Feito' no pipeline."
-            },
-            {
-              question: "Como funciona o Pipeline de Leads?",
-              answer: "O pipeline é um sistema visual tipo Kanban com 5 colunas:\n\n1. 'Não qualificado' - Leads que não atendem aos critérios\n2. 'Enviado contato' - Leads que você já contatou\n3. 'Contato Feito' - Leads com quem você já conversou\n4. 'Em tratamento' - Leads que viraram pacientes\n5. 'Excluído' - Leads descartados\n\nArraste os cards entre as colunas para organizar seu fluxo de trabalho!"
-            },
-            {
-              question: "Como a plataforma economiza meu tempo?",
-              answer: "A plataforma automatiza muitas tarefas: cálculo automático de dosagens de prescrições baseadas no peso, alertas automáticos quando exames estão fora do normal, gráficos gerados automaticamente da evolução do paciente, prescrições padrão pré-configuradas (Whey, Creatina), e organização automática de dados em pastas. Isso reduz significativamente o tempo de preenchimento e análise, permitindo que você foque no que realmente importa: o cuidado com o paciente."
-            },
-            {
-              question: "Como organizar as informações do paciente?",
-              answer: "Após cadastrar um paciente, clique em 'Editar' na lista. Um modal abre com 9 abas (pastas):\n\n1. Dados de Identificação\n2. Dados Clínicos (peso inicial, medidas)\n3. Estilo de Vida\n4. Exames Laboratoriais\n5. Plano Terapêutico (doses de Tirzepatida)\n6. Evolução/Seguimento Semanal\n7. Alertas e Recomendações\n8. Comunicação e Registro\n9. Prescrições\n\nPreencha conforme a evolução do tratamento!"
-            },
-            {
-              question: "Como acompanhar a evolução do paciente?",
-              answer: "Na pasta 6 (Evolução/Seguimento Semanal), registre peso, circunferência abdominal, pressão arterial e outros dados de cada consulta. A plataforma gera gráficos automáticos mostrando a evolução ao longo do tempo. Na pasta 9 (Indicadores), você vê métricas de adesão e progresso do tratamento."
-            },
-            {
-              question: "Como usar os Alertas do sistema?",
-              answer: "A plataforma gera alertas automáticos quando:\n- Exames estão fora dos valores de referência\n- Dose precisa ser ajustada\n- Paciente está atrasado nas aplicações\n- Metas não estão sendo atingidas\n\nNa pasta 7 (Alertas), você pode ver todos os alertas e criar recomendações personalizadas para o paciente."
-            },
-            {
-              question: "Como gerenciar as aplicações de Tirzepatida?",
-              answer: "Na pasta 5 (Plano Terapêutico), defina a dose inicial e histórico de doses. O sistema sugere ajustes baseados na evolução. Na pasta 6, registre cada aplicação com data, dose e local. O calendário na pasta 5 mostra todas as aplicações agendadas e realizadas."
-            },
-            {
-              question: "Como criar prescrições para pacientes?",
-              answer: "Na pasta 9 (Prescrições), você tem acesso a prescrições padrão (como Whey Protein e Creatina) que são calculadas automaticamente baseadas no peso do paciente. Você pode criar novas prescrições personalizadas, editar existentes e imprimir PDFs para o paciente. As dosagens são ajustadas automaticamente!"
-            },
-            {
-              question: "Como ver estatísticas gerais?",
-              answer: "No menu 'Estatísticas', você vê um resumo completo: total de pacientes, leads por status, pacientes em tratamento, concluídos ou que abandonaram. Há também gráficos de evolução coletiva e indicadores de adesão ao tratamento. Use os filtros para analisar períodos específicos."
-            },
-            {
-              question: "Como cadastrar minhas cidades de atendimento?",
-              answer: "No menu 'Perfil', você pode cadastrar as cidades onde atende. Isso permite que pacientes encontrem você na busca por localização. Quanto mais cidades cadastrar, mais visibilidade você terá na plataforma. Pacientes podem filtrar médicos por cidade e estado."
-            },
-            {
-              question: "Como me comunicar com pacientes?",
-              answer: "A plataforma possui mensagens integradas. Na pasta 8 (Comunicação), você pode enviar mensagens, lembretes sobre consultas e exames, e receber mensagens dos pacientes. Tudo fica registrado e organizado. Você também pode enviar recomendações que o paciente pode marcar como lidas."
-            }
-          ]}
+          faqItems={faqPlatformDoctor}
           position="left"
         />
       )}

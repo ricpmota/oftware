@@ -17,12 +17,13 @@ interface FAQChatProps {
   position?: 'left' | 'right';
   inHeader?: boolean;
   onToggle?: (isOpen: boolean) => void;
+  faqItems?: FAQItem[]; // Array opcional de FAQs customizados
 }
 
 type CategoryType = 'plataforma' | 'medicamento' | 'efeitos' | 'nutri' | 'resultados' | 'seguranca' | 'medico' | null;
 type PlatformSubType = 'paciente' | 'medico' | null;
 
-export default function FAQChat({ userName, position = 'left', inHeader = false, onToggle }: FAQChatProps) {
+export default function FAQChat({ userName, position = 'left', inHeader = false, onToggle, faqItems }: FAQChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -102,6 +103,12 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   };
 
   const getCategoryItems = (): FAQItem[] => {
+    // Se faqItems foi fornecido, usar diretamente (modo simplificado)
+    if (faqItems && faqItems.length > 0) {
+      return faqItems;
+    }
+    
+    // Comportamento padrão com categorias
     if (currentCategory === 'plataforma') {
       return platformSubType === 'paciente' ? faqPlatformClient : faqPlatformDoctor;
     } else if (currentCategory === 'medicamento') {
@@ -286,7 +293,16 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
                   {messages.length > 0 && !isTyping && (
                     <div className="flex justify-start mt-2">
                       <button
-                        onClick={() => setShowMainModal(true)}
+                        onClick={() => {
+                          // Se faqItems foi fornecido, abrir diretamente o modal de perguntas
+                          if (faqItems && faqItems.length > 0) {
+                            setCurrentCategory(null);
+                            setPlatformSubType(null);
+                            setShowCategoryModal(true);
+                          } else {
+                            setShowMainModal(true);
+                          }
+                        }}
                         className="bg-white hover:bg-gray-50 rounded-lg px-4 py-2 shadow-sm border border-gray-200 transition-colors flex items-center gap-2"
                       >
                         <span className="text-sm font-medium text-gray-900">Ver opções de perguntas</span>
