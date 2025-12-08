@@ -830,13 +830,15 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
           )}
           
           {/* Botão de esconder - sempre visível quando não está escondido */}
-          <button
-            onClick={handleToggleHidden}
-            className="flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors bg-white shadow-md"
-            title="Esconder chat"
-          >
-            <ChevronLeft size={20} />
-          </button>
+          {!hideToggleButton && (
+            <button
+              onClick={handleToggleHidden}
+              className="flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors bg-white shadow-md"
+              title="Esconder chat"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
         </div>
       )}
 
