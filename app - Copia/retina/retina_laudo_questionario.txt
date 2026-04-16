@@ -1,0 +1,197 @@
+// 📁 retinaLaudoForm.tsx
+
+/**
+ * Formulário interativo para preenchimento de laudo de mapeamento de retina (MRM ou RSH)
+ * Gera saída textual automática com base no modelo de laudos fornecido
+ * Inclui classificações guiadas e descrição detalhada do disco óptico
+ */
+
+import React, { useState } from 'react';
+
+export default function RetinaLaudoForm() {
+  const [form, setForm] = useState({
+    tipoExame: '',
+    meiosOpticos: '',
+    disco: {
+      cor: '',
+      contornos: '',
+      escavacao: '',
+      tipoEscavacao: '',
+      tamanhoEscavacao: '',
+      atrofia: false,
+      palidez: '',
+      inclinacao: false,
+      crescente: false
+    },
+    macula: [],
+    vasos: [],
+    poloPosterior: [],
+    periferia: [],
+    retinopatiaDiabetica: '',
+    edemaMacular: false,
+    adicionais: [],
+    recomendacoes: []
+  });
+
+  const opcoes = {
+    macula: [
+      'Reflexo foveal preservado',
+      'Drusas',
+      'Atrofia do EPR',
+      'Descolamento de retina seroso',
+      'Hemorragia sub-retiniana',
+      'Edema macular',
+      'Membrana epirretiniana',
+      'Buraco macular'
+    ],
+    vasos: [
+      'Tortuosos',
+      'Ateroescleróticos',
+      'Finas',
+      'Vasculite',
+      'Telangiectasias',
+      'Sheathing'
+    ],
+    poloPosterior: [
+      'Normal',
+      'Exsudatos duros',
+      'Hemorragias intrarretinianas',
+      'Microaneurismas'
+    ],
+    periferia: [
+      'Sem alterações periféricas',
+      'Degeneração lattice',
+      'Buracos atróficos',
+      'Ruptura de retina',
+      'Descolamento de retina',
+      'Hialóide tracionando periferia',
+      'Retinosquise'
+    ],
+    retinopatiaDiabetica: [
+      'Sem sinais de RD',
+      'RDNP leve',
+      'RDNP moderada',
+      'RDNP severa',
+      'RD proliferativa'
+    ],
+    adicionais: [
+      'Nevo de coroide',
+      'Lesão hiperpigmentada de aspecto benigno',
+      'Atrofia corioretiniana periférica',
+      'Asteroidose vítrea'
+    ],
+    recomendacoes: [
+      'Manter acompanhamento anual',
+      'Solicitar OCT macular',
+      'Encaminhar para especialista de retina',
+      'Iniciar fotocoagulação a laser',
+      'Solicitar angiofluoresceinografia'
+    ],
+    tipoEscavacao: ['Fisiológica', 'Aumentada'],
+    tamanhoEscavacao: ['0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9']
+  };
+
+  const handleCheck = (campo, valor) => {
+    setForm(prev => {
+      const jaExiste = prev[campo].includes(valor);
+      const novoArray = jaExiste ? prev[campo].filter(v => v !== valor) : [...prev[campo], valor];
+      return { ...prev, [campo]: novoArray };
+    });
+  };
+
+  const gerarLaudo = () => {
+    const laudoMacula = form.macula.length ? `Mácula com ${form.macula.join(', ')}.` : '';
+    const laudoVasos = form.vasos.length ? `Vasos com alterações: ${form.vasos.join(', ')}.` : '';
+    const laudoPolo = form.poloPosterior.length ? `Polo posterior apresenta: ${form.poloPosterior.join(', ')}.` : '';
+    const laudoPeriferia = form.periferia.length ? `Periferia com: ${form.periferia.join(', ')}.` : '';
+
+    let laudoRD = '';
+    switch (form.retinopatiaDiabetica) {
+      case 'RDNP leve':
+        laudoRD = 'Presença de RD não proliferativa leve, com poucos microaneurismas e exsudatos.';
+        break;
+      case 'RDNP moderada':
+        laudoRD = 'RD não proliferativa moderada, com microaneurismas, hemorragias e exsudatos moderados.';
+        break;
+      case 'RDNP severa':
+        laudoRD = 'RD não proliferativa severa, com mais de 20 hemorragias em 4 quadrantes e sinais de isquemia.';
+        break;
+      case 'RD proliferativa':
+        laudoRD = 'RD proliferativa, com neovasos e possível hemorragia vítrea.';
+        break;
+      case 'Sem sinais de RD':
+        laudoRD = 'Sem sinais de retinopatia diabética.';
+        break;
+    }
+
+    if (form.edemaMacular) {
+      laudoRD += ' Edema macular diabético presente.';
+    }
+
+    const laudoOutros = form.adicionais.length ? `Outros achados: ${form.adicionais.join(', ')}.` : '';
+    const laudoRecomendacoes = form.recomendacoes.length ? `Recomendações: ${form.recomendacoes.join(', ')}.` : '';
+
+    return `Laudo de ${form.tipoExame}:
+
+Meios ópticos ${form.meiosOpticos.toLowerCase()}.
+
+Disco óptico ${form.disco.cor.toLowerCase()}, de contornos ${form.disco.contornos.toLowerCase()}, com escavação ${form.disco.tipoEscavacao.toLowerCase()} de tamanho ${form.disco.tamanhoEscavacao}, relação escavação/disco ${form.disco.escavacao.toLowerCase()}.
+${form.disco.atrofia ? 'Atrofia peripapilar presente. ' : ''}${form.disco.crescente ? 'Crescente escleral presente. ' : ''}${form.disco.palidez ? `Palidez ${form.disco.palidez.toLowerCase()}. ` : ''}${form.disco.inclinacao ? 'Disco óptico inclinado. ' : ''}
+
+${laudoMacula}
+${laudoVasos}
+${laudoPolo}
+${laudoPeriferia}
+${laudoRD}
+${laudoOutros}
+${laudoRecomendacoes}`;
+  };
+
+  return (
+    <div>
+      <h2>Formulário de Laudo de Retina</h2>
+
+      <div>
+        <label>Tipo de Exame:</label>
+        <input type="text" value={form.tipoExame} onChange={e => setForm({ ...form, tipoExame: e.target.value })} />
+      </div>
+
+      <div>
+        <label>Meios Ópticos:</label>
+        <input type="text" value={form.meiosOpticos} onChange={e => setForm({ ...form, meiosOpticos: e.target.value })} />
+      </div>
+
+      <div>
+        <label>Cor do Disco:</label>
+        <input type="text" value={form.disco.cor} onChange={e => setForm({ ...form, disco: { ...form.disco, cor: e.target.value } })} />
+        <label>Contornos:</label>
+        <input type="text" value={form.disco.contornos} onChange={e => setForm({ ...form, disco: { ...form.disco, contornos: e.target.value } })} />
+        <label>Tipo de Escavação:</label>
+        <select value={form.disco.tipoEscavacao} onChange={e => setForm({ ...form, disco: { ...form.disco, tipoEscavacao: e.target.value } })}>
+          <option value="">Selecione</option>
+          {opcoes.tipoEscavacao.map(op => <option key={op}>{op}</option>)}
+        </select>
+        <label>Tamanho da Escavação:</label>
+        <select value={form.disco.tamanhoEscavacao} onChange={e => setForm({ ...form, disco: { ...form.disco, tamanhoEscavacao: e.target.value } })}>
+          <option value="">Selecione</option>
+          {opcoes.tamanhoEscavacao.map(op => <option key={op}>{op}</option>)}
+        </select>
+        <label>Relação Escavação/Disco:</label>
+        <input type="text" value={form.disco.escavacao} onChange={e => setForm({ ...form, disco: { ...form.disco, escavacao: e.target.value } })} />
+        <label>
+          <input type="checkbox" checked={form.disco.atrofia} onChange={() => setForm({ ...form, disco: { ...form.disco, atrofia: !form.disco.atrofia } })} /> Atrofia peripapilar
+        </label>
+        <label>
+          <input type="checkbox" checked={form.disco.inclinacao} onChange={() => setForm({ ...form, disco: { ...form.disco, inclinacao: !form.disco.inclinacao } })} /> Inclinação do disco
+        </label>
+        <label>
+          <input type="checkbox" checked={form.disco.crescente} onChange={() => setForm({ ...form, disco: { ...form.disco, crescente: !form.disco.crescente } })} /> Crescente escleral
+        </label>
+        <label>Palidez:</label>
+        <input type="text" value={form.disco.palidez} onChange={e => setForm({ ...form, disco: { ...form.disco, palidez: e.target.value } })} />
+      </div>
+
+      <button onClick={() => alert(gerarLaudo())}>Gerar Laudo</button>
+    </div>
+  );
+}

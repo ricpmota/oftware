@@ -3,7 +3,8 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { EmailTipo } from '@/types/emailConfig';
-import nodemailer from 'nodemailer';
+import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
+import { zeptoEnvioFields } from '@/lib/email/emailEnvioLog';
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -110,46 +111,15 @@ export async function POST(request: NextRequest) {
     const html = emailPersonalizado?.corpoHtml || emailTemplate.corpoHtml;
     const htmlPersonalizado = html.replace(/\{nome\}/g, lead.name || 'Cliente');
 
-    // Enviar e-mail diretamente usando nodemailer
+    // Enviar e-mail via ZeptoMail (módulo central)
     let envioSucesso = false;
     let erroEnvio: string | undefined;
+    let zeptoMessageId: string | undefined;
 
     try {
-      if (process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD) {
-        console.log('📧 Iniciando envio de e-mail via Zoho...');
-        console.log(`📧 De: ${process.env.ZOHO_EMAIL}`);
-        console.log(`📧 Para: ${lead.email}`);
-        console.log(`📧 Assunto: ${assunto}`);
-        
-        const transporter = nodemailer.createTransport({
-          host: 'smtp.zoho.com',
-          port: 587,
-          secure: false,
-          auth: {
-            user: process.env.ZOHO_EMAIL,
-            pass: process.env.ZOHO_PASSWORD,
-          },
-          // Adicionar timeout e debug
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 10000,
-        });
-
-        // Verificar conexão primeiro
-        console.log('📧 Verificando conexão SMTP...');
-        await transporter.verify();
-        console.log('✅ Conexão SMTP verificada com sucesso');
-
-        // Enviar e-mail
-        console.log('📧 Enviando e-mail...');
-        console.log('📧 HTML recebido:', htmlPersonalizado.substring(0, 200) + '...');
-        
-        // Garantir que o HTML está bem formatado
-        // Se o HTML não tiver estrutura básica, adicionar
-        let htmlFinal = htmlPersonalizado;
-        if (!htmlFinal.includes('<html') && !htmlFinal.includes('<!DOCTYPE')) {
-          // Se não tiver estrutura HTML completa, envolver em estrutura básica
-          htmlFinal = `
+      let htmlFinal = htmlPersonalizado;
+      if (!htmlFinal.includes('<html') && !htmlFinal.includes('<!DOCTYPE')) {
+        htmlFinal = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -161,41 +131,32 @@ export async function POST(request: NextRequest) {
 </body>
 </html>
           `.trim();
-        }
-        
-        const info = await transporter.sendMail({
-          from: `"Oftware" <${process.env.ZOHO_EMAIL}>`,
+      }
+
+      if (isZeptoMailConfigured()) {
+        console.log('📧 Enviando e-mail via ZeptoMail...');
+        console.log(`📧 Para: ${lead.email} | Assunto: ${assunto}`);
+        const sent = await sendEmail({
           to: lead.email,
           subject: assunto,
           html: htmlFinal,
-          // Adicionar versão texto alternativo (opcional, mas recomendado)
-          text: htmlPersonalizado.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
+          text: htmlPersonalizado
+            .replace(/<[^>]*>/g, '')
+            .replace(/\n\s*\n/g, '\n\n'),
         });
-
-        console.log('✅ E-mail enviado com sucesso!');
-        console.log('📧 Message ID:', info.messageId);
-        console.log('📧 Response:', info.response);
-        
-        envioSucesso = true;
+        envioSucesso = sent.success;
+        if (!sent.success) erroEnvio = sent.error;
+        else if (sent.messageId) zeptoMessageId = sent.messageId;
       } else {
-        // Modo simulação se Zoho não estiver configurado
-        console.log('⚠️ SIMULAÇÃO E-MAIL (Zoho não configurado):');
+        console.log('⚠️ SIMULAÇÃO E-MAIL (ZeptoMail não configurado):');
         console.log(`Para: ${lead.email}`);
         console.log(`Assunto: ${assunto}`);
         envioSucesso = true;
       }
-    } catch (emailError: any) {
-      erroEnvio = emailError?.message || 'Erro desconhecido ao enviar e-mail';
+    } catch (emailError: unknown) {
+      const e = emailError as { message?: string };
+      erroEnvio = e?.message || 'Erro desconhecido ao enviar e-mail';
       console.error('❌ Erro ao enviar e-mail:', emailError);
-      console.error('❌ Código do erro:', emailError?.code);
-      console.error('❌ Comando do erro:', emailError?.command);
-      console.error('❌ Stack trace:', emailError?.stack);
-      
-      // Se for erro de autenticação
-      if (emailError?.code === 'EAUTH' || emailError?.code === 'EENVELOPE') {
-        erroEnvio = `Erro de autenticação: ${emailError.message}. Verifique as credenciais do Zoho Mail.`;
-      }
-      
       envioSucesso = false;
     }
 
@@ -212,7 +173,10 @@ export async function POST(request: NextRequest) {
       status: envioSucesso ? 'enviado' : 'falhou',
       tentativas: 1,
       erro: erroEnvio || null,
-      tipo: 'manual', // Marcar como manual (quando implementar automático, será 'automatico')
+      tipo: 'manual',
+      ...(isZeptoMailConfigured()
+        ? zeptoEnvioFields(envioSucesso ? zeptoMessageId : null)
+        : {}),
     };
     await envioRef.set(envioData);
     const envioId = envioRef.id;

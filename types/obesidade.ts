@@ -259,17 +259,28 @@ export interface PlanoTerapeutico {
   nextReviewDate?: Date;
   titrationStatus?: 'INICIADO' | 'EM_TITULACAO' | 'MANUTENCAO' | 'PAUSADO' | 'ENCERRADO';
   titrationNotes?: string;
+  // Esquema de doses customizado por semana (semana: dose em mg)
+  // Se presente, sobrescreve o cálculo automático para as semanas especificadas
+  esquemaDosesCustomizado?: { [semana: number]: number };
+  // Semanas canceladas/puladas (array de números das semanas)
+  semanasCanceladas?: number[];
   
   // Histórico (mantido compatibilidade)
   historicoDoses?: HistoricoDose[];
   
   // 5.3 Metas do tratamento
   metas: {
+    /** true quando o paciente definiu metas pelo chat /meta ou o médico ativou no metaadmin */
+    metasTratamentoModuloAtivo?: boolean;
+    /** Switch: usar meta de perda de peso (barras / gráficos). */
+    metaPerdaPesoAtiva?: boolean;
+    /** Switch: usar meta de redução de circunferência abdominal (requer medida inicial). */
+    metaReducaoCinturaAtiva?: boolean;
     weightLossTargetType?: 'PERCENTUAL' | 'PESO_ABSOLUTO';
     weightLossTargetValue?: number;
     targetWeightKg?: number;
     hba1cTargetType?: '≤7.0' | '≤6.8' | '≤6.5';
-    waistReductionTargetCm?: 5 | 10 | 15;
+    waistReductionTargetCm?: number;
     secondaryGoals?: {
       remissaoPreDiabetes?: boolean;
       melhoraEHNA?: boolean;
@@ -307,6 +318,11 @@ export interface PlanoTerapeutico {
   };
   proximaRevisao?: Date;
   observacoesClinicas?: string;
+
+  /** Conclusão do ciclo atual (peso final, depoimento, etc.) */
+  conclusaoTratamento?: Record<string, unknown>;
+  /** Conclusões anteriores preservadas ao reabrir tratamento (ver utils/conclusaoTratamentoHistorico) */
+  historicoConclusoesTratamento?: Record<string, unknown>[];
 }
 
 export interface HistoricoDose {
@@ -337,7 +353,8 @@ export interface SeguimentoSemanal {
   adherence?: 'ON_TIME' | 'LATE_<96H' | 'MISSED'; // novo campo
   giSeverity?: 'LEVE' | 'MODERADO' | 'GRAVE';
   efeitosColaterais?: EfeitoColateral[];
-  alerts?: ('MISSED_DOSE' | 'GI_SEVERE' | 'PREGNANCY_FLAG' | 'LAB_ABNORMAL' | 'MEN2_RISK')[];
+  /** Tipos alinhados ao `alertEngine` e `AlertaType` (Pasta 7). */
+  alerts?: AlertaType[];
   localAplicacao?: 'abdome' | 'coxa' | 'braco';
   observacoesPaciente?: string;
   comentarioMedico?: string;

@@ -3,6 +3,38 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* System Colors (defaults) - applied by loader in `document.documentElement` */
+  --brand-primary: #16a34a;
+  --brand-secondary: #2563eb;
+  --brand-accent: #7c3aed;
+  --brand-gradient-from: #7c3aed;
+  --brand-gradient-via: #2563eb;
+  --brand-gradient-to: #f97316;
+
+  --surface-background: #ffffff;
+  --surface-card: #ffffff;
+  --surface-modal: #ffffff;
+  --surface-sidebar: #ffffff;
+  --surface-navbar: #ffffff;
+
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-inverse: #ffffff;
+
+  --border-default: #e5e7eb;
+  --border-focus: #22c55e;
+
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-danger: #dc2626;
+  --state-info: #2563eb;
+
+  --chart-1: #059669;
+  --chart-2: #2563eb;
+  --chart-3: #f59e0b;
+  --chart-4: #dc2626;
+  --chart-5: #7c3aed;
 }
 
 /* Hide scrollbar for mobile menu */
@@ -14,24 +46,235 @@
   display: none;  /* Safari and Chrome */
 }
 
+/* Scrollbar padrão Oftware - Deep Blue + Vital Green (para /metaadmingeral) */
+.metaadmingeral-page::-webkit-scrollbar,
+.metaadmingeral-page *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.metaadmingeral-page::-webkit-scrollbar-track,
+.metaadmingeral-page *::-webkit-scrollbar-track {
+  background: #0A1F44;
+  border-radius: 5px;
+}
+.metaadmingeral-page::-webkit-scrollbar-thumb,
+.metaadmingeral-page *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4CCB7A, #2F8FA3);
+  border-radius: 5px;
+}
+.metaadmingeral-page::-webkit-scrollbar-thumb:hover,
+.metaadmingeral-page *::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #45b86d, #287a8a);
+}
+/* Firefox */
+.metaadmingeral-page,
+.metaadmingeral-page * {
+  scrollbar-width: thin;
+  scrollbar-color: #4CCB7A #0A1F44;
+}
+
+/* Scrollbar para metaadmin Home tema escuro (mesmo estilo do metaadmingeral) */
+.metaadmin-home-dark-scroll::-webkit-scrollbar,
+.metaadmin-home-dark-scroll *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.metaadmin-home-dark-scroll::-webkit-scrollbar-track,
+.metaadmin-home-dark-scroll *::-webkit-scrollbar-track {
+  background: #0A1F44;
+  border-radius: 5px;
+}
+.metaadmin-home-dark-scroll::-webkit-scrollbar-thumb,
+.metaadmin-home-dark-scroll *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4CCB7A, #2F8FA3);
+  border-radius: 5px;
+}
+.metaadmin-home-dark-scroll::-webkit-scrollbar-thumb:hover,
+.metaadmin-home-dark-scroll *::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #45b86d, #287a8a);
+}
+.metaadmin-home-dark-scroll,
+.metaadmin-home-dark-scroll * {
+  scrollbar-width: thin;
+  scrollbar-color: #4CCB7A #0A1F44;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  /* brand */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-gradient-from: var(--brand-gradient-from);
+  --color-brand-gradient-via: var(--brand-gradient-via);
+  --color-brand-gradient-to: var(--brand-gradient-to);
+
+  /* surface */
+  --color-surface-background: var(--surface-background);
+  --color-surface-card: var(--surface-card);
+  --color-surface-modal: var(--surface-modal);
+  --color-surface-sidebar: var(--surface-sidebar);
+  --color-surface-navbar: var(--surface-navbar);
+
+  /* text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-inverse: var(--text-inverse);
+
+  /* border */
+  --color-border-default: var(--border-default);
+  --color-border-focus: var(--border-focus);
+
+  /* state */
+  --color-state-success: var(--state-success);
+  --color-state-warning: var(--state-warning);
+  --color-state-danger: var(--state-danger);
+  --color-state-info: var(--state-info);
+
+  /* chart */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Modo escuro desativado - sempre usar modo claro */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #ffffff !important;
+  color: #111827 !important; /* gray-900 - texto sempre escuro */
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden !important;
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+}
+
+/* FORÇAR SEMPRE MODO CLARO - ESQUECER COMPLETAMENTE O DARK */
+html {
+  color-scheme: light !important;
+  overflow-x: hidden !important;
+  width: 100%;
+  max-width: 100vw;
+  position: relative;
+}
+
+html.dark {
+  color-scheme: light !important;
+}
+
+/* Shell principal: fluido até 1200px (sem width fixo em px no layout) */
+.layout-site-shell {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* DESABILITAR COMPLETAMENTE TODAS AS VARIANTES DARK: DO TAILWIND */
+/* Forçar backgrounds sempre claros */
+[class*="dark:bg-"] {
+  background-color: #ffffff !important;
+}
+
+/* Forçar textos sempre escuros */
+[class*="dark:text-white"],
+[class*="dark:text-gray-300"],
+[class*="dark:text-gray-400"] {
+  color: #111827 !important; /* gray-900 */
+}
+
+/* Forçar bordas sempre claras */
+[class*="dark:border-"] {
+  border-color: #e5e7eb !important; /* gray-200 */
+}
+
+/* Garantir que backgrounds escuros sejam sempre claros */
+.bg-gray-800,
+.bg-gray-900,
+.bg-gray-700 {
+  background-color: #ffffff !important;
+}
+
+/* Garantir texto escuro em fundos brancos quando texto branco for usado */
+.bg-white .text-white,
+.bg-gray-50 .text-white,
+.bg-gray-100 .text-white {
+  color: #111827 !important;
+}
+
+/*
+ * Metaadmin — calendário de aplicações: pills com barra verde/vermelha ficam dentro de
+ * card (.bg-white). A regra acima forçaria o rótulo a cinza escuro; estas classes
+ * restauram contraste sobre a barra colorida (texto + ícones Lucide via stroke).
+ */
+.bg-white .calendar-pill-on-bar,
+.bg-gray-50 .calendar-pill-on-bar,
+.bg-gray-100 .calendar-pill-on-bar,
+.calendar-pill-on-bar {
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.92);
+}
+.bg-white .calendar-pill-on-bar svg,
+.bg-gray-50 .calendar-pill-on-bar svg,
+.bg-gray-100 .calendar-pill-on-bar svg,
+.calendar-pill-on-bar svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.bg-white .calendar-pill-neutral,
+.bg-gray-50 .calendar-pill-neutral,
+.bg-gray-100 .calendar-pill-neutral,
+.calendar-pill-neutral {
+  color: #111827 !important;
+  font-weight: 400;
+  text-shadow: none;
+}
+.bg-white .calendar-pill-neutral svg,
+.bg-gray-50 .calendar-pill-neutral svg,
+.bg-gray-100 .calendar-pill-neutral svg,
+.calendar-pill-neutral svg {
+  color: #111827 !important;
+  stroke: #111827 !important;
+}
+
+/* Metaadmin calendário — badge de aniversário: texto e ícone Lucide brancos */
+.bg-white .calendar-aniversario-badge,
+.bg-gray-50 .calendar-aniversario-badge,
+.bg-gray-100 .calendar-aniversario-badge,
+.calendar-aniversario-badge {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+.bg-white .calendar-aniversario-badge svg,
+.bg-gray-50 .calendar-aniversario-badge svg,
+.bg-gray-100 .calendar-aniversario-badge svg,
+.calendar-aniversario-badge svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Manter texto branco em botões e elementos com fundo colorido */
+button.text-white,
+[class*="bg-green"].text-white,
+[class*="bg-blue"].text-white,
+[class*="bg-red"].text-white,
+[class*="bg-purple"].text-white,
+[class*="bg-orange"].text-white {
+  color: #ffffff !important;
 }
 
 .notranslate {
@@ -101,8 +344,86 @@ body {
   animation: float 20s ease-in-out infinite;
 }
 
+/* Flutuação suave para seção de depoimentos */
+@keyframes float-depoimentos {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  25% {
+    transform: translate(8px, -15px) scale(1.05);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-12px, 10px) scale(0.95);
+    opacity: 0.65;
+  }
+  75% {
+    transform: translate(15px, 8px) scale(1.02);
+    opacity: 0.75;
+  }
+}
+
+.animate-float-depoimentos {
+  animation: float-depoimentos 18s ease-in-out infinite;
+}
+
+/* Mesmo movimento dos depoimentos, opacidade baixa para marcas d’água (logos) */
+@keyframes float-depoimentos-logo {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.1;
+  }
+  25% {
+    transform: translate(8px, -15px) scale(1.05);
+    opacity: 0.18;
+  }
+  50% {
+    transform: translate(-12px, 10px) scale(0.95);
+    opacity: 0.12;
+  }
+  75% {
+    transform: translate(15px, 8px) scale(1.02);
+    opacity: 0.16;
+  }
+}
+
+.animate-float-depoimentos-logo {
+  /* Igual ao frame inicial do keyframe: evita opacidade 100% no primeiro paint / durante animation-delay */
+  opacity: 0.1;
+  animation: float-depoimentos-logo 18s ease-in-out infinite;
+  animation-fill-mode: both;
+}
+
 .animate-pulse-slow {
   animation: pulse-slow 8s ease-in-out infinite;
+}
+
+@keyframes slow-pulse-opacity {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-slow-pulse-opacity {
+  animation: slow-pulse-opacity 2.5s ease-in-out infinite;
+}
+
+/* Piscar discreto para o ícone de hint de avaliação (RatingHint) */
+@keyframes hint-pulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-hint-pulse {
+  animation: hint-pulse 1.4s ease-in-out infinite;
 }
 
 .animate-fade-in {
@@ -139,6 +460,61 @@ body {
   animation: expand-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Marca d'água com símbolo da marca – flutuação suave */
+@keyframes watermark-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.06;
+  }
+  50% {
+    transform: translate(4px, -6px) scale(1.02);
+    opacity: 0.08;
+  }
+}
+
+.animate-watermark-float {
+  animation: watermark-float 12s ease-in-out infinite;
+}
+
+/* Home: logo no splash de carregamento — surge e vai para opacidade de marca d'água */
+@keyframes home-loading-logo {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  28% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  45% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.07;
+    transform: scale(1);
+  }
+}
+
+.animate-home-loading-logo {
+  animation: home-loading-logo 1.9s ease-in-out infinite;
+}
+
+/* Texto “Carregando…” no mesmo ritmo suave da logo */
+@keyframes home-loading-text {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-home-loading-text {
+  animation: home-loading-text 1.9s ease-in-out infinite;
+}
+
 /* Animações para loading da balança - seta caindo */
 @keyframes arrow-falling {
   0% {
@@ -157,6 +533,73 @@ body {
 
 .animate-arrow-falling {
   animation: arrow-falling 1.5s ease-in-out infinite;
+}
+
+/* Banner "O que é o Oftware" - transição de slides e entrada */
+@keyframes oftware-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-oftware-slide {
+  animation: oftware-slide-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  -webkit-animation: oftware-slide-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Entrada do card ao carregar a página */
+@keyframes oftware-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-oftware-card-enter {
+  animation: oftware-card-enter 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Aparição em sequência dentro do slide: ícone/título */
+@keyframes oftware-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-oftware-item-1 {
+  animation: oftware-item-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+  -webkit-animation: oftware-item-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+  opacity: 0;
+}
+
+.animate-oftware-item-2 {
+  animation: oftware-item-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.22s forwards;
+  -webkit-animation: oftware-item-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.22s forwards;
+  opacity: 0;
+}
+
+/* Mobile: garantir que animações do banner Oftware rodem (GPU / will-change) */
+@media (max-width: 768px) {
+  .animate-oftware-slide {
+    will-change: transform, opacity;
+  }
+  .animate-oftware-card-enter {
+    will-change: transform, opacity;
+  }
 }
 
 /* Estilos para modal de visualização de paciente em abandono */
@@ -203,4 +646,88 @@ body {
 .paciente-abandono-view .graph-container {
   pointer-events: auto !important;
   opacity: 1 !important;
+}
+
+/* Range MetaAdmin 5.3 — trilha visível (appearance-none remove o track padrão) */
+input[type='range'].metaadmin-metas-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range'].metaadmin-metas-range:focus {
+  outline: none;
+}
+input[type='range'].metaadmin-metas-range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: #d1fae5;
+}
+.dark input[type='range'].metaadmin-metas-range::-webkit-slider-runnable-track {
+  background: rgba(6, 78, 59, 0.5);
+}
+input[type='range'].metaadmin-metas-range--waist::-webkit-slider-runnable-track {
+  background: #bae6fd;
+}
+.dark input[type='range'].metaadmin-metas-range--waist::-webkit-slider-runnable-track {
+  background: rgba(12, 74, 110, 0.5);
+}
+input[type='range'].metaadmin-metas-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -5px;
+  border-radius: 9999px;
+  background: #059669;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+input[type='range'].metaadmin-metas-range--waist::-webkit-slider-thumb {
+  background: #0284c7;
+}
+input[type='range'].metaadmin-metas-range::-moz-range-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: #d1fae5;
+}
+.dark input[type='range'].metaadmin-metas-range::-moz-range-track {
+  background: rgba(6, 78, 59, 0.5);
+}
+input[type='range'].metaadmin-metas-range--waist::-moz-range-track {
+  background: #bae6fd;
+}
+.dark input[type='range'].metaadmin-metas-range--waist::-moz-range-track {
+  background: rgba(12, 74, 110, 0.5);
+}
+input[type='range'].metaadmin-metas-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  border-radius: 9999px;
+  background: #059669;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+input[type='range'].metaadmin-metas-range--waist::-moz-range-thumb {
+  background: #0284c7;
+}
+
+/* MetaAdmin 5.3 — trilha do switch: fundo explícito (Safari/iOS costuma ignorar bg em button[disabled]) */
+.metaadmin-metas-switch-track {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+.metaadmin-metas-switch-track[data-on='true'] {
+  background-color: #16a34a !important;
+}
+.metaadmin-metas-switch-track[data-on='false'] {
+  background-color: #cbd5e1 !important;
+}
+.dark .metaadmin-metas-switch-track[data-on='true'] {
+  background-color: #22c55e !important;
+}
+.dark .metaadmin-metas-switch-track[data-on='false'] {
+  background-color: #475569 !important;
 }

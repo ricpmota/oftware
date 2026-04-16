@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { EmailConfig } from '@/types/emailConfig';
+import { NOVOS_MODULOS_EMAIL_DOCS } from '@/data/emailConfigNovosModulos';
 
 // Função para obter Firestore Admin
 function getAdminFirestore() {
@@ -219,10 +220,52 @@ export async function GET(request: NextRequest) {
       },
     };
     
+    // Buscar e-mails do módulo Agenda
+    const agendaSemanalDoc = await emailsCollection.doc('agenda_agenda_semanal').get();
+    const agendaDiarioDoc = await emailsCollection.doc('agenda_agenda_diario').get();
+    const agenda = {
+      agenda_semanal: agendaSemanalDoc.exists ? {
+        assunto: agendaSemanalDoc.data()?.assunto || '',
+        corpoHtml: agendaSemanalDoc.data()?.corpoHtml || '',
+        corpoTexto: agendaSemanalDoc.data()?.corpoTexto || '',
+      } : {
+        assunto: 'Sua Agenda Semanal de Pacientes - Oftware',
+        corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Aqui está a sua agenda de pacientes para a semana de {dataInicio} a {dataFim}:</p>{aplicacoesHtml}{pagamentosHtml}<p>Atenciosamente,</p><p>Equipe Oftware</p>',
+      },
+      agenda_diario: agendaDiarioDoc.exists ? {
+        assunto: agendaDiarioDoc.data()?.assunto || '',
+        corpoHtml: agendaDiarioDoc.data()?.corpoHtml || '',
+        corpoTexto: agendaDiarioDoc.data()?.corpoTexto || '',
+      } : {
+        assunto: 'Sua Agenda Diária de Pacientes - Oftware',
+        corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Aqui está a sua agenda de pacientes para hoje, {dataHoje}:</p>{aplicacoesHtml}{pagamentosHtml}<p>Atenciosamente,</p><p>Equipe Oftware</p>',
+      },
+    };
+    
     // Buscar configuração
     const configDoc = await emailsCollection.doc('config').get();
     const configData = configDoc.exists ? configDoc.data() : {};
-    
+
+    // Novos módulos (Nutri, Personal, Geral): ler cada doc da collection emails
+    const novosModulos: Record<string, Record<string, { assunto: string; corpoHtml: string; corpoTexto?: string }>> = {};
+    for (const d of NOVOS_MODULOS_EMAIL_DOCS) {
+      if (!novosModulos[d.modulo]) novosModulos[d.modulo] = {};
+      const docSnap = await emailsCollection.doc(d.docId).get();
+      if (docSnap.exists && docSnap.data()) {
+        const data = docSnap.data()!;
+        novosModulos[d.modulo][d.templateKey] = {
+          assunto: data.assunto ?? d.defaultTemplate.assunto,
+          corpoHtml: data.corpoHtml ?? d.defaultTemplate.corpoHtml,
+          corpoTexto: data.corpoTexto,
+        };
+      } else {
+        novosModulos[d.modulo][d.templateKey] = {
+          assunto: d.defaultTemplate.assunto,
+          corpoHtml: d.defaultTemplate.corpoHtml,
+        };
+      }
+    }
+
     const config: EmailConfig = {
       id: 'config',
       leads: leads,
@@ -234,11 +277,15 @@ export async function GET(request: NextRequest) {
       check_recomendacoes: check_recomendacoes,
       bem_vindo: bem_vindo,
       novidades: novidades,
+      agenda: agenda,
+      ...novosModulos,
       envioAutomatico: configData?.envioAutomatico || { ativo: false },
+      envioAutomaticoLeadsNutri: configData?.envioAutomaticoLeadsNutri || { ativo: false },
+      envioAutomaticoLeadsPersonal: configData?.envioAutomaticoLeadsPersonal || { ativo: false },
       createdAt: configData?.createdAt?.toDate(),
       updatedAt: configData?.updatedAt?.toDate(),
     };
-    
+
     return NextResponse.json(config);
   } catch (error) {
     console.error('Erro ao buscar configuração:', error);
@@ -404,6 +451,26 @@ export async function POST(request: NextRequest) {
     if (!config.novidades.novidade.assunto || !config.novidades.novidade.corpoHtml) {
       return NextResponse.json(
         { error: 'E-mail de novidades está incompleto (assunto e corpoHtml são obrigatórios)' },
+        { status: 400 }
+      );
+    }
+
+    // Validar módulo Agenda
+    if (!config.agenda || !config.agenda.agenda_semanal || !config.agenda.agenda_diario) {
+      return NextResponse.json(
+        { error: 'E-mails de agenda não encontrados' },
+        { status: 400 }
+      );
+    }
+    if (!config.agenda.agenda_semanal.assunto || !config.agenda.agenda_semanal.corpoHtml) {
+      return NextResponse.json(
+        { error: 'E-mail de agenda semanal está incompleto (assunto e corpoHtml são obrigatórios)' },
+        { status: 400 }
+      );
+    }
+    if (!config.agenda.agenda_diario.assunto || !config.agenda.agenda_diario.corpoHtml) {
+      return NextResponse.json(
+        { error: 'E-mail de agenda diário está incompleto (assunto e corpoHtml são obrigatórios)' },
         { status: 400 }
       );
     }
@@ -668,6 +735,70 @@ export async function POST(request: NextRequest) {
       await novidadesRef.set(cleanedNovidades);
       console.log('✅ novidades_novidade salvo com sucesso');
       
+      // Salvar e-mails do módulo Agenda
+      const agendaSemanalData = config.agenda.agenda_semanal;
+      const agendaSemanalRef = emailsCollection.doc('agenda_agenda_semanal');
+      const existingAgendaSemanal = await agendaSemanalRef.get();
+      
+      const agendaSemanalDoc: any = {
+        assunto: String(agendaSemanalData.assunto || '').trim(),
+        corpoHtml: String(agendaSemanalData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (agendaSemanalData.corpoTexto && agendaSemanalData.corpoTexto.trim()) {
+        agendaSemanalDoc.corpoTexto = String(agendaSemanalData.corpoTexto).trim();
+      }
+      
+      if (!existingAgendaSemanal.exists) {
+        agendaSemanalDoc.createdAt = agora;
+      }
+      
+      const cleanedAgendaSemanal = removeUndefined(agendaSemanalDoc);
+      await agendaSemanalRef.set(cleanedAgendaSemanal);
+      console.log('✅ agenda_agenda_semanal salvo com sucesso');
+      
+      const agendaDiarioData = config.agenda.agenda_diario;
+      const agendaDiarioRef = emailsCollection.doc('agenda_agenda_diario');
+      const existingAgendaDiario = await agendaDiarioRef.get();
+      
+      const agendaDiarioDoc: any = {
+        assunto: String(agendaDiarioData.assunto || '').trim(),
+        corpoHtml: String(agendaDiarioData.corpoHtml || '').trim(),
+        updatedAt: agora,
+      };
+      
+      if (agendaDiarioData.corpoTexto && agendaDiarioData.corpoTexto.trim()) {
+        agendaDiarioDoc.corpoTexto = String(agendaDiarioData.corpoTexto).trim();
+      }
+      
+      if (!existingAgendaDiario.exists) {
+        agendaDiarioDoc.createdAt = agora;
+      }
+      
+      const cleanedAgendaDiario = removeUndefined(agendaDiarioDoc);
+      await agendaDiarioRef.set(cleanedAgendaDiario);
+      console.log('✅ agenda_agenda_diario salvo com sucesso');
+
+      // Salvar novos módulos (Nutri, Personal, Geral)
+      for (const d of NOVOS_MODULOS_EMAIL_DOCS) {
+        const template = config[d.modulo]?.[d.templateKey];
+        if (!template || typeof template !== 'object') continue;
+        const ref = emailsCollection.doc(d.docId);
+        const existing = await ref.get();
+        const docData: any = {
+          assunto: String(template.assunto ?? '').trim(),
+          corpoHtml: String(template.corpoHtml ?? '').trim(),
+          updatedAt: agora,
+        };
+        if (template.corpoTexto && String(template.corpoTexto).trim()) {
+          docData.corpoTexto = String(template.corpoTexto).trim();
+        }
+        if (!existing.exists) docData.createdAt = agora;
+        await ref.set(removeUndefined(docData));
+        console.log(`✅ ${d.docId} salvo com sucesso`);
+      }
+
       // Salvar configuração
       const configDocRef = emailsCollection.doc('config');
       const existingConfig = await configDocRef.get();
@@ -676,6 +807,8 @@ export async function POST(request: NextRequest) {
         envioAutomatico: {
           ativo: Boolean(config.envioAutomatico?.ativo || false),
         },
+        envioAutomaticoLeadsNutri: config.envioAutomaticoLeadsNutri ? { ativo: Boolean(config.envioAutomaticoLeadsNutri.ativo) } : undefined,
+        envioAutomaticoLeadsPersonal: config.envioAutomaticoLeadsPersonal ? { ativo: Boolean(config.envioAutomaticoLeadsPersonal.ativo) } : undefined,
         updatedAt: agora,
       };
       

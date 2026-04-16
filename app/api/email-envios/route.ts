@@ -43,31 +43,46 @@ export async function GET(request: NextRequest) {
     const db = getAdminFirestore();
     const enviosCollection = db.collection('email_envios');
     
-    // Buscar todos os envios ordenados por data (mais recentes primeiro)
+    // Buscar envios mais recentes (caixa de saída = log da aplicação; envios via ZeptoMail SMTP)
     const enviosSnapshot = await enviosCollection
       .orderBy('enviadoEm', 'desc')
-      .limit(100) // Limitar a 100 envios mais recentes
+      .limit(250)
       .get();
     
     const envios = enviosSnapshot.docs.map(doc => {
       const data = doc.data();
+      const destinatarioEmail =
+        data.destinatarioEmail ?? data.leadEmail ?? null;
       return {
         id: doc.id,
-        leadId: data.leadId,
-        leadEmail: data.leadEmail,
-        leadNome: data.leadNome,
-        emailTipo: data.emailTipo,
-        assunto: data.assunto,
+        leadId: data.leadId ?? null,
+        solicitacaoId: data.solicitacaoId ?? null,
+        leadEmail: data.leadEmail ?? destinatarioEmail,
+        destinatarioEmail,
+        leadNome: data.leadNome ?? data.pacienteNome ?? null,
+        pacienteNome: data.pacienteNome ?? null,
+        emailTipo: data.emailTipo ?? null,
+        assunto: data.assunto ?? null,
         enviadoEm: data.enviadoEm?.toDate() || new Date(),
         status: data.status || 'pendente',
         erro: data.erro || null,
-        tentativas: data.tentativas || 1,
-        // Determinar se foi manual ou automático (por enquanto, assumimos que todos são manuais até implementar o automático)
-        tipo: data.tipo || 'manual', // 'manual' ou 'automatico'
+        tentativas: data.tentativas ?? 1,
+        tipo: data.tipo || 'manual',
+        provedor: data.provedor ?? null,
+        messageId: data.messageId ?? null,
+        medicoNome: data.medicoNome ?? null,
+        medicoId: data.medicoId ?? null,
+        pacienteId: data.pacienteId ?? null,
+        destinatario: data.destinatario ?? null,
       };
     });
     
-    return NextResponse.json({ envios, count: envios.length });
+    return NextResponse.json({
+      envios,
+      count: envios.length,
+      fonteListagem: 'Firestore:email_envios',
+      provedorPadraoEnvios: 'ZeptoMail',
+    });
   } catch (error) {
     console.error('Erro ao buscar envios:', error);
     return NextResponse.json(

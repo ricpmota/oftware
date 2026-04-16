@@ -1,0 +1,352 @@
+{
+  "sections": [
+    {
+      "type": "heading",
+      "heading": "A Importância do Médico no Tratamento da Obesidade",
+      "level": 1,
+      "style": {
+        "textAlign": "center",
+        "fontSize": "2.5rem",
+        "textColor": "#059669",
+        "margin": "2rem 0 1rem 0",
+        "padding": "1.5rem",
+        "backgroundColor": "#ecfdf5",
+        "borderRadius": "12px",
+        "fontWeight": "700"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "text",
+      "text": "O tratamento da obesidade é uma jornada complexa que requer acompanhamento médico especializado. Um médico qualificado não apenas prescreve medicações, mas oferece orientação personalizada, monitoramento contínuo e suporte essencial para o sucesso do tratamento.",
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.2rem",
+        "textColor": "#1f2937",
+        "padding": "2rem",
+        "margin": "1rem 0",
+        "backgroundColor": "#f9fafb",
+        "lineHeight": "1.8",
+        "borderRadius": "12px",
+        "borderLeft": "4px solid #10b981"
+      }
+    },
+    {
+      "type": "heading",
+      "heading": "Por que o Acompanhamento Médico é Essencial?",
+      "level": 2,
+      "style": {
+        "textAlign": "left",
+        "fontSize": "2rem",
+        "textColor": "#059669",
+        "margin": "2rem 0 1rem 0",
+        "padding": "1rem 0"
+      }
+    },
+    {
+      "type": "list",
+      "items": [
+        "Avaliação médica completa e personalizada do seu caso",
+        "Prescrição adequada de medicações com dosagem individualizada",
+        "Monitoramento de efeitos colaterais e ajustes necessários",
+        "Acompanhamento de exames laboratoriais e parâmetros de saúde",
+        "Orientação sobre alimentação e estilo de vida baseada em evidências",
+        "Suporte emocional e motivação durante todo o processo",
+        "Ajustes no tratamento conforme sua resposta individual"
+      ],
+      "style": {
+        "padding": "1.5rem 2rem",
+        "margin": "1rem 0",
+        "backgroundColor": "#ecfdf5",
+        "textColor": "#065f46",
+        "fontSize": "1.1rem",
+        "lineHeight": "2",
+        "borderRadius": "12px",
+        "borderLeft": "4px solid #10b981"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "heading",
+      "heading": "Benefícios do Acompanhamento Médico Regular",
+      "level": 2,
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.8rem",
+        "textColor": "#047857",
+        "margin": "2rem 0 1rem 0"
+      }
+    },
+    {
+      "type": "text",
+      "text": "📊 Monitoramento Contínuo",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1.3rem",
+        "textColor": "#1f2937",
+        "padding": "1rem",
+        "margin": "0.5rem 0",
+        "backgroundColor": "#f9fafb",
+        "fontWeight": "600"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Seu médico acompanha sua evolução através de exames periódicos, ajustando o tratamento conforme necessário para garantir os melhores resultados.",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1rem",
+        "textColor": "#4b5563",
+        "padding": "0 1rem 1.5rem 1rem",
+        "margin": "0",
+        "backgroundColor": "#f9fafb"
+      }
+    },
+    {
+      "type": "text",
+      "text": "💊 Prescrição Segura e Eficaz",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1.3rem",
+        "textColor": "#1f2937",
+        "padding": "1rem",
+        "margin": "0.5rem 0",
+        "backgroundColor": "#f9fafb",
+        "fontWeight": "600"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Apenas um médico pode prescrever medicações adequadas ao seu perfil, considerando suas condições de saúde, histórico médico e possíveis interações medicamentosas.",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1rem",
+        "textColor": "#4b5563",
+        "padding": "0 1rem 1.5rem 1rem",
+        "margin": "0",
+        "backgroundColor": "#f9fafb"
+      }
+    },
+    {
+      "type": "text",
+      "text": "🎯 Plano Personalizado",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1.3rem",
+        "textColor": "#1f2937",
+        "padding": "1rem",
+        "margin": "0.5rem 0",
+        "backgroundColor": "#f9fafb",
+        "fontWeight": "600"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Cada pessoa é única. Seu médico desenvolve um plano de tratamento personalizado que considera suas necessidades específicas, objetivos e estilo de vida.",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1rem",
+        "textColor": "#4b5563",
+        "padding": "0 1rem 1.5rem 1rem",
+        "margin": "0",
+        "backgroundColor": "#f9fafb"
+      }
+    },
+    {
+      "type": "text",
+      "text": "🛡️ Prevenção de Complicações",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1.3rem",
+        "textColor": "#1f2937",
+        "padding": "1rem",
+        "margin": "0.5rem 0",
+        "backgroundColor": "#f9fafb",
+        "fontWeight": "600"
+      }
+    },
+    {
+      "type": "text",
+      "text": "O acompanhamento médico regular ajuda a prevenir e tratar precocemente possíveis complicações, garantindo sua segurança e bem-estar durante todo o tratamento.",
+      "style": {
+        "textAlign": "left",
+        "fontSize": "1rem",
+        "textColor": "#4b5563",
+        "padding": "0 1rem 1.5rem 1rem",
+        "margin": "0",
+        "backgroundColor": "#f9fafb"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "heading",
+      "heading": "O Que Esperar do Seu Médico",
+      "level": 2,
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.8rem",
+        "textColor": "#047857",
+        "margin": "2rem 0 1rem 0"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Um médico especializado em tratamento da obesidade oferece:",
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.1rem",
+        "textColor": "#374151",
+        "padding": "1rem",
+        "margin": "1rem 0"
+      }
+    },
+    {
+      "type": "list",
+      "items": [
+        "Consulta inicial detalhada com avaliação completa do seu histórico",
+        "Solicitação e análise de exames laboratoriais necessários",
+        "Prescrição de medicação adequada com esquema de doses personalizado",
+        "Acompanhamento semanal ou conforme necessário",
+        "Ajustes no tratamento baseados na sua resposta individual",
+        "Orientação sobre alimentação, exercícios e mudanças de estilo de vida",
+        "Suporte e motivação para manter a adesão ao tratamento",
+        "Monitoramento de resultados e celebração de conquistas"
+      ],
+      "style": {
+        "padding": "1.5rem 2rem",
+        "margin": "1rem 0",
+        "backgroundColor": "#ffffff",
+        "textColor": "#1f2937",
+        "fontSize": "1rem",
+        "lineHeight": "1.8",
+        "borderLeft": "4px solid #10b981"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "heading",
+      "heading": "Resultados com Acompanhamento Médico",
+      "level": 2,
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.8rem",
+        "textColor": "#047857",
+        "margin": "2rem 0 1rem 0"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Estudos científicos demonstram que pacientes com acompanhamento médico regular apresentam:",
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.1rem",
+        "textColor": "#374151",
+        "padding": "1rem",
+        "margin": "1rem 0",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "type": "list",
+      "items": [
+        "Maior perda de peso e manutenção dos resultados",
+        "Melhor adesão ao tratamento medicamentoso",
+        "Redução significativa de complicações e efeitos colaterais",
+        "Melhora nos parâmetros metabólicos (glicemia, colesterol, pressão arterial)",
+        "Maior satisfação e qualidade de vida",
+        "Sucesso a longo prazo na manutenção do peso"
+      ],
+      "style": {
+        "padding": "1.5rem 2rem",
+        "margin": "1rem 0",
+        "backgroundColor": "#ecfdf5",
+        "textColor": "#065f46",
+        "fontSize": "1.1rem",
+        "lineHeight": "2"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "heading",
+      "heading": "Seu Médico é Seu Parceiro Nesta Jornada",
+      "level": 2,
+      "style": {
+        "textAlign": "center",
+        "fontSize": "2rem",
+        "textColor": "#059669",
+        "margin": "2rem 0 1rem 0",
+        "padding": "1rem",
+        "backgroundColor": "#f0fdf4"
+      }
+    },
+    {
+      "type": "text",
+      "text": "O tratamento da obesidade não é uma corrida, é uma maratona. Ter um médico ao seu lado garante que você tenha o suporte necessário em cada etapa, desde o início até a manutenção dos resultados alcançados.",
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.2rem",
+        "textColor": "#1f2937",
+        "padding": "2rem",
+        "margin": "1rem 0",
+        "backgroundColor": "#ffffff",
+        "lineHeight": "1.8"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Não perca tempo. Encontre um médico especializado e inicie seu tratamento com segurança e acompanhamento profissional.",
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1.1rem",
+        "textColor": "#374151",
+        "padding": "1.5rem",
+        "margin": "1rem 0",
+        "fontWeight": "600"
+      }
+    },
+    {
+      "type": "button",
+      "buttonText": "Encontrar um Médico Agora",
+      "buttonLink": "/meta?activeMenu=medicos",
+      "buttonStyle": "primary",
+      "style": {
+        "textAlign": "center",
+        "margin": "2rem 0",
+        "padding": "1rem"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "text",
+      "text": "💡 Lembre-se: O sucesso do tratamento depende da combinação de medicação adequada, mudanças no estilo de vida e acompanhamento médico regular. Seu médico está aqui para te ajudar em cada passo desta jornada.",
+      "style": {
+        "textAlign": "center",
+        "fontSize": "1rem",
+        "textColor": "#6b7280",
+        "padding": "2rem",
+        "margin": "1rem 0",
+        "backgroundColor": "#f9fafb",
+        "fontStyle": "italic",
+        "lineHeight": "1.8"
+      }
+    }
+  ],
+  "styles": {
+    "backgroundColor": "#ffffff",
+    "textColor": "#1f2937",
+    "maxWidth": "900px",
+    "fontFamily": "system-ui, -apple-system, sans-serif"
+  }
+}

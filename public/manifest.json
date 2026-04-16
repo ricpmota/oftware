@@ -1,6 +1,6 @@
 {
-  "name": "Oftware - Sistema de Automação Médica",
-  "short_name": "Oftware",
+  "name": "Método",
+  "short_name": "Método",
   "description": "Sistema completo de monitoramento",
   "start_url": "/",
   "display": "standalone",
@@ -13,21 +13,21 @@
   "categories": ["medical", "productivity", "health"],
   "icons": [
     {
-      "src": "/icones/oftware.png",
+      "src": "/icones/metodo-simbolo-pwa.jpg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "/icones/oftware.png",
+      "src": "/icones/metodo-simbolo-pwa.jpg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "/icones/oftware.png",
+      "src": "/icones/metodo-simbolo-pwa.jpg",
       "sizes": "180x180",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "apple touch"
     }
   ],

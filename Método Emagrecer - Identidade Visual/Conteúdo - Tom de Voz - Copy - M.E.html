@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Posts Instagram — Método Emagrecer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep-blue: #0A1F44;
+    --vital-green: #4CCB7A;
+    --data-blue: #2F8FA3;
+    --neutral: #E8EDED;
+    --bg: #f0f2f4;
+    --card-bg: #ffffff;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --border: rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 32px 24px; }
+
+  .page-header { margin-bottom: 32px; }
+  .page-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(10,31,68,0.06); border: 1px solid rgba(10,31,68,0.12);
+    border-radius: 100px; padding: 5px 14px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--deep-blue);
+    margin-bottom: 12px;
+  }
+  .page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--deep-blue); }
+  .page-title span { color: var(--data-blue); }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 28px; }
+
+  .post-card { background: var(--card-bg); border-radius: 18px; overflow: hidden; border: 1px solid var(--border); }
+
+  /* Visuals */
+  .visual {
+    width: 100%; aspect-ratio: 1/1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 28px; position: relative; overflow: hidden;
+  }
+  .v1 { background: #0A1F44; }
+  .v2 { background: #0d1e3a; }
+  .v3 { background: #f5f7f7; }
+  .v4 { background: #0A1F44; }
+  .v5 { background: #0a1f15; }
+  .v6 { background: #eef2f2; }
+
+  .post-num {
+    position: absolute; top: 14px; left: 16px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    padding: 3px 9px; border-radius: 100px;
+  }
+  .nl { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+  .nd { background: rgba(10,31,68,0.09); color: rgba(10,31,68,0.4); }
+
+  .vtag {
+    position: absolute; top: 14px; right: 16px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 3px 10px; border-radius: 100px;
+  }
+  .tg { background: rgba(76,203,122,0.15); color: #3db869; }
+  .tb { background: rgba(47,143,163,0.18); color: #2F8FA3; }
+  .tw { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+
+  .big { font-size: 22px; font-weight: 800; line-height: 1.2; text-align: center; letter-spacing: -0.02em; }
+  .bl { color: #fff; }
+  .bd { color: #0A1F44; }
+  .g { color: #4CCB7A; }
+  .b { color: #2F8FA3; }
+  .bar { width: 32px; height: 3px; border-radius: 2px; margin: 14px auto 0; }
+  .bg { background: #4CCB7A; }
+  .bb { background: #2F8FA3; }
+
+  /* Logo shield */
+  .shield-icon { margin-bottom: 16px; }
+
+  /* List items */
+  .list-wrap { width: 100%; margin-top: 4px; }
+  .li {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 7px 0; border-bottom: 0.5px solid rgba(255,255,255,0.07);
+  }
+  .li:last-child { border-bottom: none; }
+  .ck {
+    width: 17px; height: 17px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; margin-top: 1px;
+  }
+  .ck-yes { background: #4CCB7A; }
+  .ck-no { background: rgba(255,255,255,0.08); }
+  .li-text { font-size: 12px; font-weight: 500; line-height: 1.4; color: rgba(255,255,255,0.85); }
+  .li-text-muted { color: rgba(255,255,255,0.35); }
+
+  /* VS comparativo */
+  .vs-title { font-size: 15px; font-weight: 800; color: #0A1F44; text-align: center; margin-bottom: 14px; letter-spacing: -0.01em; }
+  .li-d { border-bottom: 0.5px solid rgba(10,31,68,0.07); }
+  .li-d:last-child { border-bottom: none; }
+  .ck-d { background: #4CCB7A; }
+  .li-text-d { color: #0A1F44; font-size: 12px; font-weight: 500; line-height: 1.4; }
+
+  /* Quote */
+  .q-mark { font-size: 72px; font-weight: 800; line-height: 0.7; color: rgba(255,255,255,0.06); margin-bottom: 4px; }
+  .byline { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-top: 12px; }
+
+  /* Progress */
+  .prog-title { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.45); margin-bottom: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .prog-wrap { width: 100%; }
+  .prog-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .prog-label { font-size: 11px; color: rgba(255,255,255,0.5); font-weight: 500; width: 90px; flex-shrink: 0; }
+  .prog-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 4px; border-radius: 2px; }
+  .pf-g { background: #4CCB7A; }
+  .pf-b { background: #2F8FA3; }
+  .pf-r { background: rgba(255,80,80,0.4); }
+  .prog-pct { font-size: 10px; font-weight: 700; width: 26px; text-align: right; }
+  .pct-g { color: rgba(76,203,122,0.7); }
+  .pct-r { color: rgba(255,80,80,0.4); }
+
+  /* Pills */
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 14px; }
+  .pill { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 10px; border-radius: 100px; border: 1px solid; }
+  .pg { background: rgba(76,203,122,0.1); border-color: rgba(76,203,122,0.3); color: #4CCB7A; }
+  .pb { background: rgba(47,143,163,0.1); border-color: rgba(47,143,163,0.3); color: #2F8FA3; }
+
+  /* Caption */
+  .caption { padding: 16px 18px 20px; }
+  .cap-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: #0A1F44; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; color: #4CCB7A; flex-shrink: 0; }
+  .handle { font-size: 12px; font-weight: 700; color: var(--text); }
+  .cap-text { font-size: 13px; line-height: 1.7; color: #333; }
+  .cap-text strong { font-weight: 700; color: var(--deep-blue); }
+  .hashtags { margin-top: 8px; font-size: 11px; color: #2F8FA3; line-height: 1.7; }
+  hr.div { border: none; border-top: 1px solid var(--border); }
+
+  /* Tone notes */
+  .tone-section { margin-top: 48px; }
+  .tone-title { font-size: 14px; font-weight: 800; color: var(--deep-blue); margin-bottom: 16px; letter-spacing: -0.01em; }
+  .tone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .tone-card {
+    background: white; border-radius: 12px; padding: 16px;
+    border: 1px solid var(--border);
+  }
+  .tone-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .tone-desc { font-size: 12px; line-height: 1.55; color: var(--muted); }
+  .tc-g { color: #3db869; }
+  .tc-b { color: #2F8FA3; }
+  .tc-r { color: #e05252; }
+  .tc-d { color: #0A1F44; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-badge">Instagram · Feed Posts</div>
+  <h1 class="page-title">Tom de Voz · <span>Método Emagrecer</span></h1>
+  <p class="page-sub">6 exemplos de conteúdo para feed — calibrados ao posicionamento e identidade verbal da marca.</p>
+</div>
+
+<div class="grid">
+
+  <!-- POST 1 -->
+  <div class="post-card">
+    <div class="visual v1">
+      <span class="post-num nl">01</span>
+      <span class="vtag tg">Posicionamento</span>
+      <svg class="shield-icon" width="38" height="38" viewBox="0 0 38 38" fill="none">
+        <path d="M19 4L7 9.5v11c0 7.5 5.5 14.5 12 16 6.5-1.5 12-8.5 12-16v-11L19 4z" stroke="#4CCB7A" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+        <path d="M13 19l4 4 8-8" stroke="#4CCB7A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <p class="big bl">Emagrecer não é<br><span class="g">sobre tentar mais.</span><br>É sobre fazer<br>do jeito certo.</p>
+      <div class="bar bg"></div>
+    </div>
+    <hr class="div"/>
+    <div class="caption">
+      <div class="cap-head"><div class="avatar">ME</div><span class="handle">metodoeamagrecer</span></div>
+      <p class="cap-text">A maioria das pessoas que não consegue emagrecer não tem falta de esforço. <strong>Tem falta de processo.</strong><br><br>Motivação oscila. Método não.<br><br>Quando você substitui tentativa por protocolo — e improviso por monitoramento contínuo — o resultado deixa de ser sorte.</p>
+      <p class="hashtags">#MetodoEmagrecer #Emagrecimento #SaudeComMetodo #EmagrecimentoSaudavel</p>
+    </div>
+  </div>
+
+  <!-- POST 2 -->
+  <div class="post-card">
+    <div class="visual v2">
+      <span class="post-num nl">02</span>
+      <span class="vtag tb">Educativo</span>
+      <p class="big bl" style="font-size:16px;margin-bottom:16px;">Por que a maioria falha?</p>
+      <div class="list-wrap">
+        <div class="li">
+          <div class="ck ck-no">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <span class="li-text li-text-muted">Depende de motivação</span>
+        </div>
+        <div class="li">
+          <div class="ck ck-no">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <span class="li-text li-text-muted">Sem acompanhamento real</span>
+        </div>
+        <div class="li">
+          <div class="ck ck-no">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <span class="li-text li-text-muted">Decisões por tentativa</span>
+        </div>
+        <div class="li" style="border-bottom:none;margin-top:6px;">
+          <div class="ck ck-yes">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="#0A1F44" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="li-text"><strong style="color:#4CCB7A;">Método Emagrecer</strong> elimina isso.</span>
+        </div>
+      </div>
+    </div>
+    <hr class="div"/>
+    <div class="caption">
+      <div class="cap-head"><div class="avatar">ME</div><span class="handle">metodoeamagrecer</span></div>
+      <p class="cap-text">Não é falta de disciplina. É falta de estrutura.<br><br>O corpo responde quando o processo é organizado, monitorado e conduzido por profissionais. <strong>Não quando você tenta mais uma vez sozinho.</strong><br><br>É isso que o Método entrega: um sistema. Não uma promessa.</p>
+      <p class="hashtags">#EmagrecimentoInteligente #AcompanhamentoMedico #MetodoEmagrecer</p>
+    </div>
+  </div>
+
+  <!-- POST 3 -->
+  <div class="post-card">
+    <div class="visual v3">
+      <span class="post-num nd">03</span>
+      <span class="vtag tb">Comparativo</span>
+      <p class="vs-title">Perda de peso <span style="color:#2F8FA3;">vs</span> Emagrecimento</p>
+      <div class="list-wrap">
+        <div class="li li-d">
+          <div class="ck ck-d">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="#0A1F44" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="li-text-d">Protocolo estruturado</span>
+        </div>
+        <div class="li li-d">
+          <div class="ck ck-d">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="#0A1F44" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="li-text-d">Monitoramento contínuo</span>
+        </div>
+        <div class="li li-d" style="border-bottom:none;">
+          <div class="ck ck-d">
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="#0A1F44" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="li-text-d">Resultado sustentável</span>
+        </div>
+      </div>
+      <div class="bar bb"></div>
+      <p style="font-size:11px;color:rgba(10,31,68,0.45);margin-top:10px;font-weight:500;text-align:center;">Só o emagrecimento real entrega os três.</p>
+    </div>
+    <hr class="div"/>
+    <div class="caption">
+      <div class="cap-head"><div class="avatar">ME</div><span class="handle">metodoeamagrecer</span></div>
+      <p class="cap-text"><strong>Perder peso qualquer dieta faz.</strong> Emagrecer de verdade é diferente.<br><br>Emagrecimento real envolve equilíbrio metabólico, acompanhamento profissional e um processo sustentável a longo prazo — não algo que você recupera em 3 meses.<br><br>Essa diferença importa. É exatamente ela que o Método trabalha.</p>
+      <p class="hashtags">#EmagrecimentoReal #SaudeMetabolica #MetodoEmagrecer #Saude</p>
+    </div>
+  </div>
+
+  <!-- POST 4 -->
+  <div class="post-card">
+    <div class="visual v4">
+      <span class="post-num nl">04</span>
+      <span class="vtag tw">Manifesto</span>
+      <div class="q-mark">"</div>
+      <p class="big bl" style="font-size:19px;line-height:1.3;">Saúde não é sorte.<br>Não é impulso.<br>Não é tentativa.<br><span class="g">É método.</span></p>
+      <div class="bar bg"></div>
+      <p class="byline">Método Emagrecer</p>
+    </div>
+    <hr class="div"/>
+    <div class="caption">
+      <div class="cap-head"><div class="avatar">ME</div><span class="handle">metodoeamagrecer</span></div>
+      <p class="cap-text">Enquanto muitos oferecem atalhos, nós construímos processos.<br><br>Não acreditamos em resultados sem estrutura. Não tratamos a saúde como experimento.<br><br><strong>Cada etapa tem propósito. Cada resultado é construído, não improvisado.</strong></p>
+      <p class="hashtags">#Manifesto #MetodoEmagrecer #EmagrecimentoComCiencia #Saude</p>
+    </div>
+  </div>
+
+  <!-- POST 5 -->
+  <div class="post-card">
+    <div class="visual v5">
+      <span class="post-num nl">05</span>
+      <span class="vtag tg">Produto</span>
+      <p class="prog-title">O que o método entrega</p>
+      <div class="prog-wrap">
+        <div class="prog-row">
+          <span class="prog-label">Protocolo médico</span>
+          <div class="prog-bg"><div class="prog-fill pf-g" style="width:100%"></div></div>
+          <span class="prog-pct pct-g">100%</span>
+        </div>
+        <div class="prog-row">
+          <span class="prog-label">Nutrição guiada</span>
+          <div class="prog-bg"><div class="prog-fill pf-g" style="width:100%"></div></div>
+          <span class="prog-pct pct-g">100%</span>
+        </div>
+        <div class="prog-row">
+          <span class="prog-label">Monitoramento</span>
+          <div class="prog-bg"><div class="prog-fill pf-b" style="width:100%"></div></div>
+          <span class="prog-pct pct-g">100%</span>
+        </div>
+        <div class="prog-row">
+          <span class="prog-label">Tecnologia</span>
+          <div class="prog-bg"><div class="prog-fill pf-b" style="width:100%"></div></div>
+          <span class="prog-pct pct-g">100%</span>
+        </div>
+        <div class="prog-row" style="margin-bottom:0">
+          <span class="prog-label">Improviso</span>
+          <div class="prog-bg"><div class="prog-fill pf-r" style="width:0%"></div></div>
+          <span class="prog-pct pct-r">0%</span>
+        </div>
+      </div>
+    </div>
+    <hr class="div"/>
+    <div class="caption">
+      <div class="cap-head"><div class="avatar">ME</div><span class="handle">metodoeamagrecer</span></div>
+      <p class="cap-text">Protocolo médico: sim. Nutrição orientada: sim. Monitoramento contínuo: sim. Tecnologia de acompanhamento: sim.<br><br><strong>Promessa sem sustentação: zero.</strong><br><br>Esse é o pacote. Completo, estruturado e orientado por ciência — do início ao resultado sustentável.</p>
+      <p class="hashtags">#ProtocoloMedico #EmagrecimentoEstruturado #MetodoEmagrecer #Nutricao</p>
+    </div>
+  </div>
+
+  <!-- POST 6 -->
+  <div class="post-card">
+    <div class="visual v6">
+      <span class="post-num nd">06</span>
+      <span class="vtag tb">Território</span>
+      <p class="big bd" style="font-size:19px;margin-bottom:8px;">Não vendemos<br><span class="b">dieta.</span><br>Não vendemos<br><span class="b">treino.</span></p>
+      <div class="bar bb"></div>
+      <p style="font-size:12px;color:rgba(10,31,68,0.5);margin-top:12px;text-align:center;font-weight:500;line-height:1.5;">Entregamos um sistema<br>de condução do paciente.</p>
+      <div class="pills">
+        <span class="pill pb">Protocolo</span>
+        <span class="pill pg">Acompanhamento</span>
+        <span class="pill pb">Monitoramento</span>
+      </div>
+    </div>
+    <hr class="div"/>
+    <div class="caption">
+      <div class="cap-head"><div class="avatar">ME</div><span class="handle">metodoeamagrecer</span></div>
+      <p class="cap-text">Sabe a diferença entre comprar uma consulta e entrar num sistema?<br><br>No Método Emagrecer você não recebe uma receita e vai embora. Você entra em um processo com começo, meio e acompanhamento contínuo. <strong>Com um time que conduz cada etapa.</strong><br><br>É assim que resultado se sustenta.</p>
+      <p class="hashtags">#SistemaDeEmagrecimento #AcompanhamentoMedico #MetodoEmagrecer #Resultado</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOM DE VOZ -->
+<div class="tone-section">
+  <p class="tone-title">Princípios de Tom de Voz aplicados nesses posts</p>
+  <div class="tone-grid">
+    <div class="tone-card">
+      <p class="tone-label tc-d">Direto e sem rodeios</p>
+      <p class="tone-desc">A marca fala curto e assertivo. Frases secas com impacto. Nunca explicações longas no visual.</p>
+    </div>
+    <div class="tone-card">
+      <p class="tone-label tc-g">Anti-promessa</p>
+      <p class="tone-desc">Zero frases como "emagreça rápido" ou "resultado garantido". O tom é honesto e baseado em processo.</p>
+    </div>
+    <div class="tone-card">
+      <p class="tone-label tc-b">Técnico mas acessível</p>
+      <p class="tone-desc">Usa termos como "protocolo" e "monitoramento" sem jargão médico pesado. Confiante, não distante.</p>
+    </div>
+    <div class="tone-card">
+      <p class="tone-label tc-r">O que evitar</p>
+      <p class="tone-desc">Motivacional vazio, exclamações em excesso, antes/depois sem contexto, linguagem de dieta rápida.</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

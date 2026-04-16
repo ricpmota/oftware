@@ -1,11 +1,9 @@
-// Service Worker para UNAGI PWA
-const CACHE_NAME = 'oftware-v1.0.0';
-const STATIC_CACHE = 'oftware-static-v1.0.0';
-const DYNAMIC_CACHE = 'oftware-dynamic-v1.0.0';
+// Service Worker — escopo mínimo: ícones/manifest offline; app não interceptada (evita HTML/JS antigo)
+const STATIC_CACHE = 'oftware-static-v1.0.5';
+const DYNAMIC_CACHE = 'oftware-dynamic-v1.0.5';
 
-// Recursos estáticos para cache
 const STATIC_ASSETS = [
-  '/',
+  '/icones/metodo-simbolo-pwa.jpg',
   '/icones/oftware.png',
   '/icones/greens.png',
   '/icones/catarata.png',
@@ -23,18 +21,15 @@ const STATIC_ASSETS = [
   '/icones/plastica.png',
   '/icones/uveite.png',
   '/manifest.json',
-  '/favicon.ico'
+  '/favicon.ico',
 ];
 
-// Estratégias de cache
 const cacheStrategies = {
-  // Cache primeiro para recursos estáticos
   staticFirst: async (request) => {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
     }
-    
     try {
       const networkResponse = await fetch(request);
       if (networkResponse.ok) {
@@ -42,21 +37,21 @@ const cacheStrategies = {
         cache.put(request, networkResponse.clone());
       }
       return networkResponse;
-    } catch (error) {
+    } catch (_error) {
       return new Response('Offline', { status: 503 });
     }
   },
 
-  // Network primeiro para dados dinâmicos
-  networkFirst: async (request) => {
+  /** Rede primeiro sem cache HTTP do browser (evita página antiga até dar hard refresh) */
+  networkFirstNoHttpCache: async (request) => {
     try {
-      const networkResponse = await fetch(request);
+      const networkResponse = await fetch(request, { cache: 'no-store' });
       if (networkResponse.ok) {
         const cache = await caches.open(DYNAMIC_CACHE);
         cache.put(request, networkResponse.clone());
       }
       return networkResponse;
-    } catch (error) {
+    } catch (_error) {
       const cachedResponse = await caches.match(request);
       if (cachedResponse) {
         return cachedResponse;
@@ -64,103 +59,85 @@ const cacheStrategies = {
       return new Response('Offline', { status: 503 });
     }
   },
-
-  // Stale while revalidate para recursos que mudam pouco
-  staleWhileRevalidate: async (request) => {
-    const cachedResponse = await caches.match(request);
-    
-    const fetchPromise = fetch(request).then(async (networkResponse) => {
-      if (networkResponse.ok) {
-        const cache = await caches.open(DYNAMIC_CACHE);
-        cache.put(request, networkResponse.clone());
-      }
-      return networkResponse;
-    }).catch(() => cachedResponse);
-
-    return cachedResponse || fetchPromise;
-  }
 };
 
-// Instalação do Service Worker
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => {
-      console.log('Cache estático aberto');
-      return cache.addAll(STATIC_ASSETS);
-    }).then(() => {
-      console.log('Recursos estáticos em cache');
-      return self.skipWaiting();
-    })
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Ativação do Service Worker
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-            console.log('Removendo cache antigo:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      console.log('Service Worker ativado');
-      return self.clients.claim();
-    })
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+              return caches.delete(cacheName);
+            }
+          })
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
-// Interceptação de requisições
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Pular requisições não-GET
   if (request.method !== 'GET') {
     return;
   }
 
-  // Pular requisições para APIs externas
-  if (url.hostname !== location.hostname) {
+  if (url.hostname !== self.location.hostname) {
     return;
   }
 
-  // Estratégia baseada no tipo de recurso
+  // Navegação: browser busca o documento sem SW (sem cache HTTP envelhecido via respondWith)
+  if (request.mode === 'navigate') {
+    return;
+  }
+
+  // Bundles RSC/chunks Next: não interceptar — stale-while-revalidate servia JS antigo na hora
+  if (url.pathname.startsWith('/_next/')) {
+    return;
+  }
+
   if (STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(cacheStrategies.staticFirst(request));
   } else if (url.pathname.startsWith('/api/')) {
-    event.respondWith(cacheStrategies.networkFirst(request));
-  } else if (url.pathname.startsWith('/_next/')) {
-    event.respondWith(cacheStrategies.staleWhileRevalidate(request));
+    event.respondWith(cacheStrategies.networkFirstNoHttpCache(request));
   } else {
-    event.respondWith(cacheStrategies.networkFirst(request));
+    event.respondWith(cacheStrategies.networkFirstNoHttpCache(request));
   }
 });
 
-// Limpeza periódica de cache
 self.addEventListener('message', (event) => {
   if (event.data === 'cleanup') {
     event.waitUntil(
-      caches.open(DYNAMIC_CACHE).then((cache) => {
-        return cache.keys().then((requests) => {
-          const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 dias
+      caches.open(DYNAMIC_CACHE).then((cache) =>
+        cache.keys().then((requests) => {
+          const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
           return Promise.all(
-            requests.map((request) => {
-              return cache.match(request).then((response) => {
+            requests.map((request) =>
+              cache.match(request).then((response) => {
                 if (response && response.headers.get('date')) {
                   const date = new Date(response.headers.get('date'));
                   if (date.getTime() < cutoff) {
                     return cache.delete(request);
                   }
                 }
-              });
-            })
+              })
+            )
           );
-        });
-      })
+        })
+      )
     );
   }
-}); 
+});

@@ -1,0 +1,86 @@
+╔════════════════════════════════════════════════════════════════════╗
+║                    RESUMO FINAL - COPIAR ARQUIVOS                  ║
+╚════════════════════════════════════════════════════════════════════╝
+
+✅ TODOS OS ARQUIVOS NECESSÁRIOS JÁ EXISTEM NO PROJETO!
+
+╔════════════════════════════════════════════════════════════════════╗
+║  PASSO 1: COPIAR APENAS 2 ARQUIVOS                                ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Copie estes 2 arquivos:
+
+  1. app\cenoft\page.tsx  →  app\meta\page.tsx
+  2. app\admin\page.tsx   →  app\metaadmin\page.tsx
+
+╔════════════════════════════════════════════════════════════════════╗
+║  PASSO 2: VERIFICAR COMPONENTES                                   ║
+╚════════════════════════════════════════════════════════════════════╝
+
+✅ JÁ EXISTEM:
+  ✓ components\EditEscalaForm.tsx
+  ✓ components\EditLocalForm.tsx
+  ✓ components\EditModal.tsx
+  ✓ components\EditResidenteForm.tsx
+  ✓ components\EditServicoForm.tsx
+  ✓ components\FeriasCalendar.tsx
+
+╔════════════════════════════════════════════════════════════════════╗
+║  PASSO 3: VERIFICAR TIPOS                                         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+✅ JÁ EXISTEM:
+  ✓ types\auth.ts
+  ✓ types\troca.ts
+  ✓ types\ferias.ts
+  ✓ types\mensagem.ts
+
+╔════════════════════════════════════════════════════════════════════╗
+║  PASSO 4: VERIFICAR SERVIÇOS                                      ║
+╚════════════════════════════════════════════════════════════════════╝
+
+✅ JÁ EXISTEM:
+  ✓ services\userService.ts
+  ✓ services\mensagemService.ts
+
+╔════════════════════════════════════════════════════════════════════╗
+║  PASSO 5: VERIFICAR FIREBASE                                      ║
+╚════════════════════════════════════════════════════════════════════╝
+
+✅ JÁ EXISTE:
+  ✓ lib\firebase.ts
+
+╔════════════════════════════════════════════════════════════════════╗
+║  COMANDOS PARA EXECUTAR                                           ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Execute no PowerShell:
+
+# Criar pastas
+mkdir app\meta
+mkdir app\metaadmin
+
+# Copiar arquivos
+copy app\cenoft\page.tsx app\meta\page.tsx
+copy app\admin\page.tsx app\metaadmin\page.tsx
+
+# PRONTO! Teste as rotas /meta e /metaadmin no navegador
+
+╔════════════════════════════════════════════════════════════════════╗
+║  OBSERVAÇÕES IMPORTANTES                                          ║
+╚════════════════════════════════════════════════════════════════════╝
+
+⚠️  Após copiar, você pode querer:
+  1. Mudar "CENOFT" para "META" no sidebar
+  2. Ajustar permissões/roles se necessário
+  3. Modificar cores/temas se desejar
+
+⚠️  Verificar:
+  - Firebase está configurado (.env.local)
+  - Firestore rules permitem acesso
+  - Dependências instaladas (npm install)
+
+╔════════════════════════════════════════════════════════════════════╗
+║  FIM                                                               ║
+╚════════════════════════════════════════════════════════════════════╝
+

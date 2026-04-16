@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, Timestamp, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PacienteCompleto } from '@/types/obesidade';
+import ChatNutriPanel from '@/components/ChatNutriPanel';
 import { 
   UtensilsCrossed, Calendar, AlertCircle, CheckCircle, XCircle, 
   Droplet, Apple, Activity, Target, Clock, Moon, Coffee, 
@@ -179,6 +180,13 @@ interface WizardData {
 interface NutriContentProps {
   paciente: PacienteCompleto;
   setPaciente?: (paciente: PacienteCompleto) => void;
+  /** Painel Nutri (MetaNutri / meta modo nutricionista): exibe todas as abas incluindo ChatNutri */
+  modoNutricionista?: boolean;
+  /** Somente o chat (ex.: aba Nutrição no MetaPersonal, modal MetaAdmin) — não exige plano carregado */
+  onlyChatNutri?: boolean;
+  /** YYYY-MM-DD — contexto do dia para o pipeline ChatNutri (totais/refeições) */
+  chatNutriDataSelecionada?: string;
+  onChatNutriDataChange?: (dateKey: string) => void;
 }
 
 // ============================================
@@ -681,9 +689,17 @@ const gerarOpcoesRefeicoes = (
 // COMPONENTE PRINCIPAL
 // ============================================
 
-export default function NutriContent({ paciente, setPaciente }: NutriContentProps) {
+export default function NutriContent({
+  paciente,
+  setPaciente,
+  onlyChatNutri = false,
+  chatNutriDataSelecionada,
+  onChatNutriDataChange,
+}: NutriContentProps) {
   const [view, setView] = useState<'loading' | 'wizard' | 'plano' | 'checkin'>('loading');
-  const [activeTab, setActiveTab] = useState<'plano' | 'proteinas' | 'cardapio' | 'alertas' | 'historico'>('plano');
+  const [activeTab, setActiveTab] = useState<
+    'plano' | 'proteinas' | 'cardapio' | 'alertas' | 'historico' | 'chatnutri'
+  >('plano');
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardData>({
     objetivoPrincipal: 'perda_peso',
@@ -769,6 +785,11 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     // Inicializar com data de hoje (YYYY-MM-DD)
     return new Date().toISOString().split('T')[0];
   });
+  const [internalChatNutriDate, setInternalChatNutriDate] = useState<string>(() => {
+    const fromProp = chatNutriDataSelecionada?.trim();
+    if (fromProp) return fromProp;
+    return new Date().toISOString().split('T')[0];
+  });
   const [isEditandoCheckIn, setIsEditandoCheckIn] = useState(false);
   
   // Estados para modal de edição de refeição
@@ -794,6 +815,20 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   // ============================================
   // CARREGAMENTO DE DADOS
   // ============================================
+
+  useEffect(() => {
+    if (chatNutriDataSelecionada?.trim()) {
+      setInternalChatNutriDate(chatNutriDataSelecionada.trim());
+    }
+  }, [chatNutriDataSelecionada]);
+
+  const chatNutriDateKey =
+    chatNutriDataSelecionada?.trim() || internalChatNutriDate;
+
+  const handleChatNutriDateInput = (dateKey: string) => {
+    setInternalChatNutriDate(dateKey);
+    onChatNutriDataChange?.(dateKey);
+  };
 
   // Carregar check-ins quando a aba Histórico for selecionada
   useEffect(() => {
@@ -883,6 +918,8 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   }, [itensSelecionadosRefeicao, refeicaoEmEdicao, configuracaoBuilder]);
 
   useEffect(() => {
+    if (onlyChatNutri) return;
+
     const loadPlano = async () => {
       try {
         const planoRef = doc(db, 'pacientes_completos', paciente.id, 'nutricao', 'plano');
@@ -1013,7 +1050,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
     };
     
     loadPlano();
-  }, [paciente]);
+  }, [paciente, onlyChatNutri]);
 
   // ============================================
   // FUNÇÕES DE DADOS BÁSICOS
@@ -1809,8 +1846,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       });
       
       setCheckIns(checkInsData);
-      // Manter setCheckInHojeExiste para compatibilidade, mas não é mais usado na UI
-      setCheckInHojeExiste(hojeExiste);
+      // checkInHojeExiste não é mais necessário com a nova lógica de data
     } catch (error) {
       console.error('Erro ao carregar check-ins:', error);
     } finally {
@@ -2170,6 +2206,34 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
   // ============================================
   // RENDERIZAÇÃO
   // ============================================
+
+  if (onlyChatNutri && paciente?.id) {
+    return (
+      <div className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <label
+            htmlFor="nutri-only-chat-date"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Data do contexto (refeições e totais do dia)
+          </label>
+          <input
+            id="nutri-only-chat-date"
+            type="date"
+            value={chatNutriDateKey}
+            onChange={(e) => handleChatNutriDateInput(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white dark:bg-gray-900 dark:border-gray-600 dark:text-white max-w-xs"
+          />
+        </div>
+        <ChatNutriPanel
+          key={`chatnutri-only-${paciente.id}-${chatNutriDateKey}`}
+          patientId={paciente.id}
+          dateKey={chatNutriDateKey}
+          className="w-full max-w-full min-w-0"
+        />
+      </div>
+    );
+  }
 
   if (view === 'loading') {
     return (
@@ -3456,7 +3520,10 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Seu último peso registrado foi há mais de 7 dias ({pesoAtual ? `${pesoAtual.toFixed(1)} kg` : 'não disponível'}). Quer registrar seu peso hoje?
+                        Seu último peso registrado foi há mais de 7 dias ({(() => {
+                          const pesoAtual = obterPesoAtual();
+                          return pesoAtual ? `${pesoAtual.toFixed(1)} kg` : 'não disponível';
+                        })()}). Quer registrar seu peso hoje?
                       </label>
                       <input
                         type="number"
@@ -3605,10 +3672,10 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         {/* Navegação das Abas */}
         <div className="border-b border-gray-200">
-          <div className="flex">
+          <div className="grid grid-cols-3 md:grid-cols-6 w-full min-w-0">
             <button
               onClick={() => setActiveTab('plano')}
-              className={`flex-1 md:flex-none px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`w-full px-1 sm:px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap text-center ${
                 activeTab === 'plano'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -3618,7 +3685,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('proteinas')}
-              className={`flex-1 md:flex-none px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`w-full px-1 sm:px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap text-center ${
                 activeTab === 'proteinas'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -3628,7 +3695,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('cardapio')}
-              className={`flex-1 md:flex-none px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`w-full px-1 sm:px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap text-center ${
                 activeTab === 'cardapio'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -3638,7 +3705,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('alertas')}
-              className={`flex-1 md:flex-none px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`w-full px-1 sm:px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap text-center ${
                 activeTab === 'alertas'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -3648,7 +3715,7 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             </button>
             <button
               onClick={() => setActiveTab('historico')}
-              className={`flex-1 md:flex-none px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`w-full px-1 sm:px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap text-center ${
                 activeTab === 'historico'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
@@ -3656,11 +3723,21 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
             >
               Histórico
             </button>
+            <button
+              onClick={() => setActiveTab('chatnutri')}
+              className={`w-full px-1 sm:px-2 md:px-6 py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap text-center ${
+                activeTab === 'chatnutri'
+                  ? 'border-green-600 text-green-600 bg-green-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              }`}
+            >
+              ChatNutri
+            </button>
           </div>
         </div>
 
         {/* Conteúdo das Abas */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6 min-w-0 max-w-full overflow-x-hidden">
           {/* Aba: Plano Nutri */}
           {activeTab === 'plano' && (
             <div className="space-y-6">
@@ -4598,6 +4675,42 @@ export default function NutriContent({ paciente, setPaciente }: NutriContentProp
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Aba: ChatNutri */}
+          {activeTab === 'chatnutri' && (
+            <div className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+              <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-green-600" />
+                ChatNutri
+              </h2>
+              <p className="text-sm text-gray-600 mb-2">
+                Fotos de refeição e mensagens deste dia. Ajuste a data para ver outro dia.
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-end gap-4 mb-1">
+                <div className="min-w-0">
+                  <label
+                    htmlFor="nutri-aba-chat-date"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Data do contexto
+                  </label>
+                  <input
+                    id="nutri-aba-chat-date"
+                    type="date"
+                    value={chatNutriDateKey}
+                    onChange={(e) => handleChatNutriDateInput(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white w-full max-w-xs"
+                  />
+                </div>
+              </div>
+              <ChatNutriPanel
+                key={`chatnutri-${paciente.id}-${chatNutriDateKey}`}
+                patientId={paciente.id}
+                dateKey={chatNutriDateKey}
+                className="w-full max-w-full min-w-0"
+              />
             </div>
           )}
 

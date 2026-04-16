@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Pill, AlertTriangle, Target, Shield, UtensilsCrossed } from 'lucide-react';
+import { Users, Pill, AlertTriangle, Target, Shield, UtensilsCrossed, UserPlus } from 'lucide-react';
 
 // Interface para itens de FAQ
 export interface FAQItem {
@@ -9,6 +9,38 @@ export interface FAQItem {
 
 // FAQ - Plataforma (Paciente)
 export const faqPlatformClient: FAQItem[] = [
+  {
+    question: "Como funciona a plataforma?",
+    answer: "A Plataforma META é uma plataforma 100% gratuita e sem fins lucrativos que conecta pacientes e médicos especializados no tratamento de obesidade. Para usar, você precisa se cadastrar gratuitamente com sua conta Gmail. Após o cadastro, você pode buscar médicos na sua cidade, solicitar orçamentos, e se iniciar o tratamento, terá acesso a um acompanhamento completo: plano terapêutico, gráficos de evolução, exames laboratoriais, plano nutricional personalizado e comunicação direta com seu médico. A plataforma também possui um módulo de Encaminhamentos, onde você pode encaminhar outras pessoas que precisam de tratamento para médicos cadastrados. Tudo isso é totalmente gratuito - você não paga nada para usar a plataforma."
+  },
+  {
+    question: "A plataforma tem algum custo?",
+    answer: "Não! A plataforma é 100% gratuita para pacientes. Não há taxas, mensalidades ou qualquer custo para usar os recursos disponíveis. O único investimento é o tratamento em si, que é negociado diretamente com o médico escolhido. A plataforma serve apenas como uma ferramenta de conexão entre você e médicos qualificados."
+  },
+  {
+    question: "Como encontrar um médico?",
+    answer: "Após fazer login, acesse a área 'Buscar Médicos'. Você pode buscar por estado e cidade onde você mora. A plataforma mostrará uma lista de médicos cadastrados naquela localização. É muito importante verificar se o médico possui um ícone de verificação ✅ - isso significa que o médico foi verificado e validado pela plataforma. Sempre prefira médicos verificados para maior segurança e confiabilidade."
+  },
+  {
+    question: "O que significa médico verificado?",
+    answer: "Médicos verificados passaram por um processo de validação que confirma que são profissionais devidamente registrados e qualificados. Eles aparecem com um ícone de verificação ✅ ao lado do nome. A plataforma orienta todos os pacientes a preferirem médicos verificados ao escolher seu profissional de saúde. Isso garante mais segurança e confiabilidade no tratamento."
+  },
+  {
+    question: "Como solicitar um orçamento?",
+    answer: "Quando você encontrar um médico de sua escolha na busca, você pode solicitar um orçamento diretamente pela plataforma. É MUITO IMPORTANTE solicitar o orçamento ANTES de fechar qualquer tratamento. O médico receberá sua solicitação e entrará em contato com você (geralmente via WhatsApp). A negociação do tratamento, incluindo valores de consultas e medicamentos, acontece diretamente entre você e o médico fora da plataforma. A plataforma apenas facilita esse primeiro contato."
+  },
+  {
+    question: "O que acontece após eu escolher um médico?",
+    answer: "Após você e o médico entrarem em acordo e iniciarem o tratamento, o médico irá cadastrá-lo como paciente. Você então terá acesso completo à sua área na plataforma, incluindo: visualizar seu plano terapêutico (doses de Tirzepatida, calendário de aplicações), acompanhar sua evolução através de gráficos (peso, IMC, circunferência abdominal, HbA1c), ver seus exames laboratoriais com indicadores de normalidade, acessar seu plano nutricional personalizado, fazer check-ins diários, comunicar-se diretamente com seu médico através de mensagens, e ter acesso ao módulo de Encaminhamentos para ajudar outras pessoas."
+  },
+  {
+    question: "O que é o módulo de Encaminhamentos?",
+    answer: "O módulo de Encaminhamentos é uma ferramenta colaborativa e totalmente gratuita que permite que você encaminhe outras pessoas que também precisam de tratamento para médicos cadastrados na plataforma. Quando você conhece alguém que também precisa de cuidado médico, você pode encaminhá-la para um médico de sua confiança. É uma forma de expandir o acesso à saúde de forma colaborativa e sem fins lucrativos - não há comissões ou pagamentos envolvidos."
+  },
+  {
+    question: "Como a plataforma ajuda no meu tratamento?",
+    answer: "A plataforma oferece um acompanhamento completo do seu tratamento: você pode visualizar toda sua evolução em gráficos, receber alertas quando exames estão fora do normal, acessar seu plano nutricional personalizado, fazer check-ins diários para acompanhar sua aderência, comunicar-se facilmente com seu médico, e ter todos os seus dados organizados em um só lugar. Seu médico também tem acesso a essas informações e pode acompanhar sua evolução, ajustar seu tratamento quando necessário, e manter você sempre informado."
+  },
   {
     question: "Como acompanhar minha evolução?",
     answer: "Na área de Estatísticas, você pode visualizar gráficos mostrando sua evolução de peso, IMC, circunferência abdominal e outros indicadores ao longo do tempo. Na área de Evolução, você pode ver o histórico completo de todas as suas consultas e registros."
@@ -28,6 +60,34 @@ export const faqPlatformClient: FAQItem[] = [
   {
     question: "Como funciona a comunicação com meu médico?",
     answer: "Você pode enviar mensagens para seu médico através da área de Mensagens. Seu médico pode enviar lembretes, orientações e responder suas dúvidas. Todas as mensagens ficam registradas para consulta posterior."
+  }
+];
+
+// FAQ - Encaminhamentos
+export const faqEncaminhamentos: FAQItem[] = [
+  {
+    question: "Como funciona o módulo de Encaminhamentos?",
+    answer: "O módulo de Encaminhamentos permite que você encaminhe outras pessoas que também precisam de cuidado médico para médicos cadastrados na plataforma. É uma ferramenta colaborativa e totalmente gratuita, sem fins lucrativos, que facilita o acesso à saúde. Quando você conhece alguém que também precisa de tratamento, pode encaminhá-la para um médico de confiança através da plataforma."
+  },
+  {
+    question: "Como fazer um encaminhamento?",
+    answer: "Na aba 'Encaminhar', selecione o estado e a cidade onde a pessoa mora. Escolha o médico que receberá o encaminhamento da lista de médicos disponíveis naquela localização. Em seguida, preencha o nome e telefone da pessoa que você está encaminhando. Clique em 'Enviar Encaminhamento' e pronto! O médico será notificado e poderá entrar em contato com a pessoa encaminhada."
+  },
+  {
+    question: "O encaminhamento tem algum custo?",
+    answer: "Não! O sistema de encaminhamentos é totalmente gratuito e sem fins lucrativos para todas as partes envolvidas. Não há comissões, pagamentos ou qualquer transação financeira. É uma ferramenta de colaboração clínica criada para facilitar o acesso à saúde de forma ética e desinteressada."
+  },
+  {
+    question: "Como acompanhar meus encaminhamentos?",
+    answer: "Na aba 'Meus Encaminhamentos', você pode ver todos os encaminhamentos que você fez. O sistema mostra o status de cada um: 'Não visualizado' (quando o médico ainda não viu), 'Visualizado' (quando o médico visualizou os dados), 'Em consulta' (quando a pessoa encaminhada iniciou o atendimento) e 'Encerrado' (quando o processo foi finalizado). Você também pode ver informações como data do encaminhamento e nome do médico."
+  },
+  {
+    question: "Por que devo usar o módulo de Encaminhamentos?",
+    answer: "O módulo de Encaminhamentos ajuda a expandir o acesso ao cuidado médico de forma colaborativa. Quando você está em tratamento e conhece outra pessoa que também precisa de cuidado, pode encaminhá-la para um médico de confiança. Isso cria uma rede de cuidado mútua, onde pacientes ajudam outros pacientes a encontrarem tratamento adequado. É uma forma de retribuir o cuidado que você recebeu, promovendo saúde e bem-estar na sua comunidade."
+  },
+  {
+    question: "Os dados da pessoa que eu encaminho ficam seguros?",
+    answer: "Sim! A plataforma segue todos os padrões de segurança e privacidade de dados. As informações fornecidas (nome e telefone) são compartilhadas apenas com o médico escolhido e são usadas exclusivamente para fins de contato clínico. O sistema protege a privacidade de todos os envolvidos e as informações são tratadas com total confidencialidade."
   }
 ];
 
@@ -154,6 +214,7 @@ export const nutriFaqItems: FAQItem[] = [
 // Array total de FAQs para paciente (sem nutrição)
 export const faqPacienteTotal: FAQItem[] = [
   ...faqPlatformClient,
+  ...faqEncaminhamentos,
   ...faqMedicamento,
   ...faqEfeitosColaterais,
   ...faqResultados,
@@ -167,6 +228,12 @@ export const faqCategoriesPaciente = [
     items: faqPlatformClient,
     icon: <Users size={20} />,
     color: 'from-blue-600 to-indigo-600'
+  },
+  {
+    name: 'Encaminhamentos',
+    items: faqEncaminhamentos,
+    icon: <UserPlus size={20} />,
+    color: 'from-purple-600 to-pink-600'
   },
   {
     name: 'Medicamento',

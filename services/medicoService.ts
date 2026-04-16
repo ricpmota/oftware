@@ -179,5 +179,33 @@ export class MedicoService {
       throw error;
     }
   }
+
+  // Buscar médico por nome e sobrenome (para links personalizados)
+  static async getMedicoByNomeSobrenome(nomeSobrenome: string): Promise<Medico | null> {
+    try {
+      // Buscar todos os médicos e filtrar por nome e sobrenome
+      const medicos = await this.getAllMedicos();
+      
+      // Converter nomeSobrenome de "ricardo-mota" para "Ricardo Mota"
+      const partesNome = nomeSobrenome
+        .split('-')
+        .map(parte => parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase());
+      
+      const nomeBusca = partesNome.join(' ');
+      
+      // Buscar médico que tenha o nome começando com o nome buscado
+      // Por exemplo: "Ricardo Mota" deve encontrar "Ricardo Mota Silva" ou "Ricardo Mota"
+      const medicoEncontrado = medicos.find(medico => {
+        const nomeMedico = medico.nome.trim();
+        // Verifica se o nome do médico começa com o nome buscado
+        return nomeMedico.toLowerCase().startsWith(nomeBusca.toLowerCase());
+      });
+      
+      return medicoEncontrado || null;
+    } catch (error) {
+      console.error('Erro ao buscar médico por nome e sobrenome:', error);
+      throw error;
+    }
+  }
 }
 

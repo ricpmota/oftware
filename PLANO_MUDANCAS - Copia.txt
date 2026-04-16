@@ -1,0 +1,144 @@
+================================================================================
+PLANO DE MUDANÇAS - OBESIDADE COM MONJARO
+================================================================================
+
+CONCEITO:
+- /meta → Página do PACIENTE
+- /metaadmin → Página do MÉDICO
+
+VAMOS MANTER:
+✓ Design e estrutura visual
+✓ Menu inferior mobile
+✓ Sidebar desktop
+✓ Cores e layout
+
+VAMOS REMOVER da /metaadmin:
+✗ Estatísticas (por enquanto)
+✗ Usuários (vamos substituir)
+✗ Residentes → VIRA: Lista de Pacientes
+✗ Locais
+✗ Serviços  
+✗ Escalas
+✗ Criar Escala
+✗ Aprovar Trocas → REUSAR para Aprovar Pacientes
+✗ Gerenciar Férias
+✗ Mensagens
+
+VAMOS ADICIONAR na /metaadmin:
+✓ Meu Perfil Médico (CRM, localização, cidades)
+✓ Pacientes Solicitados (pendentes aprovação)
+✓ Meus Pacientes (aprovados)
+✓ Solicitações de Aprovação (fazer depois)
+
+VAMOS ADICIONAR na /meta:
+✓ Minha Anamnese
+✓ Buscar Médicos (por localização)
+✓ Meus Tratamentos
+✓ Minhas Solicitações
+
+================================================================================
+PRIMEIRA ETAPA: CADASTRO DE MÉDICO
+================================================================================
+
+ONDE: /metaadmin (painel do médico)
+
+APÓS LOGIN COM GMAIL, MÉDICO PRECISA COMPLETAR:
+1. CRM (número e estado)
+2. Localização (endereço completo ou coordenadas)
+3. Cidades de atendimento (multipla seleção)
+   - Padrão: Estado → Cidade
+   - Ex: São Paulo → São Paulo, Guarulhos, etc.
+
+DADOS A SALVAR:
+- userId (do Firebase Auth)
+- email
+- nome
+- crm: { numero, estado }
+- localizacao: { endereco, coordenadas? }
+- cidades: [{ estado, cidade }]
+- dataCadastro
+- status: 'ativo' | 'inativo'
+
+================================================================================
+PRIMEIRA ETAPA: CADASTRO DE PACIENTE
+================================================================================
+
+ONDE: /meta (painel do paciente)
+
+APÓS LOGIN COM GMAIL, PACIENTE PRECISA:
+1. Preencher Anamnese (definir depois)
+2. Selecionar médico por proximidade
+3. Enviar solicitação
+
+================================================================================
+ESTRUTURA DE DADOS FIREBASE
+================================================================================
+
+COLLECTION: medicos
+{
+  id: string (auto)
+  userId: string (Firebase Auth)
+  email: string
+  nome: string
+  crm: {
+    numero: string
+    estado: string
+  }
+  localizacao: {
+    endereco: string
+    lat?: number
+    lng?: number
+  }
+  cidades: [
+    { estado: string, cidade: string }
+  ]
+  dataCadastro: timestamp
+  status: 'ativo' | 'inativo'
+}
+
+COLLECTION: pacientes
+{
+  id: string (auto)
+  userId: string (Firebase Auth)
+  email: string
+  nome: string
+  anamnese: {} (definir depois)
+  dataCadastro: timestamp
+  status: 'ativo' | 'inativo'
+}
+
+COLLECTION: solicitacoes
+{
+  id: string (auto)
+  pacienteId: string
+  medicoId: string
+  status: 'pendente' | 'aprovado' | 'rejeitado'
+  dataSolicitacao: timestamp
+  dataResposta?: timestamp
+  motivo?: string
+}
+
+================================================================================
+O QUE FAZER AGORA
+================================================================================
+
+1. REMOVER menus não usados do /metaadmin
+2. CRIAR novo menu "Meu Perfil Médico"
+3. CRIAR formulário de cadastro de médico
+4. CRIAR lista de estados/cidades (usar dados reais)
+5. CRIAR tipos TypeScript
+6. CRIAR serviço para salvar dados do médico
+
+================================================================================
+LISTA DE ESTADOS/CIDADES
+================================================================================
+
+VAMOS USAR:
+- Opção 1: Dados do IBGE via API
+- Opção 2: Lista estática completa no código
+- Opção 3: Biblioteca como react-select-country-list
+
+SUGESTÃO: Criar arquivo JSON com todos os estados e cidades principais
+
+================================================================================
+

@@ -1,0 +1,10 @@
+        // Função para classificar IMC no formato simplificado (Status Corporal)
+        const classificarIMC = (imc: number | null): { label: string; cor: string; bgCor: string; icone: string } | null => {
+          if (!imc) return null;
+          if (imc < 18.5) return { label: 'Baixo peso', cor: 'text-blue-600', bgCor: 'bg-blue-50', icone: '📉' };
+          if (imc < 25) return { label: 'Saudável', cor: 'text-green-600', bgCor: 'bg-green-50', icone: '✅' };
+          if (imc < 30) return { label: 'Sobrepeso', cor: 'text-yellow-600', bgCor: 'bg-yellow-50', icone: '⚠️' };
+          return { label: 'Obeso', cor: 'text-red-600', bgCor: 'bg-red-50', icone: '🔴' };
+        };
+        
+        const classificacaoIMC = classificarIMC(imcAtual);

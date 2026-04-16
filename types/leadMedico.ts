@@ -5,6 +5,8 @@ export interface LeadMedico {
   uid: string; // Firebase Auth UID
   email: string;
   name: string;
+  /** Qualificação do lead (1–5) na home / pipeline; 0 ou ausente = não classificado */
+  estrelas?: number;
   telefone?: string;
   cidade?: string;
   estado?: string;

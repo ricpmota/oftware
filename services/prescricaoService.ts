@@ -1,6 +1,7 @@
-import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Prescricao, PrescricaoItem } from '@/types/prescricao';
+import { PRESCRICOES_PADRAO } from '@/data/prescricoesPadraoCompleto';
 
 export class PrescricaoService {
   private static COLLECTION_NAME = 'prescricoes';
@@ -20,8 +21,13 @@ export class PrescricaoService {
         criadoPor: prescricao.criadoPor,
       };
 
+      // Tratar pacienteId e pacienteNome: se for undefined/null, não incluir (ou remover se estiver atualizando)
       if (prescricao.pacienteId) {
         prescricaoData.pacienteId = prescricao.pacienteId;
+      }
+
+      if (prescricao.pacienteNome) {
+        prescricaoData.pacienteNome = prescricao.pacienteNome;
       }
 
       if (prescricao.observacoes) {
@@ -32,9 +38,34 @@ export class PrescricaoService {
         prescricaoData.pesoPaciente = prescricao.pesoPaciente;
       }
 
+      if (prescricao.tipoDocumento === 'recibo_medico') {
+        prescricaoData.tipoDocumento = 'recibo_medico';
+        if (prescricao.valorConsulta != null && !Number.isNaN(Number(prescricao.valorConsulta))) {
+          prescricaoData.valorConsulta = Number(prescricao.valorConsulta);
+        }
+        if (prescricao.dataRecibo && /^\d{4}-\d{2}-\d{2}$/.test(prescricao.dataRecibo)) {
+          prescricaoData.dataRecibo = prescricao.dataRecibo;
+        }
+        if (
+          prescricao.reciboDocumentoProfissional === 'cpf' ||
+          prescricao.reciboDocumentoProfissional === 'cnpj' ||
+          prescricao.reciboDocumentoProfissional === 'omitir'
+        ) {
+          prescricaoData.reciboDocumentoProfissional = prescricao.reciboDocumentoProfissional;
+        }
+      }
+
       // Se tem ID, atualizar; senão, criar novo
       if ('id' in prescricao && prescricao.id) {
         prescricaoData.criadoEm = prescricao.criadoEm;
+        // Se pacienteId for undefined/null e estiver atualizando, remover os campos do documento
+        if (!prescricao.pacienteId) {
+          prescricaoData.pacienteId = deleteField();
+          prescricaoData.pacienteNome = deleteField();
+        } else if (!prescricao.pacienteNome) {
+          // Se pacienteId existe mas pacienteNome não, remover pacienteNome
+          prescricaoData.pacienteNome = deleteField();
+        }
         await updateDoc(doc(db, this.COLLECTION_NAME, prescricao.id), prescricaoData);
         return prescricao.id;
       } else {
@@ -54,20 +85,22 @@ export class PrescricaoService {
    */
   static async getPrescricoesByMedico(medicoId: string): Promise<Prescricao[]> {
     try {
+      // Buscar sem orderBy para evitar necessidade de índice composto
+      // Ordenar no cliente depois
       const q = query(
         collection(db, this.COLLECTION_NAME),
-        where('medicoId', '==', medicoId),
-        orderBy('atualizadoEm', 'desc')
+        where('medicoId', '==', medicoId)
       );
       
       const snapshot = await getDocs(q);
       
-      return snapshot.docs.map(doc => {
+      const prescricoes = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           medicoId: data.medicoId,
-          pacienteId: data.pacienteId,
+          pacienteId: data.pacienteId || undefined, // Garantir que seja undefined se não existir
+          pacienteNome: data.pacienteNome || undefined,
           nome: data.nome,
           descricao: data.descricao,
           itens: data.itens || [],
@@ -77,8 +110,20 @@ export class PrescricaoService {
           criadoPor: data.criadoPor,
           isTemplate: data.isTemplate || false,
           pesoPaciente: data.pesoPaciente,
+          tipoDocumento: data.tipoDocumento,
+          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
+          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
+          reciboDocumentoProfissional:
+            data.reciboDocumentoProfissional === 'cpf' ||
+            data.reciboDocumentoProfissional === 'cnpj' ||
+            data.reciboDocumentoProfissional === 'omitir'
+              ? data.reciboDocumentoProfissional
+              : undefined,
         } as Prescricao;
       });
+      
+      // Ordenar no cliente (mais recente primeiro)
+      return prescricoes.sort((a, b) => b.atualizadoEm.getTime() - a.atualizadoEm.getTime());
     } catch (error) {
       console.error('Erro ao buscar prescrições:', error);
       return [];
@@ -104,7 +149,8 @@ export class PrescricaoService {
         return {
           id: doc.id,
           medicoId: data.medicoId,
-          pacienteId: data.pacienteId,
+          pacienteId: data.pacienteId || undefined,
+          pacienteNome: data.pacienteNome || undefined,
           nome: data.nome,
           descricao: data.descricao,
           itens: data.itens || [],
@@ -114,6 +160,15 @@ export class PrescricaoService {
           criadoPor: data.criadoPor,
           isTemplate: data.isTemplate || false,
           pesoPaciente: data.pesoPaciente,
+          tipoDocumento: data.tipoDocumento,
+          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
+          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
+          reciboDocumentoProfissional:
+            data.reciboDocumentoProfissional === 'cpf' ||
+            data.reciboDocumentoProfissional === 'cnpj' ||
+            data.reciboDocumentoProfissional === 'omitir'
+              ? data.reciboDocumentoProfissional
+              : undefined,
         } as Prescricao;
       });
       
@@ -130,9 +185,20 @@ export class PrescricaoService {
    */
   static async criarPrescricoesPadraoGlobais(): Promise<void> {
     try {
-      // Verificar quais templates já existem
-      const templatesExistentes = await this.getPrescricoesTemplate();
-      const nomesExistentes = templatesExistentes.map(t => t.nome);
+      // Verificar quais templates já existem (após remover duplicatas/obsoletos do mesmo modelo)
+      let templatesExistentes = await this.getPrescricoesTemplate();
+      const nomesTemplatesMitocondrialObsoletos = [
+        'Micronutrientes — SUPORTE MITOCONDRIAL (ENERGIA CELULAR)',
+        'Micronutrientes — coenzima q10 + nadh',
+      ];
+      for (const t of templatesExistentes) {
+        if (t.medicoId === 'SISTEMA' && nomesTemplatesMitocondrialObsoletos.includes(t.nome)) {
+          await this.deletePrescricao(t.id);
+          console.log('🗑️ Template obsoleto removido:', t.nome);
+        }
+      }
+      templatesExistentes = await this.getPrescricoesTemplate();
+      const nomesExistentes = templatesExistentes.map((t) => t.nome);
       
       // Criar templates padrão (sem pacienteId, sem medicoId específico, isTemplate: true)
       // Usar um peso médio de referência (70kg) apenas para criar o template inicial
@@ -176,6 +242,44 @@ export class PrescricaoService {
         console.log('✅ Prescrição de Probióticos criada');
       }
 
+      const nomeReciboPadrao = 'Recibo Médico — Consulta padrão';
+      if (!nomesExistentes.includes(nomeReciboPadrao)) {
+        const descReciboPadrao =
+          'Consulta médica para avaliação clínica, orientação terapêutica, planejamento metabólico e acompanhamento médico no tratamento da obesidade.';
+        const reciboPadrao: Omit<Prescricao, 'id'> = {
+          medicoId: 'SISTEMA',
+          nome: nomeReciboPadrao,
+          descricao: descReciboPadrao,
+          itens: [],
+          observacoes: '',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          criadoPor: 'SISTEMA',
+          isTemplate: true,
+          tipoDocumento: 'recibo_medico',
+        };
+        await this.createOrUpdatePrescricao(reciboPadrao);
+        console.log('✅ Recibo Médico padrão (template) criado');
+      }
+
+      const nomeMicronutMito = 'Micronutrientes — Coenzima q10 + NADH';
+      const defMicronutMito = PRESCRICOES_PADRAO.find((d) => d.nome === nomeMicronutMito);
+      if (defMicronutMito && !nomesExistentes.includes(defMicronutMito.nome)) {
+        const prescMicronutMito: Omit<Prescricao, 'id'> = {
+          medicoId: 'SISTEMA',
+          nome: defMicronutMito.nome,
+          descricao: defMicronutMito.descricao,
+          itens: defMicronutMito.itens,
+          observacoes: defMicronutMito.observacoes,
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          criadoPor: 'SISTEMA',
+          isTemplate: true,
+        };
+        await this.createOrUpdatePrescricao(prescMicronutMito);
+        console.log('✅ Template Micronutrientes — Coenzima q10 + NADH criado');
+      }
+
       console.log('✅ Verificação de prescrições padrão globais concluída');
     } catch (error) {
       console.error('Erro ao criar prescrições padrão globais:', error);
@@ -202,7 +306,8 @@ export class PrescricaoService {
         return {
           id: doc.id,
           medicoId: data.medicoId,
-          pacienteId: data.pacienteId,
+          pacienteId: data.pacienteId || undefined,
+          pacienteNome: data.pacienteNome || undefined,
           nome: data.nome,
           descricao: data.descricao,
           itens: data.itens || [],
@@ -212,6 +317,15 @@ export class PrescricaoService {
           criadoPor: data.criadoPor,
           isTemplate: data.isTemplate || false,
           pesoPaciente: data.pesoPaciente,
+          tipoDocumento: data.tipoDocumento,
+          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
+          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
+          reciboDocumentoProfissional:
+            data.reciboDocumentoProfissional === 'cpf' ||
+            data.reciboDocumentoProfissional === 'cnpj' ||
+            data.reciboDocumentoProfissional === 'omitir'
+              ? data.reciboDocumentoProfissional
+              : undefined,
         } as Prescricao;
       });
       
@@ -243,7 +357,8 @@ export class PrescricaoService {
         return {
           id: doc.id,
           medicoId: data.medicoId,
-          pacienteId: data.pacienteId,
+          pacienteId: data.pacienteId || undefined,
+          pacienteNome: data.pacienteNome || undefined,
           nome: data.nome,
           descricao: data.descricao,
           itens: data.itens || [],
@@ -253,6 +368,15 @@ export class PrescricaoService {
           criadoPor: data.criadoPor,
           isTemplate: data.isTemplate || false,
           pesoPaciente: data.pesoPaciente,
+          tipoDocumento: data.tipoDocumento,
+          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
+          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
+          reciboDocumentoProfissional:
+            data.reciboDocumentoProfissional === 'cpf' ||
+            data.reciboDocumentoProfissional === 'cnpj' ||
+            data.reciboDocumentoProfissional === 'omitir'
+              ? data.reciboDocumentoProfissional
+              : undefined,
         } as Prescricao;
       });
       
@@ -274,7 +398,8 @@ export class PrescricaoService {
         return {
           id: docSnap.id,
           medicoId: data.medicoId,
-          pacienteId: data.pacienteId,
+          pacienteId: data.pacienteId || undefined,
+          pacienteNome: data.pacienteNome || undefined,
           nome: data.nome,
           descricao: data.descricao,
           itens: data.itens || [],
@@ -284,6 +409,15 @@ export class PrescricaoService {
           criadoPor: data.criadoPor,
           isTemplate: data.isTemplate || false,
           pesoPaciente: data.pesoPaciente,
+          tipoDocumento: data.tipoDocumento,
+          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
+          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
+          reciboDocumentoProfissional:
+            data.reciboDocumentoProfissional === 'cpf' ||
+            data.reciboDocumentoProfissional === 'cnpj' ||
+            data.reciboDocumentoProfissional === 'omitir'
+              ? data.reciboDocumentoProfissional
+              : undefined,
         } as Prescricao;
       }
       return null;

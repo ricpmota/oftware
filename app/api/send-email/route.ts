@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import nodemailer from 'nodemailer';
-
-// Para usar SendGrid (recomendado para produção)
-// npm install @sendgrid/mail
-// import sgMail from '@sendgrid/mail';
+import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
 
 export async function POST(request: NextRequest) {
+  let logId: string | undefined;
   try {
-    const { to, subject, html, logId } = await request.json();
+    const body = await request.json();
+    const { to, subject, html, logId: lid } = body;
+    logId = lid;
 
     if (!to || !subject || !html) {
       return NextResponse.json(
@@ -18,63 +17,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar formato de e-mail
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(to)) {
       throw new Error('Formato de e-mail inválido');
     }
 
-    // OPÇÃO 1: SendGrid (Recomendado para produção)
-    /*
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
-    
-    const msg = {
-      to,
-      from: process.env.SENDGRID_FROM_EMAIL!, // E-mail verificado no SendGrid
-      subject,
-      html,
-    };
+    const text =
+      typeof html === 'string'
+        ? html.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n')
+        : '';
 
-    await sgMail.send(msg);
-    */
-
-    // OPÇÃO 2: Zoho Mail via SMTP (Nodemailer)
-    const useZoho = process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD;
-    
-    if (useZoho) {
-      // Configurar transporter do Zoho Mail
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.zoho.com',
-        port: 587,
-        secure: false, // true para 465, false para outras portas
-        auth: {
-          user: process.env.ZOHO_EMAIL, // suporte@oftware.com.br
-          pass: process.env.ZOHO_PASSWORD, // Senha de app do Zoho
-        },
-      });
-
-      // Enviar e-mail
-      const info = await transporter.sendMail({
-        from: process.env.ZOHO_EMAIL,
-        to,
-        subject,
-        html,
-      });
-
-      console.log('✅ E-mail enviado via Zoho:', info.messageId);
+    if (isZeptoMailConfigured()) {
+      const result = await sendEmail({ to, subject, html, text });
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      console.log('✅ E-mail enviado via ZeptoMail:', result.messageId);
     } else {
-      // OPÇÃO 3: Simulação para desenvolvimento (quando Zoho não está configurado)
-      console.log('📧 SIMULAÇÃO E-MAIL:');
+      console.log('📧 SIMULAÇÃO E-MAIL (ZeptoMail não configurado):');
       console.log(`Para: ${to}`);
       console.log(`Assunto: ${subject}`);
-      console.log(`Conteúdo: ${html.substring(0, 100)}...`);
-      console.log('---');
-      
-      // Para desenvolvimento, simular sucesso
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log(`Conteúdo: ${String(html).substring(0, 100)}...`);
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    // Atualizar log no Firestore
     if (logId) {
       await updateDoc(doc(db, 'notification_logs', logId), {
         status: 'sent',
@@ -83,13 +49,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, message: 'E-mail enviado com sucesso' });
-
   } catch (error) {
     console.error('Erro ao enviar e-mail:', error);
 
-    // Atualizar log com erro
-    if (request.body && JSON.parse(await request.text()).logId) {
-      const { logId } = JSON.parse(await request.text());
+    if (logId) {
       try {
         await updateDoc(doc(db, 'notification_logs', logId), {
           status: 'failed',

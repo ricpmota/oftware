@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import nodemailer from 'nodemailer';
+import {
+  isZeptoMailConfigured,
+  sendEmail,
+  verifyZeptoMailConnection,
+} from '@/lib/email/transporter';
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -72,22 +76,16 @@ export async function POST(request: NextRequest) {
     const assunto = emailTemplate?.assunto || 'Novidades do Oftware';
     const htmlTemplate = emailTemplate?.corpoHtml || '';
 
-    // 2. Configurar transporter
-    let transporter: nodemailer.Transporter | null = null;
-    if (process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD) {
-      transporter = nodemailer.createTransport({
-        host: 'smtp.zoho.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.ZOHO_EMAIL,
-          pass: process.env.ZOHO_PASSWORD,
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-      });
-      await transporter.verify();
+    let smtpPronto = false;
+    if (isZeptoMailConfigured()) {
+      const v = await verifyZeptoMailConnection();
+      if (!v.success) {
+        return NextResponse.json(
+          { error: 'Erro ao conectar SMTP ZeptoMail', details: v.error },
+          { status: 500 }
+        );
+      }
+      smtpPronto = true;
     }
 
     let enviadosPacientes = 0;
@@ -143,14 +141,14 @@ export async function POST(request: NextRequest) {
             `.trim();
           }
 
-          if (transporter) {
-            await transporter.sendMail({
-              from: `"Oftware" <${process.env.ZOHO_EMAIL}>`,
+          if (smtpPronto) {
+            const sent = await sendEmail({
               to: pacienteEmail,
               subject: assunto,
               html: htmlFinal,
               text: html.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
             });
+            if (!sent.success) throw new Error(sent.error);
           } else {
             console.log(`📧 SIMULAÇÃO E-MAIL para paciente: ${pacienteEmail}`);
           }
@@ -163,7 +161,7 @@ export async function POST(request: NextRequest) {
             emailTipo: 'novidades_novidade',
             assunto,
             enviadoEm: new Date(),
-            status: transporter ? 'enviado' : 'pendente',
+            status: smtpPronto ? 'enviado' : 'pendente',
             tentativas: 1,
             erro: null,
             tipo: 'manual',
@@ -243,14 +241,14 @@ export async function POST(request: NextRequest) {
             `.trim();
           }
 
-          if (transporter) {
-            await transporter.sendMail({
-              from: `"Oftware" <${process.env.ZOHO_EMAIL}>`,
+          if (smtpPronto) {
+            const sent = await sendEmail({
               to: medicoEmail,
               subject: assunto,
               html: htmlFinal,
               text: html.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
             });
+            if (!sent.success) throw new Error(sent.error);
           } else {
             console.log(`📧 SIMULAÇÃO E-MAIL para médico: ${medicoEmail}`);
           }
@@ -263,7 +261,7 @@ export async function POST(request: NextRequest) {
             emailTipo: 'novidades_novidade',
             assunto,
             enviadoEm: new Date(),
-            status: transporter ? 'enviado' : 'pendente',
+            status: smtpPronto ? 'enviado' : 'pendente',
             tentativas: 1,
             erro: null,
             tipo: 'manual',

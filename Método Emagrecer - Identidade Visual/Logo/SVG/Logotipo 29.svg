@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Camada_1" data-name="Camada 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1318.46 287.63">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #0a1f44;
+        font-size: 50.48px;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5, .cls-6, .cls-7, .cls-8, .cls-9, .cls-10 {
+        font-family: Vinila-Regular, Vinila;
+      }
+
+      .cls-2, .cls-11 {
+        letter-spacing: -.02em;
+      }
+
+      .cls-3 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-12 {
+        letter-spacing: 0em;
+      }
+
+      .cls-4 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-5 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-13 {
+        letter-spacing: .02em;
+      }
+
+      .cls-14 {
+        fill: #4ccb7a;
+      }
+
+      .cls-6 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-15 {
+        letter-spacing: .02em;
+      }
+
+      .cls-16 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-16, .cls-11, .cls-17, .cls-18, .cls-19, .cls-20 {
+        font-family: Vinila-Bold, Vinila;
+        font-weight: 700;
+      }
+
+      .cls-21 {
+        letter-spacing: 0em;
+      }
+
+      .cls-17 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-22 {
+        letter-spacing: .03em;
+      }
+
+      .cls-23 {
+        letter-spacing: .02em;
+      }
+
+      .cls-18 {
+        letter-spacing: -.05em;
+      }
+
+      .cls-24 {
+        letter-spacing: .02em;
+      }
+
+      .cls-7 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-25 {
+        letter-spacing: 0em;
+      }
+
+      .cls-19 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-26 {
+        fill: #fff;
+        font-size: 126.84px;
+      }
+
+      .cls-27 {
+        letter-spacing: 0em;
+      }
+
+      .cls-8 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-9 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-10 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-20 {
+        letter-spacing: -.03em;
+      }
+    </style>
+  </defs>
+  <g>
+    <text class="cls-26" transform="translate(263.36 173.41)"><tspan class="cls-20" x="0" y="0">M</tspan><tspan class="cls-19" x="107.68" y="0">é</tspan><tspan class="cls-18" x="174.32" y="0">t</tspan><tspan class="cls-17" x="221.53" y="0">o</tspan><tspan class="cls-16" x="290.73" y="0">d</tspan><tspan class="cls-11" x="361.12" y="0">o </tspan><tspan class="cls-4" x="460.17" y="0">E</tspan><tspan class="cls-7" x="528.77" y="0">m</tspan><tspan class="cls-5" x="631.35" y="0">a</tspan><tspan class="cls-3" x="696.14" y="0">g</tspan><tspan class="cls-8" x="766.29" y="0">r</tspan><tspan class="cls-6" x="810.98" y="0">e</tspan><tspan class="cls-10" x="877.02" y="0">c</tspan><tspan class="cls-9" x="943.55" y="0">e</tspan><tspan class="cls-2" x="1010.33" y="0">r</tspan></text>
+    <text class="cls-1" transform="translate(1038.28 226.8)"><tspan class="cls-25" x="0" y="0">b</tspan><tspan class="cls-24" x="28.87" y="0">y </tspan><tspan class="cls-12" x="70.52" y="0">o</tspan><tspan class="cls-22" x="99.42" y="0">f</tspan><tspan class="cls-15" x="119.12" y="0">t</tspan><tspan class="cls-21" x="141.11" y="0">w</tspan><tspan class="cls-23" x="181.9" y="0">a</tspan><tspan class="cls-27" x="210.28" y="0">r</tspan><tspan class="cls-13" x="230.41" y="0">e</tspan></text>
+  </g>
+  <path class="cls-14" d="M224.04,64.4l-62.34-20.15c-12.09-3.91-24.86-3.9-36.95,0l-62.22,20.14c-8.19,2.65-13.69,10.21-13.69,18.82v79.85c0,13.33,3.84,26.21,11.1,37.24,6.6,10.02,14.83,18.62,24.47,25.57,22,15.84,44.85,18.43,57.42,18.43.53,0,1.05,0,1.55-.01.32,0,.65-.03.97-.07,14.57-1.75,36.38-7.15,57.53-22.9,17.77-13.23,24.56-26.75,29.05-35.69.49-.98.96-1.92,1.43-2.81,2.41-4.64.61-10.35-4.03-12.76-4.64-2.41-10.35-.61-12.76,4.03-.5.97-1.01,1.98-1.55,3.04-2.89,5.75-6.27,12.48-12.89,19.62v-93.01c0-3.89-2.31-7.41-5.88-8.96-3.57-1.55-7.72-.83-10.56,1.83l-41.74,39.06-40.99-39.01c-2.83-2.69-6.99-3.44-10.58-1.9-3.59,1.54-5.92,5.07-5.92,8.98v98.15c-3.59-3.65-6.84-7.65-9.7-11.99-5.22-7.93-7.98-17.21-7.98-26.83v-79.85c0-.37.24-.7.59-.81l62.22-20.14c8.27-2.68,17.02-2.68,25.3,0l62.34,20.15c.35.11.59.44.59.81v68.04c0,5.23,4.24,9.47,9.47,9.47s9.47-4.24,9.47-9.47v-68.04c0-8.61-5.51-16.18-13.7-18.82ZM104.99,126.51l31.16,29.66c3.75,3.57,9.63,3.59,13.41.06l32.03-29.98v85.48c0,.12.01.23.02.35-14.6,8.61-28.83,12-39.03,13.28-8.29.08-22.72-1.19-37.79-9.1.13-.63.19-1.27.19-1.94v-87.81Z"/>
+</svg>

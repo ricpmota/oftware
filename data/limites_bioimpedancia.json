@@ -1,0 +1,70 @@
+{
+  "composicao_corporal": {
+    "aguaTotalLitros": {
+      "label": "Água Total",
+      "unit": "L",
+      "min": 0,
+      "max": 80,
+      "percentualPeso": { "min": 45, "max": 65 }
+    },
+    "proteinasKg": {
+      "label": "Proteínas",
+      "unit": "kg",
+      "min": 0,
+      "max": 50,
+      "percentualPeso": { "min": 12, "max": 18 }
+    },
+    "mineraisKg": {
+      "label": "Minerais",
+      "unit": "kg",
+      "min": 0,
+      "max": 15,
+      "percentualPeso": { "min": 3, "max": 5 }
+    },
+    "massaGorduraKg": {
+      "label": "Massa de Gordura",
+      "unit": "kg",
+      "min": 0,
+      "max": 150
+    }
+  },
+  "musculo_gordura": {
+    "massaMuscularKg": {
+      "label": "Massa Muscular",
+      "unit": "kg",
+      "min": 0,
+      "max": 120,
+      "percentualPeso": { "min": 35, "max": 45 }
+    },
+    "massaGorduraKg": {
+      "label": "Massa de Gordura",
+      "unit": "kg",
+      "min": 0,
+      "max": 150,
+      "percentualPeso": { "M": { "min": 10, "max": 20 }, "F": { "min": 20, "max": 30 } }
+    }
+  },
+  "obesidade": {
+    "percentualGordura": {
+      "label": "Percentual de Gordura (PGC)",
+      "unit": "%",
+      "M": { "min": 10, "max": 20, "ideal": { "min": 10, "max": 20 } },
+      "F": { "min": 20, "max": 30, "ideal": { "min": 20, "max": 30 } },
+      "default": { "min": 0, "max": 50 }
+    }
+  },
+  "massa_magra_segmentar": {
+    "arm_r": { "label": "Braço Direito", "unit": "kg", "percentual": "%", "min": 1.5, "max": 6 },
+    "arm_l": { "label": "Braço Esquerdo", "unit": "kg", "percentual": "%", "min": 1.5, "max": 6 },
+    "trunk": { "label": "Tronco", "unit": "kg", "percentual": "%", "min": 18, "max": 38 },
+    "leg_r": { "label": "Perna Direita", "unit": "kg", "percentual": "%", "min": 6, "max": 16 },
+    "leg_l": { "label": "Perna Esquerda", "unit": "kg", "percentual": "%", "min": 6, "max": 16 }
+  },
+  "gordura_segmentar": {
+    "gordura_arm_r": { "label": "Braço Direito (gordura)", "unit": "kg", "percentual": "%", "min": 0.5, "max": 4 },
+    "gordura_arm_l": { "label": "Braço Esquerdo (gordura)", "unit": "kg", "percentual": "%", "min": 0.5, "max": 4 },
+    "gordura_trunk": { "label": "Tronco (gordura)", "unit": "kg", "percentual": "%", "min": 6, "max": 25 },
+    "gordura_leg_r": { "label": "Perna Direita (gordura)", "unit": "kg", "percentual": "%", "min": 2, "max": 10 },
+    "gordura_leg_l": { "label": "Perna Esquerda (gordura)", "unit": "kg", "percentual": "%", "min": 2, "max": 10 }
+  }
+}

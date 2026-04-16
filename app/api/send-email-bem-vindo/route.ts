@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import nodemailer from 'nodemailer';
+import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -103,59 +103,38 @@ export async function POST(request: NextRequest) {
       `.trim();
     }
 
-    // 4. Configurar transporter
     let envioSucesso = false;
     let erroEnvio: string | undefined;
 
     try {
-      if (process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD) {
-        console.log('📧 [send-email-bem-vindo] Iniciando envio de e-mail via Zoho...');
-        console.log(`📧 De: ${process.env.ZOHO_EMAIL}`);
-        console.log(`📧 Para: ${userEmail}`);
-        console.log(`📧 Assunto: ${assunto}`);
-        
-        const transporter = nodemailer.createTransport({
-          host: 'smtp.zoho.com',
-          port: 587,
-          secure: false,
-          auth: {
-            user: process.env.ZOHO_EMAIL,
-            pass: process.env.ZOHO_PASSWORD,
-          },
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 10000,
-        });
-
-        // Verificar conexão primeiro
-        console.log('📧 [send-email-bem-vindo] Verificando conexão SMTP...');
-        await transporter.verify();
-        console.log('✅ [send-email-bem-vindo] Conexão SMTP verificada com sucesso');
-
-        // Enviar e-mail
-        console.log('📧 [send-email-bem-vindo] Enviando e-mail...');
-        
-        const info = await transporter.sendMail({
-          from: `"Oftware" <${process.env.ZOHO_EMAIL}>`,
+      if (isZeptoMailConfigured()) {
+        console.log(
+          `📧 [send-email-bem-vindo] ZeptoMail → ${userEmail} | ${assunto}`
+        );
+        const sent = await sendEmail({
           to: userEmail,
           subject: assunto,
           html: htmlFinal,
           text: html.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
         });
-
-        console.log('✅ [send-email-bem-vindo] E-mail enviado com sucesso!');
-        console.log('📧 [send-email-bem-vindo] Message ID:', info.messageId);
-        
-        envioSucesso = true;
+        envioSucesso = sent.success;
+        if (!sent.success) erroEnvio = sent.error;
+        else
+          console.log(
+            '✅ [send-email-bem-vindo] E-mail enviado:',
+            sent.messageId
+          );
       } else {
-        // Modo simulação se Zoho não estiver configurado
-        console.log('⚠️ [send-email-bem-vindo] SIMULAÇÃO E-MAIL (Zoho não configurado):');
+        console.log(
+          '⚠️ [send-email-bem-vindo] SIMULAÇÃO E-MAIL (ZeptoMail não configurado):'
+        );
         console.log(`Para: ${userEmail}`);
         console.log(`Assunto: ${assunto}`);
         envioSucesso = true;
       }
-    } catch (emailError: any) {
-      erroEnvio = emailError?.message || 'Erro desconhecido ao enviar e-mail';
+    } catch (emailError: unknown) {
+      const e = emailError as { message?: string };
+      erroEnvio = e?.message || 'Erro desconhecido ao enviar e-mail';
       console.error('❌ [send-email-bem-vindo] Erro ao enviar e-mail:', emailError);
       envioSucesso = false;
     }

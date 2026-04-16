@@ -1,0 +1,192 @@
+// 📁 octLaudoForm.tsx
+
+/**
+ * Formulário interativo para preenchimento de laudo de OCT (mácula e papila)
+ * Gera saída textual automática com base nas alterações selecionadas
+ * Inclui dados objetivos, análises estruturais e recomendações clínicas
+ */
+
+import React, { useState } from 'react';
+
+export default function OctLaudoForm() {
+  const [form, setForm] = useState({
+    olho: 'OD',
+    regiao: 'mácula',
+    tipoExame: 'OCT de mácula e papila',
+    espessuraFoveal: '',
+    espessuraMedia: '',
+    alteracoesMaculares: [],
+    alteracoesVitreas: [],
+    integridadeEPR: '',
+    integridadeZEL: '',
+    sinaisAdicionais: [],
+    papila: {
+      escavacao: '',
+      rNFL: '',
+      camadaGanglionar: '',
+      outros: ''
+    },
+    recomendacoes: []
+  });
+
+  const opcoes = {
+    olhos: ['OD', 'OE'],
+    regioes: ['mácula', 'papila', 'mácula e papila'],
+    alteracoesMaculares: [
+      'Edema intrarretiniano',
+      'Edema sub-retiniano',
+      'Descolamento de retina neurossensorial',
+      'Descolamento do EPR',
+      'Drusas',
+      'Hiporreflectividade subfoveal'
+    ],
+    alteracoesVitreas: [
+      'Tração vítreo-macular',
+      'Descolamento do vítreo posterior',
+      'Membrana epirretiniana'
+    ],
+    integridade: ['Integra', 'Discreta desorganização', 'Ausente'],
+    sinaisAdicionais: [
+      'Atrofia central',
+      'Degeneração macular relacionada à idade',
+      'Edema macular diabético',
+      'Buraco macular'
+    ],
+    recomendacoes: [
+      'Acompanhamento clínico',
+      'Iniciar anti-VEGF',
+      'Solicitar angiofluoresceinografia',
+      'Encaminhar para especialista em retina'
+    ],
+    papilaEscavacao: ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8'],
+    rNFL: ['Preservado', 'Aumentado', 'Reduzido', 'Assimétrico'],
+    camadaGanglionar: ['Preservada', 'Reduzida', 'Ausente']
+  };
+
+  const handleCheck = (campo, valor) => {
+    setForm(prev => {
+      const jaExiste = prev[campo].includes(valor);
+      const novoArray = jaExiste ? prev[campo].filter(v => v !== valor) : [...prev[campo], valor];
+      return { ...prev, [campo]: novoArray };
+    });
+  };
+
+  const gerarLaudo = () => {
+    const foveal = form.espessuraFoveal ? `Espessura foveal de ${form.espessuraFoveal}µm.` : '';
+    const media = form.espessuraMedia ? `Espessura média central de ${form.espessuraMedia}µm (VN: 250-300µm).` : '';
+
+    const altMacula = form.alteracoesMaculares.length ? `Alterações maculares: ${form.alteracoesMaculares.join(', ')}.` : '';
+    const altVitreas = form.alteracoesVitreas.length ? `Alterações vítreas: ${form.alteracoesVitreas.join(', ')}.` : '';
+
+    const epr = form.integridadeEPR ? `Integridade do EPR: ${form.integridadeEPR.toLowerCase()}.` : '';
+    const zel = form.integridadeZEL ? `ZEL ${form.integridadeZEL.toLowerCase()}.` : '';
+
+    const sinais = form.sinaisAdicionais.length ? `Sinais adicionais: ${form.sinaisAdicionais.join(', ')}.` : '';
+
+    const papila = form.regiao.includes('papila') ? `Papila com escavação de ${form.papila.escavacao} (VN: até 0.6), RNFL ${form.papila.rNFL.toLowerCase()} e camada de células ganglionares ${form.papila.camadaGanglionar.toLowerCase()}.${form.papila.outros ? ' ' + form.papila.outros : ''}` : '';
+
+    const recomendacoes = form.recomendacoes.length ? `Conduta: ${form.recomendacoes.join(', ')}.` : '';
+
+    return `Laudo de ${form.tipoExame} - ${form.regiao.toUpperCase()} - ${form.olho}:
+
+${foveal}
+${media}
+${altMacula}
+${altVitreas}
+${epr}
+${zel}
+${sinais}
+${papila}
+${recomendacoes}`;
+  };
+
+  return (
+    <div>
+      <h2>Formulário de Laudo OCT</h2>
+
+      <div>
+        <label>Olho:</label>
+        <select value={form.olho} onChange={e => setForm({ ...form, olho: e.target.value })}>
+          {opcoes.olhos.map(op => <option key={op}>{op}</option>)}
+        </select>
+
+        <label>Região:</label>
+        <select value={form.regiao} onChange={e => setForm({ ...form, regiao: e.target.value })}>
+          {opcoes.regioes.map(op => <option key={op}>{op}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label>Espessura Foveal (µm):</label>
+        <input value={form.espessuraFoveal} onChange={e => setForm({ ...form, espessuraFoveal: e.target.value })} />
+
+        <label>Espessura Média (µm):</label>
+        <input value={form.espessuraMedia} onChange={e => setForm({ ...form, espessuraMedia: e.target.value })} />
+      </div>
+
+      <div>
+        <strong>Alterações Maculares:</strong>
+        {opcoes.alteracoesMaculares.map(opt => (
+          <label key={opt}><input type="checkbox" checked={form.alteracoesMaculares.includes(opt)} onChange={() => handleCheck('alteracoesMaculares', opt)} /> {opt}</label>
+        ))}
+      </div>
+
+      <div>
+        <strong>Alterações Vítreas:</strong>
+        {opcoes.alteracoesVitreas.map(opt => (
+          <label key={opt}><input type="checkbox" checked={form.alteracoesVitreas.includes(opt)} onChange={() => handleCheck('alteracoesVitreas', opt)} /> {opt}</label>
+        ))}
+      </div>
+
+      <div>
+        <label>Integridade do EPR:</label>
+        <select value={form.integridadeEPR} onChange={e => setForm({ ...form, integridadeEPR: e.target.value })}>
+          {opcoes.integridade.map(opt => <option key={opt}>{opt}</option>)}
+        </select>
+
+        <label>Integridade da ZEL:</label>
+        <select value={form.integridadeZEL} onChange={e => setForm({ ...form, integridadeZEL: e.target.value })}>
+          {opcoes.integridade.map(opt => <option key={opt}>{opt}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <strong>Sinais Adicionais:</strong>
+        {opcoes.sinaisAdicionais.map(opt => (
+          <label key={opt}><input type="checkbox" checked={form.sinaisAdicionais.includes(opt)} onChange={() => handleCheck('sinaisAdicionais', opt)} /> {opt}</label>
+        ))}
+      </div>
+
+      {form.regiao.includes('papila') && (
+        <div>
+          <label>Escavação da Papila:</label>
+          <select value={form.papila.escavacao} onChange={e => setForm({ ...form, papila: { ...form.papila, escavacao: e.target.value } })}>
+            {opcoes.papilaEscavacao.map(opt => <option key={opt}>{opt}</option>)}
+          </select>
+
+          <label>RNFL:</label>
+          <select value={form.papila.rNFL} onChange={e => setForm({ ...form, papila: { ...form.papila, rNFL: e.target.value } })}>
+            {opcoes.rNFL.map(opt => <option key={opt}>{opt}</option>)}
+          </select>
+
+          <label>Camada Ganglionar:</label>
+          <select value={form.papila.camadaGanglionar} onChange={e => setForm({ ...form, papila: { ...form.papila, camadaGanglionar: e.target.value } })}>
+            {opcoes.camadaGanglionar.map(opt => <option key={opt}>{opt}</option>)}
+          </select>
+
+          <label>Outros achados na papila:</label>
+          <input value={form.papila.outros} onChange={e => setForm({ ...form, papila: { ...form.papila, outros: e.target.value } })} />
+        </div>
+      )}
+
+      <div>
+        <strong>Recomendações:</strong>
+        {opcoes.recomendacoes.map(opt => (
+          <label key={opt}><input type="checkbox" checked={form.recomendacoes.includes(opt)} onChange={() => handleCheck('recomendacoes', opt)} /> {opt}</label>
+        ))}
+      </div>
+
+      <button onClick={() => alert(gerarLaudo())}>Gerar Laudo</button>
+    </div>
+  );
+}

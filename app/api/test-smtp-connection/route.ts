@@ -1,74 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+import {
+  isZeptoMailConfigured,
+  sendEmail,
+  verifyZeptoMailConnection,
+} from '@/lib/email/transporter';
 
+/**
+ * Testa SMTP ZeptoMail (verificação + envio opcional para o próprio MAIL_FROM).
+ * Preferência: use GET /api/test-email com TEST_EMAIL_TO ou POST com { "to" }.
+ */
 export async function GET(request: NextRequest) {
   try {
-    if (!process.env.ZOHO_EMAIL || !process.env.ZOHO_PASSWORD) {
+    if (!isZeptoMailConfigured()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'ZeptoMail não configurado',
+          provider: 'ZeptoMail',
+          hasHost: !!process.env.ZEPTOMAIL_SMTP_HOST,
+          hasUser: !!process.env.ZEPTOMAIL_SMTP_USER,
+          hasPassword: !!process.env.ZEPTOMAIL_SMTP_PASSWORD,
+          hasMailFrom: !!process.env.MAIL_FROM,
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log('[test-smtp] Provider: ZeptoMail — verificando SMTP...');
+    const verify = await verifyZeptoMailConnection();
+    if (!verify.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: verify.error,
+          code: verify.code,
+          provider: 'ZeptoMail',
+        },
+        { status: 500 }
+      );
+    }
+
+    const testTo =
+      request.nextUrl.searchParams.get('to')?.trim() ||
+      process.env.MAIL_FROM?.replace(/^[^<]*<([^>]+)>$/, '$1')?.trim() ||
+      process.env.MAIL_FROM?.trim();
+
+    if (!testTo || !testTo.includes('@')) {
       return NextResponse.json({
-        success: false,
-        error: 'Credenciais não configuradas',
-        hasEmail: !!process.env.ZOHO_EMAIL,
-        hasPassword: !!process.env.ZOHO_PASSWORD,
+        success: true,
+        message: 'Conexão SMTP ZeptoMail verificada. Passe ?to=email para enviar teste.',
+        provider: 'ZeptoMail',
       });
     }
 
-    console.log('🔍 Testando conexão SMTP com Zoho...');
-    console.log(`📧 E-mail: ${process.env.ZOHO_EMAIL}`);
-    console.log(`🔑 Senha configurada: ${process.env.ZOHO_PASSWORD ? 'Sim (' + process.env.ZOHO_PASSWORD.length + ' caracteres)' : 'Não'}`);
-
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.zoho.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.ZOHO_EMAIL,
-        pass: process.env.ZOHO_PASSWORD,
-      },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+    const sent = await sendEmail({
+      to: testTo,
+      subject: 'Teste SMTP ZeptoMail - Oftware',
+      html: '<p>Teste de envio via ZeptoMail (rota legada test-smtp-connection).</p>',
+      text: 'Teste de envio via ZeptoMail.',
     });
 
-    console.log('📧 Verificando conexão...');
-    await transporter.verify();
-    console.log('✅ Conexão SMTP verificada com sucesso!');
-
-    // Testar envio para o próprio e-mail
-    const testEmail = process.env.ZOHO_EMAIL;
-    console.log(`📧 Enviando e-mail de teste para: ${testEmail}`);
-    
-    const info = await transporter.sendMail({
-      from: `"Oftware Teste" <${process.env.ZOHO_EMAIL}>`,
-      to: testEmail,
-      subject: 'Teste de Envio - Oftware',
-      html: '<p>Este é um e-mail de teste do sistema Oftware.</p><p>Se você recebeu este e-mail, a configuração SMTP está funcionando corretamente!</p>',
-    });
-
-    console.log('✅ E-mail de teste enviado com sucesso!');
-    console.log('📧 Message ID:', info.messageId);
-    console.log('📧 Response:', info.response);
+    if (!sent.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: sent.error,
+          code: sent.code,
+          provider: 'ZeptoMail',
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Conexão SMTP verificada e e-mail de teste enviado com sucesso!',
-      messageId: info.messageId,
-      response: info.response,
-      email: process.env.ZOHO_EMAIL,
-      passwordLength: process.env.ZOHO_PASSWORD.length,
+      message: 'SMTP ZeptoMail verificado e e-mail de teste enviado.',
+      messageId: sent.messageId,
+      to: testTo,
+      provider: 'ZeptoMail',
     });
-  } catch (error: any) {
-    console.error('❌ Erro ao testar SMTP:', error);
-    console.error('❌ Código:', error?.code);
-    console.error('❌ Comando:', error?.command);
-    console.error('❌ Mensagem:', error?.message);
-    
-    return NextResponse.json({
-      success: false,
-      error: error?.message || 'Erro desconhecido',
-      code: error?.code,
-      command: error?.command,
-      details: error?.stack,
-    }, { status: 500 });
+  } catch (error: unknown) {
+    const e = error as { message?: string; code?: string };
+    console.error('[test-smtp] ZeptoMail erro:', e);
+    return NextResponse.json(
+      {
+        success: false,
+        error: e.message || 'Erro desconhecido',
+        code: e.code,
+        provider: 'ZeptoMail',
+      },
+      { status: 500 }
+    );
   }
 }
-

@@ -1,0 +1,241 @@
+================================================================================
+ARQUIVOS PARA COPIAR - CENOFT E ADMIN
+================================================================================
+
+Você precisa copiar os seguintes arquivos para criar as páginas /meta e /metaadmin:
+
+================================================================================
+1. ARQUIVOS PRINCIPAIS (OBRIGATÓRIOS)
+================================================================================
+
+✓ app/cenoft/page.tsx
+  → Copiar para: app/meta/page.tsx
+  
+✓ app/admin/page.tsx
+  → Copiar para: app/metaadmin/page.tsx
+
+Estes são os arquivos principais que contêm toda a lógica e UI das páginas.
+
+================================================================================
+2. COMPONENTES COMPARTILHADOS (USADOS NO ADMIN)
+================================================================================
+
+✓ components/FeriasCalendar.tsx
+✓ components/EditModal.tsx
+✓ components/EditResidenteForm.tsx
+✓ components/EditLocalForm.tsx
+✓ components/EditServicoForm.tsx
+✓ components/EditEscalaForm.tsx
+
+Estes componentes são USADOS PELO ADMIN e precisam existir no projeto.
+
+================================================================================
+3. TIPOS TYPESCRIPT (OBRIGATÓRIOS)
+================================================================================
+
+✓ types/auth.ts
+  → Define: User, Residente, Local, Servico, Escala, ServicoDia
+
+✓ types/troca.ts
+  → Define: Troca
+
+✓ types/ferias.ts
+  → Define: Ferias
+
+✓ types/mensagem.ts
+  → Define: Mensagem, MensagemResidente, MensagemResidenteParaAdmin
+
+Estes tipos são ESSENCIAIS para as páginas funcionarem.
+
+================================================================================
+4. SERVIÇOS (OBRIGATÓRIOS)
+================================================================================
+
+✓ services/userService.ts
+  → Serviços de CRUD para Firestore (usuários, residentes, locais, escalas, etc)
+
+✓ services/mensagemService.ts
+  → Serviços para mensagens entre admin e residentes
+
+Estes serviços fazem a comunicação com o Firebase/Firestore.
+
+================================================================================
+5. FIREBASE E LIB (OBRIGATÓRIO)
+================================================================================
+
+✓ lib/firebase.ts
+  → Configuração do Firebase (auth, firestore)
+
+Este arquivo é ESSENCIAL - sem ele nada funciona.
+
+================================================================================
+6. LAYOUT GLOBAL (JA EXISTE)
+================================================================================
+
+✓ app/layout.tsx
+✓ app/globals.css
+
+Estes arquivos JÁ EXISTEM no seu projeto e não precisam ser copiados.
+
+================================================================================
+7. RESUMO DO QUE FAZER
+================================================================================
+
+PASSO 1: Criar as pastas
+  mkdir app\meta
+  mkdir app\metaadmin
+
+PASSO 2: Copiar os arquivos principais
+  Copy app\cenoft\page.tsx → app\meta\page.tsx
+  Copy app\admin\page.tsx → app\metaadmin\page.tsx
+
+PASSO 3: Verificar se os componentes existem
+  Se não existirem, copiar da pasta components/
+
+PASSO 4: Verificar se os tipos existem
+  Se não existirem, copiar da pasta types/
+
+PASSO 5: Verificar se os serviços existem
+  Se não existirem, copiar da pasta services/
+
+PASSO 6: Verificar lib/firebase.ts
+  Deve existir e estar configurado
+
+================================================================================
+8. DEPENDÊNCIAS NPM (verificar package.json)
+================================================================================
+
+Você precisará das seguintes dependências instaladas:
+
+✓ next
+✓ react
+✓ react-dom
+✓ firebase
+✓ tailwindcss
+✓ lucide-react
+
+Verificar se já estão em package.json!
+
+================================================================================
+9. STRUCTURE COMPLETA
+================================================================================
+
+Seu projeto deve ter esta estrutura:
+
+oftware/
+├── app/
+│   ├── layout.tsx                    (JÁ EXISTE)
+│   ├── globals.css                   (JÁ EXISTE)
+│   ├── page.tsx                      (JÁ EXISTE)
+│   ├── cenoft/
+│   │   └── page.tsx                  (ORIGINAL - não copiar)
+│   ├── admin/
+│   │   └── page.tsx                  (ORIGINAL - não copiar)
+│   ├── meta/                         (NOVA PASTA)
+│   │   └── page.tsx                  (COPIAR DE cenoft)
+│   └── metaadmin/                    (NOVA PASTA)
+│       └── page.tsx                  (COPIAR DE admin)
+├── components/
+│   ├── FeriasCalendar.tsx            (VERIFICAR SE EXISTE)
+│   ├── EditModal.tsx                 (VERIFICAR SE EXISTE)
+│   ├── EditResidenteForm.tsx         (VERIFICAR SE EXISTE)
+│   ├── EditLocalForm.tsx             (VERIFICAR SE EXISTE)
+│   ├── EditServicoForm.tsx           (VERIFICAR SE EXISTE)
+│   └── EditEscalaForm.tsx            (VERIFICAR SE EXISTE)
+├── types/
+│   ├── auth.ts                       (VERIFICAR SE EXISTE)
+│   ├── troca.ts                      (VERIFICAR SE EXISTE)
+│   ├── ferias.ts                     (VERIFICAR SE EXISTE)
+│   └── mensagem.ts                   (VERIFICAR SE EXISTE)
+├── services/
+│   ├── userService.ts                (VERIFICAR SE EXISTE)
+│   └── mensagemService.ts            (VERIFICAR SE EXISTE)
+├── lib/
+│   └── firebase.ts                   (VERIFICAR SE EXISTE)
+└── public/
+    └── icones/
+        └── oftware.png               (VERIFICAR SE EXISTE)
+
+================================================================================
+10. IMPORTAÇÕES QUE SERÃO NECESSÁRIAS
+================================================================================
+
+Nos arquivos app/meta/page.tsx e app/metaadmin/page.tsx, as importações
+serão praticamente idênticas:
+
+app/meta/page.tsx:
+  - lucide-react (ícones)
+  - @/lib/firebase (auth)
+  - @/services/userService
+  - @/services/mensagemService
+  - @/types/auth
+  - @/types/troca
+  - @/types/ferias
+  - @/types/mensagem
+
+app/metaadmin/page.tsx:
+  - Tudo acima +
+  - @/components/FeriasCalendar
+  - @/components/EditModal
+  - @/components/EditResidenteForm
+  - @/components/EditLocalForm
+  - @/components/EditServicoForm
+  - @/components/EditEscalaForm
+
+================================================================================
+11. FIREBASE CONFIGURATION (IMPORTANTE!)
+================================================================================
+
+Verificar se lib/firebase.ts está configurado corretamente:
+
+✓ Firebase Auth configurado
+✓ Firestore configurado
+✓ Variáveis de ambiente configuradas
+
+Arquivo .env.local deve ter:
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+(etc)
+
+================================================================================
+12. FIREBASE FIRESTORE RULES
+================================================================================
+
+Verificar se firestore.rules permite as operações necessárias.
+
+As páginas precisam de:
+- Leitura de users, residentes, locais, servicos, escalas
+- Escrita/atualização de escalas, trocas, ferias, mensagens
+- Validação de roles (admin vs residente)
+
+================================================================================
+13. CHECKLIST FINAL
+================================================================================
+
+Antes de usar as novas páginas /meta e /metaadmin:
+
+[ ] app/meta/page.tsx existe
+[ ] app/metaadmin/page.tsx existe
+[ ] Todos os componentes em components/ existem
+[ ] Todos os tipos em types/ existem
+[ ] Todos os serviços em services/ existem
+[ ] lib/firebase.ts está configurado
+[ ] package.json tem as dependências necessárias
+[ ] .env.local tem as variáveis do Firebase
+[ ] firestore.rules permite acesso adequado
+[ ] public/icones/oftware.png existe
+
+================================================================================
+FIM DA DOCUMENTAÇÃO
+================================================================================
+
+DICA IMPORTANTE:
+Após copiar os arquivos, você provavelmente precisará:
+1. Ajustar os nomes de classes/componentes
+2. Mudar "CENOFT" para "META" no sidebar
+3. Potencialmente ajustar rotas e permissões
+4. Testar todas as funcionalidades
+
+Boa sorte! 🚀
+

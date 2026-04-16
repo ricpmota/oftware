@@ -113,14 +113,34 @@ export function isInRange(value: number | null | undefined, range: LabRange | nu
 /**
  * Exemplo de mapeamento para labels amigáveis no form (opcional)
  */
-export const labOrderBySection: Record<string, (keyof typeof labRanges)[]> = {
-  metabolismo: ['fastingGlucose', 'hba1c'],
-  renal: ['urea', 'creatinine', 'egfr'],
+/** Chaves alinhadas a `data/limites_exames_atual_v2_idade.json` (via `getLabRange` em labRangesFromJson). */
+export const labOrderBySection: Record<string, string[]> = {
+  metabolismo: ['fastingGlucose', 'hba1c', 'fastingInsulin'],
+  renal: ['urea', 'creatinine', 'egfr', 'sodium', 'potassium'],
   hepatobiliar: ['alt', 'ast', 'ggt', 'alp'],
   pancreas: ['amylase', 'lipase'],
   lipideos: ['cholTotal', 'ldl', 'hdl', 'tg'],
   tireoide: ['tsh', 'calcitonin', 'ft4'],
+  tireoideAvancada: ['t3Livre', 'antiTPO', 'antiTg'],
   hemograma: ['hgb', 'wbc', 'platelets'],
-  ferroVitaminas: ['ferritin', 'iron', 'b12', 'vitaminD']
+  ferroVitaminas: ['ferritin', 'iron', 'b12', 'vitaminD'],
+  estadoNutricional: ['albumin'],
+  hormonios: [
+    'testosteronaTotal',
+    'testosteronaLivre',
+    'shbg',
+    'lh',
+    'fsh',
+    'estradiol',
+    'dht',
+    'dheas',
+    'prolactina',
+    'psa',
+    'progesterona',
+    'oh17Progesterona',
+    'amh'
+  ],
+  adrenalEstresse: ['cortisol8h', 'cortisol16h', 'acth'],
+  metabolismoHormonal: ['homaIr', 'leptina', 'adiponectina', 'igf1', 'pcrUltra']
 };
 

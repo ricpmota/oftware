@@ -7,7 +7,8 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
-import { UtensilsCrossed, CheckCircle, XCircle, Droplet, Activity, AlertCircle, Calendar, ChevronRight } from 'lucide-react';
+import { UtensilsCrossed, CheckCircle, XCircle, Droplet, Activity, AlertCircle, Calendar, ChevronRight, Stethoscope } from 'lucide-react';
+import { alturaInputParaCm } from '@/utils/alturaInput';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -258,10 +259,12 @@ export default function NutriPage() {
    * Salva peso e altura e calcula IMC
    */
   const handleSalvarPesoAltura = async () => {
-    if (!peso || !altura || !paciente) return;
-    
+    if (!peso || altura === null || altura === undefined || !paciente) return;
+    const alturaCm = alturaInputParaCm(altura);
+    if (!alturaCm) return;
+
     try {
-      const alturaMetros = altura / 100;
+      const alturaMetros = alturaCm / 100;
       const imcCalculado = peso / (alturaMetros * alturaMetros);
       
       // Atualizar no Firestore
@@ -276,7 +279,7 @@ export default function NutriPage() {
             medidasIniciais: {
               ...dadosAtuais.dadosClinicos?.medidasIniciais,
               peso,
-              altura,
+              altura: alturaCm,
               imc: imcCalculado
             }
           }
@@ -291,7 +294,7 @@ export default function NutriPage() {
           medidasIniciais: {
             ...paciente.dadosClinicos?.medidasIniciais,
             peso,
-            altura,
+            altura: alturaCm,
             imc: imcCalculado
           }
         }
@@ -612,17 +615,50 @@ export default function NutriPage() {
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
-            <AlertCircle className="mx-auto h-16 w-16 text-red-500 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Paciente não encontrado</h2>
-            <p className="text-gray-600 mb-4">
-              Não foi possível carregar seus dados. Por favor, tente novamente ou entre em contato com o suporte.
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-8 sm:p-12 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-100 rounded-full mb-4">
+              <Stethoscope className="w-10 h-10 text-amber-600" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
+              Vínculo com médico necessário
+            </h2>
+            <p className="text-gray-700 mb-6">
+              Para acessar as páginas Nutri e Personal, você precisa primeiro ser vinculado a um médico. 
+              Acesse a seção <strong>Médicos</strong> no menu para buscar e solicitar vínculo com um médico da sua região.
             </p>
             <button
               onClick={() => router.push('/meta')}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
             >
-              Voltar para a página inicial
+              Ir para página inicial
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Paciente não vinculado ao médico: bloquear Nutri
+  if (!paciente.medicoResponsavelId) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-8 sm:p-12 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-100 rounded-full mb-4">
+              <Stethoscope className="w-10 h-10 text-amber-600" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
+              Vínculo com médico necessário
+            </h2>
+            <p className="text-gray-700 mb-6">
+              Para acessar as páginas Nutri e Personal, você precisa primeiro ser vinculado a um médico. 
+              Acesse a seção <strong>Médicos</strong> no menu para buscar e solicitar vínculo com um médico da sua região.
+            </p>
+            <button
+              onClick={() => router.push('/meta')}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              Ir para página inicial
             </button>
           </div>
         </div>
@@ -660,16 +696,20 @@ export default function NutriPage() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Altura (cm) *
+                  Altura (cm ou m) *
                 </label>
                 <input
                   type="number"
-                  value={altura || ''}
-                  onChange={(e) => setAltura(parseInt(e.target.value))}
+                  value={altura ?? ''}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    setAltura(isNaN(v) ? null : v);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Ex: 170"
-                  min="120"
-                  max="230"
+                  placeholder="Ex: 170 ou 1.70"
+                  min="1"
+                  max="250"
+                  step="0.01"
                 />
               </div>
             </div>

@@ -1,7 +1,7 @@
 // Tipos para configuração de e-mails automáticos para leads
 
 export type EmailTipo = 'email1' | 'email2' | 'email3' | 'email4' | 'email5';
-export type EmailModulo = 'leads' | 'solicitado_medico' | 'em_tratamento' | 'novo_lead_medico' | 'aplicacao' | 'lead_avulso' | 'check_recomendacoes' | 'bem_vindo' | 'novidades';
+export type EmailModulo = 'leads' | 'solicitado_medico' | 'em_tratamento' | 'novo_lead_medico' | 'aplicacao' | 'lead_avulso' | 'check_recomendacoes' | 'bem_vindo' | 'novidades' | 'agenda' | 'conclusao_tratamento';
 
 export interface EmailTemplate {
   assunto: string;
@@ -52,6 +52,16 @@ export interface EmailConfig {
   // Módulo 9: Novidades - E-mail em massa para pacientes ou médicos
   novidades: {
     novidade: EmailTemplate; // Template de e-mail para novidades
+  };
+  // Módulo 10: Agenda - E-mails para médicos com agenda de aplicações e pagamentos
+  agenda: {
+    agenda_semanal: EmailTemplate; // Enviado semanalmente com relação dos pacientes que irão receber aplicação e pagamento durante a semana
+    agenda_diario: EmailTemplate; // Enviado diariamente com pacientes que vão receber aplicação e/ou pagamento no dia
+  };
+  /** Conclusão: lembrete automático (dia do card) + parabéns com relatório (após médico concluir) */
+  conclusao_tratamento?: {
+    lembrete_conclusao: EmailTemplate;
+    conclusao_tratamento: EmailTemplate;
   };
   // Configuração de envio automático (apenas para leads)
   envioAutomatico: {

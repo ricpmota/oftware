@@ -1,0 +1,127 @@
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Oftware - Sistema de Automação Médica",
+  description: "Sistema completo de monitoramento",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icones/oftware.png', type: 'image/png' }
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/icones/oftware.png',
+  },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="pt-BR">
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Oftware" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="msapplication-TileColor" content="#22c55e" />
+        <meta name="theme-color" content="#22c55e" />
+        <meta name="application-name" content="Oftware" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        
+        <link rel="preload" as="image" href="/icones/oftware.png" />
+        
+        <link rel="apple-touch-icon" href="/icones/oftware.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icones/oftware.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icones/oftware.png" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/icones/oftware.png" />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+        
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // FORÇAR SEMPRE MODO CLARO - NUNCA PERMITIR DARK
+              (function() {
+                const html = document.documentElement;
+                const body = document.body;
+                
+                // Remover classe dark imediatamente e repetidamente
+                setInterval(function() {
+                  html.classList.remove('dark');
+                  html.style.colorScheme = 'light';
+                  body.style.backgroundColor = '#ffffff';
+                  body.style.color = '#111827';
+                }, 100);
+                
+                // Observar mudanças no DOM
+                const observer = new MutationObserver(function() {
+                  html.classList.remove('dark');
+                  html.style.colorScheme = 'light';
+                });
+                
+                observer.observe(html, {
+                  attributes: true,
+                  attributeFilter: ['class', 'style'],
+                  subtree: true
+                });
+                
+                // Interceptar tentativas de adicionar dark
+                const originalAdd = DOMTokenList.prototype.add;
+                DOMTokenList.prototype.add = function(...tokens) {
+                  tokens = tokens.filter(t => t !== 'dark');
+                  if (tokens.length > 0) {
+                    return originalAdd.apply(this, tokens);
+                  }
+                };
+                
+                // Forçar variáveis CSS sempre claras
+                document.documentElement.style.setProperty('--background', '#ffffff');
+                document.documentElement.style.setProperty('--foreground', '#111827');
+              })();
+              
+              if ('serviceWorker' in navigator) {
+                setTimeout(() => {
+                  navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                      console.log('SW registered: ', registration);
+                    })
+                    .catch(function(registrationError) {
+                      console.log('SW registration failed: ', registrationError);
+                    });
+                }, 2000);
+              }
+            `,
+          }}
+        />
+      </body>
+    </html>
+  );
+}

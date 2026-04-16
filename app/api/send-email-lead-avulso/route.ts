@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import nodemailer from 'nodemailer';
+import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -95,48 +95,26 @@ export async function POST(request: NextRequest) {
     console.log('📧 Iniciando envio de e-mail de lead avulso...', {
       destinatario: gestorEmail,
       assunto,
-      zohoConfigurado: !!(process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD)
+      zeptoConfigurado: isZeptoMailConfigured(),
     });
 
     try {
-      if (process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD) {
-        console.log('📧 Configurando transporter Zoho...');
-        const transporter = nodemailer.createTransport({
-          host: 'smtp.zoho.com',
-          port: 587,
-          secure: false,
-          auth: {
-            user: process.env.ZOHO_EMAIL,
-            pass: process.env.ZOHO_PASSWORD,
-          },
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 10000,
-        });
-
-        console.log('📧 Verificando conexão SMTP...');
-        await transporter.verify();
-        console.log('✅ Conexão SMTP verificada com sucesso');
-
-        console.log('📧 Enviando e-mail...');
-        const info = await transporter.sendMail({
-          from: `"Oftware" <${process.env.ZOHO_EMAIL}>`,
+      if (isZeptoMailConfigured()) {
+        const sent = await sendEmail({
           to: gestorEmail,
           subject: assunto,
           html: htmlFinal,
           text: html.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
         });
-
-        console.log('✅ E-mail de lead avulso enviado com sucesso:', {
-          messageId: info.messageId,
-          response: info.response,
-          accepted: info.accepted,
-          rejected: info.rejected
-        });
-        envioSucesso = true;
+        envioSucesso = sent.success;
+        if (!sent.success) erroEnvio = sent.error;
+        else console.log('✅ E-mail de lead avulso enviado:', sent.messageId);
       } else {
-        console.warn('⚠️ ZOHO_EMAIL ou ZOHO_PASSWORD não configurados. E-mail NÃO será enviado.');
-        erroEnvio = 'Variáveis de ambiente ZOHO_EMAIL e ZOHO_PASSWORD não configuradas';
+        console.warn(
+          '⚠️ ZeptoMail não configurado. E-mail NÃO será enviado.'
+        );
+        erroEnvio =
+          'Variáveis ZEPTOMAIL_SMTP_* e MAIL_FROM não configuradas';
         envioSucesso = false;
       }
     } catch (emailError) {
@@ -144,7 +122,7 @@ export async function POST(request: NextRequest) {
       console.error('❌ Erro ao enviar e-mail:', {
         error: emailError,
         message: (emailError as Error).message,
-        stack: (emailError as Error).stack
+        stack: (emailError as Error).stack,
       });
     }
 

@@ -19,6 +19,22 @@
     {
       "path": "/api/cron/send-email-aplicacao",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/send-email-aplicacao",
+      "schedule": "0 12,16 * * *"
+    },
+    {
+      "path": "/api/cron/send-email-conclusao-lembrete",
+      "schedule": "15 8 * * *"
+    },
+    {
+      "path": "/api/cron/send-email-agenda-semanal",
+      "schedule": "0 13 * * 0"
+    },
+    {
+      "path": "/api/cron/send-email-agenda-diario",
+      "schedule": "0 7 * * *"
     }
   ]
 }

@@ -1,11 +1,23 @@
+/** `prescricao`: documento padrão de medicamentos/suplementos. `recibo_medico`: recibo de pagamento da consulta (descrição + valor). */
+export type PrescricaoTipoDocumento = 'prescricao' | 'recibo_medico';
+
 export interface Prescricao {
   id: string; // Firestore document ID
   medicoId: string; // ID do médico que criou a prescrição
   pacienteId?: string; // ID do paciente (opcional, pode ser template)
+  pacienteNome?: string; // Nome do paciente (para identificar para qual paciente foi salva)
   nome: string; // Nome da prescrição
   descricao: string; // Descrição completa da prescrição
   itens: PrescricaoItem[]; // Itens da prescrição
   observacoes?: string; // Observações adicionais
+  /** Ausente ou `prescricao` = prescrição clássica; `recibo_medico` = recibo salvo na mesma coleção. */
+  tipoDocumento?: PrescricaoTipoDocumento;
+  /** Valor da consulta em reais (apenas para recibo médico). */
+  valorConsulta?: number;
+  /** Data do recibo definida pelo médico (YYYY-MM-DD). Ausente em templates padrão até o médico preencher. */
+  dataRecibo?: string;
+  /** No recibo: exibir documento do profissional conforme perfil (CPF ou CNPJ) ou não exibir. */
+  reciboDocumentoProfissional?: 'omitir' | 'cpf' | 'cnpj';
   criadoEm: Date;
   atualizadoEm: Date;
   criadoPor: string; // Email do médico

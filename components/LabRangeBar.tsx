@@ -78,14 +78,14 @@ export function LabRangeBar({ range, value, width = 300, height = 20 }: LabRange
       </div>
       
       {/* Labels informativos */}
-      <div className="text-xs text-gray-600">
+      <div className="text-xs text-black">
         {hasValue ? (
           <span className={inRange ? 'text-green-700' : 'text-red-700'}>
             {inRange ? '✅' : '⚠️'} Valor: {value} {range.unit} • 
             Referência: {range.min}-{range.max} {range.unit}
           </span>
         ) : (
-          <span className="text-gray-400">Sem valor informado</span>
+          <span className="text-black">Sem valor informado</span>
         )}
       </div>
     </div>

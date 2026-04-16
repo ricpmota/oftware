@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import nodemailer from 'nodemailer';
+import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -131,34 +131,18 @@ export async function POST(request: NextRequest) {
     let erroEnvio: string | undefined;
 
     try {
-      if (process.env.ZOHO_EMAIL && process.env.ZOHO_PASSWORD) {
-        const transporter = nodemailer.createTransport({
-          host: 'smtp.zoho.com',
-          port: 587,
-          secure: false,
-          auth: {
-            user: process.env.ZOHO_EMAIL,
-            pass: process.env.ZOHO_PASSWORD,
-          },
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
-          socketTimeout: 10000,
-        });
-
-        await transporter.verify();
-
-        const info = await transporter.sendMail({
-          from: `"Oftware" <${process.env.ZOHO_EMAIL}>`,
+      if (isZeptoMailConfigured()) {
+        const sent = await sendEmail({
           to: medicoEmail,
           subject: assunto,
           html: htmlFinal,
           text: html.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
         });
-
-        console.log('✅ E-mail de check recomendações enviado:', info.messageId);
-        envioSucesso = true;
+        envioSucesso = sent.success;
+        if (!sent.success) erroEnvio = sent.error;
+        else console.log('✅ E-mail de check recomendações enviado:', sent.messageId);
       } else {
-        console.log('📧 SIMULAÇÃO E-MAIL (Zoho não configurado)');
+        console.log('📧 SIMULAÇÃO E-MAIL (ZeptoMail não configurado)');
         envioSucesso = true;
       }
     } catch (emailError) {

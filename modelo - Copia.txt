@@ -1,0 +1,879 @@
+================================================================================
+DOCUMENTAÇÃO COMPLETA DE ESTRUTURA E DESIGN - SISTEMA CENOFT/ADMIN
+================================================================================
+
+Este documento descreve EXATAMENTE como o site atual está estruturado, incluindo
+layouts, menus, cores, espaçamentos e comportamento responsivo.
+
+================================================================================
+1. ESTRUTURA GERAL DO SISTEMA
+================================================================================
+
+O sistema possui TRÊS rotas principais:
+- /         → Página inicial com login
+- /cenoft   → Dashboard para USUÁRIOS CADASTRADOS (residentes)
+- /admin    → Dashboard para ADMINISTRADORES
+
+================================================================================
+2. ARQUITETURA DE LAYOUT
+================================================================================
+
+2.1 PÁGINA /CENOFT (Menu INFERIOR no mobile)
+
+ESTRUTURA:
+┌─────────────────────────────────────────────────────────┐
+│  [Header Mobile - lg:hidden]                           │
+│  Logo + Título "Oftware" + Botão Mensagens + Logout    │
+├─────────────────────────────────────────────────────────┤
+│  [Sidebar Desktop - hidden lg:flex]                    │
+│  ├─ Título "CENOFT"                                    │
+│  ├─ Botão Mensagens (com badge)                        │
+│  ├─ Botão Collapse/Expand                              │
+│  ├─ Nav: Estatísticas, Escalas, Trocas, Férias         │
+│  └─ Botão Sair                                         │
+├─────────────────────────────────────────────────────────┤
+│  [Main Content]                                         │
+│  ├─ padding: p-3 (mobile) / p-4 (desktop)              │
+│  └─ Conteúdo dinâmico baseado em activeMenu            │
+├─────────────────────────────────────────────────────────┤
+│  [Menu Inferior Mobile - fixed bottom-0 lg:hidden]     │
+│  Botões: Estatísticas, Escalas, Trocas, Férias         │
+└─────────────────────────────────────────────────────────┘
+
+2.2 PÁGINA /ADMIN (Menu INFERIOR no mobile)
+
+ESTRUTURA:
+┌─────────────────────────────────────────────────────────┐
+│  [Header Mobile - lg:hidden]                           │
+│  Logo + Título "Admin" + Hamburger Menu                │
+├─────────────────────────────────────────────────────────┤
+│  [Sidebar Desktop - hidden lg:block fixed]             │
+│  ├─ Logo Oftware + Título                              │
+│  ├─ Botão Collapse/Expand                              │
+│  ├─ Bem-vindo, Admin + Email                           │
+│  ├─ Nav: Estatísticas, Usuários, Residentes, Locais,   │
+│  │      Serviços, Escalas, Criar Escala, Trocas,       │
+│  │      Férias, Mensagens                              │
+│  └─ Botão Sair                                         │
+├─────────────────────────────────────────────────────────┤
+│  [Main Content]                                         │
+│  ├─ padding: p-6                                       │
+│  └─ Conteúdo dinâmico baseado em activeMenu            │
+├─────────────────────────────────────────────────────────┤
+│  [Menu Inferior Mobile - fixed bottom-0 lg:hidden]     │
+│  Scroll horizontal com TODOS os botões do sidebar       │
+└─────────────────────────────────────────────────────────┘
+
+================================================================================
+3. DESIGN SYSTEM COMPLETO
+================================================================================
+
+3.1 CORES PRINCIPAIS
+
+COR PRIMÁRIA (Verde):
+- Verde Principal: #22c55e (green-500)
+- Verde Claro (bg): #dcfce7 (green-100)
+- Verde Escuro (text): #15803d (green-700)
+
+CORES DE NÍVEIS:
+- R1: #3b82f6 (blue-600)
+- R2: #10b981 (green-600)
+- R3: #8b5cf6 (purple-600)
+
+CORES NEUTRAS:
+- Background Geral: #f9fafb (gray-50)
+- Cards/Sidebar: #ffffff (white)
+- Bordas: #e5e7eb (gray-200)
+- Texto Principal: #111827 (gray-900)
+- Texto Secundário: #6b7280 (gray-500)
+
+CORES DE ESTADO:
+- Sucesso: #10b981
+- Erro: #ef4444 (red-500)
+- Atenção: #f59e0b (amber-500)
+- Info: #3b82f6 (blue-500)
+
+CORES DE NOTIFICAÇÃO:
+- Badge Vermelho: #ef4444 (red-500) - Fundo branco, texto branco
+- Badge Verde: #dcfce7 (green-100) - Fundo verde claro, texto verde
+- Badge Azul: #dbeafe (blue-100) - Fundo azul claro, texto azul
+- Badge Amarelo: #fef3c7 (yellow-100) - Fundo amarelo claro, texto amarelo
+- Badge Roxo: #e9d5ff (purple-100) - Fundo roxo claro, texto roxo
+
+3.2 TIPOGRAFIA
+
+FONTES:
+- Primária: Geist Sans (via Next.js)
+- Fallback: Arial, Helvetica, sans-serif
+- Monospace: Geist Mono
+
+TAMANHOS:
+- H1: text-2xl font-bold (24px, bold)
+- H2: text-xl font-bold (20px, bold)
+- H3: text-lg font-semibold (18px, semibold)
+- H4: text-md font-medium (16px, medium)
+- Body: text-sm (14px)
+- Small: text-xs (12px)
+- Tiny: text-xs (12px)
+
+PESOS:
+- Bold: font-bold (700)
+- Semibold: font-semibold (600)
+- Medium: font-medium (500)
+- Normal: font-normal (400)
+
+3.3 ESPAÇAMENTOS
+
+PADDING:
+- Container Principal: p-3 (mobile) / p-6 (desktop)
+- Cards: p-4 ou p-6
+- Botões: px-3 py-2 / px-4 py-3
+- Inputs: px-3 py-2
+
+MARGIN:
+- Entre seções: space-y-6
+- Entre cards: gap-4
+- Botões inline: space-x-2
+
+GAPS:
+- Grid: gap-4 / gap-6
+- Flex: space-x-2, space-x-4
+
+3.4 BORDAS E SOMBRAS
+
+BORDAS:
+- Cards: border border-gray-200
+- Inputs: border border-gray-300
+- Focus: ring-2 ring-green-500 focus:border-green-500
+- Radius: rounded-md (6px), rounded-lg (8px), rounded-xl (12px)
+
+SOMBRAS:
+- Cards: shadow ou shadow-lg
+- Modals: shadow-2xl
+- Hover (cards): shadow-md
+
+3.5 TRANSIÇÕES E ANIMAÇÕES
+
+TRANSIÇÕES:
+- Padrão: transition-all duration-300
+- Hover: hover:bg-gray-100
+- Active: active:scale-95
+- Scale: hover:scale-105
+
+ANIMAÇÕES:
+- Spinner: animate-spin
+- Pulse: animate-pulse
+- Fade: transition-opacity duration-300
+
+================================================================================
+4. COMPONENTES E SEÇÕES
+================================================================================
+
+4.1 SIDEBAR (Desktop - lg:flex)
+
+POSIÇÃO E DIMENSÕES:
+- Largura normal: w-64 (256px)
+- Largura collapsed: w-16 (64px)
+- Posição: hidden lg:flex (visível apenas desktop)
+- Background: bg-white shadow-lg
+- Transição: transition-all duration-300
+
+HEADER SIDEBAR:
+- Border inferior: border-b border-gray-200
+- Padding: p-4
+- Flex justify-between
+
+BOTÕES DE NAVEGAÇÃO:
+- Width: w-full
+- Padding: px-3 py-2
+- Text: text-sm font-medium
+- Border radius: rounded-md
+- Estado ativo: bg-green-100 text-green-700
+- Estado hover: text-gray-600 hover:bg-gray-100
+- Ícones: w-5 h-5 mr-3 (quando expandido)
+
+4.2 HEADER MOBILE (lg:hidden)
+
+POSIÇÃO E DIMENSÕES:
+- Background: bg-white shadow-sm
+- Border: border-b border-gray-200
+- Padding: px-4 py-3
+- Flex justify-between
+
+ELEMENTOS:
+- Logo: h-8 w-8
+- Título: ml-2 text-lg font-bold
+- Botões: p-2 rounded-md hover:bg-gray-100
+
+4.3 MENU INFERIOR MOBILE (fixed bottom-0 lg:hidden)
+
+POSIÇÃO E DIMENSÕES:
+- Fixed: fixed bottom-0 left-0 right-0
+- Background: bg-white
+- Border: border-t border-gray-200
+- Z-index: z-50
+- Padding: py-2
+
+BOTÕES:
+- Flex: flex flex-col items-center
+- Padding: py-2 px-3 (cenoft) / py-1.5 px-2 (admin)
+- Ícone: w-5 h-5 mb-1
+- Texto: text-xs font-medium
+- Estado ativo: bg-green-100 text-green-700
+- Estado normal: text-gray-600
+
+SCROLL ADMIN:
+- Overflow: overflow-x-auto scrollbar-hide
+- Espaçamento: space-x-1
+- White-space: whitespace-nowrap
+
+4.4 CARDS
+
+ESTRUTURA PADRÃO:
+- Background: bg-white
+- Shadow: shadow
+- Border radius: rounded-lg
+- Padding: p-4 ou p-6
+- Espaçamento vertical: space-y-4
+
+4.5 TABELAS
+
+ESTRUTURA PADRÃO:
+- Background: bg-white
+- Overflow: overflow-x-auto
+- Width: min-w-full
+- Headers: bg-gray-50 text-gray-500 uppercase tracking-wider
+- Cells: px-2 py-2 text-sm
+- Rows: hover:bg-gray-50
+- Striped: bg-white e bg-gray-50 alternado
+
+4.6 BADGES/PILLS
+
+ESTRUTURA:
+- Display: inline-flex items-center
+- Padding: px-2 py-1 ou px-2.5 py-0.5
+- Border radius: rounded-full
+- Font: text-xs font-medium
+
+TIPOS:
+- Verde: bg-green-100 text-green-800
+- Azul: bg-blue-100 text-blue-800
+- Amarelo: bg-yellow-100 text-yellow-800
+- Roxo: bg-purple-100 text-purple-800
+- Vermelho: bg-red-100 text-red-800
+- Laranja: bg-orange-100 text-orange-800
+
+4.7 BOTÕES
+
+PRIMÁRIO (Verde):
+- Background: bg-green-600
+- Text: text-white
+- Hover: hover:bg-green-700
+- Padding: px-4 py-2
+- Radius: rounded-md
+- Font: font-medium
+
+SECUNDÁRIO:
+- Background: bg-white
+- Text: text-gray-700
+- Border: border border-gray-300
+- Hover: hover:bg-gray-50
+
+DANGER:
+- Text: text-red-600
+- Hover: hover:bg-red-50
+- Hover text: hover:text-red-800
+
+4.8 INPUTS
+
+ESTRUTURA PADRÃO:
+- Display: block w-full
+- Border: border border-gray-300
+- Radius: rounded-md
+- Padding: px-3 py-2
+- Focus: focus:outline-none focus:ring-green-500 focus:border-green-500
+
+4.9 MODAIS
+
+ESTRUTURA:
+- Overlay: fixed inset-0 bg-black bg-opacity-50
+- Container: bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden
+- Header: flex justify-between items-center p-4 border-b border-gray-200
+- Body: p-4
+- Footer: p-4 border-t border-gray-200
+
+4.10 ABAS (TABS)
+
+ESTRUTURA:
+- Container: flex border-b border-gray-200
+- Botões: px-4 py-2 text-sm font-medium border-b-2
+- Ativo: border-green-500 text-green-600
+- Inativo: border-transparent text-gray-500 hover:text-gray-700
+
+================================================================================
+5. MENUS E NAVEGAÇÃO
+================================================================================
+
+5.1 PÁGINA /CENOFT - MENUS
+
+SIDEBAR DESKTOP (4 itens):
+1. Estatísticas (BarChart3)
+2. Escalas / Minhas Escalas (Calendar)
+3. Trocas (RefreshCw)
+4. Férias (Calendar)
+
+MENU MOBILE INFERIOR (4 itens):
+1. Estatísticas (BarChart3)
+2. Escalas (Calendar)
+3. Trocas (RefreshCw)
+4. Férias (Calendar)
+
+HEADER MOBILE:
+- Logo Oftware (h-8 w-8)
+- Título "Oftware" (text-lg font-bold)
+- Botão Mensagens (MessageSquare) com badge
+- Botão Logout (SVG exit icon)
+
+5.2 PÁGINA /ADMIN - MENUS
+
+SIDEBAR DESKTOP (10 itens):
+1. Estatísticas (BarChart3)
+2. Usuários (Users)
+3. Residentes (UserCheck)
+4. Locais (Building)
+5. Serviços (Wrench)
+6. Escalas (Calendar)
+7. Criar Escala (Calendar)
+8. Aprovar Trocas (RefreshCw) - com badge
+9. Gerenciar Férias (Calendar) - com badge
+10. Mensagens (MessageSquare)
+
+MENU MOBILE INFERIOR (10 itens - scroll horizontal):
+Todos os mesmos itens do sidebar, em scroll horizontal com space-x-1
+
+HEADER MOBILE:
+- Logo Oftware (h-8 w-8)
+- Título "Admin" (text-lg font-semibold)
+- Botão Hamburger (Menu) - abre/fecha sidebar
+
+================================================================================
+6. RESPONSIVIDADE E BREAKPOINTS
+================================================================================
+
+BREAKPOINTS TAILWIND:
+- sm: 640px
+- md: 768px
+- lg: 1024px (PONTO CRÍTICO PARA SIDEBAR)
+
+COMPORTAMENTO:
+
+MOBILE (< lg):
+- Sidebar OCULTA (hidden)
+- Header mobile VISÍVEL (lg:hidden)
+- Menu inferior fixo VISÍVEL
+- Main content: padding p-3 ou p-6
+- Cards: stack vertical
+
+DESKTOP (>= lg):
+- Sidebar VISÍVEL (lg:flex ou lg:block)
+- Header mobile OCULTO (lg:hidden)
+- Menu inferior OCULTO (lg:hidden)
+- Main content: margin-left ml-64 ou ml-16 (collapsed)
+- Cards: grid layout
+
+================================================================================
+7. ESTADOS E FEEDBACK VISUAL
+================================================================================
+
+7.1 ESTADOS DE CARREGAMENTO
+
+SPINNER:
+- Animação: animate-spin
+- Cores: border-green-600 ou border-blue-600
+- Size: h-12 w-12
+- Centralizado: mx-auto
+
+7.2 ESTADOS DE SUCCESS/ERROR
+
+MENSAGENS:
+- Success: bg-green-100 border-green-400 text-green-700
+- Error: bg-red-100 border-red-400 text-red-700
+- Info: bg-blue-100 border-blue-400 text-blue-700
+
+7.3 ESTADOS VAZIOS (EMPTY STATES)
+
+ESTRUTURA:
+- Text: text-gray-500 text-center py-8
+- Ícone opcional (centro)
+- Mensagem explicativa
+
+7.4 HOVER STATES
+
+BOTÕES:
+- hover:bg-gray-100
+- hover:text-gray-900
+- hover:scale-105 (cards)
+- active:scale-95
+
+LINK:
+- hover:underline
+- hover:text-blue-700
+
+7.5 FOCUS STATES
+
+INPUTS:
+- focus:outline-none
+- focus:ring-2 focus:ring-green-500
+- focus:border-green-500
+
+BOTÕES:
+- focus:outline-none
+- focus:ring-2 focus:ring-green-500
+
+================================================================================
+8. TIPOS DE CONTEÚDO POR PÁGINA
+================================================================================
+
+8.1 PÁGINA /CENOFT
+
+ESTATÍSTICAS:
+- Cards com números (Total turnos, Locais visitados, etc)
+- Tabela semanal (Seg-Dom x Manhã-Tarde)
+- Estatísticas por serviço com comparação de residentes
+- Resumo com badges coloridos por turno
+
+ESCALAS:
+- Lista de escalas do usuário
+- Filtro "Apenas minhas escalas"
+- Cards expansíveis
+- Informações por dia e turno
+- Badges de status
+
+TROCAS:
+- Lista de solicitações enviadas
+- Lista de solicitações recebidas
+- Formulário para criar troca
+- Badges de status (Pendente, Aprovado, Rejeitado)
+- Botões de ação
+
+FÉRIAS:
+- Lista de férias solicitadas
+- Formulário para solicitar
+- Calendário visual
+- Badges de status (Futura, Ativa, Finalizada)
+- Cards expansíveis
+
+MENSAGENS (Modal):
+- Abas: Recebidas / Enviadas
+- Lista de mensagens
+- Botão "Enviar" abre modal
+- Badge de não lidas
+- Status de leitura
+
+8.2 PÁGINA /ADMIN
+
+ESTATÍSTICAS:
+- Cards de resumo (totais por nível)
+- Brechas (turnos sem serviços)
+- Tabela de distribuição de serviços
+- Filtros por período (semana/mês/ano)
+
+USUÁRIOS:
+- Lista de usuários do Firebase
+- Busca e filtros
+- Edição inline (nome, role)
+- Status de email verificado
+
+RESIDENTES:
+- Lista de residentes
+- Modal de cadastro
+- Edição por card
+- Badges por nível (R1/R2/R3)
+- Contador de residentes por nível
+
+LOCAIS:
+- Lista de locais
+- Modal de cadastro
+- Edição inline
+
+SERVIÇOS:
+- Lista de serviços
+- Vinculação com locais
+- Modal de cadastro
+- Edição inline
+
+ESCALAS:
+- Lista de escalas
+- Abas por dia da semana
+- Edição inline
+- Cards expansíveis
+- Informações detalhadas
+
+CRIAR ESCALA:
+- Formulário complexo
+- Abas por dia
+- Seleção de local > serviço > turno > residentes
+- Contadores por nível
+- Validations
+
+APROVAR TROCAS:
+- Lista de trocas pendentes
+- Informações completas
+- Botões Aprovar/Rejeitar
+- Filtros e busca
+
+GERENCIAR FÉRIAS:
+- Lista de solicitações
+- Calendário visual (FeriasCalendar)
+- Filtros por status
+- Botões Aprovar/Rejeitar
+
+MENSAGENS:
+- Abas: Enviadas / Recebidas (de residentes)
+- Composer de mensagens
+- Seleção de destinatários
+- Badges de não lidas
+
+================================================================================
+9. ÍCONES E ASSETS
+================================================================================
+
+BIBLIOTECA: Lucide React
+ÍCONES PRINCIPAIS:
+- BarChart3 (Estatísticas)
+- Users (Usuários)
+- UserCheck (Residentes)
+- Building (Locais)
+- Wrench (Serviços)
+- Calendar (Escalas/Férias)
+- RefreshCw (Trocas)
+- MessageSquare (Mensagens)
+- Menu (Hamburger)
+- X (Close/Collapse)
+- Plus (Adicionar)
+- Edit (Editar)
+- Trash2 (Deletar)
+- Bell (Notificações)
+- Eye (Visualizar)
+
+IMAGES:
+- Logo: /icones/oftware.png
+- Favicon: /favicon.ico
+
+================================================================================
+10. COMPORTAMENTOS ESPECIAIS
+================================================================================
+
+10.1 SIDEBAR COLLAPSE
+
+CENOFT:
+- Botão: Menu/X no header do sidebar
+- Comportamento: w-64 <-> w-16
+- Ícones: mudam de mr-3 para vazio
+- Texto: some quando collapsed
+
+ADMIN:
+- Botão: Menu/X no header do sidebar
+- Comportamento: w-64 <-> w-16
+- Logo: some quando collapsed
+- Info usuário: some quando collapsed
+- Ícones: centralizam quando collapsed
+
+10.2 SCROLLABILIDADE
+
+MENU MOBILE ADMIN:
+- overflow-x-auto
+- scrollbar-hide (custom CSS)
+- whitespace-nowrap nos botões
+
+CARDS DE LISTAGEM:
+- overflow-y-auto quando necessário
+- max-height definidas
+
+10.3 BADGES DE NOTIFICAÇÃO
+
+POSICIONAMENTO:
+- absolute -top-1 -right-1
+- size: w-4 h-4 ou h-5 w-5
+- bg-red-500 text-white
+- rounded-full
+- display: flex items-center justify-center
+- max: "9+" quando > 9
+
+10.4 SELEÇÃO VISUAL
+
+RESIDENTES:
+- R1: text-blue-600
+- R2: text-green-600
+- R3: text-purple-600
+
+CHECKBOXES:
+- rounded
+- border-gray-300
+- text-green-600 focus:ring-green-500
+
+10.5 TABELAS COMPLEXAS
+
+HEADER STICKY:
+- sticky left-0 para primeira coluna
+- z-10
+- bg-gray-50
+
+ROWS STRIPED:
+- bg-white e bg-gray-50 alternado
+- hover:bg-gray-50
+
+10.6 FORMULÁRIOS
+
+GRIDS RESPONSIVOS:
+- grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+- gap-4 ou gap-6
+
+VALIDAÇÃO VISUAL:
+- border-red-500 para erro
+- text-red-600 para mensagens
+- focus:ring-red-500
+
+================================================================================
+11. ESPECIFICAÇÕES DE CORES POR NÍVEL DE RESIDENTE
+================================================================================
+
+R1:
+- Texto: text-blue-600
+- Background: bg-blue-100
+- Border: border-blue-300
+- Badge de serviço: bg-yellow-100 text-yellow-800
+
+R2:
+- Texto: text-green-600
+- Background: bg-green-100
+- Border: border-green-300
+- Badge de serviço: bg-blue-100 text-blue-800
+
+R3:
+- Texto: text-purple-600
+- Background: bg-purple-100
+- Border: border-purple-300
+- Badge de serviço: bg-purple-100 text-purple-800
+
+================================================================================
+12. PASTAS E ESTRUTURA DE ARQUIVOS
+================================================================================
+
+app/
+├── layout.tsx              # Layout global com fontes e metadata
+├── page.tsx                # Página inicial com login
+├── globals.css             # Estilos globais e Tailwind
+├── admin/
+│   └── page.tsx            # Dashboard admin (PASTA ESPECÍFICA)
+├── cenoft/
+│   └── page.tsx            # Dashboard usuário (PASTA ESPECÍFICA)
+└── api/                    # Rotas de API (se necessário)
+
+components/
+├── Navigation.tsx          # Componente de navegação (NÃO usado em cenoft/admin)
+├── FeriasCalendar.tsx      # Calendário de férias
+├── EditModal.tsx           # Modal genérico
+├── EditResidenteForm.tsx   # Formulário edição residente
+├── EditLocalForm.tsx       # Formulário edição local
+├── EditServicoForm.tsx     # Formulário edição serviço
+└── EditEscalaForm.tsx      # Formulário edição escala
+
+services/
+└── userService.ts          # Serviços de CRUD Firebase
+
+types/
+├── auth.ts                 # Tipos de autenticação
+├── troca.ts                # Tipos de troca
+└── ferias.ts               # Tipos de férias
+
+lib/
+└── firebase.ts             # Configuração Firebase
+
+public/
+├── icones/
+│   └── oftware.png         # Logo principal
+└── favicon.ico             # Favicon
+
+================================================================================
+13. REGRAS IMPORTANTES DE IMPLEMENTAÇÃO
+================================================================================
+
+13.1 RESPONSIVIDADE
+
+- SEMPRE usar classes responsivas: lg:ml-64, lg:hidden, etc
+- Mobile-first: base style sem prefixo, desktop com lg:
+- Testar em telas: mobile (375px), tablet (768px), desktop (1024px+)
+
+13.2 CORES
+
+- SEMPRE usar as cores definidas no design system
+- Verde (#22c55e) é a cor PRIMÁRIA
+- Usar gray-50 para background geral
+- white para cards e sidebar
+
+13.3 ESPAÇAMENTOS
+
+- Manter consistência: p-3 mobile, p-6 desktop
+- space-y-6 entre seções principais
+- space-y-4 entre cards
+- gap-4 em grids
+
+13.4 FONTES
+
+- Usar font-medium para títulos secundários
+- font-semibold para títulos importantes
+- font-bold apenas para H1/H2
+- text-sm para body, text-xs para detalhes
+
+13.5 INTERAÇÕES
+
+- SEMPRE adicionar hover states
+- Transições de 300ms
+- Feedback visual em todas ações
+- Loading states obrigatórios
+
+13.6 ACESSIBILIDADE
+
+- Titles nos botões quando collapsed
+- Alt text nas imagens
+- ARIA labels onde necessário
+- Focus states visíveis
+- Contraste adequado
+
+13.7 PERFORMANCE
+
+- Lazy loading de componentes pesados
+- Imagens otimizadas
+- Server components quando possível
+- Debounce em buscas
+
+================================================================================
+14. EXEMPLOS DE CLASSES TAILWIND USADAS
+================================================================================
+
+LAYOUT:
+- min-h-screen
+- overflow-x-hidden
+- flex flex-col
+- grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+
+POSICIONAMENTO:
+- fixed bottom-0 left-0 right-0
+- sticky top-0 left-0
+- relative / absolute
+
+CORES:
+- bg-gray-50 (background geral)
+- bg-white (cards/sidebar)
+- text-gray-900 (texto principal)
+- text-green-700 (texto ativo)
+- border-gray-200 (bordas)
+
+ESPACAMENTOS:
+- p-3, p-4, p-6
+- px-4 py-2
+- space-y-4, space-y-6
+- gap-4, gap-6
+- mt-2, mb-4, mx-auto
+
+TIPOGRAFIA:
+- text-2xl font-bold
+- text-lg font-semibold
+- text-sm font-medium
+- text-xs
+
+EFEITOS:
+- shadow / shadow-lg
+- rounded-lg / rounded-xl
+- transition-all duration-300
+- hover:bg-gray-100
+- focus:ring-2 focus:ring-green-500
+
+RESPONSIVIDADE:
+- hidden lg:flex
+- lg:ml-64
+- lg:hidden
+- md:grid-cols-2
+- sm:text-base
+
+================================================================================
+15. MENSAGENS E TEXTOS IMPORTANTES
+================================================================================
+
+TÍTULOS:
+- "CENOFT" - Título sidebar cenoft
+- "Oftware" - Título sidebar admin
+- "Admin" - Header mobile admin
+- "Oftware" - Header mobile cenoft
+
+MENUS:
+- "Estatísticas"
+- "Escalas" / "Minhas Escalas"
+- "Trocas" / "Aprovar Trocas"
+- "Férias" / "Gerenciar Férias"
+- "Usuários"
+- "Residentes"
+- "Locais"
+- "Serviços"
+- "Criar Escala"
+- "Mensagens"
+
+AÇÕES:
+- "Sair" - Logout
+- "Enviar" - Enviar mensagem
+- "Aprovar" - Aprovar troca/férias
+- "Rejeitar" - Rejeitar solicitação
+- "Salvar" - Salvar formulário
+- "Cancelar" - Cancelar ação
+- "Editar" - Editar item
+- "Excluir" - Deletar item
+
+STATUS:
+- "Pendente"
+- "Aprovado"
+- "Rejeitado"
+- "Finalizada"
+- "Ativa"
+- "Futura"
+
+NÍVEIS:
+- "R1"
+- "R2"
+- "R3"
+
+================================================================================
+16. FIREBASE E BACKEND
+================================================================================
+
+AUTENTICAÇÃO:
+- Google OAuth via Firebase Auth
+- Email como identificador principal
+- Roles: admin, residente, recepcao
+
+STORAGE:
+- Firestore para dados
+- Collections: users, residentes, locais, servicos, escalas, trocas, ferias, mensagens
+
+REGRAS DE ACESSO:
+- /cenoft: usuários cadastrados (residentes)
+- /admin: apenas admin (ricpmota.med@gmail.com)
+- Validação via middleware
+
+================================================================================
+FIM DA DOCUMENTAÇÃO
+================================================================================
+
+Esta documentação contém TODAS as informações necessárias para recriar
+EXATAMENTE o layout, design e comportamento do sistema atual.
+
+DETALHES IMPORTANTES:
+- Menu CENOFT é INFERIOR no mobile (4 botões)
+- Menu ADMIN é INFERIOR no mobile (10 botões com scroll)
+- Sidebar collapse existe em ambas
+- Verde é cor primária (#22c55e)
+- Gray-50 é background geral
+- Responsive: breakpoint lg (1024px)
+
+Boa sorte na implementação!
+

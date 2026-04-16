@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense, Fragment } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { UserService } from '@/services/userService';
@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, Target, Mail } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, Target, Mail, Image, AlertCircle, UtensilsCrossed, Phone, Palette, FlaskConical, Activity } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -19,10 +19,17 @@ import { MensagemService } from '@/services/mensagemService';
 import { Mensagem, MensagemResidenteParaAdmin } from '@/types/mensagem';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
+import { NutricionistaService } from '@/services/nutricionistaService';
+import { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
+import { PacienteNutricionistaService } from '@/services/pacienteNutricionistaService';
+import { PersonalTrainerService } from '@/services/personalTrainerService';
+import { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
 import { TirzepatidaService, TirzepatidaPreco } from '@/services/tirzepatidaService';
-import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign } from 'lucide-react';
+import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign, Dumbbell, Star, QrCode } from 'lucide-react';
+import { ClassificacaoProfissionalService, type DetalhamentoClassificacao } from '@/services/classificacaoProfissionalService';
+import type { ProfissionalTipo } from '@/types/classificacaoProfissional';
 import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
 import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 import { LeadService } from '@/services/leadService';
@@ -30,8 +37,47 @@ import { Lead, LeadStatus } from '@/types/lead';
 import EmailManagement from '@/components/EmailManagement';
 import CalendarioAplicacoes from '@/components/CalendarioAplicacoes';
 import DashboardEvolucao from '@/components/DashboardEvolucao';
+import FAQChat from '@/components/FAQChat';
+import { faqMedicoTotal, faqCategoriesMedico } from '@/components/FAQmedico';
+import { BannerService } from '@/services/bannerService';
+import { Banner, BannerContent } from '@/types/banner';
+import { NPSService } from '@/services/npsService';
+import { NPSResposta, NPSEstatisticas } from '@/types/nps';
+import { TrendingUp } from 'lucide-react';
+import { BarChart, Bar, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
+import { User as UserIcon } from 'lucide-react';
+import { IndicacaoService } from '@/services/indicacaoService';
+import { Indicacao } from '@/types/indicacao';
+import { PagamentoService } from '@/services/pagamentoService';
+import { PagamentoPaciente, VendaAvulsa } from '@/types/pagamento';
+import { FileText, BookOpen, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import RelatoriosSection from '@/components/RelatoriosSection';
+import { OFTPAY_COURSES } from '@/app/oftpay/coursesConfig';
+import TranscribeOftreviewPanel from '@/components/dev/TranscribeOftreviewPanel';
+import TranscribeStatusCard from '@/components/dev/TranscribeStatusCard';
+import SystemColorsTab from '@/components/systemColors/SystemColorsTab';
+import LabExamesLaboratoriaisAdmin from '@/components/metaadmingeral/LabExamesLaboratoriaisAdmin';
+import BioImpedanciaReferenciasAdmin from '@/components/metaadmingeral/BioImpedanciaReferenciasAdmin';
+import { MedicoPublicUrlQrModal } from '@/components/metaadmingeral/MedicoPublicUrlQrModal';
+import { publicDrUrlForMedico } from '@/utils/medicoDrSlug';
 
 export default function MetaAdminGeralPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#0A1F44]">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#4CCB7A]" />
+        </div>
+      }
+    >
+      <MetaAdminGeralContent />
+    </Suspense>
+  );
+}
+
+function MetaAdminGeralContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeMenu, setActiveMenu] = useState('estatisticas');
   const [filtroPeriodo, setFiltroPeriodo] = useState<'semana' | 'mes' | 'ano'>('semana');
   const [users, setUsers] = useState<UserType[]>([]);
@@ -60,7 +106,18 @@ export default function MetaAdminGeralPage() {
   const [message, setMessage] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [userLoading, setUserLoading] = useState(true);
+  
+  // Auto-dismiss para mensagens
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('');
+      }, 5000); // Desaparece após 5 segundos
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificacoesTroca, setNotificacoesTroca] = useState(0);
   const [trocasPendentes, setTrocasPendentes] = useState<Troca[]>([]);
   const [loadingTrocas, setLoadingTrocas] = useState(false);
@@ -72,13 +129,58 @@ export default function MetaAdminGeralPage() {
   const [medicos, setMedicos] = useState<Medico[]>([]);
   const [loadingMedicos, setLoadingMedicos] = useState(false);
   
+  // Estados para nutricionistas
+  const [nutricionistas, setNutricionistas] = useState<NutricionistaDoc[]>([]);
+  const [loadingNutricionistas, setLoadingNutricionistas] = useState(false);
+  const [showDetalhesNutriModal, setShowDetalhesNutriModal] = useState(false);
+  const [nutriDetalhes, setNutriDetalhes] = useState<NutricionistaDoc | null>(null);
+  const [totalPacientesCompartilhados, setTotalPacientesCompartilhados] = useState<number>(0);
+  const [loadingPacientesCompartilhados, setLoadingPacientesCompartilhados] = useState(false);
+  
+  // Estados para personal trainers
+  const [personalTrainers, setPersonalTrainers] = useState<PersonalTrainerDoc[]>([]);
+  const [loadingPersonalTrainers, setLoadingPersonalTrainers] = useState(false);
+  const [showDetalhesPersonalModal, setShowDetalhesPersonalModal] = useState(false);
+  const [personalDetalhes, setPersonalDetalhes] = useState<PersonalTrainerDoc | null>(null);
+  const [agregadosMedicos, setAgregadosMedicos] = useState<Record<string, { count: number; media: number }>>({});
+  const [agregadosNutri, setAgregadosNutri] = useState<Record<string, { count: number; media: number }>>({});
+  const [agregadosPersonal, setAgregadosPersonal] = useState<Record<string, { count: number; media: number }>>({});
+  const [showModalClassificacaoAdmin, setShowModalClassificacaoAdmin] = useState(false);
+  const [profissionalClassificacao, setProfissionalClassificacao] = useState<{ tipo: ProfissionalTipo; id: string; nome: string } | null>(null);
+  const [detalhamentoEdit, setDetalhamentoEdit] = useState<DetalhamentoClassificacao | null>(null);
+  const [salvandoClassificacaoAdmin, setSalvandoClassificacaoAdmin] = useState(false);
+
+  // Estados para OftPay (usuários que entram no OftPay – liberar cursos e vigência)
+  const [oftpayUsers, setOftpayUsers] = useState<{ email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; accessStartAt?: number | null; accessEndAt?: number | null }[]>([]);
+  const [loadingOftPay, setLoadingOftPay] = useState(false);
+  const [oftpayError, setOftpayError] = useState<string | null>(null);
+  const [oftpayLocalCourseIds, setOftpayLocalCourseIds] = useState<Record<string, string[]>>({});
+  const [oftpayLocalAccessStart, setOftpayLocalAccessStart] = useState<Record<string, string>>({});
+  const [oftpayLocalAccessEnd, setOftpayLocalAccessEnd] = useState<Record<string, string>>({});
+  const [oftpaySavingEmail, setOftpaySavingEmail] = useState<string | null>(null);
+  const [oftpayNewEmail, setOftpayNewEmail] = useState('');
+  const [oftpayAddingUser, setOftpayAddingUser] = useState(false);
+  const [oftpayDeletingEmail, setOftpayDeletingEmail] = useState<string | null>(null);
+  const [oftpayExpandedEmail, setOftpayExpandedEmail] = useState<string | null>(null);
+  const [oftpayUserDetails, setOftpayUserDetails] = useState<Record<string, { coursePercentages: Record<string, number>; lastLoginUserAgent: string | null; lastLoginAt: number | null }>>({});
+  const [oftpayLoadingDetails, setOftpayLoadingDetails] = useState<string | null>(null);
+  const [transcribeBatchId, setTranscribeBatchId] = useState('');
+  
   // Estados para pacientes
   const [pacientes, setPacientes] = useState<PacienteCompleto[]>([]);
   const [loadingPacientes, setLoadingPacientes] = useState(false);
+  const [rastrosSubcolecoesPacientes, setRastrosSubcolecoesPacientes] = useState<Record<string, string[]>>({});
+  const [loadingRastrosSubcolecoesPacientes, setLoadingRastrosSubcolecoesPacientes] = useState(false);
   const [filtroBuscaPaciente, setFiltroBuscaPaciente] = useState('');
   const [filtroMedicoPaciente, setFiltroMedicoPaciente] = useState<string>('todos');
   const [filtroStatusPaciente, setFiltroStatusPaciente] = useState<string>('todos');
   const [filtroRecomendacoesPaciente, setFiltroRecomendacoesPaciente] = useState<string>('todos');
+  
+  // Estados para filtro de estatísticas
+  const [filtroMedicoEstatisticas, setFiltroMedicoEstatisticas] = useState<string>('total');
+  const [filtroDosePerdaPeso, setFiltroDosePerdaPeso] = useState<string>('todas');
+  const [filtroFaixaEtariaPerdaPeso, setFiltroFaixaEtariaPerdaPeso] = useState<string>('todas');
+  const [filtroSexoPerdaPeso, setFiltroSexoPerdaPeso] = useState<string>('todos');
   
   // Estados para solicitações pendentes
   const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<SolicitacaoMedico[]>([]);
@@ -100,9 +202,51 @@ export default function MetaAdminGeralPage() {
   // Estado para aba do calendário
   const [calendarioTab, setCalendarioTab] = useState<'calendario' | 'dashboard'>('calendario');
   
+  // Estados para Banners
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [loadingBanners, setLoadingBanners] = useState(false);
+  const [showEditarBannerModal, setShowEditarBannerModal] = useState(false);
+  const [bannerEditando, setBannerEditando] = useState<Banner | null>(null);
+  const [dadosBanner, setDadosBanner] = useState<{
+    titulo: string;
+    imagemUrl: string;
+    conteudoHtml?: string;
+    conteudoJson?: BannerContent;
+    formato: 'html' | 'json';
+    local: 'home' | 'meta';
+    ativo: boolean;
+    ordem: number;
+  }>({
+    titulo: '',
+    imagemUrl: '',
+    conteudoHtml: '',
+    conteudoJson: undefined,
+    formato: 'json',
+    local: 'meta', // Padrão para meta (banners existentes)
+    ativo: true,
+    ordem: 0
+  });
+  const [pastaBannerAtiva, setPastaBannerAtiva] = useState<'home' | 'meta'>('meta');
+  const [jsonError, setJsonError] = useState<string>('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Estados para NPS
+  const [npsEstatisticas, setNpsEstatisticas] = useState<NPSEstatisticas | null>(null);
+  
+  // Estados para indicações e faturamento
+  const [indicacoes, setIndicacoes] = useState<Indicacao[]>([]);
+  const [loadingIndicacoes, setLoadingIndicacoes] = useState(false);
+  const indicacoesCarregadasRef = useRef(false);
+  const [pagamentosPacientes, setPagamentosPacientes] = useState<Record<string, PagamentoPaciente>>({});
+  const [vendasAvulsas, setVendasAvulsas] = useState<VendaAvulsa[]>([]);
+  const [loadingPagamentos, setLoadingPagamentos] = useState(false);
+  const [npsRespostas, setNpsRespostas] = useState<NPSResposta[]>([]);
+  const [loadingNPS, setLoadingNPS] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Estados para modais de edição
   const [showEditarMedicoModal, setShowEditarMedicoModal] = useState(false);
+  const [medicoQrLinkModal, setMedicoQrLinkModal] = useState<Medico | null>(null);
   const [medicoEditando, setMedicoEditando] = useState<Medico | null>(null);
   const [dadosMedicoEditando, setDadosMedicoEditando] = useState({
     nome: '',
@@ -163,8 +307,33 @@ export default function MetaAdminGeralPage() {
   const [showCadastrarResidenteModal, setShowCadastrarResidenteModal] = useState(false);
   const [showCadastrarLocalModal, setShowCadastrarLocalModal] = useState(false);
   const [showCadastrarServicoModal, setShowCadastrarServicoModal] = useState(false);
-  
-  const router = useRouter();
+
+  // Detectar se é mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Abrir menu OftPay quando acessar /metaadmingeral?menu=oftpay
+  useEffect(() => {
+    if (searchParams.get('menu') === 'oftpay') setActiveMenu('oftpay');
+    if (searchParams.get('menu') === 'cores-do-sistema') setActiveMenu('cores-do-sistema');
+    if (searchParams.get('menu') === 'exames-laboratoriais') setActiveMenu('exames-laboratoriais');
+    if (searchParams.get('menu') === 'bio-impedancia') setActiveMenu('bio-impedancia');
+  }, [searchParams]);
+
+  // Garantir que o tema sempre seja claro (modo escuro desativado)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const root = document.documentElement;
+      // Sempre remover a classe 'dark' para garantir tema claro
+      root.classList.remove('dark');
+    }
+  }, []);
 
   // Form states
   const [newResidente, setNewResidente] = useState({ nome: '', nivel: 'R1' as 'R1' | 'R2' | 'R3', email: '', telefone: '' });
@@ -452,6 +621,123 @@ export default function MetaAdminGeralPage() {
     }
   }, []);
 
+  // Função para carregar nutricionistas
+  const loadNutricionistas = useCallback(async () => {
+    setLoadingNutricionistas(true);
+    try {
+      const nutricionistasData = await NutricionistaService.getAllNutricionistas();
+      setNutricionistas(nutricionistasData);
+    } catch (error) {
+      console.error('Erro ao carregar nutricionistas:', error);
+      setMessage('Erro ao carregar nutricionistas');
+    } finally {
+      setLoadingNutricionistas(false);
+    }
+  }, []);
+
+  // Função para carregar personal trainers
+  const loadPersonalTrainers = useCallback(async () => {
+    setLoadingPersonalTrainers(true);
+    try {
+      const personalTrainersData = await PersonalTrainerService.getAllPersonalTrainers();
+      setPersonalTrainers(personalTrainersData);
+    } catch (error) {
+      console.error('Erro ao carregar personal trainers:', error);
+      setMessage('Erro ao carregar personal trainers');
+    } finally {
+      setLoadingPersonalTrainers(false);
+    }
+  }, []);
+
+  // Carregar agregados de classificação dos médicos
+  useEffect(() => {
+    if (medicos.length === 0) { setAgregadosMedicos({}); return; }
+    const load = async () => {
+      const map: Record<string, { count: number; media: number }> = {};
+      await Promise.all(medicos.map(async (m) => {
+        const a = await ClassificacaoProfissionalService.getAgregado('medico', m.id);
+        map[m.id] = a;
+      }));
+      setAgregadosMedicos(map);
+    };
+    load();
+  }, [medicos]);
+
+  // Carregar agregados de classificação dos nutricionistas
+  useEffect(() => {
+    if (nutricionistas.length === 0) { setAgregadosNutri({}); return; }
+    const load = async () => {
+      const map: Record<string, { count: number; media: number }> = {};
+      await Promise.all(nutricionistas.map(async (n) => {
+        const id = n.userId || n.id;
+        if (id) {
+          const a = await ClassificacaoProfissionalService.getAgregado('nutricionista', id);
+          map[id] = a;
+        }
+      }));
+      setAgregadosNutri(map);
+    };
+    load();
+  }, [nutricionistas]);
+
+  // Carregar agregados de classificação dos personal trainers
+  useEffect(() => {
+    if (personalTrainers.length === 0) { setAgregadosPersonal({}); return; }
+    const load = async () => {
+      const map: Record<string, { count: number; media: number }> = {};
+      await Promise.all(personalTrainers.map(async (p) => {
+        const id = p.id || p.userId;
+        if (id) {
+          const a = await ClassificacaoProfissionalService.getAgregado('personal', id);
+          map[id] = a;
+        }
+      }));
+      setAgregadosPersonal(map);
+    };
+    load();
+  }, [personalTrainers]);
+
+  const openModalClassificacaoAdmin = async (tipo: ProfissionalTipo, id: string, nome: string) => {
+    setProfissionalClassificacao({ tipo, id, nome });
+    setDetalhamentoEdit(null);
+    setShowModalClassificacaoAdmin(true);
+    const det = await ClassificacaoProfissionalService.getDetalhamento(tipo, id);
+    setDetalhamentoEdit(det);
+  };
+
+  const handleSalvarClassificacaoAdmin = async () => {
+    if (!profissionalClassificacao || !detalhamentoEdit) return;
+    setSalvandoClassificacaoAdmin(true);
+    try {
+      await ClassificacaoProfissionalService.setAdminOverride(
+        profissionalClassificacao.tipo,
+        profissionalClassificacao.id,
+        {
+          count5: detalhamentoEdit.count5,
+          count4: detalhamentoEdit.count4,
+          count3: detalhamentoEdit.count3,
+          count2: detalhamentoEdit.count2,
+          count1: detalhamentoEdit.count1,
+        }
+      );
+      const novoAgregado = await ClassificacaoProfissionalService.getAgregado(profissionalClassificacao.tipo, profissionalClassificacao.id);
+      if (profissionalClassificacao.tipo === 'medico') {
+        setAgregadosMedicos((prev) => ({ ...prev, [profissionalClassificacao.id]: novoAgregado }));
+      } else if (profissionalClassificacao.tipo === 'nutricionista') {
+        setAgregadosNutri((prev) => ({ ...prev, [profissionalClassificacao.id]: novoAgregado }));
+      } else {
+        setAgregadosPersonal((prev) => ({ ...prev, [profissionalClassificacao.id]: novoAgregado }));
+      }
+      setMessage('Classificação atualizada com sucesso!');
+      setShowModalClassificacaoAdmin(false);
+    } catch (error) {
+      console.error('Erro ao salvar classificação:', error);
+      setMessage('Erro ao salvar classificação');
+    } finally {
+      setSalvandoClassificacaoAdmin(false);
+    }
+  };
+
   // Função para carregar pacientes
   const loadPacientes = useCallback(async () => {
     setLoadingPacientes(true);
@@ -462,6 +748,19 @@ export default function MetaAdminGeralPage() {
       console.error('Erro ao carregar pacientes:', error);
     } finally {
       setLoadingPacientes(false);
+    }
+  }, []);
+
+  const loadRastrosSubcolecoesPacientes = useCallback(async () => {
+    setLoadingRastrosSubcolecoesPacientes(true);
+    try {
+      const rastros = await PacienteService.rastrearPacientesEmSubcolecoes();
+      setRastrosSubcolecoesPacientes(rastros);
+    } catch (error) {
+      console.error('Erro ao carregar rastros de subcolecoes de pacientes:', error);
+      setRastrosSubcolecoesPacientes({});
+    } finally {
+      setLoadingRastrosSubcolecoesPacientes(false);
     }
   }, []);
 
@@ -479,6 +778,54 @@ export default function MetaAdminGeralPage() {
   }, []);
 
   // Função para carregar leads (TODOS os usuários do Firebase Authentication)
+  const loadPagamentos = useCallback(async () => {
+    setLoadingPagamentos(true);
+    try {
+      const todosPagamentos = await PagamentoService.getAllPagamentos();
+      setPagamentosPacientes(todosPagamentos);
+      
+      // Buscar todas as vendas avulsas
+      const todasVendas: VendaAvulsa[] = [];
+      for (const medico of medicos) {
+        try {
+          const vendasMedico = await PagamentoService.getAllVendasAvulsas(medico.id);
+          todasVendas.push(...vendasMedico);
+        } catch (error) {
+          console.error(`Erro ao carregar vendas avulsas do médico ${medico.id}:`, error);
+        }
+      }
+      setVendasAvulsas(todasVendas);
+    } catch (error) {
+      console.error('Erro ao carregar pagamentos:', error);
+      setPagamentosPacientes({});
+      setVendasAvulsas([]);
+    } finally {
+      setLoadingPagamentos(false);
+    }
+  }, [medicos]);
+
+  const loadIndicacoes = useCallback(async (medicosParaBuscar: Medico[]) => {
+    setLoadingIndicacoes(true);
+    try {
+      // Buscar todas as indicações de todos os médicos
+      const todasIndicacoes: Indicacao[] = [];
+      for (const medico of medicosParaBuscar) {
+        try {
+          const indicacoesMedico = await IndicacaoService.getIndicacoesPorMedico(medico.id);
+          todasIndicacoes.push(...indicacoesMedico);
+        } catch (error) {
+          console.error(`Erro ao carregar indicações do médico ${medico.id}:`, error);
+        }
+      }
+      setIndicacoes(todasIndicacoes);
+    } catch (error) {
+      console.error('Erro ao carregar indicações:', error);
+      setIndicacoes([]);
+    } finally {
+      setLoadingIndicacoes(false);
+    }
+  }, []);
+
   const loadLeads = useCallback(async () => {
     setLoadingLeads(true);
     setLeadsError(null);
@@ -800,6 +1147,180 @@ export default function MetaAdminGeralPage() {
     }
   };
 
+  // Função para fazer upload de imagem via API route (server-side)
+  const handleUploadBannerImage = async (file: File): Promise<string> => {
+    try {
+      setUploadingImage(true);
+      setMessage('Enviando imagem...');
+      
+      console.log('Iniciando upload do arquivo:', file.name, 'Tamanho:', file.size);
+      
+      // Criar FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Fazer upload via API route (server-side, sem CORS)
+      const response = await fetch('/api/upload-banner', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      console.log('Resposta do servidor:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        let errorMessage = 'Erro ao fazer upload';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = `Erro ${response.status}: ${response.statusText}`;
+        }
+        console.error('Erro na resposta:', errorMessage);
+        throw new Error(errorMessage);
+      }
+      
+      const data = await response.json();
+      console.log('Upload concluído, URL recebida:', data.url);
+      
+      if (!data.url) {
+        throw new Error('URL não retornada pelo servidor');
+      }
+      
+      setMessage('Imagem enviada com sucesso!');
+      return data.url;
+    } catch (error: any) {
+      console.error('Erro ao fazer upload da imagem:', error);
+      const errorMsg = error.message || 'Erro desconhecido ao fazer upload';
+      setMessage(`Erro: ${errorMsg}`);
+      throw error;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Função para salvar banner
+  const handleSalvarBanner = async () => {
+    console.log('handleSalvarBanner chamado', { dadosBanner });
+    
+    if (!dadosBanner.titulo.trim() || !dadosBanner.imagemUrl.trim()) {
+      setMessage('Título e URL da imagem são obrigatórios');
+      return;
+    }
+
+    // Detectar formato automaticamente baseado no conteúdo
+    let formatoFinal = dadosBanner.formato;
+    if (dadosBanner.conteudoJson && dadosBanner.conteudoJson.sections && dadosBanner.conteudoJson.sections.length > 0) {
+      formatoFinal = 'json';
+      console.log('Formato detectado como JSON');
+    } else if (dadosBanner.conteudoHtml && dadosBanner.conteudoHtml.trim()) {
+      formatoFinal = 'html';
+      console.log('Formato detectado como HTML');
+    } else {
+      console.log('Formato não detectado, usando:', formatoFinal);
+    }
+
+    // Validar conteúdo baseado no formato final
+    if (formatoFinal === 'json') {
+      if (!dadosBanner.conteudoJson || typeof dadosBanner.conteudoJson !== 'object' || !dadosBanner.conteudoJson.sections || !Array.isArray(dadosBanner.conteudoJson.sections) || dadosBanner.conteudoJson.sections.length === 0) {
+        console.log('Validação JSON falhou:', {
+          temConteudoJson: !!dadosBanner.conteudoJson,
+          tipo: typeof dadosBanner.conteudoJson,
+          temSections: !!(dadosBanner.conteudoJson && dadosBanner.conteudoJson.sections),
+          sectionsLength: dadosBanner.conteudoJson?.sections?.length
+        });
+        setMessage('Conteúdo JSON é obrigatório. Adicione pelo menos uma seção.');
+        return;
+      }
+      console.log('Validação JSON passou');
+    } else if (formatoFinal === 'html') {
+      if (!dadosBanner.conteudoHtml || !dadosBanner.conteudoHtml.trim()) {
+        console.log('Validação HTML falhou');
+        setMessage('Conteúdo HTML é obrigatório');
+        return;
+      }
+      console.log('Validação HTML passou');
+    } else {
+      console.log('Formato inválido:', formatoFinal);
+      setMessage('Formato inválido. Selecione JSON ou HTML.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      // Preparar dados do banner removendo campos undefined (Firestore não aceita undefined)
+      const bannerDataBase: any = {
+        titulo: dadosBanner.titulo,
+        imagemUrl: dadosBanner.imagemUrl,
+        formato: formatoFinal,
+        local: dadosBanner.local || 'meta', // Padrão para meta se não especificado
+        ativo: dadosBanner.ativo,
+        ordem: dadosBanner.ordem,
+      };
+
+      // Adicionar apenas o conteúdo do formato selecionado (não incluir undefined)
+      if (formatoFinal === 'html') {
+        bannerDataBase.conteudoHtml = dadosBanner.conteudoHtml || '';
+      } else if (formatoFinal === 'json') {
+        bannerDataBase.conteudoJson = dadosBanner.conteudoJson;
+      }
+
+      if (bannerEditando && bannerEditando.id) {
+        // Atualizar banner existente
+        const bannerData: any = {
+          ...bannerEditando,
+          ...bannerDataBase,
+          atualizadoEm: new Date()
+        };
+        
+        // Remover campos undefined explicitamente
+        if (formatoFinal === 'html') {
+          delete bannerData.conteudoJson;
+        } else if (formatoFinal === 'json') {
+          delete bannerData.conteudoHtml;
+        }
+        
+        console.log('Salvando banner (atualizar):', {
+          formato: formatoFinal,
+          temConteudoJson: !!bannerData.conteudoJson,
+          temConteudoHtml: !!bannerData.conteudoHtml,
+          conteudoJson: bannerData.conteudoJson,
+          bannerData: bannerData
+        });
+        const bannerId = await BannerService.createOrUpdateBanner(bannerData, user?.uid || undefined);
+        console.log('Banner salvo com sucesso, ID:', bannerId);
+      } else {
+        // Criar novo banner
+        const bannerData: any = {
+          ...bannerDataBase,
+          criadoEm: new Date(),
+          atualizadoEm: new Date()
+        };
+        
+        console.log('Salvando banner (criar):', {
+          formato: formatoFinal,
+          temConteudoJson: !!bannerData.conteudoJson,
+          temConteudoHtml: !!bannerData.conteudoHtml,
+          conteudoJson: bannerData.conteudoJson,
+          bannerData: bannerData
+        });
+        const bannerId = await BannerService.createOrUpdateBanner(bannerData, user?.uid || undefined);
+        console.log('Banner salvo com sucesso, ID:', bannerId);
+      }
+      await loadBanners();
+      setShowEditarBannerModal(false);
+      setBannerEditando(null);
+      setMessage(bannerEditando ? 'Banner atualizado com sucesso!' : 'Banner criado com sucesso!');
+      console.log('Modal fechado e mensagem exibida');
+    } catch (error) {
+      console.error('Erro ao salvar banner:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao salvar banner';
+      setMessage(`Erro ao salvar banner: ${errorMessage}`);
+      alert(`Erro ao salvar banner: ${errorMessage}`); // Alert temporário para debug
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Função para verificar/desverificar médico
   const handleToggleVerificacaoMedico = async (medicoId: string, isVerificado: boolean) => {
     try {
@@ -982,14 +1503,62 @@ export default function MetaAdminGeralPage() {
   }, [user, activeMenu, loadMensagens, loadMensagensResidentes]);
 
 
+  // Função para carregar total de pacientes compartilhados
+  const loadTotalPacientesCompartilhados = useCallback(async () => {
+    setLoadingPacientesCompartilhados(true);
+    try {
+      // Buscar todos os nutricionistas
+      const todosNutricionistas = await NutricionistaService.getAllNutricionistas();
+      
+      // Para cada nutricionista, buscar seus vínculos ativos
+      const vinculosPromises = todosNutricionistas.map(nutri => 
+        PacienteNutricionistaService.listActiveVinculosByNutri(nutri.userId)
+      );
+      
+      const todosVinculos = await Promise.all(vinculosPromises);
+      
+      // Contar total de vínculos únicos (um paciente pode estar compartilhado com múltiplos nutricionistas)
+      const pacientesUnicos = new Set<string>();
+      todosVinculos.flat().forEach(vinculo => {
+        pacientesUnicos.add(vinculo.pacienteId);
+      });
+      
+      setTotalPacientesCompartilhados(pacientesUnicos.size);
+    } catch (error) {
+      console.error('Erro ao carregar total de pacientes compartilhados:', error);
+      setTotalPacientesCompartilhados(0);
+    } finally {
+      setLoadingPacientesCompartilhados(false);
+    }
+  }, []);
+
   // Carregar médicos e pacientes sempre que o menu estatísticas for ativado
   useEffect(() => {
     if (activeMenu === 'estatisticas') {
       loadMedicos();
       loadPacientes();
       loadSolicitacoesPendentes();
+      loadNutricionistas();
+      loadPersonalTrainers();
+      loadTotalPacientesCompartilhados();
     }
-  }, [activeMenu, loadMedicos, loadPacientes, loadSolicitacoesPendentes]);
+  }, [activeMenu, loadMedicos, loadPacientes, loadSolicitacoesPendentes, loadNutricionistas, loadPersonalTrainers, loadTotalPacientesCompartilhados]);
+
+  // Carregar pagamentos quando médicos e pacientes estiverem carregados (apenas uma vez)
+  useEffect(() => {
+    if (activeMenu === 'estatisticas' && medicos.length > 0 && pacientes.length > 0 && !loadingMedicos && !loadingPacientes && !loadingPagamentos) {
+      const chaveCarregamento = `${medicos.length}-${pacientes.length}`;
+      if (!indicacoesCarregadasRef.current || indicacoesCarregadasRef.current !== chaveCarregamento) {
+        indicacoesCarregadasRef.current = chaveCarregamento;
+        loadPagamentos();
+      }
+    }
+    // Reset ref quando mudar de menu
+    if (activeMenu !== 'estatisticas') {
+      indicacoesCarregadasRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMenu, medicos.length, pacientes.length, loadingMedicos, loadingPacientes]);
 
   // Carregar médicos quando a página medicos for ativada
   useEffect(() => {
@@ -998,13 +1567,65 @@ export default function MetaAdminGeralPage() {
     }
   }, [activeMenu, loadMedicos]);
 
+  // Carregar nutricionistas quando a página nutricionistas for ativada
+  useEffect(() => {
+    if (activeMenu === 'nutricionistas') {
+      loadNutricionistas();
+    }
+  }, [activeMenu, loadNutricionistas]);
+
+  // Carregar personal trainers quando a página personal_trainers for ativada
+  useEffect(() => {
+    if (activeMenu === 'personal_trainers') {
+      loadPersonalTrainers();
+    }
+  }, [activeMenu, loadPersonalTrainers]);
+
+  // Carregar usuários OftPay quando a página oftpay for ativada
+  const loadOftPayUsers = useCallback(async () => {
+    if (!user) return;
+    setLoadingOftPay(true);
+    setOftpayError(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/metaadmingeral/oftpay/users', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const list = (data.users || []) as { email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; accessStartAt?: number | null; accessEndAt?: number | null }[];
+      setOftpayUsers(list);
+      const initial: Record<string, string[]> = {};
+      const initialStart: Record<string, string> = {};
+      const initialEnd: Record<string, string> = {};
+      list.forEach((u) => {
+        initial[u.email] = [...(u.courseIds || [])];
+        initialStart[u.email] = u.accessStartAt ? new Date(u.accessStartAt).toISOString().slice(0, 10) : '';
+        initialEnd[u.email] = u.accessEndAt ? new Date(u.accessEndAt).toISOString().slice(0, 10) : '';
+      });
+      setOftpayLocalCourseIds(initial);
+      setOftpayLocalAccessStart(initialStart);
+      setOftpayLocalAccessEnd(initialEnd);
+    } catch (e) {
+      setOftpayError(e instanceof Error ? e.message : 'Erro ao carregar usuários');
+      setOftpayUsers([]);
+    } finally {
+      setLoadingOftPay(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeMenu === 'oftpay') {
+      loadOftPayUsers();
+    }
+  }, [activeMenu, loadOftPayUsers]);
+
   // Carregar pacientes quando a página pacientes for ativada
   useEffect(() => {
     if (activeMenu === 'pacientes') {
       loadPacientes();
       loadMedicos(); // Precisa carregar médicos para mostrar o médico responsável
+      loadRastrosSubcolecoesPacientes();
     }
-  }, [activeMenu, loadPacientes, loadMedicos]);
+  }, [activeMenu, loadPacientes, loadMedicos, loadRastrosSubcolecoesPacientes]);
 
   // Carregar preços do Tirzepatida quando a página tirzepatida for ativada
   useEffect(() => {
@@ -1019,6 +1640,33 @@ export default function MetaAdminGeralPage() {
       loadLeads();
     }
   }, [activeMenu, loadLeads]);
+
+  // Carregar banners
+  const loadBanners = useCallback(async () => {
+    setLoadingBanners(true);
+    try {
+      const bannersData = await BannerService.getAllBanners();
+      // Filtrar por pasta ativa
+      const bannersFiltrados = bannersData.filter(banner => {
+        // Se o banner não tem local definido, considerar como 'meta' (compatibilidade com banners antigos)
+        const bannerLocal = (banner as any).local || 'meta';
+        return bannerLocal === pastaBannerAtiva;
+      });
+      setBanners(bannersFiltrados);
+    } catch (error) {
+      console.error('Erro ao carregar banners:', error);
+      setMessage('Erro ao carregar banners');
+    } finally {
+      setLoadingBanners(false);
+    }
+  }, [pastaBannerAtiva]);
+
+  // Carregar banners quando a página banners for ativada
+  useEffect(() => {
+    if (activeMenu === 'banners') {
+      loadBanners();
+    }
+  }, [activeMenu, loadBanners]);
 
   const handleAprovarTroca = async (trocaId: string) => {
     try {
@@ -1721,56 +2369,97 @@ export default function MetaAdminGeralPage() {
 
   const renderContent = () => {
     switch (activeMenu) {
+      case 'exames-laboratoriais':
+        return <LabExamesLaboratoriaisAdmin />;
+      case 'bio-impedancia':
+        return <BioImpedanciaReferenciasAdmin />;
+      case 'cores-do-sistema':
+        return <SystemColorsTab />;
       case 'medicos':
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Médicos</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Médicos</h2>
             </div>
             {loadingMedicos ? (
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Carregando médicos...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando médicos...</p>
                 </div>
               </div>
             ) : (
-              <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-white/10">
+                    <thead className="bg-white/10">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider w-12">
+                          #
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Nome
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Qualificação
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           CRM
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Email
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Telefone
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Cidades
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Verificação
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Data Cadastro
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Ações
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                    {medicos.map((medico) => (
+                    <tbody className="divide-y divide-white/10">
+                    {[...medicos]
+                      .sort((a, b) => {
+                        const mediaA = agregadosMedicos[a.id]?.media ?? 0;
+                        const mediaB = agregadosMedicos[b.id]?.media ?? 0;
+                        if (mediaB !== mediaA) return mediaB - mediaA;
+                        return a.nome.localeCompare(b.nome);
+                      })
+                      .map((medico, index) => (
                       <tr key={medico.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#E8EDED]">
                           {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                        </td>
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]/70 cursor-pointer hover:bg-white/10"
+                          onClick={() => openModalClassificacaoAdmin('medico', medico.id, `${medico.genero === 'F' ? 'Dra.' : 'Dr.'} ${medico.nome}`)}
+                          title="Clique para editar classificação"
+                        >
+                          {agregadosMedicos[medico.id]?.count ? (
+                            <span className="inline-flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <Star key={s} size={12} className={s <= Math.round(agregadosMedicos[medico.id].media) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} />
+                              ))}
+                              <span>{agregadosMedicos[medico.id].media.toFixed(1)} ({agregadosMedicos[medico.id].count})</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">— (clique para definir)</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           CRM {medico.crm.estado} {medico.crm.numero}
@@ -1780,6 +2469,21 @@ export default function MetaAdminGeralPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {medico.telefone || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <span>{medico.cidades?.length || 0} cidade{(medico.cidades?.length || 0) !== 1 ? 's' : ''}</span>
+                            {medico.cidades && medico.cidades.length > 0 && (
+                              <div className="ml-2 group relative">
+                                <Eye size={16} className="text-gray-400 cursor-pointer" />
+                                <div className="hidden group-hover:block absolute left-0 bottom-full mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                                  {medico.cidades.map((cidade, idx) => (
+                                    <div key={idx}>{cidade.cidade}, {cidade.estado}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {medico.isVerificado ? (
@@ -1807,7 +2511,15 @@ export default function MetaAdminGeralPage() {
                           {medico.dataCadastro ? new Date(medico.dataCadastro).toLocaleDateString('pt-BR') : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-2">
+                          <div className="flex flex-row flex-nowrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setMedicoQrLinkModal(medico)}
+                              className="shrink-0 p-2 bg-white/15 text-[#E8EDED] rounded-md hover:bg-white/25 transition-colors flex items-center justify-center border border-white/20"
+                              title="QR code do link público (/dr/...)"
+                            >
+                              <QrCode size={16} />
+                            </button>
                             <button
                               onClick={() => {
                                 setMedicoEditando(medico);
@@ -1824,14 +2536,14 @@ export default function MetaAdminGeralPage() {
                                 });
                                 setShowEditarMedicoModal(true);
                               }}
-                              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                              className="shrink-0 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
                               title="Editar"
                             >
                               <Edit size={16} />
                             </button>
                             <button
                               onClick={() => handleToggleVerificacaoMedico(medico.id, medico.isVerificado || false)}
-                              className={`p-2 rounded-md transition-colors flex items-center justify-center ${
+                              className={`shrink-0 p-2 rounded-md transition-colors flex items-center justify-center ${
                                 medico.isVerificado
                                   ? 'bg-orange-600 text-white hover:bg-orange-700'
                                   : 'bg-green-600 text-white hover:bg-green-700'
@@ -1857,7 +2569,7 @@ export default function MetaAdminGeralPage() {
                                   }
                                 }
                               }}
-                              className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                              className="shrink-0 p-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
                               title="Excluir"
                             >
                               <Trash2 size={16} />
@@ -1872,6 +2584,484 @@ export default function MetaAdminGeralPage() {
                 {medicos.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <p>Nenhum médico encontrado</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'nutricionistas':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Nutricionistas</h2>
+            </div>
+            {loadingNutricionistas ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando nutricionistas...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-white/10">
+                    <thead className="bg-white/10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider w-12">
+                          #
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Nome
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Qualificação
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Registro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Telefone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Cidades
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Verificado
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Data Cadastro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                    {[...nutricionistas]
+                      .sort((a, b) => {
+                        const idA = a.userId || a.id;
+                        const idB = b.userId || b.id;
+                        const mediaA = idA ? (agregadosNutri[idA]?.media ?? 0) : 0;
+                        const mediaB = idB ? (agregadosNutri[idB]?.media ?? 0) : 0;
+                        if (mediaB !== mediaA) return mediaB - mediaA;
+                        return a.nome.localeCompare(b.nome);
+                      })
+                      .map((nutri, index) => (
+                      <tr key={nutri.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#E8EDED]">
+                          {nutri.nome}
+                        </td>
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]/70 cursor-pointer hover:bg-white/10"
+                          onClick={() => openModalClassificacaoAdmin('nutricionista', nutri.userId || nutri.id, nutri.nome)}
+                          title="Clique para editar classificação"
+                        >
+                          {agregadosNutri[nutri.userId || nutri.id]?.count ? (
+                            <span className="inline-flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <Star key={s} size={12} className={s <= Math.round(agregadosNutri[nutri.userId || nutri.id].media) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} />
+                              ))}
+                              <span>{agregadosNutri[nutri.userId || nutri.id].media.toFixed(1)} ({agregadosNutri[nutri.userId || nutri.id].count})</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">— (clique para definir)</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nutri.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nutri.registroNumero || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nutri.telefone ? (
+                            <a
+                              href={`https://wa.me/55${nutri.telefone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                              title={`WhatsApp: ${nutri.telefone}`}
+                            >
+                              <Phone size={14} />
+                              {nutri.telefone}
+                            </a>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <span>{nutri.cidades.length} cidade{nutri.cidades.length !== 1 ? 's' : ''}</span>
+                            {nutri.cidades.length > 0 && (
+                              <div className="ml-2 group relative">
+                                <Eye size={16} className="text-gray-400 cursor-pointer" />
+                                <div className="hidden group-hover:block absolute left-0 bottom-full mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                                  {nutri.cidades.map((cidade, idx) => (
+                                    <div key={idx}>{cidade.cidade}, {cidade.estado}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nutri.isVerificado ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center">
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Verificado
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Não Verificado
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            nutri.status === 'ativo'
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {nutri.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {nutri.dataCadastro ? new Date(nutri.dataCadastro).toLocaleDateString('pt-BR') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setNutriDetalhes(nutri);
+                                setShowDetalhesNutriModal(true);
+                              }}
+                              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                              title="Ver detalhes"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            {!nutri.isVerificado && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await NutricionistaService.verifyNutricionista(nutri.userId);
+                                    await loadNutricionistas();
+                                    setMessage('Nutricionista verificado com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao verificar nutricionista:', error);
+                                    setMessage('Erro ao verificar nutricionista');
+                                  }
+                                }}
+                                className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                                title="Verificar"
+                              >
+                                <ShieldCheck size={16} />
+                              </button>
+                            )}
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await NutricionistaService.toggleStatus(nutri.userId, nutri.status);
+                                  await loadNutricionistas();
+                                  setMessage(`Nutricionista ${nutri.status === 'ativo' ? 'inativado' : 'ativado'} com sucesso!`);
+                                } catch (error) {
+                                  console.error('Erro ao alternar status:', error);
+                                  setMessage('Erro ao alternar status');
+                                }
+                              }}
+                              className={`p-2 rounded-md transition-colors flex items-center justify-center ${
+                                nutri.status === 'ativo'
+                                  ? 'bg-orange-600 text-white hover:bg-orange-700'
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}
+                              title={nutri.status === 'ativo' ? 'Inativar' : 'Ativar'}
+                            >
+                              {nutri.status === 'ativo' ? (
+                                <XCircle size={16} />
+                              ) : (
+                                <CheckCircle size={16} />
+                              )}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Tem certeza que deseja excluir o nutricionista ${nutri.nome}? Esta ação não pode ser desfeita.`)) {
+                                  try {
+                                    await NutricionistaService.deleteNutricionista(nutri.userId);
+                                    await loadNutricionistas();
+                                    setMessage('Nutricionista excluído com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao excluir nutricionista:', error);
+                                    setMessage('Erro ao excluir nutricionista');
+                                  }
+                                }
+                              }}
+                              className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    </tbody>
+                  </table>
+                </div>
+                {nutricionistas.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Nenhum nutricionista encontrado</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'personal_trainers':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Personal Trainers</h2>
+            </div>
+            {loadingPersonalTrainers ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando personal trainers...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-white/10">
+                    <thead className="bg-white/10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider w-12">
+                          #
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Nome
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Qualificação
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Registro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Telefone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Cidades
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Verificado
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Data Cadastro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                    {[...personalTrainers]
+                      .sort((a, b) => {
+                        const idA = a.id || a.userId;
+                        const idB = b.id || b.userId;
+                        const mediaA = idA ? (agregadosPersonal[idA]?.media ?? 0) : 0;
+                        const mediaB = idB ? (agregadosPersonal[idB]?.media ?? 0) : 0;
+                        if (mediaB !== mediaA) return mediaB - mediaA;
+                        return a.nome.localeCompare(b.nome);
+                      })
+                      .map((personal, index) => (
+                      <tr key={personal.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#E8EDED]">
+                          {personal.nome}
+                        </td>
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]/70 cursor-pointer hover:bg-white/10"
+                          onClick={() => openModalClassificacaoAdmin('personal', personal.id || personal.userId, personal.nome)}
+                          title="Clique para editar classificação"
+                        >
+                          {agregadosPersonal[personal.id || personal.userId]?.count ? (
+                            <span className="inline-flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <Star key={s} size={12} className={s <= Math.round(agregadosPersonal[personal.id || personal.userId].media) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} />
+                              ))}
+                              <span>{agregadosPersonal[personal.id || personal.userId].media.toFixed(1)} ({agregadosPersonal[personal.id || personal.userId].count})</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">— (clique para definir)</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {personal.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {personal.registroNumero || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {personal.telefone ? (
+                            <a
+                              href={`https://wa.me/55${personal.telefone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                              title={`WhatsApp: ${personal.telefone}`}
+                            >
+                              <Phone size={14} />
+                              {personal.telefone}
+                            </a>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <span>{personal.cidades.length} cidade{personal.cidades.length !== 1 ? 's' : ''}</span>
+                            {personal.cidades.length > 0 && (
+                              <div className="ml-2 group relative">
+                                <Eye size={16} className="text-gray-400 cursor-pointer" />
+                                <div className="hidden group-hover:block absolute left-0 bottom-full mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                                  {personal.cidades.map((cidade, idx) => (
+                                    <div key={idx}>{cidade.cidade}, {cidade.estado}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {personal.isVerificado ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center">
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Verificado
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Não Verificado
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            personal.status === 'ativo'
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {personal.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {personal.dataCadastro ? new Date(personal.dataCadastro).toLocaleDateString('pt-BR') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setPersonalDetalhes(personal);
+                                setShowDetalhesPersonalModal(true);
+                              }}
+                              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                              title="Ver detalhes"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            {!personal.isVerificado && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await PersonalTrainerService.verifyPersonalTrainer(personal.userId);
+                                    await loadPersonalTrainers();
+                                    setMessage('Personal Trainer verificado com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao verificar personal trainer:', error);
+                                    setMessage('Erro ao verificar personal trainer');
+                                  }
+                                }}
+                                className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                                title="Verificar"
+                              >
+                                <ShieldCheck size={16} />
+                              </button>
+                            )}
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await PersonalTrainerService.toggleStatus(personal.userId, personal.status);
+                                  await loadPersonalTrainers();
+                                  setMessage(`Personal Trainer ${personal.status === 'ativo' ? 'inativado' : 'ativado'} com sucesso!`);
+                                } catch (error) {
+                                  console.error('Erro ao alternar status:', error);
+                                  setMessage('Erro ao alternar status');
+                                }
+                              }}
+                              className={`p-2 rounded-md transition-colors flex items-center justify-center ${
+                                personal.status === 'ativo'
+                                  ? 'bg-orange-600 text-white hover:bg-orange-700'
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}
+                              title={personal.status === 'ativo' ? 'Inativar' : 'Ativar'}
+                            >
+                              {personal.status === 'ativo' ? (
+                                <XCircle size={16} />
+                              ) : (
+                                <CheckCircle size={16} />
+                              )}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Tem certeza que deseja excluir o personal trainer ${personal.nome}? Esta ação não pode ser desfeita.`)) {
+                                  try {
+                                    await PersonalTrainerService.deletePersonalTrainer(personal.userId);
+                                    await loadPersonalTrainers();
+                                    setMessage('Personal Trainer excluído com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao excluir personal trainer:', error);
+                                    setMessage('Erro ao excluir personal trainer');
+                                  }
+                                }
+                              }}
+                              className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    </tbody>
+                  </table>
+                </div>
+                {personalTrainers.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Nenhum personal trainer encontrado</p>
                   </div>
                 )}
               </div>
@@ -1934,21 +3124,32 @@ export default function MetaAdminGeralPage() {
           return matchBusca && matchMedico && matchStatus && matchRecomendacoes;
         });
 
+        const pacientesIdsSet = new Set(
+          pacientes
+            .map((p) => (p.id || '').toString().trim())
+            .filter(Boolean)
+        );
+        const buscaLower = filtroBuscaPaciente.toLowerCase().trim();
+        const rastrosSubcolecoesOrfas = Object.entries(rastrosSubcolecoesPacientes)
+          .filter(([pacienteId]) => !pacientesIdsSet.has(pacienteId))
+          .filter(([pacienteId]) => !buscaLower || pacienteId.toLowerCase().includes(buscaLower))
+          .sort(([idA], [idB]) => idA.localeCompare(idB, 'pt-BR'));
+
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Pacientes</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Pacientes</h2>
               <div className="text-sm text-gray-500">
                 {pacientesFiltrados.length} de {pacientes.length} paciente{pacientes.length !== 1 ? 's' : ''}
               </div>
             </div>
 
             {/* Filtros e Busca */}
-            <div className="bg-white shadow rounded-lg p-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-[#4CCB7A]/30 transition-colors">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Busca por nome/email */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">
                     Buscar por Nome/Email
                   </label>
                   <input
@@ -1956,19 +3157,19 @@ export default function MetaAdminGeralPage() {
                     value={filtroBuscaPaciente}
                     onChange={(e) => setFiltroBuscaPaciente(e.target.value)}
                     placeholder="Digite nome ou email..."
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    className="w-full border border-white/20 rounded-md px-3 py-2 text-sm text-[#E8EDED] bg-white/5 placeholder-[#E8EDED]/50 focus:outline-none focus:ring-[#4CCB7A] focus:border-[#4CCB7A]"
                   />
                 </div>
 
                 {/* Filtro por Médico */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">
                     Médico Responsável
                   </label>
                   <select
                     value={filtroMedicoPaciente}
                     onChange={(e) => setFiltroMedicoPaciente(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    className="w-full border border-white/20 rounded-md px-3 py-2 text-sm text-[#E8EDED] bg-white/5 placeholder-[#E8EDED]/50 focus:outline-none focus:ring-[#4CCB7A] focus:border-[#4CCB7A]"
                   >
                     <option value="todos">Todos os médicos</option>
                     <option value="sem_medico">Sem médico responsável</option>
@@ -1982,13 +3183,13 @@ export default function MetaAdminGeralPage() {
 
                 {/* Filtro por Status */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">
                     Status do Tratamento
                   </label>
                   <select
                     value={filtroStatusPaciente}
                     onChange={(e) => setFiltroStatusPaciente(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    className="w-full border border-white/20 rounded-md px-3 py-2 text-sm text-[#E8EDED] bg-white/5 placeholder-[#E8EDED]/50 focus:outline-none focus:ring-[#4CCB7A] focus:border-[#4CCB7A]"
                   >
                     <option value="todos">Todos os status</option>
                     <option value="pendente">Pendente</option>
@@ -2000,13 +3201,13 @@ export default function MetaAdminGeralPage() {
 
                 {/* Filtro por Recomendações */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">
                     Recomendações
                   </label>
                   <select
                     value={filtroRecomendacoesPaciente}
                     onChange={(e) => setFiltroRecomendacoesPaciente(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    className="w-full border border-white/20 rounded-md px-3 py-2 text-sm text-[#E8EDED] bg-white/5 placeholder-[#E8EDED]/50 focus:outline-none focus:ring-[#4CCB7A] focus:border-[#4CCB7A]"
                   >
                     <option value="todos">Todas</option>
                     <option value="lidas">Lidas</option>
@@ -2025,60 +3226,99 @@ export default function MetaAdminGeralPage() {
                       setFiltroStatusPaciente('todos');
                       setFiltroRecomendacoesPaciente('todos');
                     }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 bg-white/10 text-[#E8EDED] text-sm rounded-md hover:bg-white/20 transition-colors"
                   >
                     Limpar Filtros
                   </button>
                 </div>
               )}
             </div>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-[#4CCB7A]/30 transition-colors">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-semibold text-[#E8EDED]">
+                  Rastreamento de Subcolecoes (sem documento raiz em pacientes_completos)
+                </h3>
+                <span className="text-xs text-[#E8EDED]/70">
+                  {loadingRastrosSubcolecoesPacientes ? 'Rastreando...' : `${rastrosSubcolecoesOrfas.length} encontrado(s)`}
+                </span>
+              </div>
+              {loadingRastrosSubcolecoesPacientes ? (
+                <p className="text-sm text-[#E8EDED]/60">Verificando subcolecoes de pacientes...</p>
+              ) : rastrosSubcolecoesOrfas.length === 0 ? (
+                <p className="text-sm text-[#E8EDED]/60">Nenhum paciente orfao encontrado nas subcolecoes rastreadas.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="py-2 pr-4 text-left text-xs uppercase tracking-wider text-[#E8EDED]/60">Paciente ID</th>
+                        <th className="py-2 text-left text-xs uppercase tracking-wider text-[#E8EDED]/60">Encontrado em</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rastrosSubcolecoesOrfas.map(([pacienteId, fontes]) => (
+                        <tr key={pacienteId} className="border-b border-white/5 last:border-b-0">
+                          <td className="py-2 pr-4 font-mono text-xs text-[#E8EDED] break-all">{pacienteId}</td>
+                          <td className="py-2 text-[#E8EDED]/80">{fontes.join(', ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
             {loadingPacientes ? (
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Carregando pacientes...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando pacientes...</p>
                 </div>
               </div>
             ) : (
-              <div className="bg-white shadow rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-white/10">
+                  <thead className="bg-white/10">
                     <tr>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         #
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Nome
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Email
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                        Documento (pacientes_completos)
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Médico Responsável
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Doses Aplicadas
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Tempo de Tratamento
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Data de Cadastro
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Recomendações
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Ações
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-white/10">
                     {pacientesFiltrados.map((paciente, index) => {
                       const medico = medicos.find(m => m.id === paciente.medicoResponsavelId);
+                      const fontesSubcolecao = rastrosSubcolecoesPacientes[paciente.id] || [];
                       const dosesAplicadas = calcularDosesAplicadas(paciente);
                       const tempoTratamento = calcularTempoTratamento(paciente);
                       const tempoTexto = tempoTratamento.meses > 0
@@ -2089,22 +3329,30 @@ export default function MetaAdminGeralPage() {
 
                       return (
                         <tr key={paciente.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-[#E8EDED]/70">
                             {index + 1}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#E8EDED]">
                             {paciente.dadosIdentificacao?.nomeCompleto || paciente.nome || 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {paciente.email}
                           </td>
+                          <td className="px-6 py-4 text-sm text-gray-400 font-mono text-xs max-w-[16rem] break-all" title={paciente.id}>
+                            <div>{paciente.id}</div>
+                            {fontesSubcolecao.length > 0 && (
+                              <div className="mt-1 text-[10px] text-amber-300">
+                                Subcolecoes: {fontesSubcolecao.join(', ')}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {medico ? `${medico.genero === 'F' ? 'Dra.' : 'Dr.'} ${medico.nome}` : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900 font-medium">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-[#E8EDED] font-medium">
                             {dosesAplicadas}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-[#E8EDED]/70">
                             {tempoTexto}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -2166,6 +3414,7 @@ export default function MetaAdminGeralPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
                 {pacientes.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <p>Nenhum paciente encontrado</p>
@@ -2185,7 +3434,7 @@ export default function MetaAdminGeralPage() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Cadastrar Residente</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Cadastrar Residente</h2>
               <button
                 onClick={() => setActiveMenu('residentes')}
                 className="flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
@@ -2193,10 +3442,10 @@ export default function MetaAdminGeralPage() {
                 ← Voltar para Residentes
               </button>
             </div>
-            <form onSubmit={handleAddResidente} className="bg-white shadow rounded-lg p-6">
+            <form onSubmit={handleAddResidente} className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
               <div className="grid grid-cols-1 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome</label>
                   <input
                     type="text"
                     value={newResidente.nome}
@@ -2206,7 +3455,7 @@ export default function MetaAdminGeralPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nível</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nível</label>
                   <select
                     value={newResidente.nivel}
                     onChange={(e) => setNewResidente({ ...newResidente, nivel: e.target.value as 'R1' | 'R2' | 'R3' })}
@@ -2218,7 +3467,7 @@ export default function MetaAdminGeralPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Email</label>
                   <input
                     type="email"
                     value={newResidente.email}
@@ -2242,7 +3491,7 @@ export default function MetaAdminGeralPage() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Cadastrar Local</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Cadastrar Local</h2>
               <button
                 onClick={() => setActiveMenu('locais')}
                 className="flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
@@ -2250,10 +3499,10 @@ export default function MetaAdminGeralPage() {
                 ← Voltar para Locais
               </button>
             </div>
-            <form onSubmit={handleAddLocal} className="bg-white shadow rounded-lg p-6">
+            <form onSubmit={handleAddLocal} className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
               <div className="grid grid-cols-1 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome do Local</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome do Local</label>
                   <input
                     type="text"
                     value={newLocal.nome}
@@ -2275,11 +3524,11 @@ export default function MetaAdminGeralPage() {
 
                             case 'leads':
                 const statusConfig: Record<LeadStatus, { label: string; color: string; bgColor: string }> = {
-                  nao_qualificado: { label: 'Não Qualificado', color: 'text-gray-700', bgColor: 'bg-gray-100' },
-                  enviado_contato: { label: 'Enviado Contato', color: 'text-blue-700', bgColor: 'bg-blue-100' },
-                  contato_feito: { label: 'Contato Feito', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
-                  qualificado: { label: 'Qualificado', color: 'text-green-700', bgColor: 'bg-green-100' },
-                  excluido: { label: 'Excluído', color: 'text-red-700', bgColor: 'bg-red-100' },
+                  nao_qualificado: { label: 'Não Qualificado', color: 'text-[#E8EDED]/90', bgColor: 'bg-white/10' },
+                  enviado_contato: { label: 'Enviado Contato', color: 'text-[#2F8FA3]', bgColor: 'bg-[#2F8FA3]/20' },
+                  contato_feito: { label: 'Contato Feito', color: 'text-amber-400', bgColor: 'bg-amber-400/20' },
+                  qualificado: { label: 'Qualificado', color: 'text-[#4CCB7A]', bgColor: 'bg-[#4CCB7A]/20' },
+                  excluido: { label: 'Excluído', color: 'text-red-400', bgColor: 'bg-red-400/20' },
                 };
 
                 const statusOrder: LeadStatus[] = ['nao_qualificado', 'enviado_contato', 'contato_feito', 'qualificado', 'excluido'];
@@ -2336,7 +3585,7 @@ export default function MetaAdminGeralPage() {
                 return (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-2xl font-bold text-gray-900">Pipeline de Qualificação de Leads</h2>
+                      <h2 className="text-2xl font-bold text-[#E8EDED]">Pipeline de Qualificação de Leads</h2>
                       <button
                         onClick={loadLeads}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -2345,14 +3594,14 @@ export default function MetaAdminGeralPage() {
                         Atualizar
                       </button>
                     </div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-[#E8EDED]/70">
                       Use as setas para mover os leads entre os estágios do pipeline.
                     </p>
                     {loadingLeads ? (
-                      <div className="bg-white shadow rounded-lg p-6">
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                         <div className="text-center py-8">
-                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                          <p className="mt-4 text-gray-600">Carregando leads...</p>
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                          <p className="mt-4 text-[#E8EDED]/70">Carregando leads...</p>
                         </div>
                       </div>
                     ) : (
@@ -2364,7 +3613,7 @@ export default function MetaAdminGeralPage() {
                             const currentIndex = statusOrder.indexOf(status);
                             
                             return (
-                              <div key={status} className="flex-shrink-0 w-64 bg-gray-50 rounded-lg border border-gray-200">
+                              <div key={status} className="flex-shrink-0 w-64 bg-white/5 rounded-xl border border-white/10">
                                 <div className={`${config.bgColor} ${config.color} px-4 py-3 rounded-t-lg border-b border-gray-200`}>
                                   <div className="flex items-center justify-between">
                                     <h3 className="font-semibold text-sm">{config.label}</h3>
@@ -2382,11 +3631,11 @@ export default function MetaAdminGeralPage() {
                                     leadsInStatus.map((lead) => (
                                       <div
                                         key={lead.id}
-                                        className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
+                                        className="bg-white/5 rounded-xl border border-white/10 p-3 hover:border-[#4CCB7A]/30 transition-colors"
                                       >
                                         <div className="flex items-start justify-between mb-2">
                                           <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-900 truncate">{lead.name}</p>
+                                            <p className="text-sm font-medium text-[#E8EDED] truncate">{lead.name}</p>
                                             <p className="text-xs text-gray-500 truncate">{lead.email}</p>
                                             {lead.createdAt && (
                                               <p className="text-xs text-gray-400 mt-1">
@@ -2402,7 +3651,7 @@ export default function MetaAdminGeralPage() {
                                             className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                                               currentIndex === 0
                                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                : 'bg-white/10 text-[#E8EDED] hover:bg-white/20'
                                             }`}
                                             title="Mover para esquerda"
                                           >
@@ -2414,7 +3663,7 @@ export default function MetaAdminGeralPage() {
                                             className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                                               currentIndex === statusOrder.length - 1
                                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                : 'bg-white/10 text-[#E8EDED] hover:bg-white/20'
                                             }`}
                                             title="Mover para direita"
                                           >
@@ -2465,11 +3714,11 @@ export default function MetaAdminGeralPage() {
                 return (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-2xl font-bold text-gray-900">Precificação Tirzepatida</h2>
+                      <h2 className="text-2xl font-bold text-[#E8EDED]">Precificação Tirzepatida</h2>
                     </div>
-                    <div className="bg-white shadow rounded-lg">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors">
                       <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">Tipos de Tirzepatida</h3>
+                        <h3 className="text-lg font-medium text-[#E8EDED]">Tipos de Tirzepatida</h3>
                         <p className="text-sm text-gray-500 mt-1">Configure os preços dos diferentes tipos de Tirzepatida para que os médicos possam encomendar.</p>
                       </div>
                       <div className="px-6 py-4">
@@ -2479,13 +3728,15 @@ export default function MetaAdminGeralPage() {
                             const editando = editandoTirzepatidaTipo === tipo;
 
                             return (
-                              <div key={tipo} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                              <div key={tipo} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                                 <div className="flex items-center space-x-4">
-                                  <Pill className="h-6 w-6 text-green-600" />
+                                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                                    <Pill className="w-5 h-5 text-white" />
+                                  </div>
                                   <div>
-                                    <p className="text-sm font-medium text-gray-900">Tirzepatida {tipo}</p>
+                                    <p className="text-sm font-medium text-[#E8EDED]">Tirzepatida {tipo}</p>
                                     {!editando && precoAtual && (
-                                      <p className="text-xs text-gray-500">Preço atual: R$ {precoAtual.preco.toFixed(2).replace('.', ',')}</p>
+                                      <p className="text-xs text-[#E8EDED]/70">Preço atual: R$ {precoAtual.preco.toFixed(2).replace('.', ',')}</p>
                                     )}
                                   </div>
                                 </div>
@@ -2493,7 +3744,7 @@ export default function MetaAdminGeralPage() {
                                   {editando ? (
                                     <>
                                       <div className="flex items-center space-x-2">
-                                        <span className="text-sm text-gray-700">R$</span>
+                                        <span className="text-sm text-[#E8EDED]/90">R$</span>
                                         <input
                                           type="number"
                                           step="0.01"
@@ -2553,7 +3804,7 @@ export default function MetaAdminGeralPage() {
                 return (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-2xl font-bold text-gray-900">Serviços</h2>
+                      <h2 className="text-2xl font-bold text-[#E8EDED]">Serviços</h2>
                       <button
                         onClick={() => setShowCadastrarServicoModal(true)}
                         className="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -2562,9 +3813,9 @@ export default function MetaAdminGeralPage() {
                         Adicionar Serviço
                       </button>
                     </div>
-                    <div className="bg-white shadow rounded-lg">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors">
                       <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">Lista de Serviços ({servicos.length})</h3>
+                        <h3 className="text-lg font-medium text-[#E8EDED]">Lista de Serviços ({servicos.length})</h3>
                       </div>
                       <div className="px-6 py-4">
                         {servicos.length === 0 ? (
@@ -2576,7 +3827,7 @@ export default function MetaAdminGeralPage() {
                               return (
                                 <div key={servico.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
                                   <div>
-                                    <p className="text-sm font-medium text-gray-900">{servico.nome}</p>
+                                    <p className="text-sm font-medium text-[#E8EDED]">{servico.nome}</p>
                                     <p className="text-xs text-gray-500">Local: {local?.nome || 'Local não encontrado'}</p>
                                   </div>
                                   <div className="flex space-x-2">
@@ -2607,11 +3858,11 @@ export default function MetaAdminGeralPage() {
               case 'cadastrar-servico':
                 return (
                   <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Cadastrar Serviço</h2>
-                    <form onSubmit={handleAddServico} className="bg-white shadow rounded-lg p-6">
+                    <h2 className="text-2xl font-bold text-[#E8EDED]">Cadastrar Serviço</h2>
+                    <form onSubmit={handleAddServico} className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                       <div className="grid grid-cols-1 gap-6">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Nome do Serviço</label>
+                          <label className="block text-sm font-medium text-[#E8EDED]/90">Nome do Serviço</label>
                           <input
                             type="text"
                             value={newServico.nome}
@@ -2621,7 +3872,7 @@ export default function MetaAdminGeralPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Local</label>
+                          <label className="block text-sm font-medium text-[#E8EDED]/90">Local</label>
                           <select
                             value={newServico.localId}
                             onChange={(e) => setNewServico({ ...newServico, localId: e.target.value })}
@@ -2680,10 +3931,10 @@ export default function MetaAdminGeralPage() {
 
                 return (
                   <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Criar Escala Semanal</h2>
-                    <form onSubmit={handleCriarEscala} className="bg-white shadow rounded-lg p-6">
+                    <h2 className="text-2xl font-bold text-[#E8EDED]">Criar Escala Semanal</h2>
+                    <form onSubmit={handleCriarEscala} className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                       <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-[#E8EDED]/90 mb-2">
                           Data de Início da Semana (Segunda-feira)
                         </label>
                         <input
@@ -2706,7 +3957,7 @@ export default function MetaAdminGeralPage() {
                               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                                 activeTab === key
                                   ? 'border-green-500 text-green-600'
-                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                  : 'border-transparent text-gray-500 hover:text-[#E8EDED] hover:border-white/20'
                               }`}
                             >
                               <div className="text-center">
@@ -2728,7 +3979,7 @@ export default function MetaAdminGeralPage() {
                           activeTab === key && (
                             <div key={key} className="space-y-4">
                               <div className="flex justify-between items-center">
-                                <h3 className="text-lg font-medium text-gray-900">
+                                <h3 className="text-lg font-medium text-[#E8EDED]">
                                   {nome} {data && `- ${data.toLocaleDateString('pt-BR')}`}
                                 </h3>
                               </div>
@@ -2738,7 +3989,7 @@ export default function MetaAdminGeralPage() {
                                 {(novaEscala.dias[key as keyof typeof novaEscala.dias] as ServicoDia[]).map((servico, index) => (
                                   <div key={servico.id} className="border border-gray-200 rounded-lg p-4">
                                     <div className="flex justify-between items-center mb-4">
-                                      <h4 className="text-md font-medium text-gray-900">
+                                      <h4 className="text-md font-medium text-[#E8EDED]">
                                         Serviço {index + 1}
                                       </h4>
                                       <button
@@ -2755,7 +4006,7 @@ export default function MetaAdminGeralPage() {
                                       <div className="space-y-4">
                                         {/* Local */}
                                         <div>
-                                          <label className="block text-sm font-medium text-gray-700 mb-2">Local</label>
+                                          <label className="block text-sm font-medium text-[#E8EDED]/90 mb-2">Local</label>
                                           <select
                                             value={servico.localId}
                                             onChange={(e) => {
@@ -2777,7 +4028,7 @@ export default function MetaAdminGeralPage() {
 
                                         {/* Serviço */}
                                         <div>
-                                          <label className="block text-sm font-medium text-gray-700 mb-2">Serviço</label>
+                                          <label className="block text-sm font-medium text-[#E8EDED]/90 mb-2">Serviço</label>
                                           <select
                                             value={servico.servicoId}
                                             onChange={(e) => handleServicoChange(key, servico.id, 'servicoId', e.target.value)}
@@ -2797,7 +4048,7 @@ export default function MetaAdminGeralPage() {
 
                                         {/* Turno */}
                                         <div>
-                                          <label className="block text-sm font-medium text-gray-700 mb-2">Turno</label>
+                                          <label className="block text-sm font-medium text-[#E8EDED]/90 mb-2">Turno</label>
                                           <div className="space-y-2">
                                             <label className="flex items-center">
                                               <input
@@ -2808,7 +4059,7 @@ export default function MetaAdminGeralPage() {
                                                 onChange={(e) => handleServicoChange(key, servico.id, 'turno', e.target.value)}
                                                 className="mr-2 text-green-600 focus:ring-green-500"
                                               />
-                                              <span className="text-sm text-gray-700">Manhã</span>
+                                              <span className="text-sm text-[#E8EDED]/90">Manhã</span>
                                             </label>
                                             <label className="flex items-center">
                                               <input
@@ -2819,7 +4070,7 @@ export default function MetaAdminGeralPage() {
                                                 onChange={(e) => handleServicoChange(key, servico.id, 'turno', e.target.value)}
                                                 className="mr-2 text-green-600 focus:ring-green-500"
                                               />
-                                              <span className="text-sm text-gray-700">Tarde</span>
+                                              <span className="text-sm text-[#E8EDED]/90">Tarde</span>
                                             </label>
                                           </div>
                                         </div>
@@ -2827,7 +4078,7 @@ export default function MetaAdminGeralPage() {
 
                                     {/* Coluna 2 e 3: Residentes por Nível */}
                                     <div className="lg:col-span-2">
-                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      <label className="block text-sm font-medium text-[#E8EDED]/90 mb-2">
                                         Residentes ({getResidentesDoServico(key, servico.id).length})
                                       </label>
                                       <div className="h-48 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50">
@@ -2854,7 +4105,7 @@ export default function MetaAdminGeralPage() {
                                                     />
                                                     <div className="flex-1 min-w-0">
                                                       <div className="flex items-center space-x-1">
-                                                        <span className="text-gray-900 font-medium truncate text-xs">
+                                                        <span className="text-[#E8EDED] font-medium truncate text-xs">
                                                           {residente.nome}
                                                         </span>
                                                         {participacoes > 0 && (
@@ -2888,7 +4139,7 @@ export default function MetaAdminGeralPage() {
                                                     />
                                                     <div className="flex-1 min-w-0">
                                                       <div className="flex items-center space-x-1">
-                                                        <span className="text-gray-900 font-medium truncate text-xs">
+                                                        <span className="text-[#E8EDED] font-medium truncate text-xs">
                                                           {residente.nome}
                                                         </span>
                                                         {participacoes > 0 && (
@@ -2922,7 +4173,7 @@ export default function MetaAdminGeralPage() {
                                                     />
                                                     <div className="flex-1 min-w-0">
                                                       <div className="flex items-center space-x-1">
-                                                        <span className="text-gray-900 font-medium truncate text-xs">
+                                                        <span className="text-[#E8EDED] font-medium truncate text-xs">
                                                           {residente.nome}
                                                         </span>
                                                         {participacoes > 0 && (
@@ -2994,11 +4245,11 @@ export default function MetaAdminGeralPage() {
 
                 return (
                   <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Escalas Cadastradas</h2>
-                    <div className="bg-white shadow rounded-lg">
+                    <h2 className="text-2xl font-bold text-[#E8EDED]">Escalas Cadastradas</h2>
+                    <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors">
                       <div className="px-6 py-4 border-b border-gray-200">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-medium text-gray-900">Lista de Escalas ({escalas.length})</h3>
+                          <h3 className="text-lg font-medium text-[#E8EDED]">Lista de Escalas ({escalas.length})</h3>
                           <div className="flex space-x-2">
                             <button
                               onClick={expandirTodasEscalas}
@@ -3035,17 +4286,17 @@ export default function MetaAdminGeralPage() {
                                         title={isExpandida ? "Colapsar detalhes" : "Expandir detalhes"}
                                       >
                                         {isExpandida ? (
-                                          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <svg className="w-5 h-5 text-[#E8EDED]/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                           </svg>
                                         ) : (
-                                          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <svg className="w-5 h-5 text-[#E8EDED]/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                           </svg>
                                         )}
                                       </button>
                                       <div>
-                                        <h4 className="text-lg font-medium text-gray-900">
+                                        <h4 className="text-lg font-medium text-[#E8EDED]">
                                           Semana de {new Date(escala.dataInicio).toLocaleDateString('pt-BR')}
                                         </h4>
                                         <p className="text-sm text-gray-500">
@@ -3089,7 +4340,7 @@ export default function MetaAdminGeralPage() {
                                           className={`py-2 px-1 border-b-2 font-medium text-sm ${
                                             activeTab === key
                                               ? 'border-green-500 text-green-600'
-                                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                              : 'border-transparent text-gray-500 hover:text-[#E8EDED] hover:border-white/20'
                                           }`}
                                         >
                                           {nome} {temServicos && `(${servicosDia.length})`}
@@ -3122,7 +4373,7 @@ export default function MetaAdminGeralPage() {
                                                 const residentesDia = residentes.filter(r => servicoDia.residentes.includes(r.email));
                                                 
                                                 return (
-                                                  <div key={servicoDia.id || index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                                  <div key={servicoDia.id || index} className="bg-white/5 rounded-xl p-4 border border-white/10">
                                                     <div className="flex justify-between items-start mb-3">
                                                       <h6 className="font-medium text-gray-800">Serviço {index + 1}</h6>
                                                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -3135,14 +4386,14 @@ export default function MetaAdminGeralPage() {
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                       <div>
-                                                        <p className="text-sm text-gray-600"><strong>Local:</strong> {local?.nome}</p>
-                                                        <p className="text-sm text-gray-600"><strong>Serviço:</strong> {servico?.nome}</p>
+                                                        <p className="text-sm text-[#E8EDED]/70"><strong>Local:</strong> {local?.nome}</p>
+                                                        <p className="text-sm text-[#E8EDED]/70"><strong>Serviço:</strong> {servico?.nome}</p>
                                                       </div>
                                                       <div>
                                                         <p className="text-xs text-gray-500 font-medium mb-1">Residentes:</p>
                                                         {residentesDia.length > 0 ? (
                                                           residentesDia.map(residente => (
-                                                            <p key={residente.id} className="text-xs text-gray-700">
+                                                            <p key={residente.id} className="text-xs text-[#E8EDED]/90">
                                                               {residente.nome} ({residente.nivel})
                                                             </p>
                                                           ))
@@ -3179,6 +4430,16 @@ export default function MetaAdminGeralPage() {
         const medicosVerificados = medicos.filter(m => m.isVerificado).length;
         const medicosNaoVerificados = totalMedicos - medicosVerificados;
         const totalPacientes = pacientes.length;
+        
+        // Calcular estatísticas de nutricionistas
+        const totalNutricionistas = nutricionistas.length;
+        const nutricionistasVerificados = nutricionistas.filter(n => n.isVerificado).length;
+        const nutricionistasNaoVerificados = totalNutricionistas - nutricionistasVerificados;
+        
+        // Calcular estatísticas de personal trainers
+        const totalPersonalTrainers = personalTrainers.length;
+        const personalTrainersVerificados = personalTrainers.filter(p => p.isVerificado).length;
+        const personalTrainersNaoVerificados = totalPersonalTrainers - personalTrainersVerificados;
         
         // Estatísticas do pipeline de leads
         const totalLeadsNaoQualificado = leadsByStatus.nao_qualificado.length;
@@ -3256,44 +4517,146 @@ export default function MetaAdminGeralPage() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Estatísticas</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Estatísticas</h2>
             </div>
 
             {/* Cards de resumo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <Stethoscope className="h-8 w-8 text-green-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total de Médicos</p>
-                    <p className="text-2xl font-semibold text-gray-900">{totalMedicos}</p>
+            <div className="space-y-6">
+              {/* Primeira linha: Médicos */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Stethoscope className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Médicos</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{totalMedicos}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <ShieldCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Médicos Verificados</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{medicosVerificados}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Médicos não Verificados</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{medicosNaoVerificados}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <ShieldCheck className="h-8 w-8 text-blue-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Médicos Verificados</p>
-                    <p className="text-2xl font-semibold text-gray-900">{medicosVerificados}</p>
+
+              {/* Segunda linha: Nutricionistas */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <UtensilsCrossed className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Nutricionistas</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{totalNutricionistas}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <ShieldCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Nutricionistas Verificados</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{nutricionistasVerificados}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Nutricionistas não Verificados</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{nutricionistasNaoVerificados}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <Shield className="h-8 w-8 text-orange-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Médicos não Verificados</p>
-                    <p className="text-2xl font-semibold text-gray-900">{medicosNaoVerificados}</p>
+
+              {/* Terceira linha: Personal Trainers */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Dumbbell className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Personal Trainers</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{totalPersonalTrainers}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <ShieldCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Personal Trainers Verificados</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{personalTrainersVerificados}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Personal Trainers não Verificados</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{personalTrainersNaoVerificados}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center">
-                  <Users className="h-8 w-8 text-purple-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total de Pacientes</p>
-                    <p className="text-2xl font-semibold text-gray-900">{totalPacientes}</p>
+
+              {/* Outros cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Users className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Pacientes</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">{totalPacientes}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <UserCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Pacientes Compartilhados</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">
+                        {loadingPacientesCompartilhados ? '...' : totalPacientesCompartilhados}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3301,43 +4664,43 @@ export default function MetaAdminGeralPage() {
 
             {/* Pipeline de Leads */}
             <div className="mt-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Pipeline de Leads</h3>
+              <h3 className="text-xl font-bold text-[#E8EDED] mb-4">Pipeline de Leads</h3>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <p className="text-sm font-medium text-gray-500">Não Qualificado</p>
-                  <p className="text-2xl font-semibold text-gray-700">{totalLeadsNaoQualificado}</p>
+                <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                  <p className="text-sm font-medium text-[#E8EDED]/70">Não Qualificado</p>
+                  <p className="text-2xl font-semibold text-[#E8EDED]">{totalLeadsNaoQualificado}</p>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <p className="text-sm font-medium text-blue-700">Enviado Contato</p>
-                  <p className="text-2xl font-semibold text-blue-700">{totalLeadsEnviadoContato}</p>
+                <div className="bg-white/5 p-4 rounded-xl border border-[#2F8FA3]/40">
+                  <p className="text-sm font-medium text-[#E8EDED]/80">Enviado Contato</p>
+                  <p className="text-2xl font-semibold text-[#E8EDED]">{totalLeadsEnviadoContato}</p>
                 </div>
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                  <p className="text-sm font-medium text-yellow-700">Contato Feito</p>
-                  <p className="text-2xl font-semibold text-yellow-700">{totalLeadsContatoFeito}</p>
+                <div className="bg-white/5 p-4 rounded-xl border border-amber-400/40">
+                  <p className="text-sm font-medium text-[#E8EDED]/80">Contato Feito</p>
+                  <p className="text-2xl font-semibold text-[#E8EDED]">{totalLeadsContatoFeito}</p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <p className="text-sm font-medium text-green-700">Qualificado</p>
-                  <p className="text-2xl font-semibold text-green-700">{totalLeadsQualificado}</p>
+                <div className="bg-white/5 p-4 rounded-xl border border-[#4CCB7A]/40">
+                  <p className="text-sm font-medium text-[#E8EDED]/80">Qualificado</p>
+                  <p className="text-2xl font-semibold text-[#E8EDED]">{totalLeadsQualificado}</p>
                 </div>
-                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                  <p className="text-sm font-medium text-red-700">Excluído</p>
-                  <p className="text-2xl font-semibold text-red-700">{totalLeadsExcluido}</p>
+                <div className="bg-white/5 p-4 rounded-xl border border-red-400/40">
+                  <p className="text-sm font-medium text-[#E8EDED]/80">Excluído</p>
+                  <p className="text-2xl font-semibold text-[#E8EDED]">{totalLeadsExcluido}</p>
                 </div>
               </div>
               
               {/* Taxa de Conversão */}
               {leadsQualificadosDesaparecidos > 0 && (
-                <div className="mt-4 bg-green-50 p-4 rounded-lg border border-green-200">
+                <div className="mt-4 bg-white/5 p-4 rounded-xl border border-[#4CCB7A]/40">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-green-700">Taxa de Conversão</p>
-                      <p className="text-xs text-green-600 mt-1">
+                      <p className="text-sm font-medium text-[#E8EDED]">Taxa de Conversão</p>
+                      <p className="text-xs text-[#E8EDED]/70 mt-1">
                         Leads qualificados que encontraram médico
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-semibold text-green-700">{taxaConversao}%</p>
-                      <p className="text-xs text-green-600">
+                      <p className="text-2xl font-semibold text-[#4CCB7A]">{taxaConversao}%</p>
+                      <p className="text-xs text-[#E8EDED]/70">
                         {leadsQualificadosDesaparecidos} de {totalLeadsNaoQualificado}
                       </p>
                     </div>
@@ -3346,71 +4709,46 @@ export default function MetaAdminGeralPage() {
               )}
             </div>
 
-            {/* Ranking de abandonos por motivo */}
-            {rankingAbandonos.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ranking de Abandonos por Motivo</h3>
-                <div className="space-y-3">
-                  {rankingAbandonos.map(([motivo, quantidade]: [string, number], index: number) => (
-                    <div key={motivo} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          index === 0 ? 'bg-yellow-500 text-white' :
-                          index === 1 ? 'bg-gray-400 text-white' :
-                          index === 2 ? 'bg-orange-500 text-white' :
-                          'bg-gray-200 text-gray-700'
-                        }`}>
-                          {index + 1}
-                        </span>
-                        <span className="font-medium text-gray-900">{motivo}</span>
-                      </div>
-                      <span className="text-lg font-semibold text-gray-900">{quantidade}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Ranking de médicos por número de pacientes */}
             {rankingMedicosOrdenado.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ranking de Médicos por Número de Pacientes</h3>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Ranking de Médicos por Número de Pacientes</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-white/10">
+                    <thead className="bg-white/10">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posição</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Médico</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pendente</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Em Tratamento</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Concluído</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Abandono</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitação Pendente</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Posição</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Médico</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Pendente</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Em Tratamento</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Concluído</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Abandono</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Solicitação Pendente</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-white/10">
                       {rankingMedicosOrdenado.map((item, index) => (
-                        <tr key={item.medico.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <tr key={item.medico.id} className={index % 2 === 0 ? 'bg-transparent' : 'bg-white/5'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#E8EDED]">
                             <span className={`w-8 h-8 rounded-full flex items-center justify-center inline-block ${
                               index === 0 ? 'bg-yellow-500 text-white' :
                               index === 1 ? 'bg-gray-400 text-white' :
                               index === 2 ? 'bg-orange-500 text-white' :
-                              'bg-gray-200 text-gray-700'
+                              'bg-white/10 text-[#E8EDED]'
                             }`}>
                               {index + 1}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]">
                             {item.medico.genero === 'F' ? 'Dra.' : 'Dr.'} {item.medico.nome}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{item.pendente}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-[#E8EDED]/70">{item.pendente}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-blue-600 font-medium">{item.emTratamento}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-green-600 font-medium">{item.concluido}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-red-600 font-medium">{item.abandono}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-orange-600 font-medium">{item.solicitacoesPendentes}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900">{item.total}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-red-400 font-medium">{item.abandono}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-amber-400 font-medium">{item.solicitacoesPendentes}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-[#E8EDED]">{item.total}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3420,10 +4758,1087 @@ export default function MetaAdminGeralPage() {
             )}
 
             {rankingMedicosOrdenado.length === 0 && (
-              <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors text-center text-[#E8EDED]/70">
                 Nenhum médico encontrado com pacientes cadastrados.
               </div>
             )}
+
+            {/* Filtro de Médico para Estatísticas */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[#E8EDED]/90 mb-2">Filtrar por Médico</label>
+                <select
+                  value={filtroMedicoEstatisticas}
+                  onChange={(e) => setFiltroMedicoEstatisticas(e.target.value)}
+                  className="w-full md:w-auto border border-white/20 rounded-md px-3 py-2 text-[#E8EDED] bg-white/5 focus:outline-none focus:ring-2 focus:ring-[#4CCB7A]"
+                >
+                  <option value="total">Total (Todos os Médicos)</option>
+                  {medicos.map((medico) => (
+                    <option key={medico.id} value={medico.id}>
+                      {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Ranking de Abandonos por Motivo (Filtrado) */}
+            {(() => {
+              // Filtrar pacientes baseado no filtro de médico
+              const pacientesFiltrados = filtroMedicoEstatisticas === 'total' 
+                ? pacientes 
+                : pacientes.filter(p => p.medicoResponsavelId === filtroMedicoEstatisticas);
+
+              // Calcular abandonos por motivo
+              const abandonosPorMotivo: Record<string, number> = {};
+              pacientesFiltrados.forEach(paciente => {
+                if (paciente.motivoAbandono) {
+                  abandonosPorMotivo[paciente.motivoAbandono] = (abandonosPorMotivo[paciente.motivoAbandono] || 0) + 1;
+                }
+              });
+              const rankingAbandonosFiltrado = Object.entries(abandonosPorMotivo)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+              if (rankingAbandonosFiltrado.length === 0) return null;
+
+              return (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Ranking de Motivos por Abandono</h3>
+                  <div className="space-y-3">
+                    {rankingAbandonosFiltrado.map(([motivo, quantidade]: [string, number], index: number) => (
+                      <div key={motivo} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+                        <div className="flex items-center space-x-3">
+                          <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            index === 0 ? 'bg-yellow-500 text-white' :
+                            index === 1 ? 'bg-gray-400 text-white' :
+                            index === 2 ? 'bg-orange-500 text-white' :
+                            'bg-white/10 text-[#E8EDED]'
+                          }`}>
+                            {index + 1}
+                          </span>
+<span className="font-medium text-[#E8EDED]">{motivo}</span>
+                          </div>
+                        <span className="text-lg font-semibold text-[#E8EDED]">{quantidade}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Estatísticas de Demografia dos Pacientes */}
+            {(() => {
+              // Filtrar pacientes baseado no filtro de médico
+              const pacientesFiltrados = filtroMedicoEstatisticas === 'total' 
+                ? pacientes 
+                : pacientes.filter(p => p.medicoResponsavelId === filtroMedicoEstatisticas);
+
+              // Calcular idades dos pacientes
+              const pacientesComIdade = pacientesFiltrados.filter(p => {
+                const dataNasc = p.dadosIdentificacao?.dataNascimento;
+                return dataNasc !== null && dataNasc !== undefined;
+              });
+
+              const idades = pacientesComIdade.map(p => {
+                const dataNasc = p.dadosIdentificacao?.dataNascimento;
+                if (!dataNasc) return null;
+                
+                let dataNascimento: Date;
+                if (dataNasc instanceof Date) {
+                  dataNascimento = dataNasc;
+                } else if (dataNasc?.toDate) {
+                  dataNascimento = dataNasc.toDate();
+                } else {
+                  dataNascimento = new Date(dataNasc);
+                }
+                
+                const hoje = new Date();
+                let idade = hoje.getFullYear() - dataNascimento.getFullYear();
+                const mesAtual = hoje.getMonth();
+                const diaAtual = hoje.getDate();
+                const mesNasc = dataNascimento.getMonth();
+                const diaNasc = dataNascimento.getDate();
+                
+                if (mesAtual < mesNasc || (mesAtual === mesNasc && diaAtual < diaNasc)) {
+                  idade--;
+                }
+                
+                return idade;
+              }).filter(idade => idade !== null && idade > 0) as number[];
+
+              const idadeMedia = idades.length > 0 
+                ? idades.reduce((sum, idade) => sum + idade, 0) / idades.length 
+                : 0;
+
+              // Calcular faixas etárias
+              const faixasEtarias = {
+                '18-24': idades.filter(idade => idade >= 18 && idade <= 24).length,
+                '25-40': idades.filter(idade => idade >= 25 && idade <= 40).length,
+                '41-65': idades.filter(idade => idade >= 41 && idade <= 65).length,
+                '65+': idades.filter(idade => idade > 65).length
+              };
+
+              const totalComIdade = idades.length;
+              const porcentagensFaixas = {
+                '18-24': totalComIdade > 0 ? (faixasEtarias['18-24'] / totalComIdade) * 100 : 0,
+                '25-40': totalComIdade > 0 ? (faixasEtarias['25-40'] / totalComIdade) * 100 : 0,
+                '41-65': totalComIdade > 0 ? (faixasEtarias['41-65'] / totalComIdade) * 100 : 0,
+                '65+': totalComIdade > 0 ? (faixasEtarias['65+'] / totalComIdade) * 100 : 0
+              };
+
+              // Calcular distribuição por gênero
+              const pacientesComGenero = pacientesFiltrados.filter(p => {
+                const genero = p.dadosIdentificacao?.sexoBiologico;
+                return genero === 'M' || genero === 'F';
+              });
+
+              const homens = pacientesComGenero.filter(p => p.dadosIdentificacao?.sexoBiologico === 'M').length;
+              const mulheres = pacientesComGenero.filter(p => p.dadosIdentificacao?.sexoBiologico === 'F').length;
+              const totalGenero = homens + mulheres;
+
+              const dadosGenero = [
+                { name: 'Masculino', value: homens, porcentagem: totalGenero > 0 ? (homens / totalGenero) * 100 : 0 },
+                { name: 'Feminino', value: mulheres, porcentagem: totalGenero > 0 ? (mulheres / totalGenero) * 100 : 0 }
+              ];
+
+              const coresGenero = ['#4CCB7A', '#2F8FA3'];
+
+              return (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Demografia dos Pacientes</h3>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Idade Média e Faixas Etárias */}
+                    <div className="space-y-4">
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-[#E8EDED]/90">Idade Média</h4>
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center">
+                            <UserIcon className="w-5 h-5 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-3xl font-bold text-[#E8EDED]">
+                          {idadeMedia > 0 ? idadeMedia.toFixed(1) : '-'} <span className="text-lg text-[#E8EDED]/70">anos</span>
+                        </p>
+                        <p className="text-xs text-[#E8EDED]/60 mt-1">
+                          {totalComIdade} paciente{totalComIdade !== 1 ? 's' : ''} com data de nascimento
+                        </p>
+                      </div>
+
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                        <h4 className="text-sm font-semibold text-[#E8EDED]/90 mb-3">Distribuição por Faixas Etárias</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-[#E8EDED]/70">18 - 24 anos</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-32 bg-white/20 rounded-full h-2">
+                                <div 
+                                  className="bg-[#4CCB7A] h-2 rounded-full transition-all"
+                                  style={{ width: `${porcentagensFaixas['18-24']}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold text-[#E8EDED] w-12 text-right">
+                                {porcentagensFaixas['18-24'].toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-[#E8EDED]/70">25 - 40 anos</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-32 bg-white/20 rounded-full h-2">
+                                <div 
+                                  className="bg-[#2F8FA3] h-2 rounded-full transition-all"
+                                  style={{ width: `${porcentagensFaixas['25-40']}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold text-[#E8EDED] w-12 text-right">
+                                {porcentagensFaixas['25-40'].toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-[#E8EDED]/70">41 - 65 anos</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-32 bg-white/20 rounded-full h-2">
+                                <div 
+                                  className="bg-[#4CCB7A]/80 h-2 rounded-full transition-all"
+                                  style={{ width: `${porcentagensFaixas['41-65']}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold text-[#E8EDED] w-12 text-right">
+                                {porcentagensFaixas['41-65'].toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-[#E8EDED]/70">&gt; 65 anos</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-32 bg-white/20 rounded-full h-2">
+                                <div 
+                                  className="bg-[#2F8FA3]/80 h-2 rounded-full transition-all"
+                                  style={{ width: `${porcentagensFaixas['65+']}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold text-[#E8EDED] w-12 text-right">
+                                {porcentagensFaixas['65+'].toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gráfico de Pizza - Gênero */}
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                      <h4 className="text-sm font-semibold text-[#E8EDED]/90 mb-4">Distribuição por Gênero</h4>
+                      {totalGenero > 0 ? (
+                        <div className="flex flex-col items-center">
+                          <div className="w-full max-w-xs">
+                            <ResponsiveContainer width="100%" height={200}>
+                              <PieChart>
+                                <defs>
+                                  <linearGradient id="gradienteMasculinoGeral" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#4CCB7A" stopOpacity={1} />
+                                    <stop offset="100%" stopColor="#2F8FA3" stopOpacity={1} />
+                                  </linearGradient>
+                                  <linearGradient id="gradienteFemininoGeral" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#2F8FA3" stopOpacity={1} />
+                                    <stop offset="100%" stopColor="#0A1F44" stopOpacity={1} />
+                                  </linearGradient>
+                                </defs>
+                                <Pie
+                                  data={dadosGenero}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={false}
+                                  outerRadius={70}
+                                  fill="#4CCB7A"
+                                  dataKey="value"
+                                >
+                                  {dadosGenero.map((entry, index) => (
+                                    <Cell 
+                                      key={`cell-${index}`} 
+                                      fill={index === 0 ? 'url(#gradienteMasculinoGeral)' : 'url(#gradienteFemininoGeral)'} 
+                                    />
+                                  ))}
+                                </Pie>
+                                <Tooltip 
+                                  formatter={(value: any, name: string, props: any) => {
+                                    return [`${value} paciente${value !== 1 ? 's' : ''} (${props.payload.porcentagem.toFixed(1)}%)`, name];
+                                  }}
+                                  contentStyle={{ backgroundColor: '#0A1F44', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                  labelStyle={{ color: '#E8EDED' }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="mt-4 flex gap-4">
+                            {dadosGenero.map((item, index) => (
+                              <div key={item.name} className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: coresGenero[index] }}
+                                />
+                                <span className="text-sm text-[#E8EDED]/90">
+                                  {item.name}: <span className="font-semibold">{item.value}</span> ({item.porcentagem.toFixed(1)}%)
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-[#E8EDED]/50">
+                          <p className="text-sm">Nenhum dado de gênero disponível</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Demografia Geográfica */}
+            {(() => {
+              // Filtrar pacientes baseado no filtro de médico
+              const pacientesFiltrados = filtroMedicoEstatisticas === 'total' 
+                ? pacientes 
+                : pacientes.filter(p => p.medicoResponsavelId === filtroMedicoEstatisticas);
+
+              // Função para normalizar cidade e estado
+              const normalizarCidadeEstado = (cidade: string, estado: string): string => {
+                const cidadeNormalizada = cidade
+                  .trim()
+                  .replace(/\s+/g, ' ')
+                  .split(' ')
+                  .map(palavra => {
+                    if (palavra.length === 0) return '';
+                    return palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase();
+                  })
+                  .join(' ')
+                  .trim();
+
+                const estadoNormalizado = estado.trim().toUpperCase().replace(/\s+/g, '');
+
+                return `${cidadeNormalizada}, ${estadoNormalizado}`;
+              };
+
+              const pacientesComCidade = pacientesFiltrados.filter(p => {
+                const cidade = p.dadosIdentificacao?.endereco?.cidade;
+                const estado = p.dadosIdentificacao?.endereco?.estado;
+                return cidade && cidade.trim() !== '' && estado && estado.trim() !== '';
+              });
+
+              const cidadesCount: Record<string, number> = {};
+              pacientesComCidade.forEach(p => {
+                const cidade = p.dadosIdentificacao?.endereco?.cidade || '';
+                const estado = p.dadosIdentificacao?.endereco?.estado || '';
+                const chaveNormalizada = normalizarCidadeEstado(cidade, estado);
+                cidadesCount[chaveNormalizada] = (cidadesCount[chaveNormalizada] || 0) + 1;
+              });
+
+              const cidadesOrdenadas = Object.entries(cidadesCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+              const totalComCidade = pacientesComCidade.length;
+              const totalOutras = totalComCidade - cidadesOrdenadas.reduce((sum, [, count]) => sum + count, 0);
+
+              const dadosCidades = cidadesOrdenadas.map(([cidadeEstado, count]) => ({
+                cidadeEstado,
+                quantidade: count,
+                porcentagem: totalComCidade > 0 ? (count / totalComCidade) * 100 : 0
+              }));
+
+              if (totalOutras > 0) {
+                dadosCidades.push({
+                  cidadeEstado: 'Outras',
+                  quantidade: totalOutras,
+                  porcentagem: totalComCidade > 0 ? (totalOutras / totalComCidade) * 100 : 0
+                });
+              }
+
+              const coresCidades = ['#4CCB7A', '#2F8FA3', '#4CCB7A', '#2F8FA3', '#4CCB7A', '#2F8FA3'];
+
+              return (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Demografia Geográfica</h3>
+                  {totalComCidade > 0 ? (
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                      <h4 className="text-sm font-semibold text-[#E8EDED]/90 mb-3">Top Cidades</h4>
+                      <div className="space-y-3">
+                        {dadosCidades.map((item, index) => (
+                          <div key={item.cidadeEstado} className="flex items-center justify-between">
+                            <span className="text-sm text-[#E8EDED]/70 flex-shrink-0 w-40 truncate">
+                              {item.cidadeEstado}
+                            </span>
+                            <div className="flex items-center gap-2 flex-1">
+                              <div className="w-full max-w-xs bg-white/20 rounded-full h-2">
+                                <div 
+                                  className="h-2 rounded-full transition-all"
+                                  style={{ 
+                                    width: `${item.porcentagem}%`,
+                                    backgroundColor: coresCidades[index % 2]
+                                  }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold text-[#E8EDED] w-16 text-right">
+                                {item.porcentagem.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-[#E8EDED]/60 mt-3">
+                        {totalComCidade} paciente{totalComCidade !== 1 ? 's' : ''} com cidade cadastrada
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-[#E8EDED]/50">
+                      <p className="text-sm">Nenhum dado de cidade disponível</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Estatística de Perda de Peso */}
+            {(() => {
+              // Filtrar pacientes baseado no filtro de médico
+              const pacientesFiltrados = filtroMedicoEstatisticas === 'total' 
+                ? pacientes 
+                : pacientes.filter(p => p.medicoResponsavelId === filtroMedicoEstatisticas);
+
+              // Função para calcular idade
+              const calcularIdade = (dataNasc: any): number | null => {
+                if (!dataNasc) return null;
+                let dataNascimento: Date;
+                if (dataNasc instanceof Date) {
+                  dataNascimento = dataNasc;
+                } else if (dataNasc?.toDate) {
+                  dataNascimento = dataNasc.toDate();
+                } else {
+                  dataNascimento = new Date(dataNasc);
+                }
+                if (isNaN(dataNascimento.getTime())) return null;
+                
+                const hoje = new Date();
+                let idade = hoje.getFullYear() - dataNascimento.getFullYear();
+                const mesAtual = hoje.getMonth();
+                const diaAtual = hoje.getDate();
+                const mesNasc = dataNascimento.getMonth();
+                const diaNasc = dataNascimento.getDate();
+                
+                if (mesAtual < mesNasc || (mesAtual === mesNasc && diaAtual < diaNasc)) {
+                  idade--;
+                }
+                return idade > 0 ? idade : null;
+              };
+
+              // Função para obter faixa etária
+              const obterFaixaEtaria = (idade: number | null): string => {
+                if (!idade) return 'desconhecida';
+                if (idade >= 18 && idade <= 24) return '18-24';
+                if (idade >= 25 && idade <= 40) return '25-40';
+                if (idade >= 41 && idade <= 65) return '41-65';
+                if (idade > 65) return '65+';
+                return 'desconhecida';
+              };
+
+              // Calcular perda de peso para cada paciente por semana individual
+              const perdasPesoPorSemana: Record<number, number[]> = {};
+
+              pacientesFiltrados.forEach(paciente => {
+                // Filtrar por sexo
+                const sexo = paciente.dadosIdentificacao?.sexoBiologico;
+                if (filtroSexoPerdaPeso !== 'todos' && sexo !== filtroSexoPerdaPeso) return;
+
+                // Filtrar por faixa etária
+                const idade = calcularIdade(paciente.dadosIdentificacao?.dataNascimento);
+                const faixaEtaria = obterFaixaEtaria(idade);
+                if (filtroFaixaEtariaPerdaPeso !== 'todas' && faixaEtaria !== filtroFaixaEtariaPerdaPeso) return;
+
+                const evolucao = paciente.evolucaoSeguimento || [];
+                if (evolucao.length < 2) return; // Precisa de pelo menos 2 registros
+
+                // Ordenar evolução por weekIndex ou dataRegistro
+                const evolucaoOrdenada = [...evolucao].sort((a, b) => {
+                  const semanaA = a.weekIndex || a.numeroSemana || 0;
+                  const semanaB = b.weekIndex || b.numeroSemana || 0;
+                  if (semanaA !== semanaB) return semanaA - semanaB;
+                  
+                  const dataA = a.dataRegistro instanceof Date 
+                    ? a.dataRegistro 
+                    : a.dataRegistro?.toDate 
+                    ? a.dataRegistro.toDate() 
+                    : new Date(a.dataRegistro || 0);
+                  const dataB = b.dataRegistro instanceof Date 
+                    ? b.dataRegistro 
+                    : b.dataRegistro?.toDate 
+                    ? b.dataRegistro.toDate() 
+                    : new Date(b.dataRegistro || 0);
+                  return dataA.getTime() - dataB.getTime();
+                });
+
+                // Encontrar o registro da semana 1 (baseline)
+                const registroSemana1 = evolucaoOrdenada.find(r => {
+                  const semana = r.weekIndex || r.numeroSemana || 0;
+                  return semana === 1 && r.peso;
+                });
+
+                if (!registroSemana1?.peso) return; // Precisa ter registro da semana 1
+
+                const pesoBaseline = registroSemana1.peso;
+
+                // Calcular perda de peso acumulada para cada semana desde a semana 1
+                evolucaoOrdenada.forEach(registro => {
+                  const semana = registro.weekIndex || registro.numeroSemana || 0;
+                  if (semana <= 1 || !registro.peso) return; // Ignorar semana 1 e registros sem peso
+
+                  // Calcular dose média até esta semana (incluindo a semana atual)
+                  const registrosAteSemana = evolucaoOrdenada.filter(r => {
+                    const sem = r.weekIndex || r.numeroSemana || 0;
+                    return sem >= 1 && sem <= semana && r.doseAplicada?.quantidade;
+                  });
+
+                  let doseMedia = 0;
+                  if (registrosAteSemana.length > 0) {
+                    const somaDoses = registrosAteSemana.reduce((sum, r) => sum + (r.doseAplicada?.quantidade || 0), 0);
+                    doseMedia = somaDoses / registrosAteSemana.length;
+                  }
+
+                  // Filtrar por dose média
+                  if (filtroDosePerdaPeso !== 'todas') {
+                    const doseFiltro = parseFloat(filtroDosePerdaPeso);
+                    // Verificar se a dose média está próxima da dose do filtro (tolerância de 0.5mg)
+                    if (Math.abs(doseMedia - doseFiltro) > 0.5) return;
+                  }
+
+                  // Calcular perda de peso acumulada desde a semana 1 (peso baseline - peso atual)
+                  const perdaPeso = pesoBaseline - registro.peso;
+
+                  // Inicializar array se não existir
+                  if (!perdasPesoPorSemana[semana]) {
+                    perdasPesoPorSemana[semana] = [];
+                  }
+
+                  perdasPesoPorSemana[semana].push(perdaPeso);
+                });
+              });
+
+              // Calcular médias por semana e ordenar
+              const mediasPorSemana = Object.entries(perdasPesoPorSemana)
+                .map(([semana, perdas]) => ({
+                  semana: parseInt(semana),
+                  media: perdas.length > 0 ? perdas.reduce((sum, p) => sum + p, 0) / perdas.length : 0,
+                  quantidade: perdas.length
+                }))
+                .filter(item => item.quantidade > 0) // Filtrar apenas semanas com dados
+                .sort((a, b) => a.semana - b.semana); // Ordenar por semana
+
+              return (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Estatística de Perda de Peso</h3>
+                  
+                  {/* Layout lado a lado para desktop */}
+                  <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    {/* Coluna Esquerda: Filtros e Média */}
+                    <div className="lg:col-span-2 space-y-4">
+                      {/* Filtros */}
+                      <div className="space-y-3">
+                    {/* Filtro de Dose */}
+                    <div>
+                      <label className="block text-xs font-medium text-[#E8EDED]/90 mb-1.5">Dose Média</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setFiltroDosePerdaPeso('todas')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroDosePerdaPeso === 'todas'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          Todas
+                        </button>
+                        {['2.5', '5.0', '7.5', '10', '12.5', '15'].map((dose) => (
+                          <button
+                            key={dose}
+                            onClick={() => setFiltroDosePerdaPeso(dose)}
+                            className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                              filtroDosePerdaPeso === dose
+                                ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                                : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                            }`}
+                          >
+                            {dose} mg
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filtro de Faixa Etária */}
+                    <div>
+                      <label className="block text-xs font-medium text-[#E8EDED]/90 mb-1.5">Faixa Etária</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setFiltroFaixaEtariaPerdaPeso('todas')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroFaixaEtariaPerdaPeso === 'todas'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          Todas
+                        </button>
+                        <button
+                          onClick={() => setFiltroFaixaEtariaPerdaPeso('18-24')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroFaixaEtariaPerdaPeso === '18-24'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          18 - 24 anos
+                        </button>
+                        <button
+                          onClick={() => setFiltroFaixaEtariaPerdaPeso('25-40')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroFaixaEtariaPerdaPeso === '25-40'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          25 - 40 anos
+                        </button>
+                        <button
+                          onClick={() => setFiltroFaixaEtariaPerdaPeso('41-65')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroFaixaEtariaPerdaPeso === '41-65'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          41 - 65 anos
+                        </button>
+                        <button
+                          onClick={() => setFiltroFaixaEtariaPerdaPeso('65+')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroFaixaEtariaPerdaPeso === '65+'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          &gt; 65 anos
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filtro de Sexo */}
+                    <div>
+                      <label className="block text-xs font-medium text-[#E8EDED]/90 mb-1.5">Sexo</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setFiltroSexoPerdaPeso('todos')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroSexoPerdaPeso === 'todos'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          Todos
+                        </button>
+                        <button
+                          onClick={() => setFiltroSexoPerdaPeso('M')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroSexoPerdaPeso === 'M'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          Masculino
+                        </button>
+                        <button
+                          onClick={() => setFiltroSexoPerdaPeso('F')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            filtroSexoPerdaPeso === 'F'
+                              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                              : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/20'
+                          }`}
+                        >
+                          Feminino
+                        </button>
+                      </div>
+                    </div>
+                      </div>
+
+                      {/* Card com Média de Perda de Peso - Desktop abaixo dos filtros */}
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/10 lg:block hidden">
+                        <h4 className="text-sm font-semibold text-[#E8EDED]/90 mb-3">Média de Perda de Peso por Semana</h4>
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {mediasPorSemana.map((item) => (
+                            <div key={item.semana} className="flex items-center justify-between">
+                              <span className="text-sm text-[#E8EDED]/70 font-medium w-20">
+                                Sem {item.semana}
+                              </span>
+                          <div className="flex items-center gap-3 flex-1">
+                            {item.quantidade > 0 ? (
+                              <>
+                                <div className="w-full max-w-xs bg-white/20 rounded-full h-2">
+                                  <div 
+                                    className={`h-2 rounded-full transition-all ${
+                                      item.media > 0 ? 'bg-[#4CCB7A]' : item.media < 0 ? 'bg-[#2F8FA3]' : 'bg-white/40'
+                                    }`}
+                                    style={{ 
+                                      width: `${Math.min(Math.abs(item.media) * 5, 100)}%`
+                                    }}
+                                  />
+                                </div>
+                                <div className="text-sm text-[#E8EDED]/90 min-w-[120px] text-right">
+                                  {(() => {
+                                    // Inverter o sinal para exibição: perda positiva mostra como negativa, ganho negativo mostra como positivo
+                                    const valorExibicao = -item.media;
+                                    return (
+                                      <span className={`font-semibold ${item.media > 0 ? 'text-[#4CCB7A]' : item.media < 0 ? 'text-red-400' : 'text-[#E8EDED]/70'}`}>
+                                        {valorExibicao > 0 ? '+' : ''}{valorExibicao.toFixed(2)} kg
+                                      </span>
+                                    );
+                                  })()}
+                                  <span className="text-[#E8EDED]/50 ml-2 text-xs">
+                                    (n={item.quantidade})
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex-1 text-center">
+                                <span className="text-sm text-[#E8EDED]/50">Sem dados disponíveis</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                          {mediasPorSemana.length === 0 && (
+                            <div className="text-center py-4 text-[#E8EDED]/50">
+                              <p className="text-sm">Nenhum dado disponível com os filtros selecionados</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Coluna Direita: Gráfico */}
+                    <div className="lg:col-span-3">
+                      {/* Preparar dados para o gráfico */}
+                      {(() => {
+                        const dadosGrafico = mediasPorSemana.map(item => ({
+                          semana: item.semana,
+                          perda: -item.media, // Inverter sinal para exibição
+                          quantidade: item.quantidade
+                        }));
+
+                        // Calcular o valor máximo e mínimo para inverter o eixo Y
+                        const valoresPerda = dadosGrafico.map(d => d.perda);
+                        const maxPerda = Math.max(...valoresPerda, 0);
+                        const minPerda = Math.min(...valoresPerda, 0);
+                        const margem = Math.max(Math.abs(maxPerda), Math.abs(minPerda)) * 0.1; // 10% de margem
+
+                        return (
+                          <div className="space-y-4">
+                            {/* Card com Média de Perda de Peso - Mobile */}
+                            <div className="bg-white/5 rounded-xl p-4 border border-white/10 lg:hidden">
+                              <h4 className="text-sm font-semibold text-[#E8EDED]/90 mb-3">Média de Perda de Peso por Semana</h4>
+                              <div className="space-y-3 max-h-96 overflow-y-auto">
+                                {mediasPorSemana.map((item) => (
+                                  <div key={item.semana} className="flex items-center justify-between">
+                                    <span className="text-sm text-[#E8EDED]/70 font-medium w-20">
+                                      Sem {item.semana}
+                                    </span>
+                                    <div className="flex items-center gap-3 flex-1">
+                                      {item.quantidade > 0 ? (
+                                        <>
+                                          <div className="w-full max-w-xs bg-white/20 rounded-full h-2">
+                                            <div 
+                                              className={`h-2 rounded-full transition-all ${
+                                                item.media > 0 ? 'bg-[#4CCB7A]' : item.media < 0 ? 'bg-[#2F8FA3]' : 'bg-white/40'
+                                              }`}
+                                              style={{ 
+                                                width: `${Math.min(Math.abs(item.media) * 5, 100)}%`
+                                              }}
+                                            />
+                                          </div>
+                                          <div className="text-sm text-[#E8EDED]/90 min-w-[120px] text-right">
+                                            {(() => {
+                                              // Inverter o sinal para exibição: perda positiva mostra como negativa, ganho negativo mostra como positivo
+                                              const valorExibicao = -item.media;
+                                              return (
+                                                <span className={`font-semibold ${item.media > 0 ? 'text-[#4CCB7A]' : item.media < 0 ? 'text-red-400' : 'text-[#E8EDED]/70'}`}>
+                                                  {valorExibicao > 0 ? '+' : ''}{valorExibicao.toFixed(2)} kg
+                                                </span>
+                                              );
+                                            })()}
+                                            <span className="text-[#E8EDED]/50 ml-2 text-xs">
+                                              (n={item.quantidade})
+                                            </span>
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <div className="flex-1 text-center">
+                                          <span className="text-sm text-[#E8EDED]/50">Sem dados disponíveis</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                                {mediasPorSemana.length === 0 && (
+                                  <div className="text-center py-4 text-[#E8EDED]/50">
+                                    <p className="text-sm">Nenhum dado disponível com os filtros selecionados</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Gráfico de Linha */}
+                            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                              <h4 className="text-sm font-semibold text-[#E8EDED]/90 mb-3">Evolução da Perda de Peso</h4>
+                              {dadosGrafico.length > 0 ? (
+                                <>
+                                  {/* Versão Desktop */}
+                                  <div className="hidden lg:block">
+                                    <ResponsiveContainer width="100%" height={500}>
+                                      <LineChart data={dadosGrafico} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(232,237,237,0.2)" />
+                                        <XAxis 
+                                          dataKey="semana" 
+                                          label={{ value: 'Semana', position: 'insideBottom', offset: -5, fill: '#E8EDED' }}
+                                          tick={{ fontSize: 12, fill: '#E8EDED' }}
+                                          stroke="#E8EDED"
+                                        />
+                                        <YAxis 
+                                          domain={[minPerda - margem, maxPerda + margem]}
+                                          reversed={true}
+                                          label={{ value: 'Perda de Peso (kg)', angle: -90, position: 'insideLeft', fill: '#E8EDED' }}
+                                          tick={{ fontSize: 12, fill: '#E8EDED' }}
+                                          stroke="#E8EDED"
+                                          tickFormatter={(value) => value.toFixed(1)}
+                                        />
+                                        <Tooltip 
+                                          formatter={(value: number) => [`${value > 0 ? '+' : ''}${value.toFixed(2)} kg`, 'Perda de Peso']}
+                                          labelFormatter={(label) => `Semana ${label}`}
+                                          contentStyle={{ backgroundColor: '#0A1F44', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                          labelStyle={{ color: '#E8EDED' }}
+                                        />
+                                        <Legend wrapperStyle={{ color: '#E8EDED' }} />
+                                        <Line 
+                                          type="monotone" 
+                                          dataKey="perda" 
+                                          stroke="#4CCB7A" 
+                                          strokeWidth={2}
+                                          dot={{ r: 4 }}
+                                          activeDot={{ r: 6 }}
+                                          name="Perda de Peso (kg)"
+                                        />
+                                      </LineChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                  {/* Versão Mobile */}
+                                  <div className="lg:hidden">
+                                    <ResponsiveContainer width="100%" height={300}>
+                                      <LineChart data={dadosGrafico} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(232,237,237,0.2)" />
+                                        <XAxis 
+                                          dataKey="semana" 
+                                          label={{ value: 'Semana', position: 'insideBottom', offset: -5, fill: '#E8EDED' }}
+                                          tick={{ fontSize: 11, fill: '#E8EDED' }}
+                                          stroke="#E8EDED"
+                                        />
+                                        <YAxis 
+                                          domain={[minPerda - margem, maxPerda + margem]}
+                                          reversed={true}
+                                          tick={{ fontSize: 10, fill: '#E8EDED' }}
+                                          stroke="#E8EDED"
+                                          tickFormatter={(value) => value.toFixed(1)}
+                                          width={40}
+                                        />
+                                        <Tooltip 
+                                          formatter={(value: number) => [`${value > 0 ? '+' : ''}${value.toFixed(2)} kg`, 'Perda de Peso']}
+                                          labelFormatter={(label) => `Semana ${label}`}
+                                          contentStyle={{ backgroundColor: '#0A1F44', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                          labelStyle={{ color: '#E8EDED' }}
+                                        />
+                                        <Legend wrapperStyle={{ color: '#E8EDED' }} />
+                                        <Line 
+                                          type="monotone" 
+                                          dataKey="perda" 
+                                          stroke="#4CCB7A" 
+                                          strokeWidth={2}
+                                          dot={{ r: 3 }}
+                                          activeDot={{ r: 5 }}
+                                          name="Perda de Peso (kg)"
+                                        />
+                                      </LineChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="hidden lg:flex items-center justify-center h-[500px] text-[#E8EDED]/50">
+                                    <p className="text-sm">Nenhum dado disponível para o gráfico</p>
+                                  </div>
+                                  <div className="lg:hidden flex items-center justify-center h-[300px] text-[#E8EDED]/50">
+                                    <p className="text-sm">Nenhum dado disponível para o gráfico</p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Controle de Faturamento dos Médicos */}
+            {(() => {
+              // Calcular faturamento de vendas por médico (pagamentos dos pacientes)
+              const faturamentoPorMedico: Record<string, {
+                medico: Medico;
+                totalPacientes: number;
+                valorTotal: number;
+                valorPago: number;
+                valorPendente: number;
+                vendasAvulsas: number;
+                valorVendasAvulsas: number;
+              }> = {};
+
+              // Inicializar todos os médicos
+              medicos.forEach(medico => {
+                faturamentoPorMedico[medico.id] = {
+                  medico,
+                  totalPacientes: 0,
+                  valorTotal: 0,
+                  valorPago: 0,
+                  valorPendente: 0,
+                  vendasAvulsas: 0,
+                  valorVendasAvulsas: 0
+                };
+              });
+
+              // Processar pagamentos dos pacientes
+              pacientes.forEach(paciente => {
+                const medicoId = paciente.medicoResponsavelId;
+                if (!medicoId || !faturamentoPorMedico[medicoId]) return;
+
+                const pagamento = pagamentosPacientes[paciente.id];
+                if (pagamento) {
+                  faturamentoPorMedico[medicoId].totalPacientes++;
+                  faturamentoPorMedico[medicoId].valorTotal += pagamento.valorTotal || 0;
+                  faturamentoPorMedico[medicoId].valorPago += pagamento.valorPago || 0;
+                  faturamentoPorMedico[medicoId].valorPendente += pagamento.valorPendente || 0;
+                }
+              });
+
+              // Processar vendas avulsas
+              vendasAvulsas.forEach(venda => {
+                const medicoId = venda.medicoId;
+                if (!medicoId || !faturamentoPorMedico[medicoId]) return;
+
+                faturamentoPorMedico[medicoId].vendasAvulsas++;
+                faturamentoPorMedico[medicoId].valorVendasAvulsas += venda.valorTotal || 0;
+                faturamentoPorMedico[medicoId].valorTotal += venda.valorTotal || 0;
+                faturamentoPorMedico[medicoId].valorPago += venda.valorPago || 0;
+                faturamentoPorMedico[medicoId].valorPendente += venda.valorPendente || 0;
+              });
+
+              // Filtrar apenas médicos com faturamento
+              const faturamentoFiltrado = Object.values(faturamentoPorMedico)
+                .filter(item => 
+                  item.valorTotal > 0 || item.totalPacientes > 0 || item.vendasAvulsas > 0
+                )
+                .sort((a, b) => b.valorTotal - a.valorTotal);
+
+              const totalFaturamentoGeral = faturamentoFiltrado.reduce((sum, item) => sum + item.valorTotal, 0);
+              const totalFaturamentoPendenteGeral = faturamentoFiltrado.reduce((sum, item) => sum + item.valorPendente, 0);
+              const totalFaturamentoPagoGeral = faturamentoFiltrado.reduce((sum, item) => sum + item.valorPago, 0);
+
+              return (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Controle de Faturamento dos Médicos</h3>
+                  
+                  {/* Resumo Geral */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-white/5 rounded-xl p-4 border border-[#2F8FA3]/40">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-[#E8EDED]/80">Total Faturado</p>
+                          <p className="text-2xl font-bold text-[#E8EDED]">
+                            R$ {totalFaturamentoGeral.toFixed(2).replace('.', ',')}
+                          </p>
+                        </div>
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                          <DollarSign className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-white/5 rounded-xl p-4 border border-amber-400/40">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-[#E8EDED]/80">Pendente de Pagamento</p>
+                          <p className="text-2xl font-bold text-[#E8EDED]">
+                            R$ {totalFaturamentoPendenteGeral.toFixed(2).replace('.', ',')}
+                          </p>
+                        </div>
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                          <AlertCircle className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-white/5 rounded-xl p-4 border border-[#4CCB7A]/40">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-[#E8EDED]/80">Total Pago</p>
+                          <p className="text-2xl font-bold text-[#E8EDED]">
+                            R$ {totalFaturamentoPagoGeral.toFixed(2).replace('.', ',')}
+                          </p>
+                        </div>
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                          <CheckCircle className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabela de Faturamento */}
+                  {loadingPagamentos ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="mt-4 text-[#E8EDED]/70">Carregando faturamento...</p>
+                    </div>
+                  ) : faturamentoFiltrado.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-white/10">
+                        <thead className="bg-white/10">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                              Médico
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                              Pacientes
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                              Vendas Avulsas
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                              Valor Total
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                              Valor Pago
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                              Valor Pendente
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10">
+                          {faturamentoFiltrado.map((item) => (
+                            <tr key={item.medico.id} className="hover:bg-white/10">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-[#E8EDED]">
+                                  {item.medico.nome}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {item.medico.email}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]">
+                                {item.totalPacientes}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]">
+                                {item.vendasAvulsas}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-[#E8EDED]">
+                                R$ {item.valorTotal.toFixed(2).replace('.', ',')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-700">
+                                R$ {item.valorPago.toFixed(2).replace('.', ',')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-yellow-700">
+                                R$ {item.valorPendente.toFixed(2).replace('.', ',')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-400">
+                      <p className="text-sm">Nenhum médico com faturamento registrado</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         );
       }
@@ -3433,11 +5848,11 @@ export default function MetaAdminGeralPage() {
         if (loadingTrocas) {
           return (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Aprovar Trocas</h2>
-              <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Aprovar Trocas</h2>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Carregando trocas...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando trocas...</p>
                 </div>
               </div>
             </div>
@@ -3447,7 +5862,7 @@ export default function MetaAdminGeralPage() {
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Gerenciar Trocas</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Gerenciar Trocas</h2>
               <div className="flex items-center space-x-2">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                   {trocasPendentes.filter(t => t.status === 'aceita').length} pendente{trocasPendentes.filter(t => t.status === 'aceita').length !== 1 ? 's' : ''}
@@ -3467,21 +5882,21 @@ export default function MetaAdminGeralPage() {
                   const local = locais.find(l => l.id === troca.localId);
                   
                   return (
-                  <div key={troca.id} className="bg-white shadow rounded-lg border border-gray-200">
+                  <div key={troca.id} className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors">
                     <div className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-4 mb-4">
                             <div className="flex-shrink-0">
-                              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                <RefreshCw className="h-5 w-5 text-green-600" />
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center">
+                                <RefreshCw className="h-5 w-5 text-white" />
                               </div>
                             </div>
                             <div>
-                              <h3 className="text-lg font-medium text-gray-900">
+                              <h3 className="text-lg font-medium text-[#E8EDED]">
                                 Solicitação de Troca #{troca.id}
                               </h3>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-[#E8EDED]/70">
                                 Solicitado em {troca.createdAt.toLocaleDateString('pt-BR')}
                               </p>
                             </div>
@@ -3489,30 +5904,30 @@ export default function MetaAdminGeralPage() {
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-3">Detalhes da Troca</h4>
+                              <h4 className="text-sm font-medium text-[#E8EDED]/90 mb-3">Detalhes da Troca</h4>
                               <div className="space-y-2">
                                 <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Solicitante:</span>
-                                  <span className="text-sm font-medium text-gray-900">{solicitante?.nome || troca.solicitanteEmail}</span>
+                                  <span className="text-sm text-[#E8EDED]/70">Solicitante:</span>
+                                  <span className="text-sm font-medium text-[#E8EDED]">{solicitante?.nome || troca.solicitanteEmail}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Solicitado:</span>
-                                  <span className="text-sm font-medium text-gray-900">{solicitado?.nome || troca.solicitadoEmail}</span>
+                                  <span className="text-sm text-[#E8EDED]/70">Solicitado:</span>
+                                  <span className="text-sm font-medium text-[#E8EDED]">{solicitado?.nome || troca.solicitadoEmail}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Serviço:</span>
-                                  <span className="text-sm font-medium text-gray-900">{servico?.nome || 'Serviço não encontrado'}</span>
+                                  <span className="text-sm text-[#E8EDED]/70">Serviço:</span>
+                                  <span className="text-sm font-medium text-[#E8EDED]">{servico?.nome || 'Serviço não encontrado'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Local:</span>
-                                  <span className="text-sm font-medium text-gray-900">{local?.nome || 'Local não encontrado'}</span>
+                                  <span className="text-sm text-[#E8EDED]/70">Local:</span>
+                                  <span className="text-sm font-medium text-[#E8EDED]">{local?.nome || 'Local não encontrado'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Dia:</span>
-                                  <span className="text-sm font-medium text-gray-900">{troca.dia}</span>
+                                  <span className="text-sm text-[#E8EDED]/70">Dia:</span>
+                                  <span className="text-sm font-medium text-[#E8EDED]">{troca.dia}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-sm text-gray-500">Turno:</span>
+                                  <span className="text-sm text-[#E8EDED]/70">Turno:</span>
                                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                     troca.turno === 'manha' 
                                       ? 'bg-yellow-100 text-yellow-800' 
@@ -3525,9 +5940,9 @@ export default function MetaAdminGeralPage() {
                             </div>
 
                             <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-3">Motivo</h4>
-                              <div className="bg-gray-50 rounded-lg p-3">
-                                <p className="text-sm text-gray-700">{troca.motivo || 'Motivo não informado'}</p>
+                              <h4 className="text-sm font-medium text-[#E8EDED]/90 mb-3">Motivo</h4>
+                              <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                                <p className="text-sm text-[#E8EDED]">{troca.motivo || 'Motivo não informado'}</p>
                               </div>
                             </div>
                           </div>
@@ -3585,10 +6000,10 @@ export default function MetaAdminGeralPage() {
                 })}
               </div>
             ) : (
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="text-center py-8">
                   <RefreshCw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma Troca Disponível</h3>
+                  <h3 className="text-lg font-medium text-[#E8EDED] mb-2">Nenhuma Troca Disponível</h3>
                   <p className="text-gray-500">
                     Não há solicitações de troca aguardando aprovação ou aprovadas no momento.
                   </p>
@@ -3603,11 +6018,11 @@ export default function MetaAdminGeralPage() {
         if (loadingFerias) {
           return (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Gerenciar Férias</h2>
-              <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Gerenciar Férias</h2>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Carregando férias...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando férias...</p>
                 </div>
               </div>
             </div>
@@ -3617,13 +6032,13 @@ export default function MetaAdminGeralPage() {
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Gerenciar Férias</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Gerenciar Férias</h2>
               <div className="flex items-center space-x-2">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                   {feriasPendentes.length} pendente{feriasPendentes.length !== 1 ? 's' : ''}
                 </span>
                 <RefreshCw 
-                  className="h-5 w-5 text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" 
+                  className="h-5 w-5 text-gray-500 cursor-pointer hover:text-[#E8EDED] transition-colors" 
                   onClick={() => loadFeriasAdmin()}
                 />
               </div>
@@ -3635,7 +6050,7 @@ export default function MetaAdminGeralPage() {
                   const residente = residentes.find(r => r.email === ferias.residenteEmail);
                   
                   return (
-                    <div key={ferias.id} className="bg-white shadow rounded-lg border border-gray-200">
+                    <div key={ferias.id} className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors">
                       <div className="p-6">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -3646,7 +6061,7 @@ export default function MetaAdminGeralPage() {
                                 </div>
                               </div>
                               <div>
-                                <h3 className="text-lg font-medium text-gray-900">
+                                <h3 className="text-lg font-medium text-[#E8EDED]">
                                   Solicitação de Férias #{ferias.id}
                                 </h3>
                                 <p className="text-sm text-gray-500">
@@ -3661,7 +6076,7 @@ export default function MetaAdminGeralPage() {
                                 <div className="space-y-2">
                                   <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Residente:</span>
-                                    <span className="text-sm font-medium text-gray-900">{residente?.nome || ferias.residenteEmail}</span>
+                                    <span className="text-sm font-medium text-[#E8EDED]">{residente?.nome || ferias.residenteEmail}</span>
                                   </div>
                                   {residente?.nivel && (
                                     <div className="flex justify-between">
@@ -3677,18 +6092,18 @@ export default function MetaAdminGeralPage() {
                                   )}
                                   <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Data de Início:</span>
-                                    <span className="text-sm font-medium text-gray-900">{ferias.dataInicio.toLocaleDateString('pt-BR')}</span>
+                                    <span className="text-sm font-medium text-[#E8EDED]">{ferias.dataInicio.toLocaleDateString('pt-BR')}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Data de Fim:</span>
-                                    <span className="text-sm font-medium text-gray-900">{ferias.dataFim.toLocaleDateString('pt-BR')}</span>
+                                    <span className="text-sm font-medium text-[#E8EDED]">{ferias.dataFim.toLocaleDateString('pt-BR')}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-sm text-gray-500">Duração:</span>
                                     <span className={`text-sm font-medium ${
                                       Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1 > 30 
                                         ? 'text-amber-600' 
-                                        : 'text-gray-900'
+                                        : 'text-[#E8EDED]'
                                     }`}>
                                       {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1} dias
                                       {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1 > 30 && (
@@ -3702,7 +6117,7 @@ export default function MetaAdminGeralPage() {
                               <div>
                                 <h4 className="text-sm font-medium text-gray-700 mb-3">Motivo</h4>
                                 <div className="bg-gray-50 rounded-lg p-3">
-                                  <p className="text-sm text-gray-700">{ferias.motivo || 'Motivo não informado'}</p>
+                                  <p className="text-sm text-[#E8EDED]/90">{ferias.motivo || 'Motivo não informado'}</p>
                                 </div>
                               </div>
                             </div>
@@ -3735,10 +6150,10 @@ export default function MetaAdminGeralPage() {
                 })}
               </div>
             ) : (
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma Solicitação de Férias Pendente</h3>
+                  <h3 className="text-lg font-medium text-[#E8EDED] mb-2">Nenhuma Solicitação de Férias Pendente</h3>
                   <p className="text-gray-500">
                     Não há solicitações de férias aguardando aprovação no momento.
                   </p>
@@ -3747,42 +6162,42 @@ export default function MetaAdminGeralPage() {
             )}
 
             {/* Calendário de Férias - Estilo Gantt */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Calendário de Férias Aprovadas</h3>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+              <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Calendário de Férias Aprovadas</h3>
               <FeriasCalendar ferias={ferias.filter(f => f.status === 'aprovada')} residentes={residentes} />
             </div>
 
             {/* Histórico de Férias */}
             {ferias.length > 0 && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Férias</h3>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Histórico de Férias</h3>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-white/10">
+                    <thead className="bg-white/10">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Residente
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Período
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Aprovado/Rejeitado por
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Data Solicitação
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-white/10">
                       {ferias.map((ferias) => {
                         const residente = residentes.find(r => r.email === ferias.residenteEmail);
                         return (
                           <tr key={ferias.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#E8EDED]">
                               {residente?.nome || ferias.residenteEmail}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -3822,11 +6237,11 @@ export default function MetaAdminGeralPage() {
         if (loadingFerias) {
           return (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Gerenciar Férias</h2>
-              <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Gerenciar Férias</h2>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Carregando férias...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando férias...</p>
                 </div>
               </div>
             </div>
@@ -3836,13 +6251,13 @@ export default function MetaAdminGeralPage() {
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Gerenciar Férias</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Gerenciar Férias</h2>
               <div className="flex items-center space-x-2">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                   {feriasPendentes.length} pendente{feriasPendentes.length !== 1 ? 's' : ''}
                 </span>
                 <RefreshCw 
-                  className="h-5 w-5 text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" 
+                  className="h-5 w-5 text-gray-500 cursor-pointer hover:text-[#E8EDED] transition-colors" 
                   onClick={() => loadFeriasAdmin()}
                 />
               </div>
@@ -3851,13 +6266,13 @@ export default function MetaAdminGeralPage() {
             {feriasPendentes.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma Solicitação Pendente</h3>
+                <h3 className="mt-2 text-sm font-medium text-[#E8EDED]">Nenhuma Solicitação Pendente</h3>
                 <p className="mt-1 text-sm text-gray-500">Todas as solicitações de férias foram processadas.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {feriasPendentes.map((ferias) => (
-                  <div key={ferias.id} className="bg-white shadow rounded-lg border border-gray-200">
+                  <div key={ferias.id} className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors">
                     <div className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -3868,7 +6283,7 @@ export default function MetaAdminGeralPage() {
                               </div>
                             </div>
                             <div>
-                              <h4 className="text-lg font-medium text-gray-900">
+                              <h4 className="text-lg font-medium text-[#E8EDED]">
                                 Solicitação de Férias
                               </h4>
                               <p className="text-sm text-gray-500">
@@ -3883,20 +6298,20 @@ export default function MetaAdminGeralPage() {
                               <div className="space-y-2">
                                 <div className="flex justify-between">
                                   <span className="text-sm text-gray-500">Período:</span>
-                                  <span className="text-sm font-medium text-gray-900">
+                                  <span className="text-sm font-medium text-[#E8EDED]">
                                     {ferias.dataInicio.toLocaleDateString('pt-BR')} a {ferias.dataFim.toLocaleDateString('pt-BR')}
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-sm text-gray-500">Duração:</span>
-                                  <span className="text-sm font-medium text-gray-900">
+                                  <span className="text-sm font-medium text-[#E8EDED]">
                                     {Math.ceil((ferias.dataFim.getTime() - ferias.dataInicio.getTime()) / (1000 * 60 * 60 * 24)) + 1} dias
                                   </span>
                                 </div>
                                 {ferias.motivo && (
                                   <div>
                                     <span className="text-sm text-gray-500">Motivo:</span>
-                                    <p className="text-sm font-medium text-gray-900 mt-1">{ferias.motivo}</p>
+                                    <p className="text-sm font-medium text-[#E8EDED] mt-1">{ferias.motivo}</p>
                                   </div>
                                 )}
                               </div>
@@ -3933,7 +6348,7 @@ export default function MetaAdminGeralPage() {
         return (
           <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Mensagens</h2>
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Mensagens</h2>
               <div className="flex space-x-2">
                 <button
                   onClick={() => MensagemService.testarMensagens()}
@@ -3960,7 +6375,7 @@ export default function MetaAdminGeralPage() {
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                     activeTabMensagens === 'enviadas'
                       ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                      : 'border-transparent text-gray-500 hover:text-[#E8EDED]'
                   }`}
                 >
                   Enviadas
@@ -3970,7 +6385,7 @@ export default function MetaAdminGeralPage() {
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                     activeTabMensagens === 'recebidas'
                       ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                      : 'border-transparent text-gray-500 hover:text-[#E8EDED]'
                   }`}
                 >
                   Recebidas
@@ -3986,12 +6401,12 @@ export default function MetaAdminGeralPage() {
               {activeTabMensagens === 'enviadas' ? (
                 loadingMensagens ? (
                   <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4CCB7A]"></div>
                   </div>
                 ) : mensagens.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">Nenhuma mensagem enviada</h4>
+                    <h4 className="text-lg font-medium text-[#E8EDED] mb-2">Nenhuma mensagem enviada</h4>
                     <p className="text-gray-500">Suas mensagens enviadas para os residentes aparecerão aqui.</p>
                   </div>
                 ) : (
@@ -3999,11 +6414,11 @@ export default function MetaAdminGeralPage() {
                     {mensagens.map((mensagem) => (
                       <div 
                         key={mensagem.id} 
-                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer transition-colors hover:border-gray-300"
+                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer transition-colors hover:border-white/20"
                         onClick={() => handleVisualizarMensagemEnviada(mensagem)}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{mensagem.titulo}</h3>
+                          <h3 className="text-lg font-semibold text-[#E8EDED]">{mensagem.titulo}</h3>
                           <div className="flex items-center space-x-2">
                             <div className="text-sm text-gray-500">
                               {mensagem.criadoEm.toLocaleDateString('pt-BR')} às {mensagem.criadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -4020,7 +6435,7 @@ export default function MetaAdminGeralPage() {
                             </button>
                           </div>
                         </div>
-                        <p className="text-gray-700 mb-3 line-clamp-2">{mensagem.mensagem}</p>
+                        <p className="text-[#E8EDED]/90 mb-3 line-clamp-2">{mensagem.mensagem}</p>
                         <div className="flex items-center justify-between text-sm text-gray-500">
                           <span>
                             Para: {mensagem.destinatarios === 'todos' ? 'Todos os residentes' : `${mensagem.residentesSelecionados.length} residente(s) selecionado(s)`}
@@ -4043,7 +6458,7 @@ export default function MetaAdminGeralPage() {
                 ) : mensagensResidentes.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
                     <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">Nenhuma mensagem recebida</h4>
+                    <h4 className="text-lg font-medium text-[#E8EDED] mb-2">Nenhuma mensagem recebida</h4>
                     <p className="text-gray-500">Mensagens dos residentes aparecerão aqui.</p>
                   </div>
                 ) : (
@@ -4053,16 +6468,16 @@ export default function MetaAdminGeralPage() {
                         key={mensagem.id} 
                         className={`bg-white border rounded-lg p-4 shadow-sm cursor-pointer transition-colors ${
                           mensagem.lida 
-                            ? 'border-gray-200 hover:border-gray-300' 
+                            ? 'border-gray-200 hover:border-white/20' 
                             : 'border-blue-200 bg-blue-50 hover:border-blue-300'
                         }`}
                         onClick={() => handleVisualizarMensagem(mensagem)}
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
-                            <h4 className="text-lg font-semibold text-gray-900">{mensagem.titulo}</h4>
+                            <h4 className="text-lg font-semibold text-[#E8EDED]">{mensagem.titulo}</h4>
                             <div className="flex items-center space-x-2 mt-1">
-                              <span className="text-sm text-gray-600">
+                              <span className="text-sm text-[#E8EDED]/70">
                                 De: {mensagem.anonima ? 'Anônimo' : mensagem.residenteNome}
                               </span>
                               {mensagem.anonima && (
@@ -4083,7 +6498,7 @@ export default function MetaAdminGeralPage() {
                             )}
                           </div>
                         </div>
-                        <p className="text-gray-700 mb-3 line-clamp-2">{mensagem.mensagem}</p>
+                        <p className="text-[#E8EDED]/90 mb-3 line-clamp-2">{mensagem.mensagem}</p>
                         {mensagem.lida && mensagem.lidaEm && (
                           <div className="text-xs text-gray-500">
                             Lida em {mensagem.lidaEm.toLocaleDateString('pt-BR')} às {mensagem.lidaEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -4099,12 +6514,12 @@ export default function MetaAdminGeralPage() {
             {/* Modal para enviar nova mensagem */}
             {showEnviarMensagem && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto text-[#0A1F44] [&_label]:text-[#0A1F44] [&_p]:text-[#0A1F44]">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">Nova Mensagem</h3>
                     <button
                       onClick={() => setShowEnviarMensagem(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-[#E8EDED]/70"
                     >
                       <X size={24} />
                     </button>
@@ -4203,7 +6618,7 @@ export default function MetaAdminGeralPage() {
                     <div className="flex justify-end space-x-3 pt-4">
                       <button
                         onClick={() => setShowEnviarMensagem(false)}
-                        className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                        className="px-4 py-2 text-[#E8EDED]/70 border border-gray-300 rounded-md hover:bg-gray-50"
                       >
                         Cancelar
                       </button>
@@ -4223,12 +6638,12 @@ export default function MetaAdminGeralPage() {
             {/* Modal de Visualização de Mensagem */}
             {showMensagemModal && mensagemSelecionada && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto text-[#0A1F44] [&_label]:text-[#0A1F44] [&_p]:text-[#0A1F44]">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Mensagem do Residente</h3>
                     <button
                       onClick={() => setShowMensagemModal(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-[#E8EDED]/70"
                     >
                       <X size={24} />
                     </button>
@@ -4238,7 +6653,7 @@ export default function MetaAdminGeralPage() {
                     <div>
                       <h4 className="text-xl font-semibold text-gray-900 mb-2">{mensagemSelecionada.titulo}</h4>
                       <div className="flex items-center space-x-2 mb-4">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-[#E8EDED]/70">
                           De: {mensagemSelecionada.anonima ? 'Anônimo' : mensagemSelecionada.residenteNome}
                         </span>
                         {mensagemSelecionada.anonima && (
@@ -4278,12 +6693,12 @@ export default function MetaAdminGeralPage() {
             {/* Modal de Visualização de Mensagem Enviada */}
             {showMensagemEnviadaModal && mensagemEnviadaSelecionada && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto text-[#0A1F44] [&_label]:text-[#0A1F44] [&_p]:text-[#0A1F44]">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Mensagem Enviada</h3>
                     <button
                       onClick={() => setShowMensagemEnviadaModal(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-400 hover:text-[#E8EDED]/70"
                     >
                       <X size={24} />
                     </button>
@@ -4317,7 +6732,7 @@ export default function MetaAdminGeralPage() {
                         </div>
                       ) : (
                         <div>
-                          <p className="text-sm text-gray-600 mb-2">
+                          <p className="text-sm text-[#E8EDED]/70 mb-2">
                             {mensagemEnviadaSelecionada.residentesSelecionados.length} residente(s) selecionado(s):
                           </p>
                           <div className="space-y-1">
@@ -4374,7 +6789,7 @@ export default function MetaAdminGeralPage() {
                   className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
                     calendarioTab === 'calendario'
                       ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      : 'border-transparent text-gray-500 hover:text-[#E8EDED] hover:border-white/20'
                   }`}
                 >
                   <Calendar className="mr-2" size={18} />
@@ -4385,7 +6800,7 @@ export default function MetaAdminGeralPage() {
                   className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
                     calendarioTab === 'dashboard'
                       ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      : 'border-transparent text-gray-500 hover:text-[#E8EDED] hover:border-white/20'
                   }`}
                 >
                   <BarChart3 className="mr-2" size={18} />
@@ -4404,17 +6819,1077 @@ export default function MetaAdminGeralPage() {
         );
       }
 
+      case 'nps': {
+        // Função auxiliar para calcular distribuição de uma métrica com todas as opções
+        const calcularDistribuicao = (
+          respostas: NPSResposta[], 
+          getter: (r: NPSResposta) => string | number | undefined,
+          todasOpcoes: (string | number)[]
+        ) => {
+          const contagem: Record<string, number> = {};
+          let total = 0;
+          
+          // Inicializar todas as opções com 0
+          todasOpcoes.forEach(opcao => {
+            contagem[String(opcao)] = 0;
+          });
+          
+          // Contar respostas
+          respostas.forEach(resposta => {
+            const valor = getter(resposta);
+            if (valor !== undefined && valor !== null) {
+              const key = String(valor);
+              contagem[key] = (contagem[key] || 0) + 1;
+              total++;
+            }
+          });
+          
+          // Converter para array mantendo ordem das opções
+          return todasOpcoes.map(opcao => {
+            const key = String(opcao);
+            const count = contagem[key] || 0;
+            return {
+              name: key,
+              value: count,
+              porcentagem: total > 0 ? (count / total * 100).toFixed(1) : '0.0'
+            };
+          });
+        };
+
+        // Função auxiliar para calcular distribuição de array (como oQueMaisUsa) com todas as opções
+        const calcularDistribuicaoArray = (
+          respostas: NPSResposta[], 
+          getter: (r: NPSResposta) => string[] | undefined,
+          todasOpcoes: string[]
+        ) => {
+          const contagem: Record<string, number> = {};
+          let totalRespostas = 0;
+          
+          // Inicializar todas as opções com 0
+          todasOpcoes.forEach(opcao => {
+            contagem[opcao] = 0;
+          });
+          
+          // Contar respostas (cada resposta conta como 1, mesmo se tiver múltiplas seleções)
+          respostas.forEach(resposta => {
+            const valores = getter(resposta);
+            if (valores && valores.length > 0) {
+              totalRespostas++;
+              valores.forEach(valor => {
+                contagem[valor] = (contagem[valor] || 0) + 1;
+              });
+            }
+          });
+          
+          // Converter para array mantendo ordem das opções
+          // Para arrays, porcentagem é baseada no total de respostas, não no total de seleções
+          return todasOpcoes.map(opcao => {
+            const count = contagem[opcao] || 0;
+            return {
+              name: opcao,
+              value: count,
+              porcentagem: totalRespostas > 0 ? (count / totalRespostas * 100).toFixed(1) : '0.0'
+            };
+          });
+        };
+
+        // Cores para os gráficos
+        const CORES = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
+
+        // Traduzir labels
+        const traduzirLabel = (key: string, tipo?: string) => {
+          // Médico
+          if (tipo === 'medico') {
+            if (key === 'muito') return 'Muito';
+            if (key === 'sim') return 'Sim';
+            if (key === 'pouco') return 'Pouco';
+            if (key === 'nao') return 'Não';
+            if (key === 'excelentes') return 'Excelentes';
+            if (key === 'boas') return 'Boas';
+            if (key === 'regulares') return 'Regulares';
+            if (key === 'insuficientes') return 'Insuficientes';
+            if (key === 'com_certeza') return 'Com certeza';
+            if (key === 'provavelmente') return 'Provavelmente';
+            if (key === 'nao_sei') return 'Não sei';
+            if (key === 'provavelmente_nao') return 'Provavelmente não';
+            if (key === 'controle_leads') return 'Controle de Leads';
+            if (key === 'financeiro') return 'Financeiro';
+            if (key === 'chat') return 'Chat';
+            if (key === 'pacientes') return 'Pacientes';
+            if (key === 'estatisticas') return 'Estatísticas';
+            if (key === 'calendario') return 'Calendário';
+            if (key === 'mais_integracao') return 'Mais integrações';
+            if (key === 'mais_automatizacao') return 'Mais automação';
+            if (key === 'mais_relatorios') return 'Mais relatórios';
+            if (key === 'melhor_ux') return 'Melhor UX';
+            if (key === 'mais_ferramentas') return 'Mais ferramentas';
+          }
+          
+          // Paciente
+          if (key === 'muito_claras') return 'Muito claras';
+          if (key === 'claras') return 'Claras';
+          if (key === 'mais_ou_menos') return 'Mais ou menos';
+          if (key === 'confusas') return 'Confusas';
+          if (key === 'muito_seguro') return 'Muito seguro';
+          if (key === 'seguro') return 'Seguro';
+          if (key === 'indiferente') return 'Indiferente';
+          if (key === 'inseguro') return 'Inseguro';
+          if (key === 'ajuda_muito') return 'Ajuda muito';
+          if (key === 'ajuda') return 'Ajuda';
+          if (key === 'ajuda_pouco') return 'Ajuda pouco';
+          if (key === 'nao_ajuda') return 'Não ajuda';
+          if (key === 'acompanhamento_medico') return 'Acompanhamento médico';
+          if (key === 'plano_alimentar') return 'Plano alimentar';
+          if (key === 'medicacao') return 'Medicação';
+          if (key === 'relatorios') return 'Relatórios';
+          if (key === 'mais_contato_medico') return 'Mais contato médico';
+          if (key === 'mais_conteudo_educativo') return 'Mais conteúdo educativo';
+          if (key === 'mais_automacoes') return 'Mais automações';
+          if (key === 'medico') return 'Médico';
+          if (key === 'indicacao') return 'Indicação';
+          if (key === 'instagram') return 'Instagram';
+          if (key === 'google') return 'Google';
+          if (key === 'outro') return 'Outro';
+          if (key === 'outros') return 'Outros';
+          if (['1', '2', '3', '4', '5'].includes(key)) return `${key} estrelas`;
+          
+          return key;
+        };
+
+        // Separar respostas por tipo
+        const respostasMedicos = npsRespostas.filter(r => r.tipo === 'medico');
+        const respostasPacientes = npsRespostas.filter(r => r.tipo === 'paciente');
+
+        // Calcular distribuições para médicos (com todas as opções)
+        const facilidadeUso = calcularDistribuicao(respostasMedicos, r => r.medico?.facilidadeUso, ['muito', 'sim', 'pouco', 'nao']);
+        const qualidadeInformacoes = calcularDistribuicao(respostasMedicos, r => r.medico?.qualidadeInformacoes, ['excelentes', 'boas', 'regulares', 'insuficientes']);
+        const ganhoProfissional = calcularDistribuicao(respostasMedicos, r => r.medico?.ganhoProfissional, ['muito', 'sim', 'pouco', 'nao']);
+        const intencaoContinuidade = calcularDistribuicao(respostasMedicos, r => r.medico?.intencaoContinuidade, ['com_certeza', 'provavelmente', 'nao_sei', 'provavelmente_nao']);
+        const oQueMaisUsaMedico = calcularDistribuicaoArray(npsRespostas, r => r.tipo === 'medico' ? r.extras?.oQueMaisUsa : undefined, ['controle_leads', 'financeiro', 'chat', 'pacientes', 'estatisticas', 'calendario']);
+        const oQueSenteFaltaMedico = calcularDistribuicaoArray(npsRespostas, r => r.tipo === 'medico' ? r.extras?.oQueSenteFalta : undefined, ['mais_integracao', 'mais_automatizacao', 'mais_relatorios', 'melhor_ux', 'mais_ferramentas', 'outros']);
+        const comoConheceu = calcularDistribuicao(npsRespostas, r => r.extras?.comoConheceu, ['medico', 'indicacao', 'instagram', 'google', 'outro']);
+
+        // Calcular distribuições para pacientes (com todas as opções)
+        const acompanhamentoMedico = calcularDistribuicao(respostasPacientes, r => r.paciente?.acompanhamentoMedico, [5, 4, 3, 2, 1]);
+        const clarezaTratamento = calcularDistribuicao(respostasPacientes, r => r.paciente?.clarezaTratamento, ['muito_claras', 'claras', 'mais_ou_menos', 'confusas']);
+        const segurancaPrivacidade = calcularDistribuicao(respostasPacientes, r => r.paciente?.segurancaPrivacidade, ['muito_seguro', 'seguro', 'indiferente', 'inseguro']);
+        const impactoTratamento = calcularDistribuicao(respostasPacientes, r => r.paciente?.impactoTratamento, ['ajuda_muito', 'ajuda', 'ajuda_pouco', 'nao_ajuda']);
+        const oQueMaisUsaPaciente = calcularDistribuicaoArray(npsRespostas, r => r.tipo === 'paciente' ? r.extras?.oQueMaisUsa : undefined, ['acompanhamento_medico', 'chat', 'plano_alimentar', 'medicacao', 'relatorios']);
+        const oQueSenteFaltaPaciente = calcularDistribuicaoArray(npsRespostas, r => r.tipo === 'paciente' ? r.extras?.oQueSenteFalta : undefined, ['mais_contato_medico', 'mais_conteudo_educativo', 'mais_automacoes', 'mais_relatorios', 'outros']);
+
+        // Componente de gráfico de barras
+        const BarChartComponent = ({ data, title, tipoUsuario }: { data: Array<{name: string, value: number, porcentagem: string}>, title: string, tipoUsuario?: 'medico' | 'paciente' }) => {
+          if (data.length === 0) return null;
+          
+          const dataFormatted = data.map(item => {
+            const label = traduzirLabel(item.name, tipoUsuario);
+            // Abreviar labels no mobile
+            const labelShort = isMobile && label.length > 10 ? label.substring(0, 10) + '...' : label;
+            return {
+              ...item,
+              label: labelShort,
+              labelFull: label,
+              quantidade: item.value
+            };
+          });
+
+          return (
+            <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors p-3 md:p-6">
+              <h3 className={`font-semibold text-[#E8EDED] mb-2 md:mb-4 ${isMobile ? 'text-sm' : 'text-lg'}`}>{title}</h3>
+              <ResponsiveContainer width="100%" height={isMobile ? 150 : 200}>
+                <BarChart 
+                  data={dataFormatted}
+                  layout={isMobile ? "vertical" : "horizontal"}
+                  margin={isMobile ? { top: 5, right: 10, left: 0, bottom: 5 } : { top: 5, right: 30, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  {isMobile ? (
+                    <>
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="label" type="category" width={isMobile ? 60 : 80} tick={{ fontSize: isMobile ? 10 : 12 }} />
+                      <Tooltip 
+                        formatter={(value: number, name: string, props: any) => [
+                          `${props.payload.porcentagem}% (${value} respostas)`,
+                          props.payload.labelFull
+                        ]} 
+                      />
+                      <Bar dataKey="quantidade" fill="#4CCB7A" radius={[0, 4, 4, 0]} />
+                    </>
+                  ) : (
+                    <>
+                      <XAxis dataKey="labelFull" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        formatter={(value: number, name: string, props: any) => [
+                          `${props.payload.porcentagem}% (${value} respostas)`,
+                          props.payload.labelFull
+                        ]} 
+                      />
+                      <Bar dataKey="quantidade" fill="#4CCB7A" />
+                    </>
+                  )}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          );
+        };
+
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Dashboard NPS</h2>
+              <button
+                onClick={async () => {
+                  setLoadingNPS(true);
+                  try {
+                    const [estatisticas, respostas] = await Promise.all([
+                      NPSService.getEstatisticas(),
+                      NPSService.getAllRespostas()
+                    ]);
+                    setNpsEstatisticas(estatisticas);
+                    setNpsRespostas(respostas);
+                    setMessage('Dados atualizados com sucesso!');
+                  } catch (error) {
+                    console.error('Erro ao carregar dados NPS:', error);
+                    setMessage('Erro ao carregar dados NPS');
+                  } finally {
+                    setLoadingNPS(false);
+                  }
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <RefreshCw size={20} />
+                Atualizar
+              </button>
+            </div>
+
+            {loadingNPS ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando dados NPS...</p>
+                </div>
+              </div>
+            ) : npsEstatisticas ? (
+              <>
+                {/* KPIs */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-[#E8EDED]/70">NPS Geral</p>
+                        <p className={`text-3xl font-bold ${npsEstatisticas.npsGeral >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {npsEstatisticas.npsGeral.toFixed(1)}
+                        </p>
+                      </div>
+                      <TrendingUp className={`w-12 h-12 ${npsEstatisticas.npsGeral >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-[#E8EDED]/70">NPS Pacientes</p>
+                        <p className={`text-3xl font-bold ${npsEstatisticas.npsPacientes >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {npsEstatisticas.npsPacientes.toFixed(1)}
+                        </p>
+                      </div>
+                      <MessageSquare className={`w-12 h-12 ${npsEstatisticas.npsPacientes >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-[#E8EDED]/70">NPS Médicos</p>
+                        <p className={`text-3xl font-bold ${npsEstatisticas.npsMedicos >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {npsEstatisticas.npsMedicos.toFixed(1)}
+                        </p>
+                      </div>
+                      <Stethoscope className={`w-12 h-12 ${npsEstatisticas.npsMedicos >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-[#E8EDED]/70">Risco de Churn</p>
+                        <p className={`text-3xl font-bold ${npsEstatisticas.riscoChurn < 30 ? 'text-green-600' : npsEstatisticas.riscoChurn < 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                          {npsEstatisticas.riscoChurn.toFixed(1)}%
+                        </p>
+                      </div>
+                      <AlertCircle className={`w-12 h-12 ${npsEstatisticas.riscoChurn < 30 ? 'text-green-600' : npsEstatisticas.riscoChurn < 50 ? 'text-yellow-600' : 'text-red-600'}`} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Distribuição */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Distribuição Geral</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Promotores</span>
+                        <span className="font-semibold text-green-600">{npsEstatisticas.distribuicao.promotor}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Neutros</span>
+                        <span className="font-semibold text-yellow-600">{npsEstatisticas.distribuicao.neutro}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Detratores</span>
+                        <span className="font-semibold text-red-600">{npsEstatisticas.distribuicao.detrator}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Pacientes</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Promotores</span>
+                        <span className="font-semibold text-green-600">{npsEstatisticas.distribuicaoPacientes.promotor}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Neutros</span>
+                        <span className="font-semibold text-yellow-600">{npsEstatisticas.distribuicaoPacientes.neutro}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Detratores</span>
+                        <span className="font-semibold text-red-600">{npsEstatisticas.distribuicaoPacientes.detrator}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Médicos</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Promotores</span>
+                        <span className="font-semibold text-green-600">{npsEstatisticas.distribuicaoMedicos.promotor}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Neutros</span>
+                        <span className="font-semibold text-yellow-600">{npsEstatisticas.distribuicaoMedicos.neutro}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#E8EDED]/70">Detratores</span>
+                        <span className="font-semibold text-red-600">{npsEstatisticas.distribuicaoMedicos.detrator}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Palavras-chave */}
+                {npsEstatisticas.palavrasChave.length > 0 && (
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                    <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">Principais Palavras-chave</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {npsEstatisticas.palavrasChave.slice(0, 20).map((item, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                        >
+                          {item.palavra} ({item.frequencia})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Gráficos de Barras - Médicos */}
+                {respostasMedicos.length > 0 && (
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-bold text-[#E8EDED]">Análise de Respostas - Médicos</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <BarChartComponent 
+                        data={facilidadeUso} 
+                        title="Facilidade de Uso" 
+                        tipoUsuario="medico"
+                      />
+                      <BarChartComponent 
+                        data={qualidadeInformacoes} 
+                        title="Qualidade das Informações Clínicas" 
+                        tipoUsuario="medico"
+                      />
+                      <BarChartComponent 
+                        data={ganhoProfissional} 
+                        title="Ganho Profissional" 
+                        tipoUsuario="medico"
+                      />
+                      <BarChartComponent 
+                        data={intencaoContinuidade} 
+                        title="Intenção de Continuidade" 
+                        tipoUsuario="medico"
+                      />
+                      {oQueMaisUsaMedico.length > 0 && (
+                        <BarChartComponent 
+                          data={oQueMaisUsaMedico} 
+                          title="O que você mais usa? (Médicos)" 
+                          tipoUsuario="medico"
+                        />
+                      )}
+                      {oQueSenteFaltaMedico.length > 0 && (
+                        <BarChartComponent 
+                          data={oQueSenteFaltaMedico} 
+                          title="O que sente falta hoje? (Médicos)" 
+                          tipoUsuario="medico"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Gráficos de Barras - Pacientes */}
+                {respostasPacientes.length > 0 && (
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-bold text-[#E8EDED]">Análise de Respostas - Pacientes</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <BarChartComponent 
+                        data={acompanhamentoMedico} 
+                        title="Experiência com Acompanhamento Médico" 
+                        tipoUsuario="paciente"
+                      />
+                      <BarChartComponent 
+                        data={clarezaTratamento} 
+                        title="Clareza do Tratamento" 
+                        tipoUsuario="paciente"
+                      />
+                      <BarChartComponent 
+                        data={segurancaPrivacidade} 
+                        title="Sensação de Segurança e Privacidade" 
+                        tipoUsuario="paciente"
+                      />
+                      <BarChartComponent 
+                        data={impactoTratamento} 
+                        title="Impacto Percebido no Tratamento" 
+                        tipoUsuario="paciente"
+                      />
+                      {oQueMaisUsaPaciente.length > 0 && (
+                        <BarChartComponent 
+                          data={oQueMaisUsaPaciente} 
+                          title="O que você mais usa? (Pacientes)" 
+                          tipoUsuario="paciente"
+                        />
+                      )}
+                      {oQueSenteFaltaPaciente.length > 0 && (
+                        <BarChartComponent 
+                          data={oQueSenteFaltaPaciente} 
+                          title="O que sente falta hoje? (Pacientes)" 
+                          tipoUsuario="paciente"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Como conheceu (geral) */}
+                {comoConheceu.length > 0 && (
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-bold text-[#E8EDED]">Geral</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <BarChartComponent 
+                        data={comoConheceu} 
+                        title="Como você conheceu o Oftware?" 
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Histórico de Respostas */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-[#E8EDED]">Histórico de Respostas</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-white/10">
+                      <thead className="bg-white/10">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase">Data</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase">Tipo</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase">NPS</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase">Classificação</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase">Feedback Melhoria</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        {npsRespostas.map((resposta) => (
+                          <tr key={resposta.id} className="hover:bg-white/10">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]">
+                              {resposta.dataResposta.toLocaleDateString('pt-BR')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED] capitalize">
+                              {resposta.tipo}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#E8EDED]">
+                              {resposta.npsScore}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                resposta.npsClassificacao === 'promotor' ? 'bg-green-100 text-green-800' :
+                                resposta.npsClassificacao === 'neutro' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {resposta.npsClassificacao === 'promotor' ? 'Promotor' :
+                                 resposta.npsClassificacao === 'neutro' ? 'Neutro' : 'Detrator'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-[#E8EDED] max-w-md">
+                              {resposta.melhoriaTexto ? (
+                                <div className="max-w-md" title={resposta.melhoriaTexto}>
+                                  {resposta.melhoriaTexto.length > 100 
+                                    ? `${resposta.melhoriaTexto.substring(0, 100)}...` 
+                                    : resposta.melhoriaTexto}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-[#E8EDED]/70">Nenhum dado NPS disponível ainda.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      case 'banners':
+        return (
+          <div className="space-y-6">
+            <div className="mb-6">
+              {/* Seletor de Pastas */}
+              <div className="flex gap-2 mb-4 p-1 bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => setPastaBannerAtiva('home')}
+                  className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+                    pastaBannerAtiva === 'home'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-[#E8EDED]/70 hover:text-[#E8EDED]'
+                  }`}
+                >
+                  📁 Home (www.oftware.com.br)
+                </button>
+                <button
+                  onClick={() => setPastaBannerAtiva('meta')}
+                  className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+                    pastaBannerAtiva === 'meta'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-[#E8EDED]/70 hover:text-[#E8EDED]'
+                  }`}
+                >
+                  📁 Meta (www.oftware.com.br/meta)
+                </button>
+              </div>
+
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-[#E8EDED]">
+                  Banners - {pastaBannerAtiva === 'home' ? 'Home' : 'Meta'}
+                </h2>
+              <button
+                onClick={() => {
+                  setBannerEditando(null);
+                  setDadosBanner({
+                    titulo: '',
+                    imagemUrl: '',
+                    conteudoHtml: '',
+                    conteudoJson: undefined,
+                    formato: 'json',
+                      local: pastaBannerAtiva, // Usar a pasta ativa como padrão
+                    ativo: true,
+                    ordem: banners.length > 0 ? Math.max(...banners.map(b => b.ordem)) + 1 : 0
+                  });
+                  setJsonError('');
+                  setShowEditarBannerModal(true);
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <Plus size={20} />
+                Novo Banner
+              </button>
+              </div>
+            </div>
+
+            {loadingBanners ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando banners...</p>
+                </div>
+              </div>
+            ) : banners.length === 0 ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <Image className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-[#E8EDED]/70">Nenhum banner cadastrado ainda.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {banners.map((banner) => (
+                  <div key={banner.id} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
+                    <div className="relative">
+                      {banner.imagemUrl && (
+                        <img
+                          src={banner.imagemUrl}
+                          alt={banner.titulo}
+                          className="w-full h-48 object-cover"
+                        />
+                      )}
+                      <div className="absolute top-2 right-2">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          banner.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {banner.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-[#E8EDED] mb-2">{banner.titulo}</h3>
+                      <p className="text-sm text-gray-500 mb-3">Ordem: {banner.ordem}</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setBannerEditando(banner);
+                            // Detectar formato: se tem conteudoJson, é json; se tem conteudoHtml, é html; senão, padrão json
+                            const formatoDetectado = banner.formato || 
+                              (banner.conteudoJson ? 'json' : 
+                               banner.conteudoHtml ? 'html' : 'json');
+                            setDadosBanner({
+                              titulo: banner.titulo,
+                              imagemUrl: banner.imagemUrl,
+                              conteudoHtml: banner.conteudoHtml || '',
+                              conteudoJson: banner.conteudoJson || (formatoDetectado === 'json' ? { sections: [] } : undefined),
+                              formato: formatoDetectado,
+                              local: banner.local || 'meta', // Padrão para meta se não especificado
+                              ativo: banner.ativo,
+                              ordem: banner.ordem
+                            });
+                            setJsonError('');
+                            setShowEditarBannerModal(true);
+                          }}
+                          className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
+                        >
+                          <Edit size={16} className="inline mr-1" />
+                          Editar
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm('Tem certeza que deseja excluir este banner?')) {
+                              try {
+                                await BannerService.deleteBanner(banner.id);
+                                await loadBanners();
+                                setMessage('Banner excluído com sucesso!');
+                              } catch (error) {
+                                console.error('Erro ao excluir banner:', error);
+                                setMessage('Erro ao excluir banner');
+                              }
+                            }
+                          }}
+                          className="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 transition-colors text-sm"
+                        >
+                          <Trash2 size={16} className="inline" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'oftpay':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center flex-wrap gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-[#E8EDED]">OftPay</h2>
+                <p className="text-sm text-[#E8EDED]/70 mt-1">Usuários que entraram no OftPay. Libere os cursos para cada um.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadOftPayUsers}
+                  disabled={loadingOftPay}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-[#E8EDED] hover:bg-white/10 disabled:opacity-50 text-sm font-medium"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingOftPay ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={oftpayNewEmail}
+                    onChange={(e) => setOftpayNewEmail(e.target.value)}
+                    placeholder="Email do usuário"
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-48"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!oftpayNewEmail.trim() || !user) return;
+                      setOftpayAddingUser(true);
+                      setOftpayError(null);
+                      try {
+                        const token = await user.getIdToken();
+                        const res = await fetch('/api/metaadmingeral/oftpay/users', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ email: oftpayNewEmail.trim() }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error || res.statusText);
+                        setOftpayNewEmail('');
+                        setMessage('Usuário adicionado. Libere os cursos abaixo.');
+                        await loadOftPayUsers();
+                      } catch (e) {
+                        setOftpayError(e instanceof Error ? e.message : 'Erro ao adicionar');
+                      } finally {
+                        setOftpayAddingUser(false);
+                      }
+                    }}
+                    disabled={oftpayAddingUser || !oftpayNewEmail.trim()}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Adicionar
+                  </button>
+                </div>
+              </div>
+            </div>
+            {oftpayError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">{oftpayError}</div>
+            )}
+            {loadingOftPay ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto" />
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando usuários OftPay...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-white/10">
+                    <thead className="bg-white/10">
+                      <tr>
+                        <th className="px-2 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider w-10"></th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider w-12">#</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Usuário</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Último login</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Início acesso</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Fim acesso</th>
+                        {OFTPAY_COURSES.map((c) => (
+                          <th key={c.id} className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">{c.name}</th>
+                        ))}
+                        <th className="px-6 py-3 text-right text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                      {oftpayUsers.map((u, index) => {
+                        const isExpanded = oftpayExpandedEmail === u.email;
+                        const details = oftpayUserDetails[u.email];
+                        const isLoadingDetails = oftpayLoadingDetails === u.email;
+                        return (
+                        <Fragment key={u.email}>
+                        <tr className="hover:bg-white/10">
+                          <td className="px-2 py-4 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (isExpanded) {
+                                  setOftpayExpandedEmail(null);
+                                  return;
+                                }
+                                setOftpayExpandedEmail(u.email);
+                                if (details) return;
+                                if (!user) return;
+                                setOftpayLoadingDetails(u.email);
+                                try {
+                                  const token = await user.getIdToken();
+                                  const res = await fetch(`/api/metaadmingeral/oftpay/user-details?email=${encodeURIComponent(u.email)}`, {
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok) throw new Error(data.error || res.statusText);
+                                  setOftpayUserDetails((prev) => ({
+                                    ...prev,
+                                    [u.email]: {
+                                      coursePercentages: data.coursePercentages ?? {},
+                                      lastLoginUserAgent: data.lastLoginUserAgent ?? null,
+                                      lastLoginAt: data.lastLoginAt ?? null,
+                                    },
+                                  }));
+                                } catch (e) {
+                                  setOftpayError(e instanceof Error ? e.message : 'Erro ao carregar detalhes');
+                                } finally {
+                                  setOftpayLoadingDetails(null);
+                                }
+                              }}
+                              className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-[#E8EDED] transition-colors"
+                              title={isExpanded ? 'Recolher' : 'Expandir detalhes'}
+                            >
+                              {isLoadingDetails ? (
+                                <span className="inline-block w-5 h-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                              ) : isExpanded ? (
+                                <ChevronDown className="w-5 h-5" />
+                              ) : (
+                                <ChevronRight className="w-5 h-5" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="text-sm font-medium text-[#E8EDED]">{u.email}</p>
+                              {u.displayName && <p className="text-xs text-gray-500">{u.displayName}</p>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="date"
+                              value={oftpayLocalAccessStart[u.email] ?? ''}
+                              onChange={(e) => setOftpayLocalAccessStart((prev) => ({ ...prev, [u.email]: e.target.value }))}
+                              className="px-2 py-1.5 border border-gray-200 rounded text-sm w-36"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="date"
+                              value={oftpayLocalAccessEnd[u.email] ?? ''}
+                              onChange={(e) => setOftpayLocalAccessEnd((prev) => ({ ...prev, [u.email]: e.target.value }))}
+                              className="px-2 py-1.5 border border-gray-200 rounded text-sm w-36"
+                            />
+                          </td>
+                          {OFTPAY_COURSES.map((c) => {
+                            const courseIds = oftpayLocalCourseIds[u.email] ?? u.courseIds ?? [];
+                            const checked = courseIds.includes(c.id);
+                            return (
+                              <td key={c.id} className="px-6 py-4 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    setOftpayLocalCourseIds((prev) => {
+                                      const current = prev[u.email] ?? [];
+                                      const next = e.target.checked ? [...current, c.id] : current.filter((id) => id !== c.id);
+                                      return { ...prev, [u.email]: next };
+                                    });
+                                  }}
+                                  className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!user) return;
+                                  setOftpaySavingEmail(u.email);
+                                  try {
+                                    const token = await user.getIdToken();
+                                    const courseIds = oftpayLocalCourseIds[u.email] ?? [];
+                                    const startStr = oftpayLocalAccessStart[u.email]?.trim();
+                                    const endStr = oftpayLocalAccessEnd[u.email]?.trim();
+                                    const accessStartAt = startStr ? new Date(startStr).getTime() : null;
+                                    const accessEndAt = endStr ? new Date(endStr + 'T23:59:59.999').getTime() : null;
+                                    const res = await fetch('/api/metaadmingeral/oftpay/users', {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ email: u.email, courseIds, accessStartAt, accessEndAt }),
+                                    });
+                                    const data = await res.json().catch(() => ({}));
+                                    if (!res.ok) throw new Error(data.error || res.statusText);
+                                    setMessage('Cursos e vigência atualizados.');
+                                  } catch (e) {
+                                    setOftpayError(e instanceof Error ? e.message : 'Erro ao salvar');
+                                  } finally {
+                                    setOftpaySavingEmail(null);
+                                  }
+                                }}
+                                disabled={oftpaySavingEmail === u.email || oftpayDeletingEmail === u.email}
+                                className="inline-flex items-center gap-1 px-2 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                              >
+                                {oftpaySavingEmail === u.email ? (
+                                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                ) : (
+                                  <Save className="w-4 h-4" />
+                                )}
+                                Salvar
+                              </button>
+                              <button
+                                type="button"
+                                title="Excluir usuário"
+                                onClick={async () => {
+                                  if (!user) return;
+                                  if (!confirm(`Excluir o usuário ${u.email}? O acesso ao OftPay será removido.`)) return;
+                                  setOftpayDeletingEmail(u.email);
+                                  setOftpayError(null);
+                                  try {
+                                    const token = await user.getIdToken();
+                                    const res = await fetch('/api/metaadmingeral/oftpay/users', {
+                                      method: 'DELETE',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ email: u.email }),
+                                    });
+                                    const data = await res.json().catch(() => ({}));
+                                    if (!res.ok) throw new Error(data.error || res.statusText);
+                                    setOftpayUsers((prev) => prev.filter((x) => x.email !== u.email));
+                                    setOftpayLocalCourseIds((prev) => {
+                                      const next = { ...prev };
+                                      delete next[u.email];
+                                      return next;
+                                    });
+                                    setOftpayLocalAccessStart((prev) => {
+                                      const next = { ...prev };
+                                      delete next[u.email];
+                                      return next;
+                                    });
+                                    setOftpayLocalAccessEnd((prev) => {
+                                      const next = { ...prev };
+                                      delete next[u.email];
+                                      return next;
+                                    });
+                                    setMessage('Usuário excluído.');
+                                  } catch (e) {
+                                    setOftpayError(e instanceof Error ? e.message : 'Erro ao excluir');
+                                  } finally {
+                                    setOftpayDeletingEmail(null);
+                                  }
+                                }}
+                                disabled={oftpaySavingEmail === u.email || oftpayDeletingEmail === u.email}
+                                className="p-1.5 rounded-md text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 transition-colors"
+                              >
+                                {oftpayDeletingEmail === u.email ? (
+                                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent inline-block" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-white/5">
+                            <td colSpan={6 + OFTPAY_COURSES.length + 1} className="px-6 py-4">
+                              <div className="space-y-3 text-sm">
+                                {details ? (
+                                  <>
+                                    <div>
+                                      <p className="font-medium text-[#E8EDED]/90 mb-1">Porcentagem por curso</p>
+                                      <div className="flex flex-wrap gap-4">
+                                        {OFTPAY_COURSES.map((c) => (
+                                          <span key={c.id} className="text-[#E8EDED]/70">
+                                            {c.name}: <strong>{(details.coursePercentages[c.id] ?? 0)}%</strong>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-[#E8EDED]/90 mb-1">Último acesso</p>
+                                      <p className="text-[#E8EDED]/70">
+                                        {details.lastLoginAt
+                                          ? new Date(details.lastLoginAt).toLocaleString('pt-BR', {
+                                              day: '2-digit',
+                                              month: '2-digit',
+                                              year: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                            })
+                                          : 'Nunca entrou'}
+                                      </p>
+                                      {details.lastLoginUserAgent && (
+                                        <p className="text-gray-500 text-xs mt-0.5 truncate max-w-2xl" title={details.lastLoginUserAgent}>
+                                          Dispositivo: {details.lastLoginUserAgent}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </>
+                                ) : isLoadingDetails ? (
+                                  <p className="text-gray-500">Carregando...</p>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
+                      );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {oftpayUsers.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Nenhum usuário ainda. Quem fizer login no OftPay aparecerá aqui; ou adicione um email acima.</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Painel dev: transcrição OFTREVIEW. Para ocultar em produção, adicione:
+                {process.env.NODE_ENV !== 'production' && (...)} */}
+            <div className="mt-6">
+              <TranscribeOftreviewPanel
+                batchId={transcribeBatchId}
+                onBatchIdChange={setTranscribeBatchId}
+              />
+            </div>
+            <div className="mt-6">
+              <TranscribeStatusCard
+                batchId={transcribeBatchId}
+                onBatchIdChange={setTranscribeBatchId}
+              />
+            </div>
+          </div>
+        );
+
+      case 'relatorios':
+        return <RelatoriosSection user={user} />;
+
       default:
         return null;
     }
   };
 
+  // Carregar dados NPS quando acessar o menu
+  useEffect(() => {
+    if (activeMenu === 'nps') {
+      const loadNPS = async () => {
+        setLoadingNPS(true);
+        try {
+          const [estatisticas, respostas] = await Promise.all([
+            NPSService.getEstatisticas(),
+            NPSService.getAllRespostas()
+          ]);
+          setNpsEstatisticas(estatisticas);
+          setNpsRespostas(respostas);
+        } catch (error) {
+          console.error('Erro ao carregar dados NPS:', error);
+          setMessage('Erro ao carregar dados NPS');
+        } finally {
+          setLoadingNPS(false);
+        }
+      };
+      loadNPS();
+    }
+  }, [activeMenu]);
+
   if (userLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#0A1F44]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+          <p className="mt-4 text-[#E8EDED]/80">Carregando...</p>
         </div>
       </div>
     );
@@ -4434,25 +7909,25 @@ export default function MetaAdminGeralPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0A1F44] metaadmingeral-page">
       <div className="flex">
-        <div className={`hidden lg:block fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
+        <div className={`hidden lg:block fixed inset-y-0 left-0 z-40 bg-[#0A1F44]/95 backdrop-blur-md border-r border-white/10 shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
           <div className="flex flex-col h-full">
             {/* Logo e botão de toggle */}
-            <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+            <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
               {!sidebarCollapsed && (
                 <div className="flex items-center">
                   <img
-                    src="/icones/oftware.png"
+                    src="/logo-site.jpg"
                     alt="Oftware Logo"
-                    className="h-10 w-10"
+                    className="h-10 w-10 rounded-lg object-cover"
                   />
-                  <span className="ml-2 text-xl font-bold text-gray-900">Oftware</span>
+                  <span className="ml-2 text-xl font-bold text-[#E8EDED]">Oftware</span>
                 </div>
               )}
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-md hover:bg-white/10 text-[#E8EDED] transition-colors"
               >
                 {sidebarCollapsed ? <Menu size={20} /> : <X size={20} />}
               </button>
@@ -4460,11 +7935,11 @@ export default function MetaAdminGeralPage() {
 
             {/* User info */}
             {!sidebarCollapsed && (
-              <div className="px-4 py-4 border-b border-gray-200">
-                <p className="text-sm text-gray-600">
+              <div className="px-4 py-4 border-b border-white/10">
+                <p className="text-sm text-[#E8EDED]/80">
                   Bem-vindo, Admin Geral
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[#E8EDED]/60 mt-1">
                   {user.email}
                 </p>
               </div>
@@ -4476,20 +7951,28 @@ export default function MetaAdminGeralPage() {
                 onClick={() => setActiveMenu('estatisticas')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'estatisticas'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                 }`}
                 title={sidebarCollapsed ? 'Estatísticas' : ''}
               >
                 <BarChart3 size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Estatísticas'}
               </button>
+              <a
+                href="/metaadmingeral/chatinicial"
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]`}
+                title={sidebarCollapsed ? 'Chat inicial' : ''}
+              >
+                <MessageSquare size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Chat inicial'}
+              </a>
               <button
                 onClick={() => setActiveMenu('medicos')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'medicos'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                 }`}
                 title={sidebarCollapsed ? 'Médicos' : ''}
               >
@@ -4497,11 +7980,35 @@ export default function MetaAdminGeralPage() {
                 {!sidebarCollapsed && 'Médicos'}
               </button>
               <button
+                onClick={() => setActiveMenu('nutricionistas')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'nutricionistas'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'Nutricionistas' : ''}
+              >
+                <UtensilsCrossed size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Nutricionistas'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('personal_trainers')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'personal_trainers'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'Personal Trainers' : ''}
+              >
+                <Dumbbell size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Personal Trainers'}
+              </button>
+              <button
                 onClick={() => setActiveMenu('pacientes')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'pacientes'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                 }`}
                 title={sidebarCollapsed ? 'Pacientes' : ''}
               >
@@ -4512,8 +8019,8 @@ export default function MetaAdminGeralPage() {
                 onClick={() => setActiveMenu('leads')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'leads'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                 }`}
                 title={sidebarCollapsed ? 'Leads' : ''}
               >
@@ -4524,8 +8031,8 @@ export default function MetaAdminGeralPage() {
                 onClick={() => setActiveMenu('tirzepatida')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'tirzepatida'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                 }`}
                 title={sidebarCollapsed ? 'Tirzepatida' : ''}
               >
@@ -4536,8 +8043,8 @@ export default function MetaAdminGeralPage() {
                 onClick={() => setActiveMenu('emails')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'emails'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                 }`}
                 title={sidebarCollapsed ? 'E-mails' : ''}
               >
@@ -4548,22 +8055,105 @@ export default function MetaAdminGeralPage() {
                 onClick={() => setActiveMenu('calendario')}
                 className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeMenu === 'calendario'
-                    ? 'bg-green-100 text-green-700 border-r-2 border-green-500'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                 }`}
                 title={sidebarCollapsed ? 'Calendário' : ''}
               >
                 <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
                 {!sidebarCollapsed && 'Calendário'}
               </button>
-              
+              <button
+                onClick={() => setActiveMenu('banners')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'banners'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'Banners' : ''}
+              >
+                <Image size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Banners'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('nps')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'nps'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'NPS' : ''}
+              >
+                <TrendingUp size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'NPS'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('relatorios')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'relatorios'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'Relatórios' : ''}
+              >
+                <FileText size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Relatórios'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('exames-laboratoriais')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'exames-laboratoriais'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'Exames Laboratoriais' : ''}
+              >
+                <FlaskConical size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Exames Laboratoriais'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('bio-impedancia')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'bio-impedancia'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'Bio Impedância' : ''}
+              >
+                <Activity size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Bio Impedância'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('cores-do-sistema')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'cores-do-sistema'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'Cores do Sistema' : ''}
+              >
+                <Palette size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'Cores do Sistema'}
+              </button>
+              <button
+                onClick={() => setActiveMenu('oftpay')}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  activeMenu === 'oftpay'
+                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                }`}
+                title={sidebarCollapsed ? 'OftPay' : ''}
+              >
+                <BookOpen size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
+                {!sidebarCollapsed && 'OftPay'}
+              </button>
             </nav>
 
             {/* Logout button */}
-            <div className="px-4 py-4 border-t border-gray-200">
+            <div className="px-4 py-4 border-t border-white/10">
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-md transition-colors"
                 title={sidebarCollapsed ? 'Sair' : ''}
               >
                 <svg className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4575,21 +8165,22 @@ export default function MetaAdminGeralPage() {
           </div>
         </div>
         
-        <div className={`flex-1 transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'} overflow-x-hidden pb-20 lg:pb-0`}>
-          {/* Mobile Header - Only visible on mobile */}
-          <div className="lg:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
+        <div className={`flex-1 transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'} overflow-x-hidden pb-4 lg:pb-0`}>
+          {/* Mobile Header - Only visible on mobile; menu abre barra lateral */}
+          <div className="lg:hidden bg-[#0A1F44]/95 backdrop-blur-md border-b border-white/10 px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <img
-                  src="/icones/oftware.png"
+                  src="/logo-site.jpg"
                   alt="Oftware Logo"
-                  className="h-8 w-8"
+                  className="h-8 w-8 rounded-lg object-cover"
                 />
-                <span className="ml-2 text-lg font-semibold text-gray-900">Meta Admin Geral</span>
+                <span className="ml-2 text-lg font-semibold text-[#E8EDED]">Meta Admin Geral</span>
               </div>
               <button
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                onClick={() => setMobileMenuOpen(true)}
+                className="p-2 rounded-md text-[#E8EDED]/70 hover:text-[#E8EDED] hover:bg-white/10"
+                aria-label="Abrir menu"
               >
                 <Menu className="h-6 w-6" />
               </button>
@@ -4598,7 +8189,14 @@ export default function MetaAdminGeralPage() {
           
           <main className="p-6">
             {message && (
-              <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+              <div className="mb-4 p-4 bg-[#4CCB7A]/20 border border-[#4CCB7A]/40 text-[#E8EDED] rounded-xl relative">
+                <button
+                  onClick={() => setMessage('')}
+                  className="absolute top-2 right-2 text-[#E8EDED]/80 hover:text-[#E8EDED]"
+                  aria-label="Fechar mensagem"
+                >
+                  <X size={16} />
+                </button>
                 {message}
               </div>
             )}
@@ -4652,7 +8250,7 @@ export default function MetaAdminGeralPage() {
       {/* Modal de Edição de Usuário */}
       {editingUser && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white text-[#0A1F44] [&_label]:text-[#0A1F44] [&_h3]:text-[#0A1F44]">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 Editar Usuário
@@ -4660,7 +8258,7 @@ export default function MetaAdminGeralPage() {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">
                     Nome
                   </label>
                   <input
@@ -4673,7 +8271,7 @@ export default function MetaAdminGeralPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">
                     Tipo
                   </label>
                   <select
@@ -4711,14 +8309,14 @@ export default function MetaAdminGeralPage() {
       {/* Modal de Cadastro de Residente */}
       {showCadastrarResidenteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-md w-full mx-4">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Cadastrar Residente</h3>
+              <h3 className="text-lg font-medium text-[#E8EDED]">Cadastrar Residente</h3>
             </div>
             <form onSubmit={handleAddResidente} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome</label>
                   <input
                     type="text"
                     value={newResidente.nome}
@@ -4728,7 +8326,7 @@ export default function MetaAdminGeralPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nível</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nível</label>
                   <select
                     value={newResidente.nivel}
                     onChange={(e) => setNewResidente({ ...newResidente, nivel: e.target.value as 'R1' | 'R2' | 'R3' })}
@@ -4740,7 +8338,7 @@ export default function MetaAdminGeralPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Email</label>
                   <input
                     type="email"
                     value={newResidente.email}
@@ -4750,7 +8348,7 @@ export default function MetaAdminGeralPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Telefone (opcional)</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Telefone (opcional)</label>
                   <input
                     type="tel"
                     value={newResidente.telefone}
@@ -4787,14 +8385,14 @@ export default function MetaAdminGeralPage() {
       {/* Modal de Cadastro de Local */}
       {showCadastrarLocalModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-md w-full mx-4">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Cadastrar Local</h3>
+              <h3 className="text-lg font-medium text-[#E8EDED]">Cadastrar Local</h3>
             </div>
             <form onSubmit={handleAddLocal} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome do Local</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome do Local</label>
                   <input
                     type="text"
                     value={newLocal.nome}
@@ -4831,14 +8429,14 @@ export default function MetaAdminGeralPage() {
       {/* Modal de Cadastro de Serviço */}
       {showCadastrarServicoModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-md w-full mx-4">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Cadastrar Serviço</h3>
+              <h3 className="text-lg font-medium text-[#E8EDED]">Cadastrar Serviço</h3>
             </div>
             <form onSubmit={handleAddServico} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome do Serviço</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome do Serviço</label>
                   <input
                     type="text"
                     value={newServico.nome}
@@ -4848,7 +8446,7 @@ export default function MetaAdminGeralPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Local</label>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Local</label>
                   <select
                     value={newServico.localId}
                     onChange={(e) => setNewServico({ ...newServico, localId: e.target.value })}
@@ -4888,18 +8486,93 @@ export default function MetaAdminGeralPage() {
         </div>
       )}
 
+      {/* Modal de Edição de Classificação (Admin) */}
+      {showModalClassificacaoAdmin && profissionalClassificacao && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => !salvandoClassificacaoAdmin && setShowModalClassificacaoAdmin(false)}>
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-medium text-[#E8EDED]">Editar Classificação</h3>
+              <button onClick={() => !salvandoClassificacaoAdmin && setShowModalClassificacaoAdmin(false)} className="p-1 hover:bg-gray-100 rounded">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-[#E8EDED]/70 mb-4">{profissionalClassificacao.nome}</p>
+              {detalhamentoEdit === null ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4CCB7A]" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {[
+                    { label: '5 estrelas', key: 'count5' as const },
+                    { label: '4 estrelas', key: 'count4' as const },
+                    { label: '3 estrelas', key: 'count3' as const },
+                    { label: '2 estrelas', key: 'count2' as const },
+                    { label: '1 estrela', key: 'count1' as const },
+                  ].map(({ label, key }) => (
+                    <div key={key} className="flex items-center justify-between gap-4">
+                      <label className="text-sm font-medium text-gray-700">{label}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={detalhamentoEdit[key]}
+                        onChange={(e) => setDetalhamentoEdit({ ...detalhamentoEdit, [key]: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="w-20 border border-gray-300 rounded-md px-2 py-1.5 text-center text-gray-900"
+                      />
+                      <span className="text-xs text-gray-500">votos</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between gap-4 pt-2 border-t border-gray-200">
+                    <span className="text-sm font-medium text-gray-700">Média de votos</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {detalhamentoEdit.total > 0
+                        ? ((5 * detalhamentoEdit.count5 + 4 * detalhamentoEdit.count4 + 3 * detalhamentoEdit.count3 + 2 * detalhamentoEdit.count2 + 1 * detalhamentoEdit.count1) / detalhamentoEdit.total).toFixed(1)
+                        : '0.0'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 pt-4">
+                    <button
+                      onClick={() => !salvandoClassificacaoAdmin && setShowModalClassificacaoAdmin(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSalvarClassificacaoAdmin}
+                      disabled={salvandoClassificacaoAdmin}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {salvandoClassificacaoAdmin ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {medicoQrLinkModal && (
+        <MedicoPublicUrlQrModal
+          medico={medicoQrLinkModal}
+          url={publicDrUrlForMedico(medicoQrLinkModal, medicos)}
+          onClose={() => setMedicoQrLinkModal(null)}
+        />
+      )}
+
       {/* Modal de Edição de Médico */}
       {showEditarMedicoModal && medicoEditando && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Editar Dados do Médico</h3>
+              <h3 className="text-lg font-medium text-[#E8EDED]">Editar Dados do Médico</h3>
             </div>
             <div className="p-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Nome *</label>
                     <input
                       type="text"
                       value={dadosMedicoEditando.nome}
@@ -4909,7 +8582,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Email *</label>
                     <input
                       type="email"
                       value={dadosMedicoEditando.email}
@@ -4919,7 +8592,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Telefone</label>
                     <input
                       type="tel"
                       value={dadosMedicoEditando.telefone}
@@ -4928,7 +8601,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Gênero</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Gênero</label>
                     <select
                       value={dadosMedicoEditando.genero}
                       onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, genero: e.target.value as 'M' | 'F' | '' })}
@@ -4940,7 +8613,7 @@ export default function MetaAdminGeralPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CRM Número *</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">CRM Número *</label>
                     <input
                       type="text"
                       value={dadosMedicoEditando.crmNumero}
@@ -4950,7 +8623,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CRM Estado *</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">CRM Estado *</label>
                     <input
                       type="text"
                       value={dadosMedicoEditando.crmEstado}
@@ -4960,7 +8633,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Endereço *</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Endereço *</label>
                     <input
                       type="text"
                       value={dadosMedicoEditando.endereco}
@@ -4970,7 +8643,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">CEP</label>
                     <input
                       type="text"
                       value={dadosMedicoEditando.cep}
@@ -4979,7 +8652,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ponto de Referência</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Ponto de Referência</label>
                     <input
                       type="text"
                       value={dadosMedicoEditando.pontoReferencia}
@@ -5017,15 +8690,15 @@ export default function MetaAdminGeralPage() {
       {/* Modal de Edição de Paciente */}
       {showEditarPacienteModal && pacienteEditando && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Editar Dados de Identificação do Paciente</h3>
+              <h3 className="text-lg font-medium text-[#E8EDED]">Editar Dados de Identificação do Paciente</h3>
             </div>
             <div className="p-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Nome Completo *</label>
                     <input
                       type="text"
                       value={dadosPacienteEditando.nomeCompleto}
@@ -5035,7 +8708,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Email *</label>
                     <input
                       type="email"
                       value={dadosPacienteEditando.email}
@@ -5045,7 +8718,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Telefone</label>
                     <input
                       type="tel"
                       value={dadosPacienteEditando.telefone}
@@ -5054,7 +8727,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">CPF</label>
                     <input
                       type="text"
                       value={dadosPacienteEditando.cpf}
@@ -5063,7 +8736,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Data de Nascimento</label>
                     <input
                       type="date"
                       value={dadosPacienteEditando.dataNascimento}
@@ -5072,7 +8745,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Sexo Biológico</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Sexo Biológico</label>
                     <select
                       value={dadosPacienteEditando.sexoBiologico}
                       onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, sexoBiologico: e.target.value as 'M' | 'F' | 'Outro' | '' })}
@@ -5085,7 +8758,7 @@ export default function MetaAdminGeralPage() {
                     </select>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rua</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Rua</label>
                     <input
                       type="text"
                       value={dadosPacienteEditando.rua}
@@ -5094,7 +8767,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Cidade</label>
                     <input
                       type="text"
                       value={dadosPacienteEditando.cidade}
@@ -5103,7 +8776,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Estado</label>
                     <input
                       type="text"
                       value={dadosPacienteEditando.estado}
@@ -5112,7 +8785,7 @@ export default function MetaAdminGeralPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">CEP</label>
                     <input
                       type="text"
                       value={dadosPacienteEditando.cep}
@@ -5147,94 +8820,693 @@ export default function MetaAdminGeralPage() {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation - Fixed at bottom, no logout button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50">
-        <div className="flex justify-between items-center py-2 px-2 w-full">
-          <button
-            onClick={() => setActiveMenu('estatisticas')}
-            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'estatisticas'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Estatísticas</span>
-          </button>
+      {/* Modal de Edição de Banner */}
+      {showEditarBannerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-200 shadow-2xl rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto text-gray-900">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-2xl">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {bannerEditando ? 'Editar Banner' : 'Novo Banner'}
+              </h3>
+            </div>
+            <div className="p-6 bg-white">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                  <input
+                    type="text"
+                    value={dadosBanner.titulo}
+                    onChange={(e) => setDadosBanner({ ...dadosBanner, titulo: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    placeholder="Título do banner"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Imagem do Banner *</label>
+                  
+                  {/* Upload de arquivo */}
+                  <div className="mt-1">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        {uploadingImage ? (
+                          <>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4CCB7A] mb-2"></div>
+                            <p className="text-sm text-gray-600">Enviando imagem...</p>
+                          </>
+                        ) : dadosBanner.imagemUrl ? (
+                          <>
+                            <Image className="w-8 h-8 text-green-600 mb-2" />
+                            <p className="text-sm text-gray-600">Clique para trocar a imagem</p>
+                            <p className="text-xs text-gray-500 mt-1">ou arraste uma nova imagem aqui</p>
+                          </>
+                        ) : (
+                          <>
+                            <Image className="w-8 h-8 text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-600">Clique para fazer upload</p>
+                            <p className="text-xs text-gray-500 mt-1">ou arraste a imagem aqui</p>
+                            <p className="text-xs text-gray-400 mt-1">PNG, JPG ou WEBP (máx. 5MB)</p>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // Validar tamanho (5MB)
+                            if (file.size > 5 * 1024 * 1024) {
+                              setMessage('Imagem muito grande. Tamanho máximo: 5MB');
+                              return;
+                            }
+                            
+                            try {
+                              const url = await handleUploadBannerImage(file);
+                              setDadosBanner({ ...dadosBanner, imagemUrl: url });
+                              setMessage('Imagem enviada com sucesso!');
+                            } catch (error) {
+                              console.error('Erro ao fazer upload:', error);
+                              setMessage('Erro ao fazer upload da imagem. Tente novamente.');
+                            }
+                          }
+                        }}
+                        disabled={uploadingImage}
+                      />
+                    </label>
+                  </div>
+                  
+                  {/* Preview da imagem */}
+                  {dadosBanner.imagemUrl && !uploadingImage && (
+                    <div className="mt-3">
+                      <img
+                        src={dadosBanner.imagemUrl}
+                        alt="Preview"
+                        className="w-full h-48 object-contain border border-gray-200 rounded"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Campo alternativo para URL manual (opcional) */}
+                  <details className="mt-2">
+                    <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-800">
+                      Ou insira uma URL manualmente
+                    </summary>
+                    <input
+                      type="text"
+                      value={dadosBanner.imagemUrl}
+                      onChange={(e) => setDadosBanner({ ...dadosBanner, imagemUrl: e.target.value })}
+                      className="w-full mt-2 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      placeholder="https://exemplo.com/imagem.jpg"
+                    />
+                  </details>
+                </div>
 
-          <button
-            onClick={() => setActiveMenu('medicos')}
-            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'medicos'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Stethoscope className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Médicos</span>
-          </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Local do Banner *</label>
+                  <select
+                    value={dadosBanner.local}
+                    onChange={(e) => setDadosBanner({ ...dadosBanner, local: e.target.value as 'home' | 'meta' })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  >
+                    <option value="home">Home (www.oftware.com.br)</option>
+                    <option value="meta">Meta (www.oftware.com.br/meta)</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Selecione onde o banner será exibido
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Formato do Conteúdo</label>
+                  <select
+                    value={dadosBanner.formato}
+                    onChange={(e) => {
+                      const novoFormato = e.target.value as 'html' | 'json';
+                      console.log('Formato mudado para:', novoFormato);
+                      setDadosBanner({
+                        ...dadosBanner,
+                        formato: novoFormato,
+                        conteudoHtml: novoFormato === 'html' ? dadosBanner.conteudoHtml : '',
+                        conteudoJson: novoFormato === 'json' ? (dadosBanner.conteudoJson || { sections: [] }) : undefined
+                      });
+                      setJsonError('');
+                    }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="json">JSON/TypeScript (Recomendado)</option>
+                    <option value="html">HTML</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Escolha o formato do conteúdo que será exibido quando o banner for clicado
+                  </p>
+                </div>
 
-          <button
-            onClick={() => setActiveMenu('pacientes')}
-            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'pacientes'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Users className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Pacientes</span>
-          </button>
-
-          <button
-            onClick={() => setActiveMenu('tirzepatida')}
-            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'tirzepatida'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Pill className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Tirzepatida</span>
-          </button>
-
-          <button
-            onClick={() => setActiveMenu('leads')}
-            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'leads'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Target className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Leads</span>
-          </button>
-
-          <button
-            onClick={() => setActiveMenu('emails')}
-            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'emails'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Mail className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">E-mails</span>
-          </button>
-
-          <button
-            onClick={() => setActiveMenu('calendario')}
-            className={`flex flex-col items-center flex-1 py-1.5 px-1 rounded-lg transition-colors ${
-              activeMenu === 'calendario'
-                ? 'bg-green-100 text-green-700'
-                : 'text-gray-600'
-            }`}
-          >
-            <Calendar className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Calendário</span>
-          </button>
+                {dadosBanner.formato === 'json' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Conteúdo JSON
+                    </label>
+                    <textarea
+                      value={JSON.stringify(dadosBanner.conteudoJson || { sections: [] }, null, 2)}
+                      onChange={(e) => {
+                        try {
+                          const parsed = JSON.parse(e.target.value);
+                          // Se o JSON foi parseado com sucesso e tem sections, mudar formato para json
+                          if (parsed && typeof parsed === 'object' && parsed.sections && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
+                            console.log('JSON válido detectado, mudando formato para json');
+                            setDadosBanner({
+                              ...dadosBanner,
+                              conteudoJson: parsed,
+                              formato: 'json', // Mudar formato automaticamente para json
+                              conteudoHtml: '' // Limpar HTML quando muda para JSON
+                            });
+                          } else {
+                            setDadosBanner({
+                              ...dadosBanner,
+                              conteudoJson: parsed
+                            });
+                          }
+                          setJsonError('');
+                        } catch (error) {
+                          setJsonError('JSON inválido: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+                        }
+                      }}
+                      className={`w-full border rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 font-mono text-sm ${
+                        jsonError ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      rows={20}
+                      placeholder={`{\n  "sections": [\n    {\n      "type": "heading",\n      "heading": "Título",\n      "level": 1\n    },\n    {\n      "type": "text",\n      "text": "Texto do conteúdo"\n    }\n  ]\n}`}
+                    />
+                    {jsonError && (
+                      <p className="mt-1 text-xs text-red-600">{jsonError}</p>
+                    )}
+                    <details className="mt-2">
+                      <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-800">
+                        Ver exemplos de tipos de seções disponíveis
+                      </summary>
+                      <div className="mt-2 p-3 bg-gray-50 rounded text-xs font-mono text-gray-700 space-y-2">
+                        <div>
+                          <strong>Heading:</strong>
+                          <pre className="mt-1">{`{
+  "type": "heading",
+  "heading": "Título",
+  "level": 1
+}`}</pre>
+                        </div>
+                        <div>
+                          <strong>Text:</strong>
+                          <pre className="mt-1">{`{
+  "type": "text",
+  "text": "Parágrafo de texto"
+}`}</pre>
+                        </div>
+                        <div>
+                          <strong>Image:</strong>
+                          <pre className="mt-1">{`{
+  "type": "image",
+  "imageUrl": "https://exemplo.com/imagem.jpg",
+  "imageAlt": "Descrição"
+}`}</pre>
+                        </div>
+                        <div>
+                          <strong>Button:</strong>
+                          <pre className="mt-1">{`{
+  "type": "button",
+  "buttonText": "Clique aqui",
+  "buttonLink": "https://exemplo.com",
+  "buttonStyle": "primary"
+}`}</pre>
+                        </div>
+                        <div>
+                          <strong>List:</strong>
+                          <pre className="mt-1">{`{
+  "type": "list",
+  "items": ["Item 1", "Item 2", "Item 3"]
+}`}</pre>
+                        </div>
+                      </div>
+                    </details>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Use o formato JSON estruturado para criar conteúdo dinâmico. Tipos disponíveis: heading, text, image, button, list, video, divider
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Conteúdo HTML</label>
+                    <textarea
+                      value={dadosBanner.conteudoHtml || ''}
+                      onChange={(e) => setDadosBanner({ ...dadosBanner, conteudoHtml: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 font-mono text-sm"
+                      rows={15}
+                      placeholder="<html>...</html>"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      HTML completo que será exibido quando o banner for clicado
+                    </p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ordem</label>
+                    <input
+                      type="number"
+                      value={dadosBanner.ordem}
+                      onChange={(e) => setDadosBanner({ ...dadosBanner, ordem: parseInt(e.target.value) || 0 })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      min="0"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Status</label>
+                    <select
+                      value={dadosBanner.ativo ? 'ativo' : 'inativo'}
+                      onChange={(e) => setDadosBanner({ ...dadosBanner, ativo: e.target.value === 'ativo' })}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value="ativo">Ativo</option>
+                      <option value="inativo">Inativo</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditarBannerModal(false);
+                    setBannerEditando(null);
+                    setDadosBanner({
+                      titulo: '',
+                      imagemUrl: '',
+                      conteudoHtml: '',
+                      conteudoJson: undefined,
+                      formato: 'json',
+                      local: pastaBannerAtiva,
+                      ativo: true,
+                      ordem: 0
+                    });
+                    setJsonError('');
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSalvarBanner}
+                  disabled={loading}
+                  className="px-4 py-2 bg-[#4CCB7A] text-[#0A1F44] text-sm font-semibold rounded-md hover:bg-[#45b86d] disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Modal de Detalhes do Nutricionista */}
+      {showDetalhesNutriModal && nutriDetalhes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-[#E8EDED]">Detalhes do Nutricionista</h2>
+                <button
+                  onClick={() => {
+                    setShowDetalhesNutriModal(false);
+                    setNutriDetalhes(null);
+                  }}
+                  className="text-gray-400 hover:text-[#E8EDED]/70"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome</label>
+                  <p className="mt-1 text-sm text-gray-900">{nutriDetalhes.nome}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Email</label>
+                  <p className="mt-1 text-sm text-gray-900">{nutriDetalhes.email}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">User ID</label>
+                  <p className="mt-1 text-sm text-gray-900 font-mono">{nutriDetalhes.userId}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Registro (CRN / Número)</label>
+                  <p className="mt-1 text-sm text-gray-900">{nutriDetalhes.registroNumero || 'Não informado'}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Telefone para contato</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {nutriDetalhes.telefone ? (
+                      <a
+                        href={`https://wa.me/55${nutriDetalhes.telefone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                        title={`WhatsApp: ${nutriDetalhes.telefone}`}
+                      >
+                        <Phone size={16} />
+                        {nutriDetalhes.telefone}
+                      </a>
+                    ) : (
+                      'Não informado'
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Cidades Atendidas</label>
+                  {nutriDetalhes.cidades.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {nutriDetalhes.cidades.map((cidade, idx) => (
+                        <p key={idx} className="text-sm text-gray-900">
+                          {cidade.cidade}, {cidade.estado}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-500">Nenhuma cidade cadastrada</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Status de Verificação</label>
+                  <p className="mt-1">
+                    {nutriDetalhes.isVerificado ? (
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center w-fit">
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Verificado
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center w-fit">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Não Verificado
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Status</label>
+                  <p className="mt-1">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      nutriDetalhes.status === 'ativo'
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {nutriDetalhes.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Vínculos com Médicos</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {nutriDetalhes.medicoVinculadoIds.length} vínculo{nutriDetalhes.medicoVinculadoIds.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Data de Cadastro</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {nutriDetalhes.dataCadastro ? new Date(nutriDetalhes.dataCadastro).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowDetalhesNutriModal(false);
+                    setNutriDetalhes(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Personal Trainer */}
+      {showDetalhesPersonalModal && personalDetalhes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-[#E8EDED]">Detalhes do Personal Trainer</h2>
+                <button
+                  onClick={() => {
+                    setShowDetalhesPersonalModal(false);
+                    setPersonalDetalhes(null);
+                  }}
+                  className="text-gray-400 hover:text-[#E8EDED]/70"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome</label>
+                  <p className="mt-1 text-sm text-gray-900">{personalDetalhes.nome}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Email</label>
+                  <p className="mt-1 text-sm text-gray-900">{personalDetalhes.email}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">User ID</label>
+                  <p className="mt-1 text-sm text-gray-900 font-mono">{personalDetalhes.userId}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Registro (CREF / Número)</label>
+                  <p className="mt-1 text-sm text-gray-900">{personalDetalhes.registroNumero || 'Não informado'}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Telefone para contato</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {personalDetalhes.telefone ? (
+                      <a
+                        href={`https://wa.me/55${personalDetalhes.telefone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                        title={`WhatsApp: ${personalDetalhes.telefone}`}
+                      >
+                        <Phone size={16} />
+                        {personalDetalhes.telefone}
+                      </a>
+                    ) : (
+                      'Não informado'
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Cidades Atendidas</label>
+                  {personalDetalhes.cidades.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {personalDetalhes.cidades.map((cidade, idx) => (
+                        <p key={idx} className="text-sm text-gray-900">
+                          {cidade.cidade}, {cidade.estado}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-500">Nenhuma cidade cadastrada</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Status de Verificação</label>
+                  <p className="mt-1">
+                    {personalDetalhes.isVerificado ? (
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center w-fit">
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Verificado
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center w-fit">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Não Verificado
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Status</label>
+                  <p className="mt-1">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      personalDetalhes.status === 'ativo'
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {personalDetalhes.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Vínculos com Médicos</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {personalDetalhes.medicoVinculadoIds.length} vínculo{personalDetalhes.medicoVinculadoIds.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Data de Cadastro</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {personalDetalhes.dataCadastro ? new Date(personalDetalhes.dataCadastro).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowDetalhesPersonalModal(false);
+                    setPersonalDetalhes(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: barra lateral (drawer) que expande pelo ícone de menu */}
+      {mobileMenuOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-[#0A1F44] border-r border-white/10 shadow-xl z-50 lg:hidden flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between h-14 px-4 border-b border-white/10 shrink-0">
+              <span className="font-semibold text-[#E8EDED]">Menu</span>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-md text-[#E8EDED]/70 hover:bg-white/10"
+                aria-label="Fechar menu"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+              <a
+                href="/metaadmingeral/chatinicial"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]"
+              >
+                <MessageSquare size={20} className="mr-3" />
+                Chat inicial
+              </a>
+              {[
+                { id: 'estatisticas', label: 'Estatísticas', Icon: BarChart3 },
+                { id: 'medicos', label: 'Médicos', Icon: Stethoscope },
+                { id: 'nutricionistas', label: 'Nutricionistas', Icon: UtensilsCrossed },
+                { id: 'personal_trainers', label: 'Personal Trainers', Icon: Dumbbell },
+                { id: 'pacientes', label: 'Pacientes', Icon: Users },
+                { id: 'leads', label: 'Leads', Icon: Target },
+                { id: 'tirzepatida', label: 'Tirzepatida', Icon: Pill },
+                { id: 'emails', label: 'E-mails', Icon: Mail },
+                { id: 'calendario', label: 'Calendário', Icon: Calendar },
+                { id: 'banners', label: 'Banners', Icon: Image },
+                { id: 'nps', label: 'NPS', Icon: TrendingUp },
+                { id: 'relatorios', label: 'Relatórios', Icon: FileText },
+                { id: 'exames-laboratoriais', label: 'Exames Laboratoriais', Icon: FlaskConical },
+                { id: 'bio-impedancia', label: 'Bio Impedância', Icon: Activity },
+                { id: 'cores-do-sistema', label: 'Cores do Sistema', Icon: Palette },
+                { id: 'oftpay', label: 'OftPay', Icon: BookOpen },
+              ].map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => {
+                    setActiveMenu(id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
+                    activeMenu === id
+                      ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
+                      : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
+                  }`}
+                >
+                  <Icon size={20} className="mr-3" />
+                  {label}
+                </button>
+              ))}
+            </nav>
+            <div className="px-3 py-4 border-t border-white/10">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-md transition-colors"
+              >
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sair
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* FAQ Chat para Admin Geral - Posicionado no canto inferior direito na versão desktop */}
+      {user && (
+        <FAQChat
+          userName={user.displayName?.split(' ')[0] || 'Admin'}
+          position="right"
+          faqCategories={faqCategoriesMedico}
+          hideToggleButton={true}
+        />
+      )}
     </div>
   );
 }

@@ -283,6 +283,27 @@ export class SolicitacaoMedicoService {
   }
 
   /**
+   * Deletar solicitações de vínculo entre um médico e um paciente específico.
+   */
+  static async deletarSolicitacoesPorMedicoEPaciente(medicoId: string, pacienteId: string): Promise<void> {
+    try {
+      const q = query(
+        collection(db, 'solicitacoes_medico'),
+        where('medicoId', '==', medicoId),
+        where('pacienteId', '==', pacienteId)
+      );
+
+      const snapshot = await getDocs(q);
+      for (const solicitacaoDoc of snapshot.docs) {
+        await deleteDoc(doc(db, 'solicitacoes_medico', solicitacaoDoc.id));
+      }
+    } catch (error) {
+      console.error('Erro ao deletar solicitações por médico e paciente:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Buscar todas as solicitações pendentes
    */
   static async getAllSolicitacoesPendentes(): Promise<SolicitacaoMedico[]> {

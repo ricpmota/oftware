@@ -3,7 +3,13 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { EmailTipo } from '@/types/emailConfig';
-import nodemailer from 'nodemailer';
+import { sendEmail } from '@/lib/email/transporter';
+import {
+  assertCronZeptoConfigured,
+  cronEmailThrottle,
+  getCronZeptoMaxSendsPerRun,
+} from '@/lib/email/cronZeptoBatch';
+import { zeptoEnvioFields } from '@/lib/email/emailEnvioLog';
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -46,35 +52,11 @@ function getFirebaseAdmin() {
 
 // Função para enviar e-mail
 async function enviarEmail(leadEmail: string, leadNome: string, assunto: string, html: string): Promise<{ success: boolean; messageId?: string; erro?: string }> {
-  try {
-    if (!process.env.ZOHO_EMAIL || !process.env.ZOHO_PASSWORD) {
-      console.log('📧 SIMULAÇÃO E-MAIL (Zoho não configurado):');
-      console.log(`Para: ${leadEmail}`);
-      console.log(`Assunto: ${assunto}`);
-      return { success: true };
-    }
+  const htmlPersonalizado = html.replace(/\{nome\}/g, leadNome || 'Cliente');
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.zoho.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.ZOHO_EMAIL,
-        pass: process.env.ZOHO_PASSWORD,
-      },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
-    });
-
-    await transporter.verify();
-
-    const htmlPersonalizado = html.replace(/\{nome\}/g, leadNome || 'Cliente');
-
-    // Garantir estrutura HTML completa
-    let htmlFinal = htmlPersonalizado;
-    if (!htmlFinal.includes('<html') && !htmlFinal.includes('<!DOCTYPE')) {
-      htmlFinal = `
+  let htmlFinal = htmlPersonalizado;
+  if (!htmlFinal.includes('<html') && !htmlFinal.includes('<!DOCTYPE')) {
+    htmlFinal = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -86,31 +68,29 @@ async function enviarEmail(leadEmail: string, leadNome: string, assunto: string,
 </body>
 </html>
       `.trim();
-    }
+  }
 
-    const info = await transporter.sendMail({
-      from: `"Oftware" <${process.env.ZOHO_EMAIL}>`,
-      to: leadEmail,
-      subject: assunto,
-      html: htmlFinal,
-      text: htmlPersonalizado.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
-    });
+  const result = await sendEmail({
+    to: leadEmail,
+    subject: assunto,
+    html: htmlFinal,
+    text: htmlPersonalizado.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n'),
+  });
 
-    console.log('✅ E-mail enviado com sucesso:', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    const erroMsg = (error as Error).message;
-    console.error('❌ Erro ao enviar e-mail:', erroMsg);
-    
-    let erroFormatado = erroMsg;
-    if ((error as any).code === 'EAUTH') {
-      erroFormatado = 'Erro de autenticação SMTP. Verifique ZOHO_EMAIL e ZOHO_PASSWORD.';
-    } else if ((error as any).code === 'ETIMEDOUT' || (error as any).code === 'ESOCKETTIMEOUT') {
+  if (!result.success) {
+    let erroFormatado = result.error;
+    if (result.code === 'EAUTH' || result.code === 'EENVELOPE') {
+      erroFormatado =
+        'Erro de autenticação SMTP ZeptoMail. Verifique ZEPTOMAIL_SMTP_USER e ZEPTOMAIL_SMTP_PASSWORD.';
+    } else if (result.code === 'ETIMEDOUT' || result.code === 'ESOCKETTIMEOUT') {
       erroFormatado = 'Tempo limite de conexão SMTP excedido.';
     }
-    
+    console.error('❌ Erro ao enviar e-mail:', erroFormatado);
     return { success: false, erro: erroFormatado };
   }
+
+  console.log('✅ E-mail enviado com sucesso:', result.messageId);
+  return { success: true, messageId: result.messageId };
 }
 
 export async function GET(request: NextRequest) {
@@ -142,6 +122,13 @@ export async function GET(request: NextRequest) {
         falhas: 0,
       });
     }
+
+    const zeptoGate = assertCronZeptoConfigured();
+    if (!zeptoGate.ok) {
+      return NextResponse.json(zeptoGate.body, { status: zeptoGate.status });
+    }
+
+    const limitePorExecucao = getCronZeptoMaxSendsPerRun();
 
     // 2. Buscar todos os e-mails configurados (módulo Leads)
     const emailsCollection = db.collection('emails');
@@ -298,14 +285,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`📧 ${leadsAptos.length} leads aptos para envio automático`);
+    console.log(`📧 ${leadsAptos.length} leads aptos para envio automático (máx. ${limitePorExecucao} nesta execução)`);
 
-    // 7. Enviar e-mails
+    const fila = leadsAptos.slice(0, limitePorExecucao);
+    const truncado = leadsAptos.length > fila.length;
+
+    // 7. Enviar e-mails ZeptoMail com throttle entre envios
     let enviados = 0;
     let falhas = 0;
     const resultados: Array<{ leadId: string; email: string; emailTipo: EmailTipo; success: boolean; erro?: string }> = [];
 
-    for (const lead of leadsAptos) {
+    for (let i = 0; i < fila.length; i++) {
+      const lead = fila[i];
+      if (i > 0) await cronEmailThrottle();
       if (!lead.proximoEmail) continue;
 
       const emailTemplate = emails[lead.proximoEmail];
@@ -343,6 +335,7 @@ export async function GET(request: NextRequest) {
         tentativas: 1,
         erro: resultadoEnvio.erro || null,
         tipo: 'automatico',
+        ...zeptoEnvioFields(resultadoEnvio.success ? resultadoEnvio.messageId : null),
       });
 
       if (resultadoEnvio.success) {
@@ -369,7 +362,11 @@ export async function GET(request: NextRequest) {
       timestamp: agora.toISOString(),
       enviados,
       falhas,
-      total: leadsAptos.length,
+      totalAptos: leadsAptos.length,
+      processadosNestaExecucao: fila.length,
+      limitePorExecucao,
+      truncadoPorLimiteZepto: truncado,
+      provedor: 'ZeptoMail',
       resultados,
     });
   } catch (error) {

@@ -1,11 +1,30 @@
 'use client';
 
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ReferenceLine,
+  LabelList,
+} from 'recharts';
 
 interface TrendLineProps {
   data: any[];
-  dataKeys: { key: string; name: string; stroke: string; strokeWidth?: number; dot?: boolean; strokeDasharray?: string; legendType?: 'line' | 'square' | 'circle' | 'cross' | 'diamond' | 'star' | 'triangle' | 'wye' | undefined }[];
+  dataKeys: {
+    key: string;
+    name: string;
+    stroke: string;
+    strokeWidth?: number;
+    dot?: boolean;
+    strokeDasharray?: string;
+    legendType?: 'line' | 'square' | 'circle' | 'cross' | 'diamond' | 'star' | 'triangle' | 'wye' | undefined;
+  }[];
   xKey: string;
   height?: number;
   yAxisLabel?: string;
@@ -14,6 +33,10 @@ interface TrendLineProps {
   formatter?: (value: any) => string;
   labelFormatter?: (label: any) => string;
   referenceLines?: { value: number; label?: string; stroke?: string; strokeDasharray?: string }[];
+  /** Mostra o valor numérico em cada ponto (evolução temporal). */
+  showValueLabels?: boolean;
+  /** Casas decimais nos rótulos dos pontos (padrão 1). */
+  valueLabelDecimals?: number;
 }
 
 export default function TrendLine({
@@ -26,12 +49,21 @@ export default function TrendLine({
   domain,
   formatter,
   labelFormatter,
-  referenceLines
+  referenceLines,
+  showValueLabels = false,
+  valueLabelDecimals = 1,
 }: TrendLineProps) {
+  const labelFmt = (v: unknown) => {
+    if (v == null || v === '') return '';
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '';
+    return n.toFixed(valueLabelDecimals);
+  };
+
   return (
     <div style={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
+        <LineChart data={data} margin={{ top: showValueLabels ? 22 : 6, right: 6, left: 4, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
             dataKey={xKey}
@@ -72,7 +104,19 @@ export default function TrendLine({
               dot={dk.dot !== false ? { r: 4 } : false}
               strokeDasharray={dk.strokeDasharray}
               legendType={dk.legendType}
-            />
+              isAnimationActive={false}
+            >
+              {showValueLabels ? (
+                <LabelList
+                  dataKey={dk.key}
+                  position="top"
+                  offset={6}
+                  fontSize={10}
+                  fill={dk.stroke}
+                  formatter={labelFmt}
+                />
+              ) : null}
+            </Line>
           ))}
         </LineChart>
       </ResponsiveContainer>

@@ -1,0 +1,195 @@
+// 📁 GlaucomaForm.tsx
+
+/**
+ * Formulário interativo para avaliação e condução de pacientes com suspeita ou diagnóstico de glaucoma.
+ * Gera laudo clínico com base nas informações inseridas.
+ * Inclui lógica de recomendação terapêutica, gráficos de curva tensional e histórico de PIO.
+ */
+
+import React, { useState } from 'react';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend);
+
+export default function GlaucomaForm() {
+  const [form, setForm] = useState({
+    olho: 'OD',
+    pioAtual: '',
+    escavacao: '',
+    assimetriaEscavacao: false,
+    campoVisual: '',
+    pachimetria: '',
+    fatoresRisco: [],
+    sintomas: [],
+    tipoSuspeito: '',
+    tratamentoAtual: [],
+    respostaTratamento: '',
+    intolerancia: false,
+    historicoPIO: [], // valores anteriores de PIO
+    novoPIO: ''
+  });
+
+  const opcoes = {
+    olhos: ['OD', 'OE'],
+    camposVisuais: ['Normal', 'Alteração inicial', 'Alteração moderada', 'Alteração avançada'],
+    fatoresRisco: ['Histórico familiar', 'Raça negra', 'Miopia alta', 'Uso de corticoides', 'Idade avançada'],
+    sintomas: ['Borramento visual', 'Dor ocular', 'Halos coloridos ao redor de luzes'],
+    tiposGlaucoma: ['Primário de ângulo aberto', 'Primário de ângulo fechado', 'Secundário', 'Congênito'],
+    tratamentos: ['Timolol', 'Brimonidina', 'Dorzolamida', 'Latanoprosta', 'Travoprosta', 'Bimatoprosta'],
+    resposta: ['Adequada', 'Insuficiente']
+  };
+
+  const adicionarPIO = () => {
+    if (form.novoPIO) {
+      setForm(prev => ({
+        ...prev,
+        historicoPIO: [...prev.historicoPIO, Number(prev.novoPIO)],
+        novoPIO: ''
+      }));
+    }
+  };
+
+  const gerarLaudo = () => {
+    const pioTxt = form.pioAtual ? `PIO atual de ${form.pioAtual} mmHg.` : '';
+    const campo = form.campoVisual ? `Campo visual: ${form.campoVisual}.` : '';
+    const pach = form.pachimetria ? `Pachimetria central de ${form.pachimetria} µm.` : '';
+    const risco = form.fatoresRisco.length ? `Fatores de risco: ${form.fatoresRisco.join(', ')}.` : '';
+    const sintomas = form.sintomas.length ? `Sintomas referidos: ${form.sintomas.join(', ')}.` : '';
+    const tipo = form.tipoSuspeito ? `Tipo suspeito: ${form.tipoSuspeito}.` : '';
+    const trat = form.tratamentoAtual.length ? `Em uso de: ${form.tratamentoAtual.join(', ')}.` : '';
+    const resposta = form.respostaTratamento ? `Resposta: ${form.respostaTratamento}.` : '';
+    const intolerancia = form.intolerancia ? 'Paciente apresenta intolerância aos colírios atuais.' : '';
+
+    const conduta = form.respostaTratamento === 'Insuficiente'
+      ? form.intolerancia
+        ? 'Considerar substituição da classe medicamentosa.'
+        : 'Avaliar associação de nova medicação anti-hipertensiva ocular.'
+      : form.respostaTratamento === 'Adequada'
+        ? 'Manter seguimento regular e reavaliação periódica.'
+        : '';
+
+    return `Laudo de acompanhamento de glaucoma - ${form.olho}:
+
+${pioTxt}
+${campo}
+${pach}
+${risco}
+${sintomas}
+${tipo}
+${trat}
+${resposta}
+${intolerancia}
+
+Conduta sugerida: ${conduta}`;
+  };
+
+  const dadosGrafico = {
+    labels: form.historicoPIO.map((_, i) => `Dia ${i + 1}`),
+    datasets: [
+      {
+        label: 'PIO (mmHg)',
+        data: form.historicoPIO,
+        borderColor: 'black',
+        fill: false,
+        tension: 0.1
+      }
+    ]
+  };
+
+  return (
+    <div>
+      <h2>Formulário de Glaucoma</h2>
+
+      <label>Olho:</label>
+      <select value={form.olho} onChange={e => setForm({ ...form, olho: e.target.value })}>
+        {opcoes.olhos.map(op => <option key={op}>{op}</option>)}
+      </select>
+
+      <label>PIO atual (mmHg):</label>
+      <input value={form.pioAtual} onChange={e => setForm({ ...form, pioAtual: e.target.value })} />
+
+      <label>Escavação:</label>
+      <input value={form.escavacao} onChange={e => setForm({ ...form, escavacao: e.target.value })} />
+
+      <label>Assimetria da escavação:</label>
+      <input type="checkbox" checked={form.assimetriaEscavacao} onChange={e => setForm({ ...form, assimetriaEscavacao: e.target.checked })} />
+
+      <label>Campo visual:</label>
+      <select value={form.campoVisual} onChange={e => setForm({ ...form, campoVisual: e.target.value })}>
+        {opcoes.camposVisuais.map(op => <option key={op}>{op}</option>)}
+      </select>
+
+      <label>Pachimetria (µm):</label>
+      <input value={form.pachimetria} onChange={e => setForm({ ...form, pachimetria: e.target.value })} />
+
+      <label>Fatores de risco:</label>
+      {opcoes.fatoresRisco.map(r => (
+        <div key={r}>
+          <input type="checkbox" checked={form.fatoresRisco.includes(r)} onChange={() => {
+            const jaTem = form.fatoresRisco.includes(r);
+            setForm(prev => ({
+              ...prev,
+              fatoresRisco: jaTem ? prev.fatoresRisco.filter(i => i !== r) : [...prev.fatoresRisco, r]
+            }));
+          }} /> {r}
+        </div>
+      ))}
+
+      <label>Sintomas:</label>
+      {opcoes.sintomas.map(s => (
+        <div key={s}>
+          <input type="checkbox" checked={form.sintomas.includes(s)} onChange={() => {
+            const jaTem = form.sintomas.includes(s);
+            setForm(prev => ({
+              ...prev,
+              sintomas: jaTem ? prev.sintomas.filter(i => i !== s) : [...prev.sintomas, s]
+            }));
+          }} /> {s}
+        </div>
+      ))}
+
+      <label>Tipo suspeito:</label>
+      <select value={form.tipoSuspeito} onChange={e => setForm({ ...form, tipoSuspeito: e.target.value })}>
+        {opcoes.tiposGlaucoma.map(op => <option key={op}>{op}</option>)}
+      </select>
+
+      <label>Tratamento atual:</label>
+      {opcoes.tratamentos.map(t => (
+        <div key={t}>
+          <input type="checkbox" checked={form.tratamentoAtual.includes(t)} onChange={() => {
+            const jaTem = form.tratamentoAtual.includes(t);
+            setForm(prev => ({
+              ...prev,
+              tratamentoAtual: jaTem ? prev.tratamentoAtual.filter(i => i !== t) : [...prev.tratamentoAtual, t]
+            }));
+          }} /> {t}
+        </div>
+      ))}
+
+      <label>Resposta ao tratamento:</label>
+      <select value={form.respostaTratamento} onChange={e => setForm({ ...form, respostaTratamento: e.target.value })}>
+        {opcoes.resposta.map(op => <option key={op}>{op}</option>)}
+      </select>
+
+      <label>Intolerância aos colírios:</label>
+      <input type="checkbox" checked={form.intolerancia} onChange={e => setForm({ ...form, intolerancia: e.target.checked })} />
+
+      <label>Adicionar PIO ao histórico:</label>
+      <input value={form.novoPIO} onChange={e => setForm({ ...form, novoPIO: e.target.value })} />
+      <button onClick={adicionarPIO}>Adicionar PIO</button>
+
+      <Line data={dadosGrafico} />
+
+      <button onClick={() => alert(gerarLaudo())}>Gerar Laudo</button>
+    </div>
+  );
+}

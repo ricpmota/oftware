@@ -1,0 +1,120 @@
+// 📁 ultrassomLaudoForm.tsx
+
+/**
+ * Formulário interativo para preenchimento de laudo de Ultrassonografia Ocular (modo B)
+ * Permite marcar estruturas visualizadas, achados patológicos e sugerir conduta
+ */
+
+import React, { useState } from 'react';
+
+export default function UltrassomLaudoForm() {
+  const [form, setForm] = useState({
+    olho: 'OD',
+    midriase: false,
+    corpoVitreo: [],
+    retina: [],
+    nervoOptico: [],
+    outrasEstruturas: [],
+    conclusao: '',
+    conduta: []
+  });
+
+  const opcoes = {
+    olhos: ['OD', 'OE'],
+    corpoVitreo: [
+      'Padrão anecogênico normal',
+      'Hemorragia vítrea',
+      'Descolamento do vítreo posterior (DVP)',
+      'Membrana vítrea condensada',
+      'Corpos estranhos intravítreos'
+    ],
+    retina: [
+      'Retina aplicada',
+      'Descolamento de retina total',
+      'Descolamento de retina localizado',
+      'Descolamento regmatogênico',
+      'Proliferação vítreo-retiniana (PVR)'
+    ],
+    nervoOptico: [
+      'Excavação preservada',
+      'Aumento da escavação',
+      'Papiledema',
+      'Drusas de papila'
+    ],
+    outrasEstruturas: [
+      'Espessamento escleral',
+      'Tumor intraocular',
+      'Calcificações',
+      'Afácico / pseudofácico'
+    ],
+    condutas: [
+      'Acompanhamento clínico',
+      'Indicação de vitrectomia',
+      'Encaminhamento para especialista em retina',
+      'Solicitar TC / RM complementares'
+    ]
+  };
+
+  const handleCheck = (campo, valor) => {
+    setForm(prev => {
+      const jaExiste = prev[campo].includes(valor);
+      const novoArray = jaExiste ? prev[campo].filter(v => v !== valor) : [...prev[campo], valor];
+      return { ...prev, [campo]: novoArray };
+    });
+  };
+
+  const gerarLaudo = () => {
+    const olho = `Exame realizado no olho ${form.olho}`;
+    const midriase = form.midriase ? ' com pupila dilatada.' : ' sem dilatação pupilar.';
+    const corpoV = form.corpoVitreo.length ? `Corpo vítreo: ${form.corpoVitreo.join(', ')}.` : '';
+    const retina = form.retina.length ? `Retina: ${form.retina.join(', ')}.` : '';
+    const nervo = form.nervoOptico.length ? `Nervo óptico: ${form.nervoOptico.join(', ')}.` : '';
+    const outras = form.outrasEstruturas.length ? `Outras estruturas: ${form.outrasEstruturas.join(', ')}.` : '';
+    const conduta = form.conduta.length ? `Conduta sugerida: ${form.conduta.join(', ')}.` : '';
+
+    return `Laudo de Ultrassonografia Ocular (modo B):\n\n${olho}${midriase}\n${corpoV}\n${retina}\n${nervo}\n${outras}\n\n${conduta}`;
+  };
+
+  return (
+    <div>
+      <h2>Laudo de Ultrassom Ocular</h2>
+
+      <label>Olho:</label>
+      <select value={form.olho} onChange={e => setForm({ ...form, olho: e.target.value })}>
+        {opcoes.olhos.map(op => <option key={op}>{op}</option>)}
+      </select>
+
+      <label>
+        <input type="checkbox" checked={form.midriase} onChange={e => setForm({ ...form, midriase: e.target.checked })} />
+        Pupila dilatada
+      </label>
+
+      <h3>Corpo Vítreo</h3>
+      {opcoes.corpoVitreo.map(op => (
+        <label key={op}><input type="checkbox" checked={form.corpoVitreo.includes(op)} onChange={() => handleCheck('corpoVitreo', op)} /> {op}</label>
+      ))}
+
+      <h3>Retina</h3>
+      {opcoes.retina.map(op => (
+        <label key={op}><input type="checkbox" checked={form.retina.includes(op)} onChange={() => handleCheck('retina', op)} /> {op}</label>
+      ))}
+
+      <h3>Nervo Óptico</h3>
+      {opcoes.nervoOptico.map(op => (
+        <label key={op}><input type="checkbox" checked={form.nervoOptico.includes(op)} onChange={() => handleCheck('nervoOptico', op)} /> {op}</label>
+      ))}
+
+      <h3>Outras Estruturas</h3>
+      {opcoes.outrasEstruturas.map(op => (
+        <label key={op}><input type="checkbox" checked={form.outrasEstruturas.includes(op)} onChange={() => handleCheck('outrasEstruturas', op)} /> {op}</label>
+      ))}
+
+      <h3>Conduta</h3>
+      {opcoes.condutas.map(op => (
+        <label key={op}><input type="checkbox" checked={form.conduta.includes(op)} onChange={() => handleCheck('conduta', op)} /> {op}</label>
+      ))}
+
+      <button onClick={() => alert(gerarLaudo())}>Gerar Laudo</button>
+    </div>
+  );
+}

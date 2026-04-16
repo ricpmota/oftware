@@ -1,0 +1,105 @@
+// 📁 glaucomaForm.tsx
+
+import React, { useState } from 'react';
+
+export default function GlaucomaForm() {
+  const [form, setForm] = useState({
+    nome: '',
+    idade: '',
+    olho: 'OD',
+    historicoFamiliar: false,
+    raca: '',
+    ametropia: '',
+    tipoAngulo: '',
+    escavacao: '',
+    pioManha: '',
+    pioTarde: '',
+    pioNoite: '',
+    campoVisual: '',
+    octRNFL: '',
+    usaColirio: false,
+    colirios: [],
+    respostaPIO: '',
+    efeitosAdversos: [],
+    tratamentoAtual: '',
+    tratamentoCirurgico: false,
+    tratamentoLaser: false,
+    indicacaoCirurgia: false,
+    tipoGlaucoma: '',
+    recomendacoes: []
+  });
+
+  const opcoes = {
+    olhos: ['OD', 'OE'],
+    racas: ['Branca', 'Negra', 'Asiática', 'Parda'],
+    ametropias: ['Miopia', 'Hipermetropia', 'Nenhuma'],
+    angulos: ['Aberto', 'Fechado', 'Oclusão intermitente'],
+    escavacoes: ['<0.3', '0.4', '0.5', '0.6', '0.7', '>0.8'],
+    camposVisuais: ['Normal', 'Defeito arcuato', 'Escotoma paracentral', 'Defeito nasal', 'Generalizado'],
+    octRNFL: ['Normal', 'Reduzido', 'Assimétrico', 'Ausente'],
+    colirios: [
+      'Latanoprosta', 'Travoprosta', 'Timolol', 'Dorzolamida', 'Brimonidina',
+      'Latanoprosta + Timolol', 'Dorzolamida + Timolol'
+    ],
+    respostasPIO: ['Reduziu PIO satisfatoriamente', 'Redução insuficiente', 'PIO inalterada'],
+    efeitosAdversos: ['Hiperemia', 'Irritação ocular', 'Crescimento de cílios', 'Desconforto geral'],
+    tiposGlaucoma: [
+      'Primário de ângulo aberto',
+      'Primário de ângulo fechado',
+      'Congênito',
+      'Pseudoesfoliativo',
+      'Pigmentar',
+      'Secundário a trauma',
+      'Secundário inflamatório'
+    ],
+    recomendacoes: [
+      'Iniciar colírio análogo de prostaglandina',
+      'Associar beta-bloqueador',
+      'Trocar para combinação fixa',
+      'Considerar SLT (laser)',
+      'Encaminhar para cirurgia (trabeculectomia ou MIGS)',
+      'Manter acompanhamento clínico com curva tensional'
+    ]
+  };
+
+  const gerarCurvaTensional = () => {
+    const valores = [form.pioManha, form.pioTarde, form.pioNoite].map(v => parseFloat(v)).filter(Boolean);
+    if (valores.length < 2) return '';
+    const max = Math.max(...valores);
+    const min = Math.min(...valores);
+    const oscilacao = max - min;
+    return `Curva tensional com variação de ${oscilacao.toFixed(1)} mmHg (${valores.join(' / ')}). ${oscilacao >= 5 ? 'Sugere risco aumentado de progressão.' : 'Oscilação dentro da normalidade.'}`;
+  };
+
+  const gerarLaudo = () => {
+    const curva = gerarCurvaTensional();
+    const colirios = form.usaColirio ? `Em uso de colírio(s): ${form.colirios.join(', ')}. Resposta: ${form.respostaPIO}.` : 'Sem uso atual de colírios.';
+    const efeitos = form.efeitosAdversos.length ? `Efeitos adversos: ${form.efeitosAdversos.join(', ')}.` : '';
+
+    return `Paciente ${form.nome}, ${form.idade} anos, olho ${form.olho}.
+
+Histórico familiar: ${form.historicoFamiliar ? 'positivo' : 'negativo'}.
+Raça: ${form.raca}. Ametropia: ${form.ametropia}.
+Tipo do ângulo: ${form.tipoAngulo}.
+Escavação do disco: ${form.escavacao}. Campo visual: ${form.campoVisual}.
+OCT RNFL: ${form.octRNFL}.
+
+${curva}
+${colirios}
+${efeitos}
+
+Tipo de glaucoma suspeito: ${form.tipoGlaucoma}.
+Tratamentos prévios: ${form.tratamentoAtual}.
+Tratamento cirúrgico indicado: ${form.indicacaoCirurgia ? 'Sim' : 'Não'}.
+
+Conduta sugerida: ${form.recomendacoes.join(', ')}.`;
+  };
+
+  return (
+    <div>
+      <h2>Formulário Glaucoma</h2>
+      {/* Renderização dos campos - usar interface modular com selects e checkboxes */}
+      <button onClick={() => alert(gerarLaudo())}>Gerar Laudo</button>
+    </div>
+  );
+}

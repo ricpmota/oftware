@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campanha de Lançamento — Método Emagrecer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep-blue: #0A1F44;
+    --vital-green: #4CCB7A;
+    --data-blue: #2F8FA3;
+    --neutral: #E8EDED;
+    --bg: #f2f4f6;
+    --white: #ffffff;
+    --text: #0A1F44;
+    --muted: #6b7a8d;
+    --border: rgba(10,31,68,0.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+  /* ── HERO ── */
+  .hero {
+    background: var(--deep-blue);
+    padding: 56px 48px 48px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: -100px; right: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(76,203,122,0.1) 0%, transparent 65%);
+    border-radius: 50%;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; bottom: -60px; left: 30%;
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(47,143,163,0.08) 0%, transparent 65%);
+    border-radius: 50%;
+  }
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(76,203,122,0.12); border: 1px solid rgba(76,203,122,0.25);
+    border-radius: 100px; padding: 5px 14px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--vital-green); margin-bottom: 20px; position: relative; z-index: 1;
+  }
+  .hero-eyebrow span { width: 5px; height: 5px; background: var(--vital-green); border-radius: 50%; }
+  .hero h1 {
+    font-size: clamp(26px, 3.5vw, 42px); font-weight: 900;
+    line-height: 1.1; letter-spacing: -0.03em;
+    color: #fff; max-width: 680px;
+    position: relative; z-index: 1; margin-bottom: 14px;
+  }
+  .hero h1 em { font-style: normal; color: var(--vital-green); }
+  .hero-sub {
+    font-size: 14px; color: rgba(255,255,255,0.5);
+    max-width: 520px; line-height: 1.7;
+    position: relative; z-index: 1;
+  }
+  .hero-meta {
+    display: flex; gap: 36px; margin-top: 36px;
+    position: relative; z-index: 1; flex-wrap: wrap;
+  }
+  .meta { display: flex; flex-direction: column; gap: 3px; }
+  .meta-l { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.3); }
+  .meta-v { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); }
+
+  /* ── LAYOUT GERAL ── */
+  .page { max-width: 960px; margin: 0 auto; padding: 48px 32px 80px; }
+
+  /* ── SEÇÃO TÍTULO ── */
+  .sec-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--data-blue); margin-bottom: 6px;
+  }
+  .sec-title {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.02em;
+    color: var(--deep-blue); margin-bottom: 4px;
+  }
+  .sec-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+
+  /* ── ESTRATÉGIA ── */
+  .strategy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 48px; }
+  .strat-card {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--border); padding: 20px;
+    position: relative; overflow: hidden;
+  }
+  .strat-card::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 100%; height: 3px;
+  }
+  .sc-green::before { background: var(--vital-green); }
+  .sc-blue::before { background: var(--data-blue); }
+  .sc-dark::before { background: var(--deep-blue); }
+  .sc-mix::before { background: linear-gradient(90deg, var(--vital-green), var(--data-blue)); }
+  .strat-icon { font-size: 20px; margin-bottom: 10px; }
+  .strat-title { font-size: 13px; font-weight: 700; color: var(--deep-blue); margin-bottom: 5px; }
+  .strat-desc { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+  /* ── CAMPANHA CONCEITO ── */
+  .conceito-block {
+    background: var(--deep-blue); border-radius: 20px;
+    padding: 40px 44px; margin-bottom: 48px;
+    position: relative; overflow: hidden;
+  }
+  .conceito-block::before {
+    content: '';
+    position: absolute; top: -80px; right: -80px;
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, rgba(76,203,122,0.1) 0%, transparent 65%);
+    border-radius: 50%;
+  }
+  .conceito-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(76,203,122,0.12); border: 1px solid rgba(76,203,122,0.22);
+    border-radius: 100px; padding: 4px 12px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--vital-green); margin-bottom: 20px; position: relative; z-index: 1;
+  }
+  .conceito-headline {
+    font-size: clamp(22px, 3vw, 34px); font-weight: 900;
+    line-height: 1.1; letter-spacing: -0.03em; color: #fff;
+    position: relative; z-index: 1; margin-bottom: 16px;
+  }
+  .conceito-headline em { font-style: normal; color: var(--vital-green); }
+  .conceito-tagline {
+    font-size: 15px; font-weight: 700; color: var(--vital-green);
+    letter-spacing: 0.04em; position: relative; z-index: 1; margin-bottom: 12px;
+  }
+  .conceito-sub {
+    font-size: 13px; color: rgba(255,255,255,0.5);
+    max-width: 520px; line-height: 1.7;
+    position: relative; z-index: 1;
+  }
+
+  /* ── PEÇAS ── */
+  .pecas-wrap { display: flex; flex-direction: column; gap: 36px; margin-bottom: 48px; }
+
+  .peca-card {
+    background: var(--white); border-radius: 18px;
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .peca-header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 22px 28px; border-bottom: 1px solid var(--border);
+    background: rgba(10,31,68,0.02);
+  }
+  .peca-num {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--deep-blue); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: var(--vital-green); flex-shrink: 0;
+  }
+  .peca-info { flex: 1; }
+  .peca-title { font-size: 15px; font-weight: 800; color: var(--deep-blue); margin-bottom: 3px; }
+  .peca-meta { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .peca-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ptag {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 100px; border: 1px solid;
+  }
+  .ptag-g { background: rgba(76,203,122,0.1); border-color: rgba(76,203,122,0.25); color: #2e9455; }
+  .ptag-b { background: rgba(47,143,163,0.1); border-color: rgba(47,143,163,0.25); color: #1f6b7a; }
+  .ptag-d { background: rgba(10,31,68,0.07); border-color: rgba(10,31,68,0.15); color: var(--deep-blue); }
+
+  .peca-body { padding: 28px; display: grid; gap: 24px; }
+  .peca-body.two-col { grid-template-columns: 1fr 1fr; }
+
+  .field-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--data-blue); margin-bottom: 8px;
+  }
+  .field-content {
+    font-size: 13px; line-height: 1.75; color: #2a3a50;
+  }
+  .field-content strong { font-weight: 700; color: var(--deep-blue); }
+  .field-content em { font-style: normal; color: var(--vital-green); font-weight: 600; }
+
+  /* Roteiro cenas */
+  .cenas { display: flex; flex-direction: column; gap: 0; }
+  .cena {
+    display: flex; gap: 0; position: relative;
+  }
+  .cena-line {
+    display: flex; flex-direction: column; align-items: center;
+    width: 40px; flex-shrink: 0;
+  }
+  .cena-dot {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; flex-shrink: 0; z-index: 1;
+  }
+  .cena-connector {
+    width: 2px; flex: 1; min-height: 16px;
+    background: rgba(10,31,68,0.08);
+  }
+  .cena:last-child .cena-connector { display: none; }
+  .cd-impacto { background: rgba(76,203,122,0.15); color: #2e9455; border: 1px solid rgba(76,203,122,0.3); }
+  .cd-tensao { background: rgba(47,143,163,0.15); color: #1f6b7a; border: 1px solid rgba(47,143,163,0.3); }
+  .cd-virada { background: rgba(10,31,68,0.1); color: var(--deep-blue); border: 1px solid rgba(10,31,68,0.2); }
+  .cd-emocao { background: rgba(76,203,122,0.15); color: #2e9455; border: 1px solid rgba(76,203,122,0.3); }
+  .cd-cta { background: var(--deep-blue); color: var(--vital-green); border: 1px solid transparent; }
+
+  .cena-content { flex: 1; padding-bottom: 20px; padding-left: 12px; }
+  .cena-time {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    letter-spacing: 0.08em; margin-bottom: 4px;
+  }
+  .cena-desc {
+    font-size: 13px; line-height: 1.7; color: #2a3a50;
+  }
+  .cena-desc strong { font-weight: 700; color: var(--deep-blue); }
+  .cena-voice {
+    margin-top: 8px; padding: 10px 14px;
+    background: rgba(10,31,68,0.04); border-left: 2px solid var(--vital-green);
+    border-radius: 0 8px 8px 0;
+    font-size: 12.5px; line-height: 1.65; color: #1a2a40;
+    font-style: italic;
+  }
+  .cena-visual {
+    margin-top: 8px; padding: 8px 12px;
+    background: rgba(47,143,163,0.06); border: 1px solid rgba(47,143,163,0.15);
+    border-radius: 8px;
+    font-size: 11px; color: var(--muted); line-height: 1.5;
+  }
+  .cena-visual strong { color: var(--data-blue); font-weight: 600; }
+
+  /* Anúncio estático */
+  .static-preview {
+    background: var(--deep-blue); border-radius: 14px;
+    padding: 32px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 260px; position: relative; overflow: hidden;
+    text-align: center;
+  }
+  .static-preview::before {
+    content: '';
+    position: absolute; top: -60px; right: -60px;
+    width: 250px; height: 250px;
+    background: radial-gradient(circle, rgba(76,203,122,0.12) 0%, transparent 65%);
+    border-radius: 50%;
+  }
+  .sp-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+    color: rgba(255,255,255,0.3); margin-bottom: 14px; position: relative; z-index: 1;
+  }
+  .sp-headline {
+    font-size: clamp(18px, 2.5vw, 28px); font-weight: 900;
+    line-height: 1.15; letter-spacing: -0.02em; color: #fff;
+    position: relative; z-index: 1; margin-bottom: 14px;
+  }
+  .sp-headline em { font-style: normal; color: var(--vital-green); }
+  .sp-sub {
+    font-size: 12px; color: rgba(255,255,255,0.45);
+    max-width: 300px; line-height: 1.6;
+    position: relative; z-index: 1; margin-bottom: 20px;
+  }
+  .sp-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--vital-green); border-radius: 100px;
+    padding: 10px 22px; font-size: 12px; font-weight: 700;
+    color: var(--deep-blue); letter-spacing: 0.04em;
+    position: relative; z-index: 1;
+  }
+  .sp-bar { width: 28px; height: 2px; background: var(--vital-green); border-radius: 2px; margin: 0 auto 14px; position: relative; z-index: 1; }
+
+  /* Divider */
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+
+  /* Copy blocks */
+  .copy-block {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--border); padding: 24px 28px;
+    margin-bottom: 14px;
+  }
+  .copy-platform {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .platform-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .pd-ig { background: #E1306C; }
+  .pd-fb { background: #1877F2; }
+  .pd-yt { background: #FF0000; }
+  .pd-li { background: #0A66C2; }
+  .platform-name { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .copy-headline-big {
+    font-size: 17px; font-weight: 800; color: var(--deep-blue);
+    line-height: 1.25; letter-spacing: -0.01em; margin-bottom: 10px;
+  }
+  .copy-body {
+    font-size: 13px; color: #2a3a50; line-height: 1.75;
+  }
+  .copy-body strong { font-weight: 700; color: var(--deep-blue); }
+  .copy-cta-line {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px; font-weight: 700; color: var(--data-blue);
+  }
+
+  /* Calendário de lançamento */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .phase {
+    display: flex; gap: 0; position: relative;
+  }
+  .phase-line {
+    display: flex; flex-direction: column; align-items: center;
+    width: 44px; flex-shrink: 0;
+  }
+  .phase-dot {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; flex-shrink: 0; z-index: 1;
+  }
+  .phase-connector {
+    width: 2px; flex: 1; min-height: 20px;
+    background: rgba(10,31,68,0.08);
+  }
+  .phase:last-child .phase-connector { display: none; }
+  .ph-1 { background: rgba(76,203,122,0.15); color: #2e9455; border: 2px solid rgba(76,203,122,0.4); }
+  .ph-2 { background: rgba(47,143,163,0.15); color: #1f6b7a; border: 2px solid rgba(47,143,163,0.4); }
+  .ph-3 { background: var(--deep-blue); color: var(--vital-green); border: 2px solid rgba(76,203,122,0.4); }
+  .ph-4 { background: rgba(76,203,122,0.15); color: #2e9455; border: 2px solid rgba(76,203,122,0.4); }
+  .phase-content { flex: 1; padding-bottom: 28px; padding-left: 14px; }
+  .phase-period {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 5px;
+  }
+  .phase-name { font-size: 15px; font-weight: 800; color: var(--deep-blue); margin-bottom: 6px; }
+  .phase-desc { font-size: 13px; color: var(--muted); line-height: 1.65; margin-bottom: 10px; }
+  .phase-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .phase-item {
+    font-size: 11px; font-weight: 600; padding: 4px 10px;
+    border-radius: 100px; border: 1px solid;
+  }
+  .pi-g { background: rgba(76,203,122,0.07); border-color: rgba(76,203,122,0.2); color: #2e9455; }
+  .pi-b { background: rgba(47,143,163,0.07); border-color: rgba(47,143,163,0.2); color: #1f6b7a; }
+  .pi-d { background: rgba(10,31,68,0.05); border-color: rgba(10,31,68,0.12); color: var(--deep-blue); }
+
+  /* Notas finais */
+  .notes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .note-card {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--border); padding: 20px;
+  }
+  .note-icon { font-size: 18px; margin-bottom: 10px; }
+  .note-title { font-size: 13px; font-weight: 700; color: var(--deep-blue); margin-bottom: 6px; }
+  .note-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  @media (max-width: 640px) {
+    .hero { padding: 36px 24px; }
+    .page { padding: 32px 20px 60px; }
+    .peca-body.two-col { grid-template-columns: 1fr; }
+    .conceito-block { padding: 28px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow"><span></span> Campanha de Lançamento · 2026</div>
+  <h1>Estratégia completa de lançamento<br><em>Método Emagrecer</em></h1>
+  <p class="hero-sub">Roteiro de campanha para construção de autoridade de marca — com conceito criativo, peças por formato, copy por plataforma e calendário de lançamento.</p>
+  <div class="hero-meta">
+    <div class="meta"><span class="meta-l">Objetivo</span><span class="meta-v">Autoridade de marca</span></div>
+    <div class="meta"><span class="meta-l">Tom</span><span class="meta-v">Impactante → Emocional</span></div>
+    <div class="meta"><span class="meta-l">Formatos</span><span class="meta-v">Vídeo, Estático, Copy, Stories</span></div>
+    <div class="meta"><span class="meta-l">Fases</span><span class="meta-v">4 fases · 6 semanas</span></div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ESTRATÉGIA -->
+  <div class="sec-label">Fundação da campanha</div>
+  <div class="sec-title">Pilares estratégicos</div>
+  <p class="sec-sub">Antes de qualquer peça, a campanha é construída sobre quatro decisões estratégicas inegociáveis.</p>
+
+  <div class="strategy-grid">
+    <div class="strat-card sc-green">
+      <div class="strat-icon">⚔️</div>
+      <div class="strat-title">Posicionamento por contraste</div>
+      <div class="strat-desc">A marca se apresenta em oposição à cultura da promessa fácil. Não ataca concorrentes — ataca o comportamento do mercado.</div>
+    </div>
+    <div class="strat-card sc-blue">
+      <div class="strat-icon">🧠</div>
+      <div class="strat-title">Autoridade antes de venda</div>
+      <div class="strat-desc">O lançamento não começa pedindo conversão. Começa gerando crença. A venda é consequência da autoridade construída.</div>
+    </div>
+    <div class="strat-card sc-dark">
+      <div class="strat-icon">🔁</div>
+      <div class="strat-title">Tom misto intencional</div>
+      <div class="strat-desc">Começa provocador — confronta a lógica do mercado. Termina emocional — conecta com a jornada real do paciente.</div>
+    </div>
+    <div class="strat-card sc-mix">
+      <div class="strat-icon">📐</div>
+      <div class="strat-title">Consistência de mensagem</div>
+      <div class="strat-desc">Todos os formatos repetem o mesmo núcleo: método supera motivação. Cada peça é um novo ângulo da mesma verdade.</div>
+    </div>
+  </div>
+
+  <!-- CONCEITO CRIATIVO -->
+  <div class="conceito-block">
+    <div class="conceito-tag">Conceito criativo central</div>
+    <h2 class="conceito-headline">
+      "Você não falhou.<br>O processo <em>falhou você.</em>"
+    </h2>
+    <p class="conceito-tagline">— Tagline de lançamento</p>
+    <p class="conceito-sub">Essa frase é o coração da campanha. Ela valida a frustração do público sem julgamento, transfere a responsabilidade do fracasso do indivíduo para a ausência de método — e abre espaço para apresentar o Método Emagrecer como a solução estruturada que nunca existiu. É uma frase que desbloqueia. E que vende sem precisar pedir.</p>
+  </div>
+
+  <!-- PEÇA 1 — HERO VIDEO -->
+  <div class="sec-label">Peça 01 · Hero da campanha</div>
+  <div class="sec-title">Vídeo principal — 60 segundos</div>
+  <p class="sec-sub">O vídeo âncora da campanha. Vai ao ar primeiro e define o tom de tudo que vem depois. Formato: Reels, YouTube Ads, TikTok.</p>
+
+  <div class="pecas-wrap">
+    <div class="peca-card">
+      <div class="peca-header">
+        <div class="peca-num">01</div>
+        <div class="peca-info">
+          <div class="peca-title">Vídeo Hero — "Você não falhou. O processo falhou você."</div>
+          <div class="peca-meta">60s · Reels · YouTube Ads · TikTok · Alta produção</div>
+        </div>
+        <div class="peca-tags">
+          <span class="ptag ptag-d">Hero</span>
+          <span class="ptag ptag-g">Awareness</span>
+        </div>
+      </div>
+      <div class="peca-body">
+        <div>
+          <div class="field-label">Estrutura narrativa</div>
+          <div class="cenas">
+
+            <div class="cena">
+              <div class="cena-line">
+                <div class="cena-dot cd-impacto">1</div>
+                <div class="cena-connector"></div>
+              </div>
+              <div class="cena-content">
+                <div class="cena-time">0:00 — 0:08 · IMPACTO</div>
+                <div class="cena-desc"><strong>Abertura provocadora.</strong> Tela preta. Texto aparece letra por letra.</div>
+                <div class="cena-voice">"Você já tentou emagrecer antes."</div>
+                <div class="cena-visual"><strong>Visual:</strong> Fundo escuro, tipografia branca grande centrali­zada. Sem trilha. Só o som de uma digitação.</div>
+              </div>
+            </div>
+
+            <div class="cena">
+              <div class="cena-line">
+                <div class="cena-dot cd-tensao">2</div>
+                <div class="cena-connector"></div>
+              </div>
+              <div class="cena-content">
+                <div class="cena-time">0:08 — 0:20 · TENSÃO</div>
+                <div class="cena-desc"><strong>Reconhecimento da dor.</strong> Cortes rápidos de situações cotidianas: balança, geladeira, consulta sem retorno, começando uma dieta de segunda.</div>
+                <div class="cena-voice">"Você fez dieta. Você tentou. Você se esforçou. E mesmo assim... não sustentou."</div>
+                <div class="cena-visual"><strong>Visual:</strong> Planos fechados, tons frios e dessaturados. Nenhum rosto feliz. Realismo sem drama exagerado.</div>
+              </div>
+            </div>
+
+            <div class="cena">
+              <div class="cena-line">
+                <div class="cena-dot cd-virada">3</div>
+                <div class="cena-connector"></div>
+              </div>
+              <div class="cena-content">
+                <div class="cena-time">0:20 — 0:32 · VIRADA</div>
+                <div class="cena-desc"><strong>Reframe central.</strong> Corte seco para tela azul escuro. A frase da campanha aparece em destaque.</div>
+                <div class="cena-voice">"O problema não foi você. Foi a falta de processo. De acompanhamento. De um método que funcionasse de verdade."</div>
+                <div class="cena-visual"><strong>Visual:</strong> Texto grande: <em>"Você não falhou. O processo falhou você."</em> Verde sobre azul. Pausa de 2 segundos nessa tela.</div>
+              </div>
+            </div>
+
+            <div class="cena">
+              <div class="cena-line">
+                <div class="cena-dot cd-emocao">4</div>
+                <div class="cena-connector"></div>
+              </div>
+              <div class="cena-content">
+                <div class="cena-time">0:32 — 0:52 · EMOÇÃO + SOLUÇÃO</div>
+                <div class="cena-desc"><strong>Apresentação da marca com humanidade.</strong> Cortes de pacientes em acompanhamento real, médico e paciente juntos, dashboard sendo consultado, evolução no tempo.</div>
+                <div class="cena-voice">"O Método Emagrecer é um sistema clínico estruturado. Com acompanhamento médico, tecnologia e um protocolo que conduz você — do início ao resultado."</div>
+                <div class="cena-visual"><strong>Visual:</strong> Tons quentes e naturais. Rostos reais. Interface do app. Cores da marca surgindo gradualmente.</div>
+              </div>
+            </div>
+
+            <div class="cena">
+              <div class="cena-line">
+                <div class="cena-dot cd-cta">5</div>
+              </div>
+              <div class="cena-content">
+                <div class="cena-time">0:52 — 1:00 · CTA</div>
+                <div class="cena-desc"><strong>Encerramento com proposta clara.</strong> Logo da marca. Tagline. Link.</div>
+                <div class="cena-voice">"Porque saúde não é sorte. É método."</div>
+                <div class="cena-visual"><strong>Visual:</strong> Logo Método Emagrecer sobre fundo azul profundo. URL e CTA: <em>"Comece sua avaliação gratuita."</em></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div>
+          <div class="field-label">Direção de produção</div>
+          <div class="field-content">
+            <strong>Trilha sonora:</strong> Começa em silêncio. Entra um som low-fi e tenso na fase 2. Cresce com strings suaves na fase 4. Encerra com silêncio na fase 5.<br><br>
+            <strong>Paleta de cor:</strong> Preto e branco frio nas fases 1 e 2. Azul profundo (#0A1F44) na virada. Verde (#4CCB7A) como destaque pontual. Tons naturais na fase emocional.<br><br>
+            <strong>Elenco:</strong> Pessoas reais, diversas, não atores com aparência de modelo. A autenticidade visual é parte do posicionamento anti-promessa da marca.<br><br>
+            <strong>Locução:</strong> Voz masculina ou feminina neutra, com dicção clara e ritmo pausado. Sem entonação publicitária. Fala como alguém que está dizendo uma verdade.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PEÇA 2 — VIDEO 15S -->
+    <div class="peca-card">
+      <div class="peca-header">
+        <div class="peca-num">02</div>
+        <div class="peca-info">
+          <div class="peca-title">Vídeo de corte — 15 segundos</div>
+          <div class="peca-meta">15s · Stories · Reels · Pré-roll YouTube · Tráfego pago</div>
+        </div>
+        <div class="peca-tags">
+          <span class="ptag ptag-b">Performance</span>
+          <span class="ptag ptag-g">Retargeting</span>
+        </div>
+      </div>
+      <div class="peca-body">
+        <div>
+          <div class="field-label">Roteiro completo</div>
+          <div class="cenas">
+            <div class="cena">
+              <div class="cena-line"><div class="cena-dot cd-impacto">1</div><div class="cena-connector"></div></div>
+              <div class="cena-content">
+                <div class="cena-time">0:00 — 0:04 · GANCHO</div>
+                <div class="cena-voice">"Quantas vezes você já começou uma dieta?"</div>
+                <div class="cena-visual"><strong>Visual:</strong> Texto na tela, fundo escuro. Sem imagem. A pergunta ocupa toda a tela.</div>
+              </div>
+            </div>
+            <div class="cena">
+              <div class="cena-line"><div class="cena-dot cd-virada">2</div><div class="cena-connector"></div></div>
+              <div class="cena-content">
+                <div class="cena-time">0:04 — 0:10 · VIRADA</div>
+                <div class="cena-voice">"O problema nunca foi você. Foi a falta de método."</div>
+                <div class="cena-visual"><strong>Visual:</strong> Corte para azul profundo. Frase em verde.</div>
+              </div>
+            </div>
+            <div class="cena">
+              <div class="cena-line"><div class="cena-dot cd-cta">3</div></div>
+              <div class="cena-content">
+                <div class="cena-time">0:10 — 0:15 · CTA</div>
+                <div class="cena-voice">"Método Emagrecer. Emagrecimento com ciência e acompanhamento."</div>
+                <div class="cena-visual"><strong>Visual:</strong> Logo + CTA: "Comece sua avaliação."</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="field-label">Observações de uso</div>
+          <div class="field-content">
+            Esse corte é otimizado para <strong>skip após 5 segundos</strong>. O gancho precisa ser a pergunta — ela provoca o reconhecimento imediato antes do usuário poder pular.<br><br>
+            Usar como retargeting para quem assistiu mais de 30% do vídeo hero. Também eficiente como <strong>primeiro contato</strong> em campanhas de tráfego frio pelo custo por impressão mais baixo.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PEÇA 3 — ANUNCIO ESTATICO -->
+    <div class="peca-card">
+      <div class="peca-header">
+        <div class="peca-num">03</div>
+        <div class="peca-info">
+          <div class="peca-title">Anúncio estático — Feed e Stories</div>
+          <div class="peca-meta">1080×1080 · 1080×1920 · Meta Ads · Instagram · Facebook</div>
+        </div>
+        <div class="peca-tags">
+          <span class="ptag ptag-d">Estático</span>
+          <span class="ptag ptag-b">Meta Ads</span>
+        </div>
+      </div>
+      <div class="peca-body two-col">
+        <div>
+          <div class="field-label">Preview visual — Versão feed 1:1</div>
+          <div class="static-preview">
+            <p class="sp-label">Método Emagrecer</p>
+            <div class="sp-bar"></div>
+            <h3 class="sp-headline">Você não falhou.<br>O processo<br><em>falhou você.</em></h3>
+            <p class="sp-sub">Emagrecimento com protocolo médico, tecnologia e acompanhamento contínuo.</p>
+            <div class="sp-cta">
+              Comece sua avaliação
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="#0A1F44" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="field-label" style="margin-bottom:12px;">Copy do anúncio</div>
+          <div class="field-content" style="margin-bottom:16px;">
+            <strong>Headline principal:</strong><br>
+            Você não falhou. O processo falhou você.<br><br>
+            <strong>Texto do anúncio:</strong><br>
+            A maioria das dietas falha porque depende de motivação — não de método.<br><br>O Método Emagrecer é um sistema clínico estruturado: protocolo médico, orientação nutricional e tecnologia de monitoramento em uma plataforma.<br><br>Sem promessas. Com processo.<br><br>
+            <strong>CTA do botão:</strong><br>
+            Comece sua avaliação gratuita
+          </div>
+          <div class="field-label">Variações de headline para teste A/B</div>
+          <div class="field-content">
+            — "Emagrecimento sem método é só tentativa."<br>
+            — "O que faltou não foi esforço. Foi sistema."<br>
+            — "Saúde não é sorte. É método."<br>
+            — "Pare de começar. Comece de vez."
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PEÇA 4 — STORIES -->
+    <div class="peca-card">
+      <div class="peca-header">
+        <div class="peca-num">04</div>
+        <div class="peca-info">
+          <div class="peca-title">Sequência de Stories — 3 frames</div>
+          <div class="peca-meta">Instagram Stories · Orgânico e pago · Sequência narrativa</div>
+        </div>
+        <div class="peca-tags">
+          <span class="ptag ptag-g">Stories</span>
+          <span class="ptag ptag-d">Sequência</span>
+        </div>
+      </div>
+      <div class="peca-body">
+        <div>
+          <div class="field-label">Frame 1 — Provocação</div>
+          <div class="field-content" style="margin-bottom:16px;">
+            <strong>Visual:</strong> Fundo azul escuro. Texto central branco.<br>
+            <strong>Texto:</strong> "Já tentou emagrecer e não conseguiu manter?"<br>
+            <strong>Elemento:</strong> Enquete interativa — "Sim, já tentei" / "Ainda não comecei"<br>
+            <strong>Objetivo:</strong> Engajamento + qualificação de público.
+          </div>
+          <div class="field-label">Frame 2 — Reframe</div>
+          <div class="field-content" style="margin-bottom:16px;">
+            <strong>Visual:</strong> Fundo azul profundo. Destaque em verde.<br>
+            <strong>Texto:</strong> "A culpa não é sua. É do processo que você usou."<br>
+            <strong>Subtexto:</strong> "Motivação oscila. Método permanece."<br>
+            <strong>Objetivo:</strong> Mudança de perspectiva — desbloquear a resistência.
+          </div>
+          <div class="field-label">Frame 3 — Solução + CTA</div>
+          <div class="field-content">
+            <strong>Visual:</strong> Logo da marca. Verde como cor dominante.<br>
+            <strong>Texto:</strong> "Conheça o Método Emagrecer."<br>
+            <strong>Subtexto:</strong> "Sistema clínico com acompanhamento médico e tecnologia."<br>
+            <strong>CTA:</strong> Arraste para cima — "Comece sua avaliação gratuita"<br>
+            <strong>Objetivo:</strong> Conversão direta após construir contexto nos frames anteriores.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="section-divider"/>
+
+  <!-- COPY POR PLATAFORMA -->
+  <div class="sec-label">Copy de lançamento</div>
+  <div class="sec-title">Texto por plataforma</div>
+  <p class="sec-sub">Cada plataforma tem um comportamento diferente. O núcleo da mensagem é o mesmo — o formato e o tom se adaptam.</p>
+
+  <div style="margin-bottom: 48px;">
+
+    <div class="copy-block">
+      <div class="copy-platform"><div class="platform-dot pd-ig"></div><span class="platform-name">Instagram — Post feed de lançamento</span></div>
+      <div class="copy-headline-big">Você não falhou. O processo falhou você.</div>
+      <div class="copy-body">
+        Quantas vezes você já começou uma dieta, se esforçou de verdade — e mesmo assim não conseguiu manter?<br><br>
+        A maioria das pessoas acha que o problema é disciplina. Que falta força de vontade. Que elas simplesmente "não conseguem".<br><br>
+        <strong>Não é verdade.</strong><br><br>
+        O que falta não é esforço. É processo. É acompanhamento. É um método que conduza cada etapa — com ciência, tecnologia e responsabilidade.<br><br>
+        O Método Emagrecer foi construído exatamente para isso.<br><br>
+        Não vendemos motivação. Não prometemos rapidez. Entregamos um sistema clínico estruturado — com protocolo médico, orientação nutricional e monitoramento contínuo em uma plataforma.<br><br>
+        <strong>Porque saúde não é sorte. É método.</strong><br><br>
+        Comece sua avaliação gratuita. Link na bio.
+      </div>
+      <div class="copy-cta-line">CTA → Link na bio · "Comece sua avaliação gratuita"</div>
+    </div>
+
+    <div class="copy-block">
+      <div class="copy-platform"><div class="platform-dot pd-li"></div><span class="platform-name">LinkedIn — Post de autoridade para lançamento</span></div>
+      <div class="copy-headline-big">O mercado de emagrecimento falha por design — não por acidente.</div>
+      <div class="copy-body">
+        O mercado de saúde e emagrecimento no Brasil movimenta bilhões por ano. E a maioria das soluções continua falhando com o mesmo paciente, repetidamente.<br><br>
+        Por quê? Porque o modelo dominante é construído sobre motivação, promessas e tentativa — não sobre processo, dados e acompanhamento.<br><br>
+        <strong>Foi para mudar isso que construímos o Método Emagrecer.</strong><br><br>
+        Um sistema clínico estruturado que integra acompanhamento médico, orientação nutricional e tecnologia de monitoramento em uma única plataforma.<br><br>
+        O resultado não depende de força de vontade. Depende de protocolo.<br><br>
+        Hoje lançamos para o mercado uma abordagem que não compete com soluções existentes — ela ocupa um espaço que ainda não havia sido preenchido: emagrecimento baseado em método, ciência e controle contínuo.<br><br>
+        <strong>Porque emagrecimento não é sobre tentar mais. É sobre fazer do jeito certo.</strong>
+      </div>
+      <div class="copy-cta-line">CTA → "Saiba mais sobre o Método" · Link para página institucional</div>
+    </div>
+
+    <div class="copy-block">
+      <div class="copy-platform"><div class="platform-dot pd-yt"></div><span class="platform-name">YouTube — Descrição do vídeo hero</span></div>
+      <div class="copy-headline-big">Você não falhou. O processo falhou você. | Método Emagrecer</div>
+      <div class="copy-body">
+        Se você já tentou emagrecer — e não conseguiu manter — este vídeo é para você.<br><br>
+        O problema nunca foi disciplina ou força de vontade. Foi a falta de um processo estruturado, com acompanhamento real e decisões baseadas em dados.<br><br>
+        O Método Emagrecer é um sistema clínico que transforma o emagrecimento em um processo previsível, monitorado e sustentável — com protocolo médico, orientação nutricional e tecnologia integrada.<br><br>
+        <strong>Sem promessas rápidas. Com método.</strong>
+      </div>
+      <div class="copy-cta-line">CTA → "Comece sua avaliação gratuita" · Link na descrição</div>
+    </div>
+
+  </div>
+
+  <hr class="section-divider"/>
+
+  <!-- CALENDÁRIO -->
+  <div class="sec-label">Plano de execução</div>
+  <div class="sec-title">Calendário de lançamento — 6 semanas</div>
+  <p class="sec-sub">A campanha é dividida em 4 fases com objetivos distintos. Cada fase alimenta a seguinte — o awareness da fase 1 é o público de retargeting da fase 3.</p>
+
+  <div style="background: var(--white); border-radius: 18px; border: 1px solid var(--border); padding: 32px 28px; margin-bottom: 48px;">
+    <div class="timeline">
+
+      <div class="phase">
+        <div class="phase-line">
+          <div class="phase-dot ph-1">S1</div>
+          <div class="phase-connector"></div>
+        </div>
+        <div class="phase-content">
+          <div class="phase-period">Semana 1–2 · PRÉ-LANÇAMENTO</div>
+          <div class="phase-name">Fase 1 — Provocação</div>
+          <div class="phase-desc">A marca aparece sem se apresentar. Conteúdos que confrontam a lógica do mercado, sem citar o Método. Gera curiosidade e qualifica o público que vai receber o lançamento.</div>
+          <div class="phase-items">
+            <span class="phase-item pi-d">Posts "Por que dietas falham"</span>
+            <span class="phase-item pi-d">Stories com enquetes</span>
+            <span class="phase-item pi-b">Conteúdo educativo orgânico</span>
+            <span class="phase-item pi-b">Tráfego frio de awareness</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-line">
+          <div class="phase-dot ph-2">S3</div>
+          <div class="phase-connector"></div>
+        </div>
+        <div class="phase-content">
+          <div class="phase-period">Semana 3 · LANÇAMENTO</div>
+          <div class="phase-name">Fase 2 — Revelação</div>
+          <div class="phase-desc">A marca se apresenta. Vídeo hero vai ao ar. Post de lançamento. Toda comunicação centralizada na frase "Você não falhou. O processo falhou você."</div>
+          <div class="phase-items">
+            <span class="phase-item pi-g">Vídeo hero 60s</span>
+            <span class="phase-item pi-g">Post feed de lançamento</span>
+            <span class="phase-item pi-g">Sequência de Stories</span>
+            <span class="phase-item pi-b">Campanha paga simultânea</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-line">
+          <div class="phase-dot ph-3">S4</div>
+          <div class="phase-connector"></div>
+        </div>
+        <div class="phase-content">
+          <div class="phase-period">Semana 4–5 · PÓS-LANÇAMENTO</div>
+          <div class="phase-name">Fase 3 — Autoridade</div>
+          <div class="phase-desc">A marca aprofunda o posicionamento. Conteúdos sobre atributos, diferenciação e processo. Retargeting para quem interagiu nas fases anteriores com foco em conversão.</div>
+          <div class="phase-items">
+            <span class="phase-item pi-b">Vídeo 15s de corte</span>
+            <span class="phase-item pi-d">Posts comparativos</span>
+            <span class="phase-item pi-d">Conteúdo de manifesto</span>
+            <span class="phase-item pi-g">Retargeting para leads</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-line">
+          <div class="phase-dot ph-4">S6</div>
+        </div>
+        <div class="phase-content">
+          <div class="phase-period">Semana 6 · CONVERSÃO</div>
+          <div class="phase-name">Fase 4 — Ação</div>
+          <div class="phase-desc">A campanha converge para conversão. Anúncios estáticos com CTA direto. Público já aquecido pelas fases anteriores. Foco em leads qualificados para avaliação gratuita.</div>
+          <div class="phase-items">
+            <span class="phase-item pi-g">Anúncios estáticos Meta</span>
+            <span class="phase-item pi-g">CTA direto para avaliação</span>
+            <span class="phase-item pi-b">Lookalike dos engajamentos</span>
+            <span class="phase-item pi-d">Email para lista orgânica</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- NOTAS FINAIS -->
+  <hr class="section-divider"/>
+  <div class="sec-label">Diretrizes de execução</div>
+  <div class="sec-title">O que nunca pode aparecer nessa campanha</div>
+  <p class="sec-sub">Tão importante quanto saber o que fazer é saber o que evitar. Essas diretrizes protegem o posicionamento da marca durante toda a campanha.</p>
+
+  <div class="notes-grid">
+    <div class="note-card">
+      <div class="note-icon">🚫</div>
+      <div class="note-title">Zero antes e depois</div>
+      <div class="note-desc">Fotos comparativas de corpo são a linguagem da promessa fácil. Contradizem o posicionamento anti-promessa da marca.</div>
+    </div>
+    <div class="note-card">
+      <div class="note-icon">🚫</div>
+      <div class="note-title">Zero urgência artificial</div>
+      <div class="note-desc">Nada de "oferta por tempo limitado" ou "últimas vagas". A marca é construída sobre confiança — não sobre pressão de compra.</div>
+    </div>
+    <div class="note-card">
+      <div class="note-icon">🚫</div>
+      <div class="note-title">Zero promessa de tempo</div>
+      <div class="note-desc">Jamais citar "emagreça em X semanas". A marca se diferencia exatamente por não prometer velocidade.</div>
+    </div>
+    <div class="note-card">
+      <div class="note-icon">🚫</div>
+      <div class="note-title">Zero linguagem motivacional</div>
+      <div class="note-desc">Sem frases como "acredite em você" ou "você consegue". A marca não vende motivação — vende método.</div>
+    </div>
+    <div class="note-card">
+      <div class="note-icon">✅</div>
+      <div class="note-title">Consistência acima de tudo</div>
+      <div class="note-desc">Cada peça, em qualquer formato, deve soar como a mesma voz. Técnica, humana, direta e sem promessas vazias.</div>
+    </div>
+    <div class="note-card">
+      <div class="note-icon">✅</div>
+      <div class="note-title">Processo como herói</div>
+      <div class="note-desc">O protagonista da campanha não é o médico, não é o app e não é o paciente. É o método. Ele é o que muda tudo.</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

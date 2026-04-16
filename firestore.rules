@@ -79,6 +79,12 @@ service cloud.firestore {
       }
     }
     
+    // Regras para banners - leitura pública, escrita apenas autenticada
+    match /banners/{bannerId} {
+      allow read: if true; // Leitura pública para todos
+      allow write: if request.auth != null; // Escrita apenas para usuários autenticados
+    }
+    
     // Fallback para outras collections
     match /{document=**} {
       allow read, write: if request.auth != null;

@@ -1,0 +1,74 @@
+// 📁 calculadoraTratamentoRD.ts
+
+/**
+ * Função de lógica clínica para gerar conduta baseada em classificação da Retinopatia Diabética,
+ * presença de Edema Macular Diabético (EMD), achados de OCT e comorbidades.
+ * Ideal para uso em um modal interativo ou formulário de apoio à decisão clínica.
+ */
+
+export interface FormularioRD {
+  classificacao: 'RDNP Leve' | 'RDNP Moderada' | 'RDNP Grave' | 'RDP' | 'RDP Alto Risco';
+  emdPresente: 'ausente' | 'presente sem centro' | 'presente com centro';
+  achadoOCT: 'espessamento retiniano' | 'preservado' | 'não realizado';
+  comorbidades: string[]; // Ex: ['HAS', 'DRC']
+  gestante: boolean;
+}
+
+export function gerarCondutaRD(form: FormularioRD): string {
+  const { classificacao, emdPresente, achadoOCT, comorbidades, gestante } = form;
+
+  let conduta = '';
+
+  // ⚙️ Bloco Baseado na Classificação
+  if (classificacao === 'RDNP Leve') {
+    if (emdPresente === 'ausente') {
+      conduta += 'Controle glicêmico e acompanhamento em 12 meses.';
+    } else if (emdPresente === 'presente com centro') {
+      conduta += 'Solicitar OCT se não realizado. Se confirmado, iniciar Anti-VEGF. Acompanhamento mensal.';
+    } else {
+      conduta += 'Solicitar OCT. Se espessamento perifoveal, considerar fotocoagulação focal.';
+    }
+  }
+
+  else if (classificacao === 'RDNP Moderada') {
+    if (emdPresente === 'ausente') {
+      conduta += 'Controle rigoroso glicêmico + seguimento em 6 meses.';
+    } else if (emdPresente === 'presente com centro') {
+      conduta += 'Confirmar com OCT. Iniciar Anti-VEGF. Reavaliação em 30 dias.';
+    } else {
+      conduta += 'Considerar fotocoagulação focal se OCT com espessamento perifoveal. Seguimento em 3 meses.';
+    }
+  }
+
+  else if (classificacao === 'RDNP Grave') {
+    if (emdPresente === 'ausente') {
+      conduta += 'Encaminhar para retina. Considerar PRP se risco iminente de progressão. Acompanhamento em 2 meses.';
+    } else {
+      conduta += 'Avaliação de especialista. Anti-VEGF + considerar PRP. Acompanhamento mensal.';
+    }
+  }
+
+  else if (classificacao === 'RDP') {
+    conduta += 'Indicação de PRP (fotocoagulação panretiniana) + Anti-VEGF se EMD presente.';
+  }
+
+  else if (classificacao === 'RDP Alto Risco') {
+    conduta += 'PRP urgente + Anti-VEGF. Reavaliação a cada 15 dias. Avaliar risco de hemorragia vítrea.';
+  }
+
+  // ⚙️ Ajustes por Achado de OCT
+  if (achadoOCT === 'espessamento retiniano' && !conduta.includes('Anti-VEGF')) {
+    conduta += ' OCT com espessamento sugere início de Anti-VEGF imediato.';
+  }
+
+  // ⚙️ Ajustes por Comorbidades
+  if (comorbidades.includes('DRC') || comorbidades.includes('HAS')) {
+    conduta += ' Monitorar pressão e função renal. A resposta ao Anti-VEGF pode ser alterada.';
+  }
+
+  if (gestante) {
+    conduta += ' Evitar Anti-VEGF. Preferir observação ou fotocoagulação a laser.';
+  }
+
+  return conduta;
+}

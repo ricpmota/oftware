@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Camada_1" data-name="Camada 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        fill: #4ccb7a;
+      }
+
+      .cls-3 {
+        fill: #2f8fa3;
+      }
+
+      .cls-4 {
+        fill: url(#Gradiente_sem_nome_44);
+      }
+    </style>
+    <linearGradient id="Gradiente_sem_nome_44" data-name="Gradiente sem nome 44" x1="61.85" y1="524.15" x2="1036.35" y2="524.15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a1f44"/>
+      <stop offset=".52" stop-color="#2f8fa3"/>
+      <stop offset="1" stop-color="#4ccb7a"/>
+    </linearGradient>
+  </defs>
+  <path class="cls-4" d="M776.86,96.06c221.25,119.84,314.22,374.53,227.12,602.11-87.03,227.42-329.05,357.65-569.47,297.73C147.6,924.38-10.31,622.85,94.21,350.59,197.24,82.23,516.33-45.06,776.86,96.06Z"/>
+  <path class="cls-1" d="M984.54,569.3c-12.91,160.06-120.82,296.87-255.48,355.82-159.48,69.82-338.02,38.04-468.03-74.57l284.64-280.59,438.86-.67Z"/>
+  <path class="cls-2" d="M987.39,517.22l-426.4,1.29-.29-428.02c229.39,3.6,419.12,185.04,426.69,426.73Z"/>
+  <path class="cls-1" d="M495.66,545.67l-270.1,266.42c-138.34-155.53-149.84-382.65-25.64-548.25l295.74,281.83Z"/>
+  <path class="cls-3" d="M509.53,488.16L233.12,226.53c73.44-76.44,167.15-123.08,276.65-134.39l-.25,396.02Z"/>
+</svg>

@@ -117,6 +117,22 @@ export class LeadMedicoService {
   }
 
   /**
+   * Atualiza a classificação por estrelas (0–5) de um lead no Firestore.
+   */
+  static async updateLeadEstrelas(leadId: string, estrelas: number): Promise<void> {
+    const n = Math.min(5, Math.max(0, Math.round(estrelas)));
+    try {
+      await updateDoc(doc(db, this.COLLECTION_NAME, leadId), {
+        estrelas: n,
+        updatedAt: new Date(),
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar estrelas do lead médico:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Buscar todos os leads de um médico
    */
   static async getLeadsByMedico(medicoId: string): Promise<LeadMedico[]> {
@@ -151,6 +167,7 @@ export class LeadMedicoService {
           solicitacaoId: data.solicitacaoId,
           createdAtFirestore: data.createdAtFirestore?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
+          estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
         } as LeadMedico;
       });
       
@@ -199,6 +216,7 @@ export class LeadMedicoService {
         solicitacaoId: data.solicitacaoId,
         createdAtFirestore: data.createdAtFirestore?.toDate(),
         updatedAt: data.updatedAt?.toDate(),
+        estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
       } as LeadMedico;
     } catch (error) {
       console.error('Erro ao buscar lead médico por ID:', error);
@@ -241,6 +259,7 @@ export class LeadMedicoService {
           solicitacaoId: data.solicitacaoId,
           createdAtFirestore: data.createdAtFirestore?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
+          estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
         } as LeadMedico;
       });
     } catch (error) {

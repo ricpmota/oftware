@@ -141,11 +141,11 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
       if (selectedCategoryIndex !== null && faqCategories[selectedCategoryIndex]) {
         return faqCategories[selectedCategoryIndex].items;
       }
-      // Se nutriFaqItems foi fornecido separadamente (para paciente), incluir também
-      if (nutriFaqItems && nutriFaqItems.length > 0 && selectedCategoryIndex === null) {
-        // Retornar vazio para mostrar modal de categorias primeiro
-        return [];
+      // Se nutriFaqItems foi fornecido separadamente (para paciente) e currentCategory é 'nutri'
+      if (nutriFaqItems && nutriFaqItems.length > 0 && currentCategory === 'nutri') {
+        return nutriFaqItems;
       }
+      // Se selectedCategoryIndex é null e não é nutri, retornar vazio para mostrar modal de categorias
       return [];
     }
     
@@ -284,8 +284,18 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   const positionClasses = inHeader 
     ? '' 
     : position === 'left' 
-      ? 'fixed left-0 bottom-20 md:bottom-24' 
-      : 'fixed bottom-4 right-4 md:bottom-6 md:right-6';
+      ? 'fixed left-4 md:left-6 lg:left-6' 
+      : 'fixed right-4 md:right-6 lg:right-6';
+
+  // Calcular posição bottom com 0,5cm adicional (diminuir bottom para descer o elemento)
+  const bottomStyle: React.CSSProperties = inHeader 
+    ? {} 
+    : { 
+        bottom: 'calc(6rem - 0.5cm)'
+      };
+  
+  // Para desktop, usar classe Tailwind com valor customizado (diminuir bottom para descer)
+  const desktopBottomClass = inHeader ? '' : 'md:[bottom:calc(1.5rem-0.5cm)]';
 
   // Se estiver no header e escondido, mostrar apenas o botão de aparecer
   if (inHeader && isHidden) {
@@ -305,7 +315,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
     return (
       <div className="relative">
         {isOpen && (
-          <div className="absolute top-full right-0 mt-2 bg-white rounded-xl md:rounded-2xl shadow-2xl w-[calc(100vw-2rem)] md:w-[90vw] max-w-md h-[500px] md:h-[600px] flex flex-col border border-gray-200 z-50">
+          <div className="absolute top-full right-0 mt-2 bg-white rounded-xl md:rounded-2xl shadow-2xl w-[calc(100vw-2rem)] md:w-[90vw] max-w-md h-[500px] md:h-[600px] flex flex-col border border-gray-200 z-50 ml-[1cm] md:ml-0">
             {/* Header estilo WhatsApp */}
             <div className="bg-gradient-to-r from-purple-600 to-orange-600 text-white p-3 md:p-4 rounded-t-xl md:rounded-t-2xl flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2 md:gap-3">
@@ -712,8 +722,15 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
   );
 }
 
+  // Na versão mobile, quando o chat está aberto, centralizar o container
+  const containerClasses = !isOpen || inHeader
+    ? positionClasses 
+    : position === 'left'
+      ? 'fixed inset-x-0 md:left-6 lg:left-6'
+      : 'fixed inset-x-0 md:right-6 lg:right-6';
+  
   return (
-    <div className={`${positionClasses} z-50`}>
+    <div className={`${containerClasses} ${desktopBottomClass} z-50`} style={bottomStyle}>
       {isHidden ? (
         <button
           onClick={handleToggleHidden}
@@ -723,7 +740,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
           <ChevronRight size={20} />
         </button>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 ${isOpen ? 'justify-center md:justify-start' : ''}`}>
           {/* Ícone do chat - sempre visível quando não está escondido */}
           {!isOpen ? (
             <button
@@ -734,7 +751,7 @@ export default function FAQChat({ userName, position = 'left', inHeader = false,
               <MessageCircle size={24} className="md:w-7 md:h-7 group-hover:scale-110 transition-transform" />
             </button>
           ) : (
-            <div className="bg-white rounded-xl md:rounded-2xl shadow-2xl w-[calc(100vw-1rem)] md:w-[90vw] max-w-md h-[500px] md:h-[600px] flex flex-col border border-gray-200 animate-expand-in">
+            <div className="bg-white rounded-xl md:rounded-2xl shadow-2xl w-[calc(100vw-2rem)] md:w-[90vw] max-w-md h-[500px] md:h-[600px] flex flex-col border border-gray-200 animate-expand-in mx-auto md:mx-0">
                 {/* Header estilo WhatsApp */}
                 <div className="bg-gradient-to-r from-purple-600 to-orange-600 text-white p-3 md:p-4 rounded-t-xl md:rounded-t-2xl flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-2 md:gap-3">

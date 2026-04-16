@@ -4,8 +4,33 @@ import { useState, useEffect } from 'react';
 import { EmailConfig, EmailTipo, EmailModulo } from '@/types/emailConfig';
 import { EmailInbox } from '@/types/emailConfig';
 import { Lead } from '@/types/lead';
-import { Mail, Send, Save, Settings, Inbox, RefreshCw, BarChart3, SendHorizontal, Folder, Users, UserCheck, Activity } from 'lucide-react';
+import { Mail, Send, Save, Settings, Inbox, RefreshCw, BarChart3, SendHorizontal, Folder, Users, UserCheck, Activity, Calendar, Layers, BookOpen } from 'lucide-react';
+import EmailDocumentationPanel from './EmailDocumentationPanel';
+import { NOVOS_MODULOS_EMAIL_DOCS } from '@/data/emailConfigNovosModulos';
+import type { EmailTemplate } from '@/types/emailConfig';
+import {
+  novosModulosOrdenados,
+  NOVO_MODULO_LABEL,
+  getVariaveisNovoModulo,
+  templatesDoNovoModulo,
+  isNovoModuloKey,
+} from '@/lib/email/novoModuloAdminUi';
 import LeadsEmailDashboard from './LeadsEmailDashboard';
+
+/** Garante todos os docs de NOVOS_MODULOS na config (Nutri, Personal, conclusão, etc.). */
+function mergeTemplatesNovosModulos(raw: Record<string, unknown>): Record<string, Record<string, EmailTemplate>> {
+  const out: Record<string, Record<string, EmailTemplate>> = {};
+  for (const d of NOVOS_MODULOS_EMAIL_DOCS) {
+    if (!out[d.modulo]) out[d.modulo] = {};
+    const modRaw = raw[d.modulo] as Record<string, EmailTemplate> | undefined;
+    const prev = modRaw?.[d.templateKey];
+    out[d.modulo][d.templateKey] = {
+      ...d.defaultTemplate,
+      ...(prev && typeof prev === 'object' ? prev : {}),
+    };
+  }
+  return out;
+}
 
 interface EmailManagementProps {
   leads: Lead[];
@@ -53,6 +78,11 @@ const emailInfoBemVindo = {
   bem_vindo_medico: { nome: 'Bem-vindo Médico', descricao: 'E-mail enviado quando um médico salva o perfil pela primeira vez' },
 };
 
+const emailInfoAgenda = {
+  agenda_semanal: { nome: 'Semanal', descricao: 'Enviado semanalmente com a relação dos pacientes que irão receber aplicação e pagamento durante a semana' },
+  agenda_diario: { nome: 'Diário', descricao: 'Enviado diariamente com pacientes que vão receber aplicação e/ou pagamento no dia' },
+};
+
 export default function EmailManagement({ leads }: EmailManagementProps) {
   const [config, setConfig] = useState<EmailConfig | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,10 +90,14 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
   const [inbox, setInbox] = useState<EmailInbox[]>([]);
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [outbox, setOutbox] = useState<any[]>([]);
+  const [outboxMeta, setOutboxMeta] = useState<{
+    provedorPadraoEnvios?: string;
+    fonteListagem?: string;
+  } | null>(null);
   const [loadingOutbox, setLoadingOutbox] = useState(false);
-  const [activeTab, setActiveTab] = useState<'config' | 'outbox' | 'inbox' | 'dashboard'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'outbox' | 'inbox' | 'dashboard' | 'documentation'>('config');
   const [pastaEmailSelecionada, setPastaEmailSelecionada] = useState<string | null>(null);
-  const [activeModulo, setActiveModulo] = useState<EmailModulo>('leads');
+  const [activeModulo, setActiveModulo] = useState<string>('leads');
   const [activeEmail, setActiveEmail] = useState<string>('email1');
   const [enviandoNovidades, setEnviandoNovidades] = useState(false);
   const [modoEnvioNovidades, setModoEnvioNovidades] = useState<'massa' | 'especifico'>('massa');
@@ -134,8 +168,10 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             });
           } else {
             // Garantir que todos os módulos existam, mesmo que não venham do servidor
+            const novosMerged = mergeTemplatesNovosModulos(data as Record<string, unknown>);
             const configCompleto = {
               ...data,
+              ...novosMerged,
               bem_vindo: data.bem_vindo || {
                 bem_vindo_geral: {
                   assunto: 'Bem-vindo ao Oftware!',
@@ -150,6 +186,16 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                 novidade: {
                   assunto: 'Novidades do Oftware',
                   corpoHtml: '<p>Olá {nome},</p><p>Temos novidades para você!</p>',
+                },
+              },
+              agenda: data.agenda || {
+                agenda_semanal: {
+                  assunto: 'Sua Agenda Semanal de Pacientes - Oftware',
+                  corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Aqui está a sua agenda de pacientes para a semana de {dataInicio} a {dataFim}:</p>{aplicacoesHtml}{pagamentosHtml}<p>Atenciosamente,</p><p>Equipe Oftware</p>',
+                },
+                agenda_diario: {
+                  assunto: 'Sua Agenda Diária de Pacientes - Oftware',
+                  corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Aqui está a sua agenda de pacientes para hoje, {dataHoje}:</p>{aplicacoesHtml}{pagamentosHtml}<p>Atenciosamente,</p><p>Equipe Oftware</p>',
                 },
               },
             };
@@ -201,11 +247,13 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             aplicacao: {
               aplicacao_antes: {
                 assunto: 'Lembrete: Aplicação amanhã',
-                corpoHtml: '<p>Olá {nome},</p><p>Este é um lembrete de que sua aplicação #{numero} será amanhã.</p><p>Médico responsável: Dr(a). {medico}</p>',
+                corpoHtml:
+                  '<p>Olá {nome},</p><p>Este é um lembrete de que sua aplicação #{numero} será amanhã.</p><p>Médico responsável: Dr(a). {medico}</p><p><a href="{aplicacao}">Registrar dados da aplicação</a></p>',
               },
               aplicacao_dia: {
                 assunto: 'Lembrete: Aplicação hoje',
-                corpoHtml: '<p>Olá {nome},</p><p>Lembrete: sua aplicação #{numero} é hoje!</p><p>Médico responsável: Dr(a). {medico}</p>',
+                corpoHtml:
+                  '<p>Olá {nome},</p><p>Lembrete: sua aplicação #{numero} é hoje!</p><p>Médico responsável: Dr(a). {medico}</p><p><a href="{aplicacao}">Abrir página da aplicação</a></p>',
               },
             },
             lead_avulso: {
@@ -236,6 +284,17 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                 corpoHtml: '<p>Olá {nome},</p><p>Temos novidades para você!</p>',
               },
             },
+            agenda: {
+              agenda_semanal: {
+                assunto: 'Sua Agenda Semanal de Pacientes - Oftware',
+                corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Aqui está a sua agenda de pacientes para a semana de {dataInicio} a {dataFim}:</p>{aplicacoesHtml}{pagamentosHtml}<p>Atenciosamente,</p><p>Equipe Oftware</p>',
+              },
+              agenda_diario: {
+                assunto: 'Sua Agenda Diária de Pacientes - Oftware',
+                corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Aqui está a sua agenda de pacientes para hoje, {dataHoje}:</p>{aplicacoesHtml}{pagamentosHtml}<p>Atenciosamente,</p><p>Equipe Oftware</p>',
+              },
+            },
+            ...mergeTemplatesNovosModulos({}),
             envioAutomatico: {
               ativo: false,
             },
@@ -314,7 +373,17 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       alert('Por favor, preencha o e-mail de Novidade do módulo Novidades completamente');
       return;
     }
-    
+
+    if (!config.agenda?.agenda_semanal?.assunto || !config.agenda?.agenda_semanal?.corpoHtml) {
+      alert('Por favor, preencha o e-mail de Agenda Semanal do módulo Agenda completamente');
+      return;
+    }
+
+    if (!config.agenda?.agenda_diario?.assunto || !config.agenda?.agenda_diario?.corpoHtml) {
+      alert('Por favor, preencha o e-mail de Agenda Diário do módulo Agenda completamente');
+      return;
+    }
+
     setSaving(true);
     try {
       const response = await fetch('/api/email-config', {
@@ -359,8 +428,11 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       const response = await fetch('/api/email-envios');
       if (response.ok) {
         const data = await response.json();
-        // A API retorna { envios: [...], count: ... }
-        setOutbox(data.envios || data || []);
+        setOutbox(data.envios || []);
+        setOutboxMeta({
+          provedorPadraoEnvios: data.provedorPadraoEnvios,
+          fonteListagem: data.fonteListagem,
+        });
       }
     } catch (error) {
       console.error('Erro ao carregar caixa de saída:', error);
@@ -420,7 +492,10 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
     return <div className="p-6">Erro ao carregar configuração</div>;
   }
 
-  const getVariaveisDisponiveis = (modulo: EmailModulo, emailTipo?: string): { variaveis: Array<{ nome: string; descricao: string }> } => {
+  const getVariaveisDisponiveis = (modulo: string, emailTipo?: string): { variaveis: Array<{ nome: string; descricao: string }> } => {
+    if (isNovoModuloKey(modulo)) {
+      return getVariaveisNovoModulo(modulo, emailTipo);
+    }
     // Variável {nome} - Nome da pessoa cadastrada, independente se é paciente ou médico
     const variavelNome = { nome: '{nome}', descricao: 'Nome da pessoa cadastrada (paciente ou médico)' };
     
@@ -454,7 +529,15 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       };
     } else if (modulo === 'aplicacao') {
       return {
-        variaveis: [variavelNome, variavelMedico, variavelNumero]
+        variaveis: [
+          variavelNome,
+          variavelMedico,
+          variavelNumero,
+          {
+            nome: '{aplicacao}',
+            descricao: 'Link para o paciente preencher peso, medidas e local da aplicação',
+          },
+        ],
       };
     } else if (modulo === 'lead_avulso') {
       return {
@@ -478,6 +561,16 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       return {
         variaveis: [variavelNome]
       };
+    } else if (modulo === 'agenda') {
+      if (emailTipo === 'agenda_semanal') {
+        return {
+          variaveis: [variavelMedico, { nome: '{agenda_semanal}', descricao: 'Lista formatada dos pacientes com aplicações e pagamentos da semana' }]
+        };
+      } else if (emailTipo === 'agenda_diario') {
+        return {
+          variaveis: [variavelMedico, { nome: '{agenda_diario}', descricao: 'Lista formatada dos pacientes com aplicações e pagamentos do dia' }]
+        };
+      }
     }
     return { variaveis: [] };
   };
@@ -523,6 +616,23 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
     } else if (activeModulo === 'novidades') {
       emailTemplate = config.novidades.novidade;
       emailInfo = emailInfoNovidades.novidade;
+    } else if (activeModulo === 'agenda') {
+      if (activeEmail === 'agenda_semanal') {
+        emailTemplate = config.agenda.agenda_semanal;
+        emailInfo = emailInfoAgenda.agenda_semanal;
+      } else {
+        emailTemplate = config.agenda.agenda_diario;
+        emailInfo = emailInfoAgenda.agenda_diario;
+      }
+    } else if (isNovoModuloKey(activeModulo)) {
+      const bag = (config as unknown as Record<string, Record<string, EmailTemplate>>)[activeModulo];
+      emailTemplate = bag?.[activeEmail];
+      const doc = templatesDoNovoModulo(activeModulo).find((t) => t.templateKey === activeEmail);
+      const label = NOVO_MODULO_LABEL[activeModulo];
+      emailInfo = {
+        nome: doc?.defaultTemplate?.assunto || doc?.templateKey || activeEmail,
+        descricao: `${label.titulo} · ${label.subtitulo}${doc ? ` · ${doc.templateKey}` : ''}${doc?.docId ? ` (${doc.docId})` : ''}`,
+      };
     }
 
     if (!emailTemplate) return null;
@@ -662,6 +772,35 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                       novidade: { ...config.novidades.novidade, assunto: e.target.value }
                     }
                   });
+                } else if (activeModulo === 'agenda') {
+                  if (activeEmail === 'agenda_semanal') {
+                    setConfig({
+                      ...config,
+                      agenda: {
+                        ...config.agenda,
+                        agenda_semanal: { ...config.agenda.agenda_semanal, assunto: e.target.value }
+                      }
+                    });
+                  } else {
+                    setConfig({
+                      ...config,
+                      agenda: {
+                        ...config.agenda,
+                        agenda_diario: { ...config.agenda.agenda_diario, assunto: e.target.value }
+                      }
+                    });
+                  }
+                } else if (isNovoModuloKey(activeModulo)) {
+                  const cfg = config as unknown as Record<string, Record<string, EmailTemplate>>;
+                  const bag = { ...(cfg[activeModulo] || {}) };
+                  const cur = bag[activeEmail] || { assunto: '', corpoHtml: '' };
+                  setConfig({
+                    ...config,
+                    [activeModulo]: {
+                      ...bag,
+                      [activeEmail]: { ...cur, assunto: e.target.value },
+                    },
+                  } as EmailConfig);
                 }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-black bg-white"
@@ -790,6 +929,35 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                       novidade: { ...config.novidades.novidade, corpoHtml: e.target.value }
                     }
                   });
+                } else if (activeModulo === 'agenda') {
+                  if (activeEmail === 'agenda_semanal') {
+                    setConfig({
+                      ...config,
+                      agenda: {
+                        ...config.agenda,
+                        agenda_semanal: { ...config.agenda.agenda_semanal, corpoHtml: e.target.value }
+                      }
+                    });
+                  } else {
+                    setConfig({
+                      ...config,
+                      agenda: {
+                        ...config.agenda,
+                        agenda_diario: { ...config.agenda.agenda_diario, corpoHtml: e.target.value }
+                      }
+                    });
+                  }
+                } else if (isNovoModuloKey(activeModulo)) {
+                  const cfg = config as unknown as Record<string, Record<string, EmailTemplate>>;
+                  const bag = { ...(cfg[activeModulo] || {}) };
+                  const cur = bag[activeEmail] || { assunto: '', corpoHtml: '' };
+                  setConfig({
+                    ...config,
+                    [activeModulo]: {
+                      ...bag,
+                      [activeEmail]: { ...cur, corpoHtml: e.target.value },
+                    },
+                  } as EmailConfig);
                 }
               }}
               rows={10}
@@ -1056,7 +1224,7 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
     <div className="p-6 space-y-6">
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex flex-wrap gap-x-6 gap-y-1">
           <button
             onClick={() => setActiveTab('config')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -1106,6 +1274,17 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
           >
             <Inbox className="inline mr-2" size={18} />
             Caixa de Entrada
+          </button>
+          <button
+            onClick={() => setActiveTab('documentation')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'documentation'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <BookOpen className="inline mr-2" size={18} />
+            Documentação
           </button>
         </nav>
       </div>
@@ -1270,6 +1449,57 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                 </div>
                 <div className="text-xs text-gray-500 ml-6">E-mail em massa</div>
               </button>
+              <button
+                onClick={() => {
+                  setActiveModulo('agenda');
+                  setActiveEmail('agenda_semanal');
+                }}
+                className={`p-2.5 rounded-md border transition-all text-left ${
+                  activeModulo === 'agenda'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Calendar size={16} className={activeModulo === 'agenda' ? 'text-green-600' : 'text-gray-500'} />
+                  <span className="font-medium text-sm text-gray-900">Agenda</span>
+                </div>
+                <div className="text-xs text-gray-500 ml-6">2 e-mails</div>
+              </button>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h4 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <Layers size={16} className="text-green-600 shrink-0" />
+                Nutri, Personal, Mentoria, Aniversariante, Conclusão…
+              </h4>
+              <p className="text-xs text-gray-500 mb-3">
+                Estes templates já estavam na API (<code className="text-[11px]">NOVOS_MODULOS_EMAIL_DOCS</code>); antes não havia botões aqui. Edite e salve como os demais.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-[min(420px,55vh)] overflow-y-auto pr-1">
+                {novosModulosOrdenados().map((mod) => {
+                  const lab = NOVO_MODULO_LABEL[mod];
+                  return (
+                    <button
+                      key={mod}
+                      type="button"
+                      onClick={() => {
+                        setActiveModulo(mod);
+                        const first = templatesDoNovoModulo(mod)[0]?.templateKey ?? 'email1';
+                        setActiveEmail(first);
+                      }}
+                      className={`p-2.5 rounded-md border text-left transition-all ${
+                        activeModulo === mod
+                          ? 'border-green-500 bg-green-50 shadow-sm'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="font-medium text-sm text-gray-900 leading-tight">{lab.titulo}</div>
+                      <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{lab.subtitulo}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -1326,6 +1556,37 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             </div>
           )}
 
+          {/* Seleção de E-mail dentro do Módulo Agenda */}
+          {activeModulo === 'agenda' && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-4 text-black">Selecione o E-mail para Configurar</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  onClick={() => setActiveEmail('agenda_semanal')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    activeEmail === 'agenda_semanal'
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-semibold text-black">{emailInfoAgenda.agenda_semanal.nome}</div>
+                  <div className="text-sm text-gray-600 mt-1">{emailInfoAgenda.agenda_semanal.descricao}</div>
+                </button>
+                <button
+                  onClick={() => setActiveEmail('agenda_diario')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    activeEmail === 'agenda_diario'
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-semibold text-black">{emailInfoAgenda.agenda_diario.nome}</div>
+                  <div className="text-sm text-gray-600 mt-1">{emailInfoAgenda.agenda_diario.descricao}</div>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Seleção de E-mail dentro do Módulo Aplicação */}
           {activeModulo === 'aplicacao' && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -1353,6 +1614,35 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                   <div className="font-semibold text-black">{emailInfoAplicacao.aplicacao_dia.nome}</div>
                   <div className="text-sm text-gray-600 mt-1">{emailInfoAplicacao.aplicacao_dia.descricao}</div>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {isNovoModuloKey(activeModulo) && templatesDoNovoModulo(activeModulo).length > 1 && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-4 text-black">
+                {NOVO_MODULO_LABEL[activeModulo].titulo} — escolha o template
+              </h3>
+              <div className={`grid grid-cols-1 gap-3 ${templatesDoNovoModulo(activeModulo).length > 2 ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2'}`}>
+                {templatesDoNovoModulo(activeModulo).map((doc) => (
+                  <button
+                    key={doc.templateKey}
+                    type="button"
+                    onClick={() => setActiveEmail(doc.templateKey)}
+                    className={`p-4 rounded-lg border-2 text-left transition-all ${
+                      activeEmail === doc.templateKey
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-black text-sm leading-snug">{doc.defaultTemplate.assunto}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      <span className="font-mono">{doc.templateKey}</span>
+                      <span className="text-gray-400"> · </span>
+                      <span className="font-mono break-all">{doc.docId}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -1442,10 +1732,20 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             nome: 'Antes', 
             descricao: 'Lembrete 1 dia antes da aplicação'
           },
-          'aplicacao_aplicacao_dia': { 
+          'aplicacao_aplicacao_dia': {
             modulo: 'Aplicação',
-            nome: 'Dia', 
+            nome: 'Dia',
             descricao: 'Lembrete no dia da aplicação'
+          },
+          'conclusao_tratamento_lembrete_conclusao': {
+            modulo: 'Conclusão',
+            nome: 'Lembrete (dia do card)',
+            descricao: 'Automático no dia previsto de conclusão no calendário',
+          },
+          'conclusao_tratamento_conclusao_tratamento': {
+            modulo: 'Conclusão',
+            nome: 'Parabéns + relatório',
+            descricao: 'Quando o médico conclui o tratamento no painel',
           },
           'check_recomendacoes_recomendacoes_lidas': { 
             modulo: 'Check Recomendações',
@@ -1466,6 +1766,16 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             modulo: 'Novidades',
             nome: 'Novidade', 
             descricao: 'E-mail em massa para pacientes ou médicos'
+          },
+          'agenda_agenda_semanal': { 
+            modulo: 'Agenda',
+            nome: 'Agenda Semanal', 
+            descricao: 'E-mail semanal com agenda de aplicações e pagamentos'
+          },
+          'agenda_agenda_diario': { 
+            modulo: 'Agenda',
+            nome: 'Agenda Diária', 
+            descricao: 'E-mail diário com agenda de aplicações e pagamentos do dia'
           },
           'email1': { modulo: 'Leads', nome: 'Bem-vindo ao Oftware!', descricao: 'E-mail imediato (1h após cadastro)' },
           'email2': { modulo: 'Leads', nome: 'Você ainda está aqui?', descricao: 'E-mail 24h depois do cadastro' },
@@ -1528,6 +1838,15 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                 >
                   <RefreshCw className={`mr-2 ${loadingOutbox ? 'animate-spin' : ''}`} size={16} /> Atualizar
                 </button>
+              </div>
+
+              <div className="px-4 pb-1">
+                <div className="rounded-md border border-violet-200 bg-violet-50/90 px-3 py-2 text-sm text-violet-950">
+                  <span className="font-medium">Envio transacional:</span>{' '}
+                  {outboxMeta?.provedorPadraoEnvios ?? 'ZeptoMail'} (SMTP). Esta aba lista o log gravado no Firestore
+                  {outboxMeta?.fonteListagem ? ` (${outboxMeta.fonteListagem})` : ' (coleção email_envios)'}
+                  . Envios antigos podem vir sem os campos provedor e Message-ID.
+                </div>
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 p-4">
@@ -1647,14 +1966,18 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                       </div>
                       {(pastaEmailSelecionada ? emailsFiltrados : outbox)
                         .sort((a, b) => {
-                          const dateA = a.enviadoEm?.toDate ? a.enviadoEm.toDate() : new Date(a.enviadoEm);
-                          const dateB = b.enviadoEm?.toDate ? b.enviadoEm.toDate() : new Date(b.enviadoEm);
+                          const dateA =
+                            a.enviadoEm?.toDate?.() ??
+                            (a.enviadoEm ? new Date(a.enviadoEm) : new Date(0));
+                          const dateB =
+                            b.enviadoEm?.toDate?.() ??
+                            (b.enviadoEm ? new Date(b.enviadoEm) : new Date(0));
                           return dateB.getTime() - dateA.getTime();
                         })
                         .map((envio) => {
-                          const dataEnvio = envio.enviadoEm?.toDate 
-                            ? envio.enviadoEm.toDate() 
-                            : new Date(envio.enviadoEm);
+                          const dataEnvio =
+                            envio.enviadoEm?.toDate?.() ??
+                            (envio.enviadoEm ? new Date(envio.enviadoEm) : new Date());
                           const tipoInfo = tiposEmail[envio.emailTipo] || { nome: envio.emailTipo };
                           
                           return (
@@ -1693,6 +2016,21 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                                     }`}>
                                       {envio.tipo === 'automatico' ? 'Automático' : 'Manual'}
                                     </span>
+                                    {envio.provedor && (
+                                      <span className="px-2 py-1 text-xs rounded-full bg-violet-100 text-violet-800">
+                                        {envio.provedor}
+                                      </span>
+                                    )}
+                                    {envio.messageId && (
+                                      <span
+                                        className="px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-700 font-mono max-w-[min(280px,100%)] truncate inline-block align-middle"
+                                        title={envio.messageId}
+                                      >
+                                        {envio.messageId.length > 28
+                                          ? `Message-ID: ${envio.messageId.slice(0, 28)}…`
+                                          : `Message-ID: ${envio.messageId}`}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-sm text-gray-600 space-y-1">
                                     <div>
@@ -1795,6 +2133,8 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
           </div>
         </div>
       )}
+
+      {activeTab === 'documentation' && <EmailDocumentationPanel />}
     </div>
   );
 }
