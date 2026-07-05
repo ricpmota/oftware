@@ -28,6 +28,20 @@ Fallback sem `organizationId`: `doctor_{doctorId}`.
 
 Cada médico escaneia **o próprio** WhatsApp. O servidor central apenas hospeda sessões Puppeteer.
 
+## Estratégia Docker (Etapa 4.2 revisada)
+
+O repositório oficial **não usa `package-lock.json`** — usa **Yarn 4** (`yarn.lock`). Compilar com `npm ci` no Dockerfile que clonava o repo causava falhas (husky, tsc, dependências).
+
+| Abordagem | Uso Oftware |
+|-----------|-------------|
+| **Imagem oficial** `wppconnect/wppconnect-server` | **VM piloto/produção** — `docker compose pull` |
+| **docker-compose oficial** | Referência: monta `config.ts` + `tokens` ([upstream](https://github.com/wppconnect-team/wppconnect-server/blob/main/docker-compose.yml)) |
+| **Dockerfile oficial** | Multi-stage Alpine + Yarn 4 + Chromium ([upstream](https://github.com/wppconnect-team/wppconnect-server/blob/main/Dockerfile)) |
+| **config.runtime.js** | Config Oftware montada em `/usr/src/wpp-server/dist/config.js` |
+| **Dockerfile Oftware** | Overlay fino `FROM wppconnect/wppconnect-server` (Cloud Run / build opcional) |
+
+**VM:** ver [`infra/whatsapp/vm/`](../vm/) — não compila o repositório no deploy.
+
 ## Pré-requisitos
 
 - Docker (build local)
@@ -44,20 +58,24 @@ Cada médico escaneia **o próprio** WhatsApp. O servidor central apenas hospeda
 
 Copie `.env.example` para `.env` apenas para testes locais (não commitar).
 
-## Build local
+## Build local (overlay opcional — Cloud Run)
 
 ```bash
 cd infra/whatsapp/wppconnect
 docker build -t oftware-whatsapp-wppconnect:local .
 ```
 
-Teste local (defina `SECRET_KEY`):
+A imagem base é puxada do Docker Hub; o overlay apenas copia `config.runtime.js`.
+
+Teste local:
 
 ```bash
-docker run --rm -p 21465:21465 \
+docker run --rm -p 127.0.0.1:21465:21465 \
   -e SECRET_KEY=sua_chave_local \
-  -e HOST=0.0.0.0 \
   -e PORT=21465 \
+  -v "$(pwd)/config.runtime.js:/usr/src/wpp-server/dist/config.js:ro" \
+  -v /tmp/wpp-userDataDir:/usr/src/wpp-server/userDataDir \
+  -v /tmp/wpp-tokens:/usr/src/wpp-server/tokens \
   oftware-whatsapp-wppconnect:local
 ```
 

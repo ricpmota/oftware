@@ -1,66 +1,22 @@
-# WPPConnect Server central da Oftware (Google Cloud Run)
+# Oftware — overlay mínimo sobre a imagem oficial WPPConnect Server
 #
-# Build a partir do repositório oficial wppconnect-team/wppconnect-server
-# com config.ts e entrypoint da Oftware.
+# Estratégia (Etapa 4.2 revisada):
+# - Imagem base: wppconnect/wppconnect-server (Docker Hub, build oficial com Yarn 4 + Alpine + Chromium)
+# - Config Oftware: config.runtime.js copiado para dist/config.js
+# - NÃO compilar o repositório no deploy da VM (evita npm ci / husky / tsc)
 #
-# Requisitos: Debian + Chromium para Puppeteer.
+# Referência upstream:
+# - https://hub.docker.com/r/wppconnect/wppconnect-server
+# - https://github.com/wppconnect-team/wppconnect-server/blob/main/Dockerfile
+# - https://github.com/wppconnect-team/wppconnect-server/blob/main/docker-compose.yml
 
-FROM node:20-bookworm-slim
+ARG WPPCONNECT_IMAGE=wppconnect/wppconnect-server:sha-2b71889
+FROM ${WPPCONNECT_IMAGE}
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    ca-certificates \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libgbm1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    chromium \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /usr/src/wpp-server
 
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV NODE_ENV=production
+COPY config.runtime.js ./dist/config.js
 
-WORKDIR /app
-
-ARG WPPCONNECT_VERSION=2.8.6
-RUN git clone --depth 1 --branch "v${WPPCONNECT_VERSION}" https://github.com/wppconnect-team/wppconnect-server.git . \
-  || git clone --depth 1 https://github.com/wppconnect-team/wppconnect-server.git .
-
-COPY config.ts ./src/config.ts
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
-RUN npm ci \
-  && npm run build \
-  && npm prune --omit=dev
-
-ENV PORT=21465
-ENV HOST=0.0.0.0
 EXPOSE 21465
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["npm", "start"]
+# A imagem oficial já define: ENTRYPOINT ["node", "dist/server.js"]

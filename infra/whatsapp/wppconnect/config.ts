@@ -1,15 +1,9 @@
 /**
- * Configuração Oftware para WPPConnect Server central.
- * Sobrescreve src/config.ts do repositório upstream no build Docker.
+ * Configuração Oftware (TypeScript) — referência e builds com overlay Docker.
+ * Em produção na VM: usar config.runtime.js montado na imagem oficial.
  *
- * Variáveis:
- * - SECRET_KEY — chave mestra (gerar token Bearer para o Oftware)
- * - HOST — bind address (0.0.0.0 no container)
- * - PORT — porta do container (21465)
- *
- * Persistência (Etapa 4.2 — VM):
- * - customUserDataDir → volume Docker em /app/userDataDir → /data/wppconnect/userDataDir na VM
- * - tokenStoreType file → /app/tokens → /data/wppconnect/tokens na VM
+ * @see config.runtime.js — arquivo efetivo em docker-compose (dist/config.js)
+ * @see Dockerfile — overlay opcional sobre wppconnect/wppconnect-server
  */
 export default {
   secretKey: process.env.SECRET_KEY || 'CHANGE_ME_IN_PRODUCTION',

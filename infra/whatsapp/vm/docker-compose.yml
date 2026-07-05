@@ -1,27 +1,27 @@
 # Oftware — WPPConnect central em Compute Engine (Docker Compose)
-# Etapa 4.2 — piloto com disco persistente em /data/wppconnect
+# Etapa 4.2 — imagem oficial + volumes persistentes em /data/wppconnect
+#
+# Estratégia Docker: usar wppconnect/wppconnect-server (oficial) em vez de compilar o repo.
+# Ref: https://hub.docker.com/r/wppconnect/wppconnect-server
 
 services:
   wppconnect:
-    build:
-      context: ../wppconnect
-      dockerfile: Dockerfile
-    image: oftware-whatsapp-wppconnect:vm
+    image: ${WPPCONNECT_IMAGE:-wppconnect/wppconnect-server:sha-2b71889}
     container_name: oftware-whatsapp-wppconnect
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      HOST: "0.0.0.0"
       PORT: "21465"
+      WPP_PUBLIC_HOST: "http://localhost"
     ports:
-      # Apenas localhost na VM — exponha HTTPS via Nginx/Caddy/Load Balancer na frente.
-      # Para teste temporário sem proxy, troque para "21465:21465" (não recomendado em produção).
       - "127.0.0.1:21465:21465"
     volumes:
-      - /data/wppconnect/userDataDir:/app/userDataDir
-      - /data/wppconnect/tokens:/app/tokens
-      - /data/wppconnect/logs:/app/logs
+      # Config Oftware em runtime (secretKey lê SECRET_KEY do .env)
+      - ../wppconnect/config.runtime.js:/usr/src/wpp-server/dist/config.js:ro
+      - /data/wppconnect/userDataDir:/usr/src/wpp-server/userDataDir
+      - /data/wppconnect/tokens:/usr/src/wpp-server/tokens
+      - /data/wppconnect/logs:/usr/src/wpp-server/log
     shm_size: "512mb"
     security_opt:
       - seccomp:unconfined

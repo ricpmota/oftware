@@ -15,7 +15,9 @@ O WPPConnect Server **não é um serviço stateless**. Cada sessão WhatsApp é 
 
 **Recomendação única (final deste documento):** adotar **Compute Engine (VM) com disco persistente** como hospedagem do WPPConnect central na fase piloto e nos primeiros centenas de médicos, usando o **mesmo Dockerfile** já versionado, com domínio `whatsapp.oftware.com.br` via HTTPS Load Balancer. Reservar Cloud Run para uma fase posterior **somente** se houver NFS (Filestore) + sharding explícito — não como primeiro deploy em produção.
 
-**Etapa 4.2 (implementada):** infra versionada em [`infra/whatsapp/vm/`](../../infra/whatsapp/vm/) — Docker Compose, scripts `setup-vm.sh`, `deploy-vm.sh`, `backup-sessions.sh`, volumes em `/data/wppconnect`. **Nenhum deploy automático** — execução manual na VM quando aprovado.
+**Etapa 4.2 (implementada):** infra em [`infra/whatsapp/vm/`](../../infra/whatsapp/vm/) — VM + Persistent Disk + **imagem oficial** `wppconnect/wppconnect-server` (sem compilar repo na VM). Ver `config.runtime.js` para config Oftware.
+
+**Revisão Docker (4.2):** abandonado build `git clone + npm ci` (sem lockfile npm, husky, tsc). VM usa `docker compose pull` + mount de config/volumes.
 
 ---
 
@@ -543,8 +545,9 @@ Mesmo com backup perfeito:
 |------|------|
 | Hospedagem | 1× Compute Engine `e2-standard-2` (us-central1 ou southamerica-east1) |
 | Disco | 50GB SSD persistente montado em `/data` |
-| Deploy | `infra/whatsapp/vm/setup-vm.sh` + `deploy-vm.sh` |
-| Config | Docker Compose; volumes `/data/wppconnect/userDataDir` e `tokens` |
+| Deploy | `infra/whatsapp/vm/deploy-vm.sh` — **pull** imagem oficial + compose |
+| Config | `config.runtime.js` montado em `/usr/src/wpp-server/dist/config.js` |
+| Imagem | `wppconnect/wppconnect-server` (Docker Hub) |
 | DNS | `whatsapp.oftware.com.br` → IP da VM (ou LB) |
 | TLS | Let's Encrypt ou Google Managed Certificate |
 | Vercel | `WPP_SERVER_URL`, `WPP_SERVER_TOKEN`, `WHATSAPP_MOCK_MODE=false` |
@@ -627,13 +630,11 @@ Ver checklist completo: [`infra/whatsapp/vm/README.md`](../../infra/whatsapp/vm/
 | Firestore `whatsappConnections` | ✅ Pronto | Metadado; não substitui userDataDir |
 | `sessionId` white label | ✅ Pronto | Correto para sharding futuro |
 | `whatsappProviderClient` | ✅ Pronto | Logs seguros; timeout 30s |
-| Dockerfile | ✅ Bom | Funciona em VM e Cloud Run |
-| `config.ts` | ⚠️ Atenção | `file` + path relativo = efêmero no Cloud Run |
-| `cloudbuild.yaml` / `deploy.sh` | ⚠️ Atenção | Preparados para Cloud Run sem volume NFS |
-| `min-instances: 1` | ✅ Correto | Necessário mas insuficiente sozinho |
-| `max-instances: 1` | ✅ Correto | Evita split de sessão |
-| Sem CPU always allocated no deploy | ❌ Gap | Adicionar `--no-cpu-throttling` se Cloud Run |
-| Sem volume persistente | ❌ Gap crítico | Bloqueador de produção em Cloud Run |
+| Dockerfile | ✅ Revisado | Overlay `FROM wppconnect/wppconnect-server`; não compila repo |
+| `config.runtime.js` | ✅ VM | Montado em `dist/config.js`; lê `SECRET_KEY` em runtime |
+| `config.ts` | 📎 Referência | Manter sincronizado com `config.runtime.js` |
+| `vm/docker-compose.yml` | ✅ VM | Pull imagem oficial + volumes `/usr/src/wpp-server/*` |
+| `cloudbuild.yaml` / `deploy.sh` | 📎 Futuro | Cloud Run; usar overlay + Filestore se necessário |
 
 ---
 

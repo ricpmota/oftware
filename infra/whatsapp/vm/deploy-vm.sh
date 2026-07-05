@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# deploy-vm.sh — build e execução do WPPConnect central na VM (Etapa 4.2)
+# deploy-vm.sh — pull da imagem oficial e execução do WPPConnect na VM (Etapa 4.2)
 #
 # Uso:
 #   cd infra/whatsapp/vm
 #   cp .env.example .env   # definir SECRET_KEY
 #   ./deploy-vm.sh
-#   ./deploy-vm.sh --restart   # reinício seguro (down + up)
-#   ./deploy-vm.sh --logs      # apenas logs
+#   ./deploy-vm.sh --restart
+#   ./deploy-vm.sh --logs
 
 set -euo pipefail
 
@@ -39,13 +39,16 @@ done
 
 case "${ACTION}" in
   up)
-    echo "==> Build e start (docker compose up -d --build)..."
-    ${COMPOSE} up -d --build
+    echo "==> Pull imagem oficial WPPConnect (${WPPCONNECT_IMAGE:-wppconnect/wppconnect-server:sha-2b71889})..."
+    ${COMPOSE} pull
+    echo "==> Start (docker compose up -d)..."
+    ${COMPOSE} up -d
     ;;
   --restart|restart)
     echo "==> Reinício seguro do container..."
     ${COMPOSE} down --timeout 30
     sleep 2
+    ${COMPOSE} pull
     ${COMPOSE} up -d
     ;;
   --logs|logs)
@@ -79,5 +82,5 @@ else
 fi
 
 echo ""
-echo "Gerar token Bearer (substitua SESSION e SECRET_KEY):"
-echo '  curl -s -X POST "http://127.0.0.1:21465/api/SESSION/SECRET_KEY/generate-token"'
+echo "Gerar token Bearer (substitua SESSION e SECRET_KEY do .env):"
+echo '  curl -s -X POST "http://127.0.0.1:21465/api/SESSION/SEU_SECRET_KEY/generate-token"'

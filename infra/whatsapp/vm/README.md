@@ -100,15 +100,19 @@ infra/whatsapp/vm/
 └── README.md             # este arquivo
 ```
 
-Dados persistentes na VM:
+Dados persistentes na VM (paths oficiais do container):
 
 ```
 /data/wppconnect/
-├── userDataDir/     → montado em /app/userDataDir no container
-├── tokens/          → montado em /app/tokens no container
-├── logs/
-└── backups/         → wppconnect-sessions-YYYYMMDD-HHMMSS.tar.gz
+├── userDataDir/     → /usr/src/wpp-server/userDataDir
+├── tokens/          → /usr/src/wpp-server/tokens
+├── logs/            → /usr/src/wpp-server/log
+└── backups/
 ```
+
+Config Oftware: `../wppconnect/config.runtime.js` → `/usr/src/wpp-server/dist/config.js` (read-only).
+
+Imagem: `wppconnect/wppconnect-server` (oficial, Docker Hub) — pin em `WPPCONNECT_IMAGE` no `.env`.
 
 ---
 
@@ -134,12 +138,15 @@ nano .env   # definir SECRET_KEY forte
 
 **Nunca** commitar `.env` ou `SECRET_KEY`.
 
-### 4. Subir WPPConnect
+### 4. Subir WPPConnect (imagem oficial — sem build do repo)
 
 ```bash
 ./deploy-vm.sh
+# Equivale a: docker compose pull && docker compose up -d
 ./deploy-vm.sh --status
 ```
+
+Não é necessário compilar o wppconnect-server na VM. O `deploy-vm.sh` faz **pull** da imagem `wppconnect/wppconnect-server` e monta `config.runtime.js` + volumes em `/data`.
 
 ### 5. Verificar Swagger local
 
@@ -220,24 +227,31 @@ Antes de **deploy com rebuild** em produção: rodar backup ou snapshot do PD.
 
 ---
 
-## Checklist de teste (Etapa 4.2)
+## Checklist de teste (Etapa 4.2 — após revisão Docker)
+
+```bash
+cd /opt/oftware
+git pull
+cd infra/whatsapp/vm
+sudo ./deploy-vm.sh
+docker ps
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:21465/api-docs
+```
 
 | # | Passo | OK |
 |---|-------|-----|
 | 1 | VM criada no GCP | ☐ |
 | 2 | Persistent Disk montado em `/data` | ☐ |
 | 3 | `sudo ./setup-vm.sh` executado | ☐ |
-| 4 | `.env` com `SECRET_KEY` forte | ☐ |
-| 5 | `./deploy-vm.sh` — container running | ☐ |
-| 6 | `http://127.0.0.1:21465/api-docs` responde | ☐ |
-| 7 | Token Bearer gerado | ☐ |
-| 8 | Vercel com `WPP_SERVER_URL` + `WPP_SERVER_TOKEN` | ☐ |
-| 9 | Médico piloto: aba WhatsApp → Conectar | ☐ |
-| 10 | QR real → escanear → status **conectado** | ☐ |
-| 11 | `./deploy-vm.sh --restart` | ☐ |
-| 12 | Abrir aba WhatsApp — **não** pedir QR novamente | ☐ |
-| 13 | Desconectar — status desconectado | ☐ |
-| 14 | `sudo ./backup-sessions.sh --stop` — arquivo em `/data/wppconnect/backups/` | ☐ |
+| 4 | `.env` com `SECRET_KEY` e `WPPCONNECT_IMAGE` | ☐ |
+| 5 | `git pull` + `./deploy-vm.sh` — pull OK (sem erro npm/yarn) | ☐ |
+| 6 | `docker ps` — container `oftware-whatsapp-wppconnect` running | ☐ |
+| 7 | `curl http://127.0.0.1:21465/api-docs` → **200** | ☐ |
+| 8 | Token Bearer gerado | ☐ |
+| 9 | Vercel com `WPP_SERVER_URL` + `WPP_SERVER_TOKEN` | ☐ |
+| 10 | Médico piloto: conectar → QR → **connected** | ☐ |
+| 11 | `./deploy-vm.sh --restart` — sem novo QR | ☐ |
+| 12 | Desconectar + backup | ☐ |
 
 ---
 
