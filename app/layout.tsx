@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import RootFaviconLinks from '@/components/root/RootFaviconLinks';
 import SystemColorsCssVarsLoader from '@/components/systemColors/SystemColorsCssVarsLoader';
+import { isMetodoEmagrecerHost } from '@/lib/landing/appNavigation';
+import { buildMetodoEmagrecerSiteMetadata } from '@/lib/organization/organizationSiteMetadata.server';
+import { resolveHostFromHeaders } from '@/lib/tenant/resolveHostFromHeaders';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,42 +18,55 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+const OFTWARE_ROOT_METADATA: Metadata = {
   metadataBase: new URL('https://www.oftware.com.br'),
-  applicationName: "Método",
-  title: "Sem método, tudo vira tentativa. E tentativa não sustenta resultado.",
-  description: "Sistema completo de monitoramento",
+  applicationName: "Oftware",
+  title: "Oftware | Plataforma White Label para acompanhamento médico multidisciplinar",
+  description:
+    "A Oftware conecta paciente, médico, nutricionista e personal em uma única jornada de acompanhamento, com prontuário compartilhado, protocolos integrados e marca própria.",
   manifest: "/manifest.json",
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icones/metodo-simbolo-pwa.jpg', type: 'image/jpeg' }
-    ],
-    shortcut: '/favicon.ico',
-    apple: '/icones/metodo-simbolo-pwa.jpg',
+    icon: [{ url: '/logo-icone.png', type: 'image/png' }],
+    shortcut: '/logo-icone.png',
+    apple: '/logo-icone.png',
   },
   openGraph: {
-    title: "Sem método, tudo vira tentativa. E tentativa não sustenta resultado.",
-    description: "Sistema completo de monitoramento",
+    title: "Oftware | Plataforma White Label para acompanhamento médico multidisciplinar",
+    description:
+      "A Oftware conecta paciente, médico, nutricionista e personal em uma única jornada de acompanhamento, com prontuário compartilhado, protocolos integrados e marca própria.",
     url: "https://www.oftware.com.br",
     siteName: "Oftware",
     images: [
       {
-        url: "/og-mentoria.jpg",
+        url: '/oftware3.png',
         width: 1200,
         height: 630,
-        alt: "Oftware - Método Emagrecer",
+        alt: 'Oftware — Plataforma White Label para acompanhamento médico multidisciplinar',
       },
     ],
     locale: "pt_BR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sem método, tudo vira tentativa. E tentativa não sustenta resultado.",
-    description: "Sistema completo de monitoramento",
-    images: ["/og-mentoria.jpg"],
+    title: "Oftware | Plataforma White Label para acompanhamento médico multidisciplinar",
+    description:
+      "A Oftware conecta paciente, médico, nutricionista e personal em uma única jornada de acompanhamento, com prontuário compartilhado, protocolos integrados e marca própria.",
+    images: ['/oftware3.png'],
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const host = resolveHostFromHeaders(await headers());
+  if (!isMetodoEmagrecerHost(host)) {
+    return OFTWARE_ROOT_METADATA;
+  }
+
+  return buildMetodoEmagrecerSiteMetadata({
+    title: 'Método Emagrecer | Plataforma White Label para acompanhamento médico multidisciplinar',
+    description:
+      'A Oftware conecta paciente, médico, nutricionista e personal em uma única jornada de acompanhamento, com prontuário compartilhado, protocolos integrados e marca própria.',
+  });
+}
 
 /** Equivale a <meta name="viewport" content="width=device-width, initial-scale=1"> (gerado pelo Next; evita meta duplicado no <head>). */
 export const viewport = {
@@ -70,20 +88,35 @@ export default function RootLayout({
         <meta httpEquiv="Expires" content="0" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Método" />
+        <meta name="apple-mobile-web-app-title" content="Oftware" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#22c55e" />
         <meta name="theme-color" content="#22c55e" />
-        <meta name="application-name" content="Método" />
+        <meta name="application-name" content="Oftware" />
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="format-detection" content="telephone=no" />
+        <meta
+          name="facebook-domain-verification"
+          content="pm719846ho2oo4h5hmdop5s7i6y91w"
+        />
         {/* viewport: width=device-width, initial-scale=1 via `export const viewport` (Next injeta a meta). Rotas como /rafaelaalbuquerque podem sobrescrever. */}
-        <link rel="preload" as="image" href="/icones/metodo-simbolo-pwa.jpg" />
-        
-        <link rel="apple-touch-icon" href="/icones/metodo-simbolo-pwa.jpg" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icones/metodo-simbolo-pwa.jpg" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icones/metodo-simbolo-pwa.jpg" />
-        <link rel="apple-touch-icon" sizes="167x167" href="/icones/metodo-simbolo-pwa.jpg" />
+        <RootFaviconLinks />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                var host = location.hostname || '';
+                var path = location.pathname || '';
+                if (/oftware\\.com\\.br$/i.test(host) && (path === '/' || path === '')) {
+                  var ref = document.referrer || '';
+                  if (/ometodoemagrecer\\.com\\.br/i.test(ref)) {
+                    location.replace('https://www.oftware.com.br/metodo');
+                  }
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -97,9 +130,12 @@ export default function RootLayout({
               // Na página inicial e meta: verificar versão no servidor e forçar reload se desatualizado (evita cache antigo no celular)
               (function() {
                 var path = typeof location !== 'undefined' && location.pathname;
+                var host = typeof location !== 'undefined' && location.hostname;
+                if (host && /ometodoemagrecer\\.com\\.br$/i.test(host)) return;
                 var isCacheBustPath =
                   path === '/' ||
                   path === '' ||
+                  path === '/metodo' ||
                   path === '/mentoria' ||
                   (path && path.startsWith('/meta'));
                 if (!isCacheBustPath) return;
@@ -117,11 +153,11 @@ export default function RootLayout({
                       }
                       var versionChanged = current && current !== saved;
                       var hasTs = /[?&]_t=/.test(location.search);
-                      var mentoriaNeedsParams =
+                      var landingNeedsParams =
                         current &&
-                        path === '/mentoria' &&
+                        (path === '/' || path === '' || path === '/metodo' || path === '/mentoria') &&
                         (!urlV || urlV !== current || !hasTs);
-                      if (current && (versionChanged || mentoriaNeedsParams)) {
+                      if (current && (versionChanged || landingNeedsParams)) {
                         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, current);
                         var search = location.search.replace(/[?&]_v=[^&]*/g, '').replace(/[?&]_t=[^&]*/g, '').replace(/[?&]_nocache=[^&]*/g, '').replace(/^&/, '').replace(/&&+/g, '&');
                         var url = location.pathname + (search ? (search.charAt(0) === '?' ? search : '?' + search) : '') + location.hash;
@@ -181,46 +217,20 @@ export default function RootLayout({
                 }
               })();
               
-              // FORÇAR SEMPRE MODO CLARO - NUNCA PERMITIR DARK
+              // Garantir modo claro por padrão (dark mode é class-based via @custom-variant)
               (function() {
-                const html = document.documentElement;
-                const body = document.body;
-                
-                // Remover classe dark imediatamente e repetidamente
-                setInterval(function() {
-                  html.classList.remove('dark');
-                  html.style.colorScheme = 'light';
-                  body.style.backgroundColor = '#ffffff';
-                  body.style.color = '#111827';
-                }, 100);
-                
-                // Observar mudanças no DOM
-                const observer = new MutationObserver(function() {
-                  html.classList.remove('dark');
-                  html.style.colorScheme = 'light';
-                });
-                
-                observer.observe(html, {
-                  attributes: true,
-                  attributeFilter: ['class', 'style'],
-                  subtree: true
-                });
-                
-                // Interceptar tentativas de adicionar dark
-                const originalAdd = DOMTokenList.prototype.add;
-                DOMTokenList.prototype.add = function(...tokens) {
-                  tokens = tokens.filter(t => t !== 'dark');
-                  if (tokens.length > 0) {
-                    return originalAdd.apply(this, tokens);
-                  }
-                };
-                
-                // Forçar variáveis CSS sempre claras
-                document.documentElement.style.setProperty('--background', '#ffffff');
-                document.documentElement.style.setProperty('--foreground', '#111827');
+                document.documentElement.classList.remove('dark');
               })();
               
               if ('serviceWorker' in navigator) {
+                var swHost = location.hostname || '';
+                var swPath = location.pathname || '';
+                var isPublicPatientPage = /^\\/(aplicacao|conclusao|dr)(\\/|$)/.test(swPath);
+                if (/ometodoemagrecer\\.com\\.br$/i.test(swHost) || isPublicPatientPage) {
+                  navigator.serviceWorker.getRegistrations().then(function (regs) {
+                    regs.forEach(function (r) { r.unregister(); });
+                  });
+                } else {
                 setTimeout(function () {
                   navigator.serviceWorker
                     .register('/sw.js', { updateViaCache: 'none' })
@@ -237,6 +247,7 @@ export default function RootLayout({
                     navigator.serviceWorker.getRegistration().then(function (r) { r && r.update(); });
                   }
                 });
+                }
               }
             `,
           }}

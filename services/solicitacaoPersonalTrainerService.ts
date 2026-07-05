@@ -3,7 +3,8 @@
  */
 
 import { db } from '@/lib/firebase';
-import { 
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import {
   collection, 
   doc, 
   getDoc, 
@@ -116,7 +117,10 @@ export class SolicitacaoPersonalTrainerService {
         personalTrainerEmail: personalTrainerEmail || '',
       };
 
-      const docRef = await addDoc(collection(db, COL_SOLICITACOES_PERSONAL_TRAINER), novaSolicitacao);
+      const docRef = await addDoc(collection(db, COL_SOLICITACOES_PERSONAL_TRAINER), {
+        ...novaSolicitacao,
+        ...shadowOrganizationFields(),
+      });
       
       // Log de auditoria
       // TODO: Criar método específico para Personal Trainer no AuditLogService
@@ -269,6 +273,7 @@ export class SolicitacaoPersonalTrainerService {
         medicoId: requestData.medicoId,
         status: 'ativo',
         dataCompartilhamento: Timestamp.now(),
+        ...shadowOrganizationFields(),
       });
       
       // Log de auditoria

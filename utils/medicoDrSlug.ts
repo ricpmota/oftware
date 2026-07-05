@@ -1,4 +1,5 @@
 import type { Medico } from '@/types/medico';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
 
 const normalizarNomeSlug = (str: string) =>
   (str || '')
@@ -46,9 +47,9 @@ export function publicDrUrlForMedico(
   medicosEmOrdem: Medico[],
   origin?: string
 ): string {
-  const base =
-    origin?.replace(/\/$/, '') ||
-    (typeof window !== 'undefined' ? window.location.origin : 'https://www.oftware.com.br');
   const slug = publicDrSlugForMedico(medico, medicosEmOrdem);
-  return `${base}/dr/${slug}`;
+  if (origin?.trim()) {
+    return `${origin.replace(/\/$/, '')}/dr/${slug}`;
+  }
+  return buildOrganizacaoPublicUrl(`/dr/${slug}`);
 }

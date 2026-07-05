@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl;
     const exerciseId = searchParams.get('exerciseId');
-    const resolution = searchParams.get('resolution') || '360';
+    const resolution = searchParams.get('resolution') || '1080';
 
     if (!exerciseId) {
       return NextResponse.json(

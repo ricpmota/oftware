@@ -96,30 +96,29 @@ export function BodyMapOverlay({ imageSrc, imageAlt, massaMagraSegmentar, gordur
   return (
     <div className="w-full max-w-[420px] mx-auto">
       {/* Switch Visualizar Massa Magra / Gordura */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="text-sm font-medium text-gray-700">Visualizar:</span>
-        <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.5">
+      <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+        <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
           <button
             type="button"
             onClick={() => setModo('massaMagra')}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              modo === 'massaMagra' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+              modo === 'massaMagra' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            Massa Magra
+            Massa magra
           </button>
           <button
             type="button"
             onClick={() => setModo('gordura')}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              modo === 'gordura' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+              modo === 'gordura' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            Gordura
+            Gordura segmentar
           </button>
         </div>
       </div>
-      <div className="relative w-full">
+      <div className="relative w-full rounded-2xl bg-gray-50/80 border border-gray-100 p-4">
         {/* Imagem do corpo - mantém proporção natural */}
         <img
           src={imageSrc}
@@ -161,7 +160,7 @@ export function BodyMapOverlay({ imageSrc, imageAlt, massaMagraSegmentar, gordur
         </div>
       </div>
       {/* Legenda das cores */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-[10px] text-gray-600">
+      <div className="flex flex-wrap items-center justify-center gap-4 mt-3 text-[10px] text-gray-500">
         <span className="flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#111827' }} />
           Normal

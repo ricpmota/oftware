@@ -79,10 +79,15 @@ export async function GET(request: NextRequest) {
 
     const storage = new Storage({ credentials });
     const bucket = storage.bucket(bucketName);
-    // Propedeutics: PDFs em cada subpasta (PROPEDEUTICS/EMERGÊNCIA/Emergency.pdf). Demais: pasta APOSTILAS.
+    // Propedeutics: PDFs em cada subpasta (PROPEDEUTICS/EMERGÊNCIA/Emergency.pdf).
+    // Laudo Exames: PDFs em LAUDO EXAMES/APOSTILAS/.
+    // Demais: pasta APOSTILAS.
     const isPropedeutics = courseId.toLowerCase() === 'propedeutics';
+    const isLaudoExames = courseId.toLowerCase() === 'laudo-exames';
     const prefix = isPropedeutics
       ? 'PROPEDEUTICS/'
+      : isLaudoExames
+        ? 'LAUDO EXAMES/APOSTILAS/'
       : courseId === 'oftreview'
         ? 'OFTREVIEW 2023/APOSTILAS/'
         : `${courseId.toUpperCase()}/APOSTILAS/`;

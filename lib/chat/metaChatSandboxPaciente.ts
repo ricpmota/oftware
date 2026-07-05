@@ -16,7 +16,7 @@ export function createMetaChatSandboxPacienteVazio(): PacienteCompleto {
       dataCadastro: new Date(),
       endereco: {},
     },
-    dadosClinicos: { comorbidades: {} },
+    dadosClinicos: { comorbidades: {}, tipoAvaliacaoInicial: 'completa' },
     estiloVida: {} as PacienteCompleto['estiloVida'],
     examesLaboratoriais: [],
     planoTerapeutico: { metas: {} },
@@ -47,6 +47,7 @@ export function createMetaChatSandboxPacienteAteMetas(): PacienteCompleto {
     },
     dadosClinicos: {
       ...base.dadosClinicos,
+      tipoAvaliacaoInicial: 'completa',
       medidasIniciais: {
         peso: 92,
         altura: 172,

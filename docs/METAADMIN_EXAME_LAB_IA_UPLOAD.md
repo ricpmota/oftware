@@ -40,7 +40,7 @@ Mesmas do restante do projeto Vertex:
 
 - `GOOGLE_VERTEX_CREDENTIALS_JSON` (ou `GOOGLE_PROJECT_ID` + `GOOGLE_CLIENT_EMAIL` + `GOOGLE_PRIVATE_KEY`)
 - `VERTEX_AI_LOCATION` (padrão `us-central1`)
-- `GEMINI_MODEL_ID` (padrão `gemini-2.0-flash-001`)
+- `GEMINI_MODEL_ID` (padrão `gemini-2.5-flash`)
 - `GEMINI_EXAME_LAB_MODEL_ID` (opcional) — modelo só para este fluxo; pode usar versão mais nova/capaz para OCR (ex.: `gemini-2.5-flash` quando disponível na sua região).
 - `EXAME_LAB_IA_TEMPERATURE` (opcional) — padrão `0` (máxima determinismo). Valores entre `0` e `1` se quiser um pouco mais de flexibilidade (geralmente **não** recomendado para números).
 - `EXAME_LAB_IA_USE_RESPONSE_SCHEMA=1` — **opt-in**: ativa `responseSchema` no Vertex (uma propriedade numérica por campo). O padrão é **desligado** (só `application/json` + prompt), porque schema muito grande costuma **reduzir** quantos exames o modelo devolve; a API ainda filtra chaves em `normalizarRespostaExameIA`.

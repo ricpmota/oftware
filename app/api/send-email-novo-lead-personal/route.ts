@@ -45,9 +45,19 @@ export async function POST(request: NextRequest) {
     const emailDoc = await db.collection('emails').doc(EMAIL_DOC_ID).get();
     if (!emailDoc.exists) return NextResponse.json({ error: 'Template não configurado' }, { status: 404 });
     const t = emailDoc.data()!;
-    let assunto = t.assunto || 'Novo lead/aluno';
-    let html = (t.corpoHtml || '').replace(/\{personal\}/g, personalNome).replace(/\{nome\}/g, nome);
-    assunto = assunto.replace(/\{personal\}/g, personalNome).replace(/\{nome\}/g, nome);
+    const assuntoTemplate = t.assunto || 'Novo lead/aluno';
+    const fotoRegistro = personal.docVerificacaoRegistroUrl || '';
+    const fotoSelfie = personal.docVerificacaoSelfieUrl || '';
+    const fotoCnh = personal.docVerificacaoCnhUrl || '';
+    const replaceVars = (texto: string) =>
+      texto
+        .replace(/\{personal\}/g, personalNome)
+        .replace(/\{nome\}/g, nome)
+        .replace(/\{foto_registro\}/g, fotoRegistro)
+        .replace(/\{selfie\}/g, fotoSelfie)
+        .replace(/\{cnh\}/g, fotoCnh);
+    let assunto = replaceVars(assuntoTemplate);
+    let html = replaceVars(t.corpoHtml || '');
 
     let envioSucesso = false;
     let erroEnvio: string | undefined;

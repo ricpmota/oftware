@@ -49,6 +49,7 @@ export async function listOftPayUsers(): Promise<OftPayUserDoc[]> {
       lastLoginAt: d.lastLoginAt != null ? toMillis(d.lastLoginAt as number | { toMillis: () => number }) : undefined,
       lastLoginUserAgent: typeof d.lastLoginUserAgent === 'string' ? d.lastLoginUserAgent : null,
       courseIds: Array.isArray(d.courseIds) ? (d.courseIds as string[]) : [],
+      questoesEnabled: Boolean(d.questoesEnabled),
       accessStartAt: d.accessStartAt != null ? toMillis(d.accessStartAt as number | { toMillis: () => number }) ?? null : undefined,
       accessEndAt: d.accessEndAt != null ? toMillis(d.accessEndAt as number | { toMillis: () => number }) ?? null : undefined,
       updatedAt: d.updatedAt != null ? toMillis(d.updatedAt as number | { toMillis: () => number }) : undefined,
@@ -109,25 +110,49 @@ const nowMs = () => Date.now();
 export async function getOftPayUserAccessInfo(
   email: string,
   allCourseIds: string[]
-): Promise<{ allowedCourseIds: string[]; accessStartAt: number | null; accessEndAt: number | null }> {
+): Promise<{
+  allowedCourseIds: string[];
+  accessStartAt: number | null;
+  accessEndAt: number | null;
+  questoesEnabled: boolean;
+}> {
   const { OFTPAY_OWNER_EMAIL } = await import('@/types/oftpayAccess');
   if (normalizeEmail(email) === normalizeEmail(OFTPAY_OWNER_EMAIL)) {
-    return { allowedCourseIds: allCourseIds, accessStartAt: null, accessEndAt: null };
+    return {
+      allowedCourseIds: allCourseIds,
+      accessStartAt: null,
+      accessEndAt: null,
+      questoesEnabled: true,
+    };
   }
   const db = getAdminFirestore();
   const id = normalizeEmail(email);
-  if (!id) return { allowedCourseIds: [], accessStartAt: null, accessEndAt: null };
+  if (!id) {
+    return { allowedCourseIds: [], accessStartAt: null, accessEndAt: null, questoesEnabled: false };
+  }
   const snap = await db.collection(COLLECTION).doc(id).get();
-  if (!snap.exists) return { allowedCourseIds: [], accessStartAt: null, accessEndAt: null };
+  if (!snap.exists) {
+    return { allowedCourseIds: [], accessStartAt: null, accessEndAt: null, questoesEnabled: false };
+  }
   const data = snap.data() as Record<string, unknown>;
   const courseIds = Array.isArray(data.courseIds) ? (data.courseIds as string[]) : [];
   const filtered = courseIds.filter((c) => allCourseIds.includes(c));
   const accessStartAt = data.accessStartAt != null ? toMillis(data.accessStartAt as number | { toMillis: () => number }) ?? null : null;
   const accessEndAt = data.accessEndAt != null ? toMillis(data.accessEndAt as number | { toMillis: () => number }) ?? null : null;
+  const questoesFlag = Boolean(data.questoesEnabled);
   const now = nowMs();
-  if (accessStartAt != null && now < accessStartAt) return { allowedCourseIds: [], accessStartAt, accessEndAt };
-  if (accessEndAt != null && now > accessEndAt) return { allowedCourseIds: [], accessStartAt, accessEndAt };
-  return { allowedCourseIds: filtered, accessStartAt, accessEndAt };
+  if (accessStartAt != null && now < accessStartAt) {
+    return { allowedCourseIds: [], accessStartAt, accessEndAt, questoesEnabled: false };
+  }
+  if (accessEndAt != null && now > accessEndAt) {
+    return { allowedCourseIds: [], accessStartAt, accessEndAt, questoesEnabled: false };
+  }
+  return {
+    allowedCourseIds: filtered,
+    accessStartAt,
+    accessEndAt,
+    questoesEnabled: questoesFlag,
+  };
 }
 
 /** Retorna os IDs dos cursos permitidos para o email (respeitando vigência). Proprietário tem acesso a todos. */
@@ -143,6 +168,7 @@ export async function getAllowedCourseIds(
 export async function updateOftPayUser(params: {
   email: string;
   courseIds?: string[];
+  questoesEnabled?: boolean;
   accessStartAt?: number | null;
   accessEndAt?: number | null;
 }): Promise<void> {
@@ -151,6 +177,7 @@ export async function updateOftPayUser(params: {
   if (!id) throw new Error('Email inválido');
   const payload: Record<string, unknown> = { updatedAt: Date.now() };
   if (params.courseIds !== undefined) payload.courseIds = params.courseIds;
+  if (params.questoesEnabled !== undefined) payload.questoesEnabled = params.questoesEnabled;
   if (params.accessStartAt !== undefined) payload.accessStartAt = params.accessStartAt ?? null;
   if (params.accessEndAt !== undefined) payload.accessEndAt = params.accessEndAt ?? null;
   await db.collection(COLLECTION).doc(id).set(payload, { merge: true });
@@ -236,6 +263,7 @@ export async function addOftPayUserByEmail(email: string): Promise<void> {
   await ref.set({
     email: email.trim(),
     courseIds: [],
+    questoesEnabled: false,
     accessStartAt: null,
     accessEndAt: null,
     lastLoginAt: null,

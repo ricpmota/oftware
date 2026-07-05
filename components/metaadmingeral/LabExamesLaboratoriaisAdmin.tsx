@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { auth } from '@/lib/firebase';
-import { FlaskConical, Save, RotateCcw, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { FlaskConical, Save, RotateCcw, Loader2, AlertCircle, CheckCircle2, Printer } from 'lucide-react';
 import { getLabRange, calcularIdade, type LabLimitOverrides } from '@/utils/labRangesFromJson';
 import type { Sex } from '@/types/labRanges';
 import { LAB_SECTION_LABELS_PT } from '@/lib/labExames/labSectionLabels';
@@ -223,11 +223,7 @@ export default function LabExamesLaboratoriaisAdmin() {
         labOrderBySection?: Record<string, string[]>;
         labLimitOverrides?: LabLimitOverrides;
       };
-      if (j.labOrderBySection && typeof j.labOrderBySection === 'object') {
-        setOrder(cloneOrder(j.labOrderBySection));
-      } else {
-        setOrder(getDefaultLabOrderBySection());
-      }
+      setOrder(getDefaultLabOrderBySection());
       setOverrideDraft(mergeServerOverridesIntoDraft(allRefRows, j.labLimitOverrides));
     } catch {
       setOrder(getDefaultLabOrderBySection());
@@ -311,6 +307,93 @@ export default function LabExamesLaboratoriaisAdmin() {
     });
   };
 
+  const handlePrint = () => {
+    const sections = sectionIdsOrdered
+      .map((sectionId) => {
+        const keys = order[sectionId] || [];
+        if (keys.length === 0) return '';
+        const title = LAB_SECTION_LABELS_PT[sectionId] || sectionId;
+
+        const examRows = keys
+          .map((examKey) => {
+            const refRows = buildLabReferenceRows(examKey);
+            const merged = mergeLabReferenceRowsByAgeBand(refRows);
+            if (merged.length === 0) return '';
+
+            const displayName =
+              merged[0].simple?.label ?? merged[0].m?.label ?? merged[0].f?.label ?? examKey;
+
+            const bandRows = merged
+              .map((mg) => {
+                let refM = '—';
+                let refF = '—';
+
+                if (mg.simple) {
+                  const val = effectiveRangeForRow(mg.simple, previewOverrides);
+                  refM = val;
+                  refF = val;
+                } else {
+                  if (mg.m) refM = effectiveRangeForRow(mg.m, previewOverrides);
+                  if (mg.f) refF = effectiveRangeForRow(mg.f, previewOverrides);
+                }
+
+                return `<tr>
+                  <td style="padding:4px 8px;border:1px solid #ddd;">${mg.ageBandLabel}</td>
+                  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${refM}</td>
+                  <td style="padding:4px 8px;border:1px solid #ddd;text-align:center;">${refF}</td>
+                </tr>`;
+              })
+              .join('');
+
+            return `<tr style="background:#f0f0f0;">
+              <td style="padding:6px 8px;border:1px solid #ddd;font-weight:600;" colspan="4">${displayName} <span style="font-weight:400;color:#666;font-size:11px;">(${examKey})</span></td>
+            </tr>
+            <tr style="background:#fafafa;">
+              <td style="padding:4px 8px;border:1px solid #ddd;font-weight:500;font-size:11px;">Faixa etária</td>
+              <td style="padding:4px 8px;border:1px solid #ddd;font-weight:500;font-size:11px;text-align:center;">Ref. Masculino</td>
+              <td style="padding:4px 8px;border:1px solid #ddd;font-weight:500;font-size:11px;text-align:center;">Ref. Feminino</td>
+            </tr>
+            ${bandRows}`;
+          })
+          .filter(Boolean)
+          .join('');
+
+        if (!examRows) return '';
+
+        return `<div style="margin-bottom:24px;page-break-inside:avoid;">
+          <h2 style="font-size:16px;margin:0 0 8px 0;color:#333;border-bottom:2px solid #4CCB7A;padding-bottom:4px;">${title}</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">${examRows}</table>
+        </div>`;
+      })
+      .filter(Boolean)
+      .join('');
+
+    const html = `<!DOCTYPE html>
+<html><head>
+<title>Exames Laboratoriais - Valores de Referência</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #666; margin-bottom: 20px; }
+  @media print { body { margin: 10px; } }
+</style>
+</head><body>
+<h1>Exames Laboratoriais — Valores de Referência</h1>
+<p class="subtitle">Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+${sections}
+</body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setMessage({ type: 'err', text: 'Popup bloqueado. Permita popups para imprimir.' });
+      return;
+    }
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -343,6 +426,15 @@ export default function LabExamesLaboratoriaisAdmin() {
           >
             {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
             Salvar no Firestore
+          </button>
+          <button
+            type="button"
+            onClick={handlePrint}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#4CCB7A]/50 text-[#4CCB7A] hover:bg-[#4CCB7A]/10 disabled:opacity-50 text-sm"
+          >
+            <Printer size={18} />
+            Imprimir
           </button>
         </div>
       </div>

@@ -2,25 +2,30 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.oftware.com.br'),
-  title: 'Mentoria para Médicos | Método Emagrecer – Fature online com medicina',
+  title: 'Mentoria Médica | Oftware — Construa sua operação digital de acompanhamento',
   description:
-    'Você não precisa de consultório para faturar alto. Modelo digital escalável, acompanhamento online e liberdade geográfica. Mentoria para médicos.',
+    'Mentoria para médicos sobre a infraestrutura Oftware: modelo digital escalável, acompanhamento online, captação e previsibilidade de receita — sem depender só do consultório.',
   openGraph: {
-    title: 'Mentoria para Médicos | Método Emagrecer',
+    title: 'Mentoria Médica | Oftware',
     description:
-      'Fature online com medicina. Modelo digital 100% aplicável online. Liberdade geográfica e renda previsível.',
+      'Aprenda a monetizar medicina com a infraestrutura White Label da Oftware. Modelo digital, acompanhamento estruturado e liberdade geográfica.',
     url: 'https://www.oftware.com.br/mentoria',
     siteName: 'Oftware',
     locale: 'pt_BR',
     images: [
-      { url: '/og-mentoria.jpg', width: 1200, height: 630, alt: 'Método Emagrecer - Mentoria para Médicos' },
+      {
+        url: '/og-mentoria.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Oftware — Mentoria Médica para operação digital',
+      },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Mentoria para Médicos | Método Emagrecer',
+    title: 'Mentoria Médica | Oftware',
     description:
-      'Fature online com medicina. Modelo digital escalável sem consultório físico.',
+      'Construa sua operação de acompanhamento médico digital sobre a infraestrutura Oftware.',
     images: ['/og-mentoria.jpg'],
   },
   robots: {

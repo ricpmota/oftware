@@ -1,26 +1,58 @@
 import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import { normalizeLeadReferral, referralToFirestore } from '@/lib/crm/resolveLeadReferral';
 import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
+import type { LeadReferralSnapshot } from '@/types/leadMedico';
+
+export type CriarSolicitacaoOptions = {
+  emailIndicador?: string;
+  referral?: LeadReferralSnapshot;
+};
+
+function mapSolicitacaoDoc(id: string, data: Record<string, unknown>): SolicitacaoMedico {
+  return {
+    id,
+    pacienteId: data.pacienteId as string | undefined,
+    pacienteEmail: (data.pacienteEmail as string) || '',
+    pacienteNome: (data.pacienteNome as string) || '',
+    pacienteTelefone: data.pacienteTelefone as string | undefined,
+    medicoId: (data.medicoId as string) || '',
+    medicoNome: (data.medicoNome as string) || '',
+    status: (data.status as SolicitacaoMedico['status']) || 'pendente',
+    criadoEm: (data.criadoEm as { toDate?: () => Date })?.toDate?.() || new Date(),
+    aceitaEm: (data.aceitaEm as { toDate?: () => Date })?.toDate?.(),
+    rejeitadaEm: (data.rejeitadaEm as { toDate?: () => Date })?.toDate?.(),
+    desistiuEm: (data.desistiuEm as { toDate?: () => Date })?.toDate?.(),
+    observacoes: data.observacoes as string | undefined,
+    motivoDesistencia: data.motivoDesistencia as string | undefined,
+    chatInicialCompleto: data.chatInicialCompleto === true,
+    referral: normalizeLeadReferral(data.referral),
+  };
+}
 
 export class SolicitacaoMedicoService {
   /**
    * Criar uma nova solicitação de médico
-   * @param solicitacao - Dados da solicitação
-   * @param emailIndicador - Email do paciente que indicou (opcional, para indicação por link)
    */
   static async criarSolicitacao(
     solicitacao: Omit<SolicitacaoMedico, 'id' | 'criadoEm'>,
-    emailIndicador?: string
+    options?: CriarSolicitacaoOptions | string
   ): Promise<string> {
+    const opts: CriarSolicitacaoOptions =
+      typeof options === 'string' ? { emailIndicador: options } : options ?? {};
+
     try {
-      // Remove campos undefined antes de salvar
-      const solicitacaoData: any = {
+      let referral: LeadReferralSnapshot | undefined =
+        solicitacao.referral ?? opts.referral;
+
+      const solicitacaoData: Record<string, unknown> = {
         pacienteEmail: solicitacao.pacienteEmail,
         pacienteNome: solicitacao.pacienteNome,
         medicoId: solicitacao.medicoId,
         medicoNome: solicitacao.medicoNome,
         status: solicitacao.status,
-        criadoEm: new Date()
+        criadoEm: new Date(),
       };
 
       if (solicitacao.pacienteId) {
@@ -31,10 +63,20 @@ export class SolicitacaoMedicoService {
         solicitacaoData.pacienteTelefone = solicitacao.pacienteTelefone;
       }
 
-      const docRef = await addDoc(collection(db, 'solicitacoes_medico'), solicitacaoData);
-      
-      // Se houver emailIndicador, criar indicação automaticamente
-      if (emailIndicador && solicitacao.pacienteTelefone) {
+      if (solicitacao.chatInicialCompleto === true) {
+        solicitacaoData.chatInicialCompleto = true;
+      }
+
+      if (referral?.type) {
+        solicitacaoData.referral = referralToFirestore(referral);
+      }
+
+      const docRef = await addDoc(collection(db, 'solicitacoes_medico'), {
+        ...solicitacaoData,
+        ...shadowOrganizationFields(),
+      });
+
+      if (opts.emailIndicador && solicitacao.pacienteTelefone) {
         try {
           const { IndicacaoService } = await import('@/services/indicacaoService');
           const { MedicoService } = await import('@/services/medicoService');
@@ -49,27 +91,48 @@ export class SolicitacaoMedicoService {
             // Buscar paciente por userId (email)
             const pacientesQuery = query(
               collection(db, 'pacientes_completos'),
-              where('userId', '==', emailIndicador)
+              where('userId', '==', opts.emailIndicador)
             );
             const pacientesSnapshot = await getDocs(pacientesQuery);
             const pacienteIndicador = pacientesSnapshot.empty ? null : {
-              nome: pacientesSnapshot.docs[0].data().nome || emailIndicador.split('@')[0],
+              nome: pacientesSnapshot.docs[0].data().nome || opts.emailIndicador!.split('@')[0],
               dadosIdentificacao: pacientesSnapshot.docs[0].data().dadosIdentificacao || {}
             };
             
-            await IndicacaoService.criarIndicacao({
-              indicadoPor: emailIndicador,
-              indicadoPorNome: pacienteIndicador?.nome || emailIndicador.split('@')[0],
+            const indicacaoId = await IndicacaoService.criarIndicacao({
+              indicadoPor: opts.emailIndicador!,
+              indicadoPorNome: pacienteIndicador?.nome || opts.emailIndicador!.split('@')[0],
               indicadoPorTelefone: pacienteIndicador?.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '',
               nomePaciente: solicitacao.pacienteNome,
               telefonePaciente: solicitacao.pacienteTelefone.replace(/\D/g, ''),
               estado: primeiraCidade.estado,
               cidade: primeiraCidade.cidade,
               medicoId: solicitacao.medicoId,
-              medicoNome: solicitacao.medicoNome
+              medicoNome: solicitacao.medicoNome,
+              status: 'pendente',
             });
-            
-            console.log('✅ Indicação criada automaticamente via link para:', emailIndicador);
+
+            if (!referral?.type || referral.type === 'medico' || referral.type === 'dr_link') {
+              referral = {
+                type: 'paciente',
+                sourceId: indicacaoId,
+                sourceName: pacienteIndicador?.nome || opts.emailIndicador!.split('@')[0],
+                sourceContact: pacienteIndicador?.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '',
+                indicacaoId,
+                capturedAt: new Date(),
+              };
+            } else if (referral.type === 'paciente') {
+              referral = {
+                ...referral,
+                sourceId: indicacaoId,
+                indicacaoId,
+              };
+            }
+            await updateDoc(doc(db, 'solicitacoes_medico', docRef.id), {
+              referral: referralToFirestore(referral),
+            });
+
+            console.log('✅ Indicação criada automaticamente via link para:', opts.emailIndicador);
           }
         } catch (indicacaoError) {
           console.error('❌ Erro ao criar indicação automática:', indicacaoError);
@@ -122,25 +185,9 @@ export class SolicitacaoMedicoService {
 
       const snapshot = await getDocs(q);
       
-      const solicitacoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          pacienteId: data.pacienteId,
-          pacienteEmail: data.pacienteEmail || '',
-          pacienteNome: data.pacienteNome || '',
-          pacienteTelefone: data.pacienteTelefone,
-          medicoId: data.medicoId || '',
-          medicoNome: data.medicoNome || '',
-          status: data.status || 'pendente',
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          aceitaEm: data.aceitaEm?.toDate(),
-          rejeitadaEm: data.rejeitadaEm?.toDate(),
-          desistiuEm: data.desistiuEm?.toDate(),
-          observacoes: data.observacoes,
-          motivoDesistencia: data.motivoDesistencia
-        } as SolicitacaoMedico;
-      });
+      const solicitacoes = snapshot.docs.map((d) =>
+        mapSolicitacaoDoc(d.id, d.data() as Record<string, unknown>)
+      );
 
       // Ordenar no cliente (mais recente primeiro)
       return solicitacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
@@ -162,31 +209,41 @@ export class SolicitacaoMedicoService {
 
       const snapshot = await getDocs(q);
       
-      const solicitacoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          pacienteId: data.pacienteId,
-          pacienteEmail: data.pacienteEmail || '',
-          pacienteNome: data.pacienteNome || '',
-          pacienteTelefone: data.pacienteTelefone,
-          medicoId: data.medicoId || '',
-          medicoNome: data.medicoNome || '',
-          status: data.status || 'pendente',
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          aceitaEm: data.aceitaEm?.toDate(),
-          rejeitadaEm: data.rejeitadaEm?.toDate(),
-          desistiuEm: data.desistiuEm?.toDate(),
-          observacoes: data.observacoes,
-          motivoDesistencia: data.motivoDesistencia
-        } as SolicitacaoMedico;
-      });
+      const solicitacoes = snapshot.docs.map((d) =>
+        mapSolicitacaoDoc(d.id, d.data() as Record<string, unknown>)
+      );
 
       // Ordenar no cliente (mais recente primeiro)
       return solicitacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
     } catch (error) {
       console.error('Erro ao buscar solicitações:', error);
       return [];
+    }
+  }
+
+  /**
+   * Marca solicitações pendentes do paciente como tendo chat inicial completo.
+   */
+  static async marcarChatInicialCompletoPorPaciente(
+    pacienteEmail: string,
+    medicoId?: string
+  ): Promise<void> {
+    try {
+      const solicitacoes = await this.getSolicitacoesPorPaciente(pacienteEmail);
+      const alvo = solicitacoes.filter(
+        (s) =>
+          s.status === 'pendente' &&
+          s.chatInicialCompleto !== true &&
+          (!medicoId || s.medicoId === medicoId)
+      );
+      await Promise.all(
+        alvo.map((s) =>
+          updateDoc(doc(db, 'solicitacoes_medico', s.id), { chatInicialCompleto: true })
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao marcar chat inicial completo:', error);
+      throw error;
     }
   }
 
@@ -249,10 +306,15 @@ export class SolicitacaoMedicoService {
   /**
    * Cancelar todas as solicitações pendentes de um paciente
    */
-  static async cancelarSolicitacoesPendentesPaciente(pacienteEmail: string): Promise<void> {
+  static async cancelarSolicitacoesPendentesPaciente(
+    pacienteEmail: string,
+    excludeSolicitacaoId?: string
+  ): Promise<void> {
     try {
       const solicitacoes = await this.getSolicitacoesPorPaciente(pacienteEmail);
-      const pendentes = solicitacoes.filter(s => s.status === 'pendente');
+      const pendentes = solicitacoes.filter(
+        (s) => s.status === 'pendente' && s.id !== excludeSolicitacaoId
+      );
       
       for (const solicitacao of pendentes) {
         await updateDoc(doc(db, 'solicitacoes_medico', solicitacao.id), {
@@ -315,25 +377,9 @@ export class SolicitacaoMedicoService {
 
       const snapshot = await getDocs(q);
       
-      const solicitacoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          pacienteId: data.pacienteId,
-          pacienteEmail: data.pacienteEmail || '',
-          pacienteNome: data.pacienteNome || '',
-          pacienteTelefone: data.pacienteTelefone,
-          medicoId: data.medicoId || '',
-          medicoNome: data.medicoNome || '',
-          status: data.status || 'pendente',
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          aceitaEm: data.aceitaEm?.toDate(),
-          rejeitadaEm: data.rejeitadaEm?.toDate(),
-          desistiuEm: data.desistiuEm?.toDate(),
-          observacoes: data.observacoes,
-          motivoDesistencia: data.motivoDesistencia
-        } as SolicitacaoMedico;
-      });
+      const solicitacoes = snapshot.docs.map((d) =>
+        mapSolicitacaoDoc(d.id, d.data() as Record<string, unknown>)
+      );
 
       return solicitacoes;
     } catch (error) {
@@ -349,25 +395,9 @@ export class SolicitacaoMedicoService {
     try {
       const snapshot = await getDocs(collection(db, 'solicitacoes_medico'));
 
-      const solicitacoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          pacienteId: data.pacienteId,
-          pacienteEmail: data.pacienteEmail || '',
-          pacienteNome: data.pacienteNome || '',
-          pacienteTelefone: data.pacienteTelefone,
-          medicoId: data.medicoId || '',
-          medicoNome: data.medicoNome || '',
-          status: data.status || 'pendente',
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          aceitaEm: data.aceitaEm?.toDate(),
-          rejeitadaEm: data.rejeitadaEm?.toDate(),
-          desistiuEm: data.desistiuEm?.toDate(),
-          observacoes: data.observacoes,
-          motivoDesistencia: data.motivoDesistencia
-        } as SolicitacaoMedico;
-      });
+      const solicitacoes = snapshot.docs.map((d) =>
+        mapSolicitacaoDoc(d.id, d.data() as Record<string, unknown>)
+      );
 
       return solicitacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
     } catch (error) {

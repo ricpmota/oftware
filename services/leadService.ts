@@ -30,6 +30,14 @@ export class LeadService {
         leadData.observacoes = lead.observacoes;
       }
 
+      if (typeof lead.estrelas === 'number') {
+        leadData.estrelas = Math.min(5, Math.max(0, Math.round(lead.estrelas)));
+      }
+
+      if (lead.telefone) {
+        leadData.telefone = lead.telefone;
+      }
+
       if (lead.atualizadoPor) {
         leadData.atualizadoPor = lead.atualizadoPor;
       }
@@ -80,6 +88,22 @@ export class LeadService {
   }
 
   /**
+   * Atualiza a classificação por estrelas (0-5) do lead.
+   */
+  static async updateLeadEstrelas(leadId: string, estrelas: number): Promise<void> {
+    const n = Math.min(5, Math.max(0, Math.round(estrelas)));
+    try {
+      await updateDoc(doc(db, 'leads', leadId), {
+        estrelas: n,
+        updatedAt: new Date(),
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar estrelas do lead:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Buscar todos os leads
    */
   static async getAllLeads(): Promise<Lead[]> {
@@ -93,6 +117,8 @@ export class LeadService {
           uid: data.uid || doc.id,
           email: data.email || '',
           name: data.name || '',
+          estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
+          telefone: data.telefone,
           createdAt: data.createdAt?.toDate(),
           lastSignInTime: data.lastSignInTime,
           emailVerified: data.emailVerified,
@@ -127,6 +153,8 @@ export class LeadService {
         uid: data.uid || docSnap.id,
         email: data.email || '',
         name: data.name || '',
+        estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
+        telefone: data.telefone,
         createdAt: data.createdAt?.toDate(),
         lastSignInTime: data.lastSignInTime,
         emailVerified: data.emailVerified,
@@ -163,6 +191,8 @@ export class LeadService {
           uid: data.uid || doc.id,
           email: data.email || '',
           name: data.name || '',
+          estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
+          telefone: data.telefone,
           createdAt: data.createdAt?.toDate(),
           lastSignInTime: data.lastSignInTime,
           emailVerified: data.emailVerified,

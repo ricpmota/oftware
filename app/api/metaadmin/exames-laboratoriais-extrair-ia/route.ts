@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       data: {
+        nomePacienteDocumento: data.nomePacienteDocumento,
         dataExame: data.dataExame,
         camposMapeados: data.camposMapeados,
         examesNaoMapeados: data.examesNaoMapeados,

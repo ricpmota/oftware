@@ -2,6 +2,7 @@
  * Camada única de chamada ao LLM — evoluir providers aqui.
  */
 
+import { resolveGeminiModelId } from '@/lib/gcp/geminiConfig';
 import { JWT } from 'google-auth-library';
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
@@ -87,7 +88,7 @@ async function callVertexGemini(systemPrompt: string, history: ChatTurn[]): Prom
 
   const accessToken = await getVertexAccessToken(creds);
   const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-  const model = process.env.GEMINI_MODEL_ID || 'gemini-2.0-flash-001';
+  const model = resolveGeminiModelId();
   const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${creds.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
 
   const contents = history.map((h) => ({

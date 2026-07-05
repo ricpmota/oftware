@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { resolveMedicoWhiteLabelWithMetodo } from '@/lib/server/resolveMedicoWhiteLabelWithMetodo.server';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -97,9 +98,16 @@ export async function GET(request: NextRequest) {
 
     // Se slug tinha sufixo numérico (ex: ricardo-mota2), retornar o N-ésimo médico com esse nome
     const indice = Math.min(indiceDuplicata - 1, medicos.length - 1);
-    const medico = medicos[Math.max(0, indice)];
-    
-    // Formatar resposta
+    const medico = medicos[Math.max(0, indice)] as Record<string, unknown> & { id: string; dataCadastro?: unknown };
+    const whiteLabel = await resolveMedicoWhiteLabelWithMetodo({
+      nome: String(medico.nome || ''),
+      genero: medico.genero as 'M' | 'F' | undefined,
+      fotoPerfilUrl: (medico.fotoPerfilUrl as string | null | undefined) ?? null,
+      whiteLabel: medico.whiteLabel as Parameters<typeof resolveMedicoWhiteLabelWithMetodo>[0]['whiteLabel'],
+      metodoImagensAtivo: medico.metodoImagensAtivo === true,
+      organizationId: typeof medico.organizationId === 'string' ? medico.organizationId : null,
+    });
+
     return NextResponse.json({
       id: medico.id,
       userId: medico.userId,
@@ -114,6 +122,7 @@ export async function GET(request: NextRequest) {
       dataCadastro: medico.dataCadastro,
       status: medico.status || 'ativo',
       isVerificado: medico.isVerificado || false,
+      whiteLabel,
     });
   } catch (error) {
     console.error('Erro ao buscar médico por nome:', error);

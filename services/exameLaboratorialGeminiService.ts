@@ -3,32 +3,78 @@
  * Server-only.
  */
 
+import { resolveExameLabGeminiModelId } from '@/lib/gcp/geminiConfig';
 import { getGoogleVertexCredentials, getVertexAccessToken } from '@/lib/gcp/googleVertexAuth';
 import { EXAME_LABORATORIAL_ALLOWED_INTERNAL_FIELDS } from '@/lib/metaadmin/exameLaboratorialFormFields';
 import { normalizarRespostaExameIA, type ExameLaboratorialExtracaoNormalizada } from '@/lib/metaadmin/exameLaboratorialExtracao';
 
 function buildExameLaboratorialPrompt(allowedKeysJson: string): string {
-  return `Você é um assistente que extrai APENAS resultados numéricos de exames laboratoriais de um documento brasileiro (laudo, print, PDF).
+  return `Você é um especialista em leitura de exames laboratoriais brasileiros.
 
-REGRAS OBRIGATÓRIAS:
-0) Preencha camposMapeados com o máximo de exames do documento que tenham chave na lista abaixo — não omita linhas legíveis só para resumir a saída.
-1) Use SOMENTE valores que apareçam claramente no documento. NÃO invente, NÃO estime, NÃO complete lacunas.
-2) Ignore cabeçalhos, rodapés, logos, endereços, assinaturas, QR codes, textos administrativos e qualquer texto que não seja resultado de exame com valor.
-3) **Resultado vs referência:** em tabelas com colunas "Resultado", "Valor", "Paciente" vs "Referência", "VR", "Val. ref.", copie SOMENTE o valor da coluna de **resultado do paciente**. Nunca use números da coluna de referência como se fossem resultado.
-4) **Valores não numéricos explícitos:** se o laudo mostrar "<0,5", ">500", "Negativo", "Não reagente" ou texto sem número claro, NÃO converta em número inventado — omita o exame em camposMapeados e, se útil, cite em avisos.
-5) **Uma linha = um exame:** não misture valor de um exame com o nome de outro. Se a linha estiver truncada ou ilegível, omita.
-6) **Unidades:** preserve o número como no laudo (vírgula decimal é comum no Brasil). Não converta unidades (ex.: não transforme mmol/L em mg/dL); se a unidade não bater com o esperado para a chave, prefira omitir e registrar em avisos.
-7) **Ambiguidade entre exames parecidos:** se não der para saber se é, por exemplo, LDL direto vs calculado, ou T4 livre vs total, omita em camposMapeados e coloque o nome da linha em examesNaoMapeados.
-8) Cada valor numérico deve estar explicitamente associado a um nome de exame no documento. Se houver dúvida, NÃO inclua em camposMapeados.
-9) Você só pode usar chaves em camposMapeados que existam EXATAMENTE na lista JSON abaixo. Nenhuma outra chave.
-10) Exames do documento sem chave na lista → examesNaoMapeados (nome como no laudo).
-11) dataExame: data de **coleta** ou de **emissão do resultado** se estiver clara, formato YYYY-MM-DD. Se houver várias datas conflitantes ou só data de impressão genérica, use null.
-12) avisos: limitações reais (ilegível, cortado, sombra, foto tremida) — sem inventar dados.
-13) Leucócitos e plaquetas no app ficam em escala ×10³/µL (ex.: 256 = 256 mil/µL). Se o laudo trouxer contagem absoluta /µL (ex.: 256000), envie o número como no documento; o backend converte para ×10³ quando aplicável.
-14) Saída: apenas o JSON acordado (sem markdown).
+Sua função é analisar PDF ou imagem de laudo e retornar dados estruturados para preenchimento de campos no sistema médico.
 
-FORMATO EXATO DO JSON DE SAÍDA:
+REGRA PRINCIPAL:
+Você NÃO deve apenas ler texto. Você deve interpretar corretamente o layout e identificar o RESULTADO ATUAL do paciente para cada exame.
+
+OBJETIVO DA EXTRAÇÃO:
+1) nomePacienteDocumento
+2) dataExame
+3) camposMapeados
+4) examesNaoMapeados
+5) avisos
+
+REGRAS CRÍTICAS DE INTERPRETAÇÃO:
+1) RESULTADO ATUAL
+- Priorize o valor principal associado ao nome do exame.
+- Ignore "resultado anterior", histórico e datas antigas.
+- Se houver vários números, escolha somente o número mais provável como resultado atual do paciente.
+
+2) NÃO CONFUNDIR
+- Faixa de referência NÃO é resultado.
+- Comentário clínico NÃO é resultado.
+- Assinatura, carimbo, marca d'água, logo, texto institucional, cabeçalho e rodapé devem ser ignorados.
+
+3) PADRÃO DE LEITURA
+- Exames brasileiros costumam seguir: NOME DO EXAME -> VALOR -> UNIDADE -> FAIXA DE REFERÊNCIA.
+- Exemplo: Glicose 82 mg/dL (referência 70-99). Resultado correto é 82.
+
+4) PRIORIDADE EM CASO DE AMBIGUIDADE
+- Priorize nesta ordem:
+  a) número alinhado ao nome do exame;
+  b) número sem data associada;
+  c) número acompanhado de unidade;
+  d) número antes da faixa de referência.
+
+5) EXAMES COMPOSTOS
+- Em painéis como hemograma, trate cada item separadamente (hemoglobina, hematócrito, leucócitos, plaquetas etc.).
+- Extraia o que tiver correspondência clara nas chaves permitidas.
+
+6) UNIDADES
+- Associe corretamente unidades como mg/dL, U/L, mUI/L, ng/mL, ng/dL, mmol/L, /mm3 e variações.
+- Mesmo se a unidade estiver distante visualmente, relacione com cautela.
+- Não converta unidades (ex.: mmol/L para mg/dL). Preserve o número como aparece no laudo.
+
+7) CONFIANÇA E INCERTEZA
+- Se leitura estiver clara, prossiga.
+- Se houver ambiguidade relevante, não invente: omita de camposMapeados e registre em examesNaoMapeados/avisos.
+- Use avisos para descrever incerteza, baixa legibilidade, corte de imagem ou dúvida de associação.
+
+REGRAS OBRIGATÓRIAS DE SAÍDA:
+0) Preencha camposMapeados com o máximo de exames legíveis e confiáveis da lista permitida.
+1) Use SOMENTE valores que apareçam claramente no documento.
+2) NÃO invente, NÃO estime, NÃO complete lacunas.
+3) Cada valor numérico deve estar explicitamente associado a um exame no documento.
+4) Se houver valores como "<0,5", ">500", "negativo", "não reagente" ou sem número claro, não invente número; omita e registre em avisos quando útil.
+5) Você só pode usar em camposMapeados chaves que existam EXATAMENTE na lista permitida abaixo.
+6) Exames identificados sem chave correspondente devem ir para examesNaoMapeados.
+7) nomePacienteDocumento: extraia o nome do paciente exibido no laudo (ex.: campo "Paciente", "Nome", "Nome do paciente"). Se não estiver claro, null.
+8) dataExame: prefira data de coleta ou emissão do resultado, formato YYYY-MM-DD; se incerto/conflitante, null.
+9) Leucócitos e plaquetas: se o laudo trouxer contagem absoluta /µL (ex.: 256000), envie como no documento; o backend ajusta escala quando necessário.
+10) Retorne APENAS o JSON final, sem markdown e sem texto adicional.
+
+FORMATO EXATO DO JSON DE SAÍDA (NÃO ALTERAR):
 {
+  "nomePacienteDocumento": "NOME COMPLETO" | null,
   "dataExame": "YYYY-MM-DD" | null,
   "camposMapeados": { "<chave_da_lista>": número },
   "examesNaoMapeados": ["nome como no documento", ...],
@@ -39,36 +85,85 @@ LISTA EXATA DE CHAVES PERMITIDAS PARA camposMapeados:
 ${allowedKeysJson}
 
 Exemplos de mapeamento de nomes comuns no Brasil para chaves:
-- Glicemia jejum / glicose jejum → glicemiaJejum
-- HbA1c / hemoglobina glicada / A1C → hemoglobinaGlicada
-- Insulina jejum → insulinaJejum
-- Ureia / BUN (se valor for ureia em mg/dL) → ureia
-- Creatinina → creatinina
-- TFG / TFGe / eGFR → taxaFiltracaoGlomerular
-- Sódio / Na → sodio
-- Potássio / K → potassio
-- TGP / ALT → tgp
-- TGO / AST → tgo
-- GGT / gama GT → ggt
-- Fosfatase alcalina / FA → fosfataseAlcalina
-- Colesterol total → colesterolTotal
-- HDL / HDL-c → hdl
-- LDL / LDL-c → ldl
-- Triglicerídeos / TG → triglicerides
-- TSH → tsh
-- T4 livre / T4L → t4Livre
-- Calcitonina → calcitonina
-- Hemoglobina / Hb → hemoglobina
-- Leucócitos / GB → leucocitos
-- Plaquetas → plaquetas
-- Ferritina → ferritina
-- Ferro sérico → ferroSerico
-- B12 / vitamina B12 → vitaminaB12
-- Vitamina D / 25-OH → vitaminaD
-- Albumina → albumina
-(Use outras chaves da lista quando o nome do exame corresponder claramente.)
+- Glicemia jejum / glicose jejum -> glicemiaJejum
+- HbA1c / hemoglobina glicada / A1C -> hemoglobinaGlicada
+- Insulina jejum -> insulinaJejum
+- Ureia / BUN (se valor for ureia em mg/dL) -> ureia
+- Creatinina -> creatinina
+- TFG / TFGe / eGFR -> taxaFiltracaoGlomerular
+- Sódio / Na -> sodio
+- Potássio / K -> potassio
+- TGP / ALT -> tgp
+- TGO / AST -> tgo
+- GGT / gama GT -> ggt
+- Fosfatase alcalina / FA -> fosfataseAlcalina
+- Colesterol total -> colesterolTotal
+- HDL / HDL-c -> hdl
+- LDL / LDL-c -> ldl
+- Triglicerídeos / TG -> triglicerides
+- TSH -> tsh
+- T4 livre / T4L -> t4Livre
+- Calcitonina -> calcitonina
+- Hemoglobina / Hb -> hemoglobina
+- Leucócitos / GB -> leucocitos
+- Plaquetas -> plaquetas
+- Ferritina -> ferritina
+- Ferro sérico -> ferroSerico
+- B12 / vitamina B12 -> vitaminaB12
+- Vitamina D / 25-OH -> vitaminaD
+- Albumina -> albumina
+- Ácido úrico / urato -> acidoUrico
+- HOMA-IR / HOMA -> homaIr
+- Leptina -> leptina
+- Adiponectina -> adiponectina
+- Fibrinogênio -> fibrinogenio
+- Homocisteína -> homocisteina
+- Apolipoproteína B / ApoB -> apolipoproteinaB
+- Apolipoproteína A1 / ApoA1 -> apolipoproteina1
+- VLDL / VLDL-c -> vldl
+- Bilirrubina total -> bilirrubinaTotal
+- Bilirrubina direta -> bilirrubinaDirecta
+- Bilirrubina indireta -> bilirrubinaIndireta
+- Amilase -> amilase
+- Lipase -> lipase
+- T3 livre -> t3Livre
+- Anti-TPO / anti-tiroperoxidase -> antiTPO
+- Anti-Tg / anti-tireoglobulina -> antiTg
+- Calcitonina -> calcitonina
+- Testosterona total -> testosteronaTotal
+- Testosterona livre -> testosteronaLivre
+- SHBG -> shbg
+- LH -> lh
+- FSH -> fsh
+- Estradiol / E2 -> estradiol
+- PSA total -> psa
+- PSA livre -> psaLivre
+- DHT / di-hidrotestosterona -> dht
+- Prolactina / PRL -> prolactina
+- Progesterona -> progesterona
+- 17-OH-progesterona -> oh17Progesterona
+- AMH / hormônio anti-mülleriano -> amh
+- Cortisol 8h / cortisol matinal -> cortisol8h
+- Cortisol 16h / cortisol vespertino -> cortisol16h
+- ACTH -> acth
+- DHEA-S / DHEAS / sulfato de DHEA -> dheas
+- IGF-1 / somatomedina C -> igf1
+- CPK / CK / creatinoquinase -> cpk
+- PTH / paratormônio -> pth
+- Proteínas totais -> proteinasTotal
+- Globulinas -> globulinas
+- G6PD / glicose-6-fosfato desidrogenase -> g6pd
+- Vitamina C / ácido ascórbico -> vitaminaC
+- Anti-HCV -> antiHcv
+- Alumínio sérico -> aluminioSerico
+- CEA / antígeno carcinoembrionário -> cea
+- CA-125 -> ca125
+- CA 19-9 -> ca199
+(Use outras chaves da lista quando houver correspondência clara.)
 
-Se o documento não contiver nenhum resultado laboratorial claro, retorne camposMapeados como {} e examesNaoMapeados [].`;
+Se o documento não contiver resultado laboratorial claro, retorne:
+- camposMapeados = {}
+- examesNaoMapeados = []`;
 }
 
 /** Schema alinhado ao JSON esperado; restringe chaves de camposMapeados ao conjunto do sistema. */
@@ -80,6 +175,7 @@ function buildExameLabResponseSchema(): Record<string, unknown> {
   return {
     type: 'OBJECT',
     properties: {
+      nomePacienteDocumento: { type: 'STRING', nullable: true },
       dataExame: { type: 'STRING', nullable: true },
       camposMapeados: {
         type: 'OBJECT',
@@ -121,7 +217,11 @@ function extractJsonObject(text: string): unknown {
   return null;
 }
 
-const MAX_BYTES = 5 * 1024 * 1024;
+/**
+ * Vercel pode rejeitar multipart grandes antes de entrar na função (413).
+ * Mantemos margem abaixo do limite prático para evitar FUNCTION_PAYLOAD_TOO_LARGE.
+ */
+const MAX_BYTES = Math.floor(4.2 * 1024 * 1024);
 
 const MIME_ALLOWED = new Set([
   'application/pdf',
@@ -137,7 +237,7 @@ export async function extrairExamesLaboratoriaisComGemini(params: {
 }): Promise<ExameLaboratorialExtracaoNormalizada> {
   const { buffer, mimeType } = params;
   if (buffer.length > MAX_BYTES) {
-    throw new Error('Arquivo muito grande. Máximo 5 MB.');
+    throw new Error('Arquivo muito grande. Máximo 4,2 MB.');
   }
   const normalizedMime = mimeType.split(';')[0].trim().toLowerCase();
   if (!MIME_ALLOWED.has(normalizedMime)) {
@@ -151,10 +251,7 @@ export async function extrairExamesLaboratoriaisComGemini(params: {
 
   const accessToken = await getVertexAccessToken(creds);
   const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-  const model =
-    process.env.GEMINI_EXAME_LAB_MODEL_ID ||
-    process.env.GEMINI_MODEL_ID ||
-    'gemini-2.0-flash-001';
+  const model = resolveExameLabGeminiModelId();
   const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${creds.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
 
   const allowedKeysJson = JSON.stringify(EXAME_LABORATORIAL_ALLOWED_INTERNAL_FIELDS);

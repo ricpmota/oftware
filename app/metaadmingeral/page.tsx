@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense, Fragment } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense, Fragment } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -9,7 +9,7 @@ import { User as UserType, Residente, Local, Servico, Escala, ServicoDia } from 
 import { Troca } from '@/types/troca';
 import { Ferias } from '@/types/ferias';
 import FeriasCalendar from '@/components/FeriasCalendar';
-import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, Trash2, Eye, Target, Mail, Image, AlertCircle, UtensilsCrossed, Phone, Palette, FlaskConical, Activity } from 'lucide-react';
+import { Users, UserPlus, MapPin, Settings, Calendar, Edit, Menu, X, UserCheck, Building, Wrench, Plus, BarChart3, RefreshCw, MessageSquare, MessageCircle, Trash2, Eye, Target, Mail, Image, AlertCircle, UtensilsCrossed, Phone, Palette, FlaskConical, Activity, Scale, Flame } from 'lucide-react';
 import EditModal from '@/components/EditModal';
 import EditResidenteForm from '@/components/EditResidenteForm';
 import EditLocalForm from '@/components/EditLocalForm';
@@ -19,6 +19,11 @@ import { MensagemService } from '@/services/mensagemService';
 import { Mensagem, MensagemResidenteParaAdmin } from '@/types/mensagem';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
+import {
+  isAnamneseInteligenteAtivoParaMedico,
+  isMetaAdminGeralEmail,
+} from '@/lib/meta/anamneseInteligenteGate';
+import { isMetodoImagensAtivo, METODO_IMAGENS_SOURCE_EMAIL, type MetodoImagensTemplate } from '@/lib/metodo/metodoImagens';
 import { NutricionistaService } from '@/services/nutricionistaService';
 import { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import { PacienteNutricionistaService } from '@/services/pacienteNutricionistaService';
@@ -27,7 +32,7 @@ import { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
 import { TirzepatidaService, TirzepatidaPreco } from '@/services/tirzepatidaService';
-import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign, Dumbbell, Star, QrCode } from 'lucide-react';
+import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign, Dumbbell, Star, QrCode, Sparkles } from 'lucide-react';
 import { ClassificacaoProfissionalService, type DetalhamentoClassificacao } from '@/services/classificacaoProfissionalService';
 import type { ProfissionalTipo } from '@/types/classificacaoProfissional';
 import { SolicitacaoMedicoService } from '@/services/solicitacaoMedicoService';
@@ -37,8 +42,6 @@ import { Lead, LeadStatus } from '@/types/lead';
 import EmailManagement from '@/components/EmailManagement';
 import CalendarioAplicacoes from '@/components/CalendarioAplicacoes';
 import DashboardEvolucao from '@/components/DashboardEvolucao';
-import FAQChat from '@/components/FAQChat';
-import { faqMedicoTotal, faqCategoriesMedico } from '@/components/FAQmedico';
 import { BannerService } from '@/services/bannerService';
 import { Banner, BannerContent } from '@/types/banner';
 import { NPSService } from '@/services/npsService';
@@ -55,19 +58,62 @@ import RelatoriosSection from '@/components/RelatoriosSection';
 import { OFTPAY_COURSES } from '@/app/oftpay/coursesConfig';
 import TranscribeOftreviewPanel from '@/components/dev/TranscribeOftreviewPanel';
 import TranscribeStatusCard from '@/components/dev/TranscribeStatusCard';
+import type { OftpayLearningInsightsAdminPayload } from '@/lib/oftpay/oftpayLearningInsightsAdmin';
 import SystemColorsTab from '@/components/systemColors/SystemColorsTab';
 import LabExamesLaboratoriaisAdmin from '@/components/metaadmingeral/LabExamesLaboratoriaisAdmin';
 import BioImpedanciaReferenciasAdmin from '@/components/metaadmingeral/BioImpedanciaReferenciasAdmin';
+import ProtocolosPrescricaoAdmin from '@/components/metaadmingeral/ProtocolosPrescricaoAdmin';
+import MetaBusinessAdminPanel from '@/components/metaadmingeral/MetaBusinessAdminPanel';
+import OrganizationsHubPanel from '@/components/metaadmingeral/OrganizationsHubPanel';
+import PlatformPatrimonioHubPanel from '@/components/metaadmingeral/PlatformPatrimonioHubPanel';
+import ContratosAdminPanel from '@/components/metaadmingeral/ContratosAdminPanel';
 import { MedicoPublicUrlQrModal } from '@/components/metaadmingeral/MedicoPublicUrlQrModal';
+import ModalDosesAplicadasPaciente from '@/components/metaadmingeral/ModalDosesAplicadasPaciente';
 import { publicDrUrlForMedico } from '@/utils/medicoDrSlug';
+import { metaAdminGeralAcessarUrl } from '@/lib/metaadmin/metaAdminGeralLogin';
+import MetaAdminGeralNavShell, {
+  defaultActiveOrganizationId,
+} from '@/components/metaadmingeral/MetaAdminGeralNavShell';
+import OrganizationDashboardPanel from '@/components/metaadmingeral/OrganizationDashboardPanel';
+import OrganizationFinanceiroPanel from '@/components/metaadmingeral/OrganizationFinanceiroPanel';
+import { buildOrganizationDashboardMetrics } from '@/lib/metaadmingeral/buildOrganizationDashboardMetrics';
+import { buildOrganizationFinanceMetrics } from '@/lib/metaadmingeral/buildOrganizationFinanceMetrics';
+import { buildOrganizationClinicalOutcomeMetrics } from '@/lib/metaadmingeral/buildOrganizationClinicalOutcomeMetrics';
+import { isOrganizationTeamMember } from '@/lib/organization/isOrganizationTeamMember';
+import OrganizationMetodoPanel from '@/components/metaadmingeral/OrganizationMetodoPanel';
+import OrganizationBrandingPanel from '@/components/metaadmingeral/OrganizationBrandingPanel';
+import OftwareDashboardPanel from '@/components/metaadmingeral/OftwareDashboardPanel';
+import PlatformHealthAuditPanel from '@/components/metaadmingeral/PlatformHealthAuditPanel';
+import {
+  inferNavContextFromMenu,
+  listNavOrganizations,
+  resolveMetaAdminGeralMenuId,
+  type MetaAdminGeralNavContext,
+} from '@/lib/metaadmingeral/metaAdminGeralNavUx';
+import MetaAdminGeralBrandMark, {
+  MetaAdminGeralLoadingScreen,
+} from '@/components/metaadmingeral/MetaAdminGeralBrandMark';
+import { META_ADMIN_GERAL_BRANDING, META_ADMIN_GERAL_SHELL } from '@/lib/metaadmin/metaAdminGeralBranding';
+
+const getLeadTimestamp = (date?: Date) => (date instanceof Date ? date.getTime() : 0);
+
+const sortLeadsByStatusDate = (_status: LeadStatus, statusLeads: Lead[]) => {
+  statusLeads.sort((a, b) => {
+    const estrelasA = a.estrelas || 0;
+    const estrelasB = b.estrelas || 0;
+    if (estrelasB !== estrelasA) return estrelasB - estrelasA;
+
+    const dateA = getLeadTimestamp(a.createdAt) || getLeadTimestamp(a.dataStatus);
+    const dateB = getLeadTimestamp(b.createdAt) || getLeadTimestamp(b.dataStatus);
+    return dateB - dateA;
+  });
+};
 
 export default function MetaAdminGeralPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#0A1F44]">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#4CCB7A]" />
-        </div>
+        <MetaAdminGeralLoadingScreen />
       }
     >
       <MetaAdminGeralContent />
@@ -78,7 +124,9 @@ export default function MetaAdminGeralPage() {
 function MetaAdminGeralContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeMenu, setActiveMenu] = useState('estatisticas');
+  const [activeMenu, setActiveMenu] = useState('dashboard-oftware');
+  const [navContext, setNavContext] = useState<MetaAdminGeralNavContext>('platform');
+  const [activeOrganizationId, setActiveOrganizationId] = useState(defaultActiveOrganizationId);
   const [filtroPeriodo, setFiltroPeriodo] = useState<'semana' | 'mes' | 'ano'>('semana');
   const [users, setUsers] = useState<UserType[]>([]);
   const [firebaseUsers, setFirebaseUsers] = useState<{
@@ -128,6 +176,9 @@ function MetaAdminGeralContent() {
   // Estados para médicos
   const [medicos, setMedicos] = useState<Medico[]>([]);
   const [loadingMedicos, setLoadingMedicos] = useState(false);
+  const [metodoImagensTemplate, setMetodoImagensTemplate] = useState<MetodoImagensTemplate | null>(null);
+  const [loadingMetodoTemplate, setLoadingMetodoTemplate] = useState(false);
+  const [togglingMetodoMedicoId, setTogglingMetodoMedicoId] = useState<string | null>(null);
   
   // Estados para nutricionistas
   const [nutricionistas, setNutricionistas] = useState<NutricionistaDoc[]>([]);
@@ -151,10 +202,11 @@ function MetaAdminGeralContent() {
   const [salvandoClassificacaoAdmin, setSalvandoClassificacaoAdmin] = useState(false);
 
   // Estados para OftPay (usuários que entram no OftPay – liberar cursos e vigência)
-  const [oftpayUsers, setOftpayUsers] = useState<{ email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; accessStartAt?: number | null; accessEndAt?: number | null }[]>([]);
+  const [oftpayUsers, setOftpayUsers] = useState<{ email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; questoesEnabled?: boolean; accessStartAt?: number | null; accessEndAt?: number | null }[]>([]);
   const [loadingOftPay, setLoadingOftPay] = useState(false);
   const [oftpayError, setOftpayError] = useState<string | null>(null);
   const [oftpayLocalCourseIds, setOftpayLocalCourseIds] = useState<Record<string, string[]>>({});
+  const [oftpayLocalQuestoesEnabled, setOftpayLocalQuestoesEnabled] = useState<Record<string, boolean>>({});
   const [oftpayLocalAccessStart, setOftpayLocalAccessStart] = useState<Record<string, string>>({});
   const [oftpayLocalAccessEnd, setOftpayLocalAccessEnd] = useState<Record<string, string>>({});
   const [oftpaySavingEmail, setOftpaySavingEmail] = useState<string | null>(null);
@@ -164,6 +216,19 @@ function MetaAdminGeralContent() {
   const [oftpayExpandedEmail, setOftpayExpandedEmail] = useState<string | null>(null);
   const [oftpayUserDetails, setOftpayUserDetails] = useState<Record<string, { coursePercentages: Record<string, number>; lastLoginUserAgent: string | null; lastLoginAt: number | null }>>({});
   const [oftpayLoadingDetails, setOftpayLoadingDetails] = useState<string | null>(null);
+  const [oftpayLearnPayload, setOftpayLearnPayload] = useState<OftpayLearningInsightsAdminPayload | null>(null);
+  const [loadingOftpayLearn, setLoadingOftpayLearn] = useState(false);
+  const [oftpayLearnError, setOftpayLearnError] = useState<string | null>(null);
+  const [oftpayLearnDomain, setOftpayLearnDomain] = useState('');
+  const [oftpayLearnExam, setOftpayLearnExam] = useState('');
+  const [oftpayLearnEff, setOftpayLearnEff] = useState('');
+  const [oftpayLearnStab, setOftpayLearnStab] = useState('');
+  const oftpayLearnFiltersRef = useRef({
+    domain: '',
+    exam: '',
+    eff: '',
+    stab: '',
+  });
   const [transcribeBatchId, setTranscribeBatchId] = useState('');
   
   // Estados para pacientes
@@ -175,6 +240,11 @@ function MetaAdminGeralContent() {
   const [filtroMedicoPaciente, setFiltroMedicoPaciente] = useState<string>('todos');
   const [filtroStatusPaciente, setFiltroStatusPaciente] = useState<string>('todos');
   const [filtroRecomendacoesPaciente, setFiltroRecomendacoesPaciente] = useState<string>('todos');
+  /** IDs de documentos em solicitacoes_medico (mais recente primeiro na origem) por paciente_completos.id ou por email */
+  const [idsSolicitacaoMedicoPorPaciente, setIdsSolicitacaoMedicoPorPaciente] = useState<{
+    porPacienteDocId: Record<string, string>;
+    porEmail: Record<string, string>;
+  }>({ porPacienteDocId: {}, porEmail: {} });
   
   // Estados para filtro de estatísticas
   const [filtroMedicoEstatisticas, setFiltroMedicoEstatisticas] = useState<string>('total');
@@ -198,6 +268,26 @@ function MetaAdminGeralContent() {
     excluido: [],
   });
   const [leadsQualificadosDesaparecidos, setLeadsQualificadosDesaparecidos] = useState<number>(0);
+  const pipelineLeadsScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollPipelineToStatus = useCallback((targetStatus: LeadStatus) => {
+    const container = pipelineLeadsScrollRef.current;
+    if (!container) return;
+
+    const targetColumn = container.querySelector(`[data-pipeline-column="${targetStatus}"]`) as HTMLElement | null;
+    if (!targetColumn) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const columnRect = targetColumn.getBoundingClientRect();
+    const currentScroll = container.scrollLeft;
+    const columnCenter = columnRect.left - containerRect.left + (columnRect.width / 2) + currentScroll;
+    const nextScrollLeft = Math.max(0, columnCenter - (containerRect.width / 2));
+
+    container.scrollTo({
+      left: nextScrollLeft,
+      behavior: 'smooth',
+    });
+  }, []);
   
   // Estado para aba do calendário
   const [calendarioTab, setCalendarioTab] = useState<'calendario' | 'dashboard'>('calendario');
@@ -261,6 +351,10 @@ function MetaAdminGeralContent() {
   });
   
   const [showEditarPacienteModal, setShowEditarPacienteModal] = useState(false);
+  const [pacienteDosesModal, setPacienteDosesModal] = useState<{
+    id: string;
+    nome: string;
+  } | null>(null);
   const [pacienteEditando, setPacienteEditando] = useState<PacienteCompleto | null>(null);
   const [dadosPacienteEditando, setDadosPacienteEditando] = useState({
     nomeCompleto: '',
@@ -318,12 +412,29 @@ function MetaAdminGeralContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Abrir menu OftPay quando acessar /metaadmingeral?menu=oftpay
+  const selectMenu = useCallback((menuId: string) => {
+    const resolved = resolveMetaAdminGeralMenuId(menuId);
+    setNavContext(inferNavContextFromMenu(resolved));
+    setActiveMenu(resolved);
+  }, []);
+
+  const enterOrganization = useCallback((organizationId: string) => {
+    setActiveOrganizationId(organizationId);
+    setNavContext('organization');
+    setActiveMenu('org-dashboard');
+  }, []);
+
+  // Deep links ?menu= — preserva IDs legados
   useEffect(() => {
-    if (searchParams.get('menu') === 'oftpay') setActiveMenu('oftpay');
-    if (searchParams.get('menu') === 'cores-do-sistema') setActiveMenu('cores-do-sistema');
-    if (searchParams.get('menu') === 'exames-laboratoriais') setActiveMenu('exames-laboratoriais');
-    if (searchParams.get('menu') === 'bio-impedancia') setActiveMenu('bio-impedancia');
+    const menuParam = searchParams.get('menu');
+    if (!menuParam) return;
+    const resolved = resolveMetaAdminGeralMenuId(menuParam);
+    setNavContext(inferNavContextFromMenu(resolved));
+    setActiveMenu(resolved);
+    if (inferNavContextFromMenu(resolved) === 'organization') {
+      const orgParam = searchParams.get('org');
+      if (orgParam) setActiveOrganizationId(orgParam);
+    }
   }, [searchParams]);
 
   // Garantir que o tema sempre seja claro (modo escuro desativado)
@@ -531,12 +642,16 @@ function MetaAdminGeralContent() {
 
 
   useEffect(() => {
+    const returnPath = searchParams.toString()
+      ? `/metaadmingeral?${searchParams.toString()}`
+      : '/metaadmingeral';
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setUserLoading(false);
       
       if (!user) {
-        router.push('/');
+        router.push(metaAdminGeralAcessarUrl(returnPath));
         return;
       }
       
@@ -550,15 +665,14 @@ function MetaAdminGeralContent() {
     });
 
     return () => unsubscribe();
-  }, [router, loadData]);
+  }, [router, loadData, searchParams]);
 
   const loadTrocasPendentes = useCallback(async () => {
     if (!user) return;
     
     setLoadingTrocas(true);
     try {
-      const trocas = await UserService.getAllTrocas();
-      const pendentes = trocas.filter(troca => troca.status === 'aceita' || troca.status === 'aprovada');
+      const pendentes = await UserService.getTrocasPendentes(200);
       setTrocasPendentes(pendentes);
       setNotificacoesTroca(pendentes.length);
     } catch (error) {
@@ -573,8 +687,10 @@ function MetaAdminGeralContent() {
     
     setLoadingFerias(true);
     try {
-      const todasFerias = await UserService.getAllFerias();
-      const pendentes = todasFerias.filter(ferias => ferias.status === 'pendente');
+      const [todasFerias, pendentes] = await Promise.all([
+        UserService.getAllFerias(),
+        UserService.getFeriasPendentes(200),
+      ]);
       setFeriasPendentes(pendentes);
       setFerias(todasFerias);
     } catch (error) {
@@ -592,15 +708,11 @@ function MetaAdminGeralContent() {
     console.log('🔄 Carregando férias pendentes no admin...');
     setLoadingFerias(true);
     try {
-      const feriasData = await UserService.getAllFerias();
+      const feriasData = await UserService.getFeriasPendentes(200);
       console.log('📊 Todas as férias carregadas:', feriasData.length);
       console.log('📋 Status das férias:', feriasData.map(f => ({ id: f.id, status: f.status, residente: f.residenteEmail })));
-      
-      const pendentes = feriasData.filter(ferias => ferias.status === 'pendente');
-      console.log('⏳ Férias pendentes:', pendentes.length);
-      
-      setFeriasPendentes(pendentes);
-      setFerias(feriasData);
+      console.log('⏳ Férias pendentes:', feriasData.length);
+      setFeriasPendentes(feriasData);
     } catch (error) {
       console.error('❌ Erro ao carregar férias:', error);
     } finally {
@@ -620,6 +732,34 @@ function MetaAdminGeralContent() {
       setLoadingMedicos(false);
     }
   }, []);
+
+  const loadMetodoImagensTemplate = useCallback(async (forceSync = false) => {
+    if (!user) return;
+    setLoadingMetodoTemplate(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/metaadmingeral/metodo/template', {
+        method: forceSync ? 'POST' : 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      setMetodoImagensTemplate(data.template ?? null);
+      if (forceSync) {
+        setMessage('Template Método sincronizado da conta fonte.');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar template Método:', error);
+      setMetodoImagensTemplate(null);
+      if (forceSync) {
+        setMessage(
+          error instanceof Error ? error.message : 'Erro ao sincronizar template Método'
+        );
+      }
+    } finally {
+      setLoadingMetodoTemplate(false);
+    }
+  }, [user]);
 
   // Função para carregar nutricionistas
   const loadNutricionistas = useCallback(async () => {
@@ -742,10 +882,27 @@ function MetaAdminGeralContent() {
   const loadPacientes = useCallback(async () => {
     setLoadingPacientes(true);
     try {
-      const pacientesData = await PacienteService.getAllPacientes();
+      const [pacientesData, todasSolicitacoesMedico] = await Promise.all([
+        PacienteService.getAllPacientes(),
+        SolicitacaoMedicoService.getAllSolicitacoes().catch(() => [] as SolicitacaoMedico[]),
+      ]);
       setPacientes(pacientesData);
+
+      const porPacienteDocId: Record<string, string> = {};
+      const porEmail: Record<string, string> = {};
+      for (const s of todasSolicitacoesMedico) {
+        if (s.pacienteId && !porPacienteDocId[s.pacienteId]) {
+          porPacienteDocId[s.pacienteId] = s.id;
+        }
+        const em = s.pacienteEmail?.toLowerCase().trim();
+        if (em && !porEmail[em]) {
+          porEmail[em] = s.id;
+        }
+      }
+      setIdsSolicitacaoMedicoPorPaciente({ porPacienteDocId, porEmail });
     } catch (error) {
       console.error('Erro ao carregar pacientes:', error);
+      setIdsSolicitacaoMedicoPorPaciente({ porPacienteDocId: {}, porEmail: {} });
     } finally {
       setLoadingPacientes(false);
     }
@@ -966,6 +1123,8 @@ function MetaAdminGeralContent() {
             ...leadExistente,
             email: lead.email,
             name: lead.name,
+            telefone: lead.telefone,
+            estrelas: leadExistente.estrelas || 0,
             createdAt: lead.createdAt,
             lastSignInTime: lead.lastSignInTime,
             emailVerified: lead.emailVerified,
@@ -978,6 +1137,8 @@ function MetaAdminGeralContent() {
             uid: lead.uid,
             email: lead.email,
             name: lead.name,
+            estrelas: 0,
+            telefone: lead.telefone,
             createdAt: lead.createdAt,
             lastSignInTime: lead.lastSignInTime,
             emailVerified: lead.emailVerified,
@@ -1033,13 +1194,9 @@ function MetaAdminGeralContent() {
         leadsPorStatus[lead.status].push(lead);
       });
       
-      // Ordenar cada coluna por data de status (mais recente primeiro)
+      // Ordenação igual ao metaadmin: estrelas desc e, em empate, data mais recente.
       Object.keys(leadsPorStatus).forEach(status => {
-        leadsPorStatus[status as LeadStatus].sort((a, b) => {
-          const dateA = a.dataStatus?.getTime() || 0;
-          const dateB = b.dataStatus?.getTime() || 0;
-          return dateB - dateA;
-        });
+        sortLeadsByStatusDate(status as LeadStatus, leadsPorStatus[status as LeadStatus]);
       });
       
       setLeads(leadsSincronizados);
@@ -1321,6 +1478,67 @@ function MetaAdminGeralContent() {
     }
   };
 
+  const handleToggleAnamneseInteligenteMedico = async (medicoId: string, ativo: boolean) => {
+    try {
+      const medico = medicos.find((m) => m.id === medicoId);
+      if (!medico) return;
+      if (isMetaAdminGeralEmail(medico.email)) {
+        setMessage('O administrador geral sempre tem análise inteligente ativa.');
+        return;
+      }
+
+      await MedicoService.createOrUpdateMedico({
+        ...medico,
+        anamneseInteligenteAtivo: !ativo,
+      });
+      await loadMedicos();
+      setMessage(
+        ativo
+          ? 'Análise inteligente desativada para o médico.'
+          : 'Análise inteligente ativada para o médico.'
+      );
+    } catch (error) {
+      console.error('Erro ao alterar análise inteligente:', error);
+      setMessage('Erro ao alterar análise inteligente do médico');
+    }
+  };
+
+  const handleToggleMetodoImagensMedico = async (medicoId: string, ativo: boolean) => {
+    if (!user) return;
+    setTogglingMetodoMedicoId(medicoId);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/metaadmingeral/metodo/toggle', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ medicoId, ativo: !ativo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+
+      setMedicos((prev) =>
+        prev.map((m) =>
+          m.id === medicoId ? { ...m, metodoImagensAtivo: !ativo } : m
+        )
+      );
+      setMessage(
+        ativo
+          ? 'Padrão Método desativado para o médico.'
+          : 'Padrão Método ativado — imagens da conta fonte serão usadas.'
+      );
+    } catch (error) {
+      console.error('Erro ao alterar Método:', error);
+      setMessage(
+        error instanceof Error ? error.message : 'Erro ao alterar padrão Método do médico'
+      );
+    } finally {
+      setTogglingMetodoMedicoId(null);
+    }
+  };
+
   // Função para verificar/desverificar médico
   const handleToggleVerificacaoMedico = async (medicoId: string, isVerificado: boolean) => {
     try {
@@ -1532,21 +1750,45 @@ function MetaAdminGeralContent() {
     }
   }, []);
 
-  // Carregar médicos e pacientes sempre que o menu estatísticas for ativado
+  // Carregar dados do dashboard da organização / plataforma (e legado estatísticas / financeiro)
   useEffect(() => {
-    if (activeMenu === 'estatisticas') {
+    if (
+      activeMenu === 'estatisticas' ||
+      activeMenu === 'org-dashboard' ||
+      activeMenu === 'org-financeiro-overview' ||
+      activeMenu === 'dashboard-oftware'
+    ) {
       loadMedicos();
       loadPacientes();
       loadSolicitacoesPendentes();
       loadNutricionistas();
       loadPersonalTrainers();
       loadTotalPacientesCompartilhados();
+      loadLeads();
     }
-  }, [activeMenu, loadMedicos, loadPacientes, loadSolicitacoesPendentes, loadNutricionistas, loadPersonalTrainers, loadTotalPacientesCompartilhados]);
+  }, [
+    activeMenu,
+    loadMedicos,
+    loadPacientes,
+    loadSolicitacoesPendentes,
+    loadNutricionistas,
+    loadPersonalTrainers,
+    loadTotalPacientesCompartilhados,
+    loadLeads,
+  ]);
 
   // Carregar pagamentos quando médicos e pacientes estiverem carregados (apenas uma vez)
   useEffect(() => {
-    if (activeMenu === 'estatisticas' && medicos.length > 0 && pacientes.length > 0 && !loadingMedicos && !loadingPacientes && !loadingPagamentos) {
+    const needsFinanceData =
+      activeMenu === 'estatisticas' || activeMenu === 'org-financeiro-overview';
+    if (
+      needsFinanceData &&
+      medicos.length > 0 &&
+      pacientes.length > 0 &&
+      !loadingMedicos &&
+      !loadingPacientes &&
+      !loadingPagamentos
+    ) {
       const chaveCarregamento = `${medicos.length}-${pacientes.length}`;
       if (!indicacoesCarregadasRef.current || indicacoesCarregadasRef.current !== chaveCarregamento) {
         indicacoesCarregadasRef.current = chaveCarregamento;
@@ -1554,7 +1796,7 @@ function MetaAdminGeralContent() {
       }
     }
     // Reset ref quando mudar de menu
-    if (activeMenu !== 'estatisticas') {
+    if (!needsFinanceData) {
       indicacoesCarregadasRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1564,8 +1806,9 @@ function MetaAdminGeralContent() {
   useEffect(() => {
     if (activeMenu === 'medicos') {
       loadMedicos();
+      void loadMetodoImagensTemplate();
     }
-  }, [activeMenu, loadMedicos]);
+  }, [activeMenu, loadMedicos, loadMetodoImagensTemplate]);
 
   // Carregar nutricionistas quando a página nutricionistas for ativada
   useEffect(() => {
@@ -1591,17 +1834,20 @@ function MetaAdminGeralContent() {
       const res = await fetch('/api/metaadmingeral/oftpay/users', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || res.statusText);
-      const list = (data.users || []) as { email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; accessStartAt?: number | null; accessEndAt?: number | null }[];
+      const list = (data.users || []) as { email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; questoesEnabled?: boolean; accessStartAt?: number | null; accessEndAt?: number | null }[];
       setOftpayUsers(list);
       const initial: Record<string, string[]> = {};
+      const initialQuestoes: Record<string, boolean> = {};
       const initialStart: Record<string, string> = {};
       const initialEnd: Record<string, string> = {};
       list.forEach((u) => {
         initial[u.email] = [...(u.courseIds || [])];
+        initialQuestoes[u.email] = Boolean(u.questoesEnabled);
         initialStart[u.email] = u.accessStartAt ? new Date(u.accessStartAt).toISOString().slice(0, 10) : '';
         initialEnd[u.email] = u.accessEndAt ? new Date(u.accessEndAt).toISOString().slice(0, 10) : '';
       });
       setOftpayLocalCourseIds(initial);
+      setOftpayLocalQuestoesEnabled(initialQuestoes);
       setOftpayLocalAccessStart(initialStart);
       setOftpayLocalAccessEnd(initialEnd);
     } catch (e) {
@@ -1617,6 +1863,48 @@ function MetaAdminGeralContent() {
       loadOftPayUsers();
     }
   }, [activeMenu, loadOftPayUsers]);
+
+  useEffect(() => {
+    oftpayLearnFiltersRef.current = {
+      domain: oftpayLearnDomain,
+      exam: oftpayLearnExam,
+      eff: oftpayLearnEff,
+      stab: oftpayLearnStab,
+    };
+  }, [oftpayLearnDomain, oftpayLearnExam, oftpayLearnEff, oftpayLearnStab]);
+
+  const loadOftpayLearningInsights = useCallback(async () => {
+    if (!user) return;
+    setLoadingOftpayLearn(true);
+    setOftpayLearnError(null);
+    try {
+      const token = await user.getIdToken();
+      const { domain, exam, eff, stab } = oftpayLearnFiltersRef.current;
+      const qs = new URLSearchParams();
+      if (domain) qs.set('relatedDomain', domain);
+      if (exam.trim()) qs.set('relatedExamType', exam.trim());
+      if (eff) qs.set('effectivenessStatus', eff);
+      if (stab) qs.set('stabilityStatus', stab);
+      const q = qs.toString();
+      const res = await fetch(`/api/metaadmingeral/oftpay/learning-insights${q ? `?${q}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || res.statusText);
+      setOftpayLearnPayload(data as OftpayLearningInsightsAdminPayload);
+    } catch (e) {
+      setOftpayLearnError(e instanceof Error ? e.message : 'Erro ao carregar painel de aprendizado');
+      setOftpayLearnPayload(null);
+    } finally {
+      setLoadingOftpayLearn(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeMenu === 'oftpay' && user) {
+      void loadOftpayLearningInsights();
+    }
+  }, [activeMenu, user, loadOftpayLearningInsights]);
 
   // Carregar pacientes quando a página pacientes for ativada
   useEffect(() => {
@@ -2367,12 +2655,212 @@ function MetaAdminGeralContent() {
     };
   };
 
+  const organizationMedicos = useMemo(
+    () => medicos.filter((medico) => isOrganizationTeamMember(medico, activeOrganizationId)),
+    [medicos, activeOrganizationId],
+  );
+
+  const organizationNutricionistas = useMemo(
+    () =>
+      nutricionistas.filter((nutricionista) =>
+        isOrganizationTeamMember(nutricionista, activeOrganizationId),
+      ),
+    [nutricionistas, activeOrganizationId],
+  );
+
+  const organizationPersonalTrainers = useMemo(
+    () =>
+      personalTrainers.filter((personal) =>
+        isOrganizationTeamMember(personal, activeOrganizationId),
+      ),
+    [personalTrainers, activeOrganizationId],
+  );
+
+  const organizationMedicoIds = useMemo(
+    () => new Set(organizationMedicos.map((medico) => medico.id)),
+    [organizationMedicos],
+  );
+
+  const organizationPacientes = useMemo(
+    () =>
+      pacientes.filter(
+        (paciente) =>
+          paciente.medicoResponsavelId &&
+          organizationMedicoIds.has(paciente.medicoResponsavelId),
+      ),
+    [pacientes, organizationMedicoIds],
+  );
+
+  const organizationDashboardMetrics = useMemo(
+    () =>
+      buildOrganizationDashboardMetrics({
+        medicos: organizationMedicos,
+        nutricionistas: organizationNutricionistas,
+        personalTrainers: organizationPersonalTrainers,
+        pacientes: organizationPacientes,
+        leadsByStatus,
+        npsEstatisticas,
+        solicitacoesPendentes,
+        totalPacientesCompartilhados,
+      }),
+    [
+      organizationMedicos,
+      organizationNutricionistas,
+      organizationPersonalTrainers,
+      organizationPacientes,
+      leadsByStatus,
+      npsEstatisticas,
+      solicitacoesPendentes,
+      totalPacientesCompartilhados,
+    ],
+  );
+
+  const organizationClinicalOutcomes = useMemo(
+    () => buildOrganizationClinicalOutcomeMetrics(organizationPacientes),
+    [organizationPacientes],
+  );
+
+  const platformDashboardMetrics = useMemo(
+    () =>
+      buildOrganizationDashboardMetrics({
+        medicos,
+        nutricionistas,
+        personalTrainers,
+        pacientes,
+        leadsByStatus,
+        npsEstatisticas,
+        solicitacoesPendentes,
+        totalPacientesCompartilhados,
+      }),
+    [
+      medicos,
+      nutricionistas,
+      personalTrainers,
+      pacientes,
+      leadsByStatus,
+      npsEstatisticas,
+      solicitacoesPendentes,
+      totalPacientesCompartilhados,
+    ],
+  );
+
+  const platformClinicalOutcomes = useMemo(
+    () => buildOrganizationClinicalOutcomeMetrics(pacientes),
+    [pacientes],
+  );
+
+  const organizationVendasAvulsas = useMemo(
+    () => vendasAvulsas.filter((venda) => organizationMedicoIds.has(venda.medicoId)),
+    [vendasAvulsas, organizationMedicoIds],
+  );
+
+  const organizationFinanceMetrics = useMemo(
+    () =>
+      buildOrganizationFinanceMetrics({
+        medicos: organizationMedicos,
+        pacientes: organizationPacientes,
+        pagamentosPacientes,
+        vendasAvulsas: organizationVendasAvulsas,
+      }),
+    [
+      organizationMedicos,
+      organizationPacientes,
+      pagamentosPacientes,
+      organizationVendasAvulsas,
+    ],
+  );
+
+  const organizationDashboardLoading = useMemo(
+    () => ({
+      team: loadingMedicos || loadingNutricionistas || loadingPersonalTrainers,
+      pacientes: loadingPacientes,
+      leads: loadingLeads,
+      nps: loadingNPS,
+      compartilhados: loadingPacientesCompartilhados,
+    }),
+    [
+      loadingMedicos,
+      loadingNutricionistas,
+      loadingPersonalTrainers,
+      loadingPacientes,
+      loadingLeads,
+      loadingNPS,
+      loadingPacientesCompartilhados,
+    ],
+  );
+
   const renderContent = () => {
     switch (activeMenu) {
+      case 'dashboard-oftware':
+        return (
+          <OftwareDashboardPanel
+            organizations={listNavOrganizations()}
+            metrics={platformDashboardMetrics}
+            clinicalOutcomes={platformClinicalOutcomes}
+            loading={{
+              team: loadingMedicos || loadingNutricionistas || loadingPersonalTrainers,
+              pacientes: loadingPacientes,
+              leads: loadingLeads,
+            }}
+            onOpenOrganization={() => selectMenu('organizacoes')}
+          />
+        );
+      case 'platform-patrimonio':
+        return <PlatformPatrimonioHubPanel onNavigate={selectMenu} />;
+      case 'organizacoes':
+      case 'leads-whitelabel':
+        return (
+          <OrganizationsHubPanel
+            activeView={activeMenu === 'leads-whitelabel' ? 'leads-whitelabel' : 'list'}
+            organizations={listNavOrganizations()}
+            activeOrganizationId={activeOrganizationId}
+            onSelectOrganization={enterOrganization}
+            onNavigate={selectMenu}
+          />
+        );
+      case 'org-dashboard':
+        return user ? (
+          <OrganizationDashboardPanel
+            user={user}
+            organization={
+              listNavOrganizations().find((o) => o.id === activeOrganizationId) ??
+              listNavOrganizations()[0]
+            }
+            metrics={organizationDashboardMetrics}
+            clinicalOutcomes={organizationClinicalOutcomes}
+            loading={organizationDashboardLoading}
+            onNavigate={selectMenu}
+          />
+        ) : null;
+      case 'org-financeiro-overview':
+        return (
+          <OrganizationFinanceiroPanel
+            organization={
+              listNavOrganizations().find((o) => o.id === activeOrganizationId) ??
+              listNavOrganizations()[0]
+            }
+            metrics={organizationFinanceMetrics}
+            loading={loadingMedicos || loadingPacientes || loadingPagamentos}
+          />
+        );
+      case 'organizacao-metodo':
+        return <OrganizationMetodoPanel />;
+      case 'organizacao-metodo-branding':
+        return user ? (
+          <OrganizationBrandingPanel user={user} organizationId={activeOrganizationId} />
+        ) : null;
+      case 'platform-health':
+        return user ? <PlatformHealthAuditPanel user={user} /> : null;
+      case 'meta-business':
+        return <MetaBusinessAdminPanel />;
       case 'exames-laboratoriais':
         return <LabExamesLaboratoriaisAdmin />;
       case 'bio-impedancia':
         return <BioImpedanciaReferenciasAdmin />;
+      case 'protocolos-prescricao':
+        return <ProtocolosPrescricaoAdmin />;
+      case 'contratos':
+        return <ContratosAdminPanel />;
       case 'cores-do-sistema':
         return <SystemColorsTab />;
       case 'medicos':
@@ -2380,6 +2868,63 @@ function MetaAdminGeralContent() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-[#E8EDED]">Médicos</h2>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-[#E8EDED]/80">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-[#E8EDED]">Padrão Método — imagens</p>
+                  <p className="mt-1 text-xs text-[#E8EDED]/60">
+                    Fonte: {METODO_IMAGENS_SOURCE_EMAIL} (OG, favicon, PDF, Meu Link, Aplicações, Conclusão)
+                  </p>
+                  {metodoImagensTemplate?.syncedAt ? (
+                    <p className="mt-1 text-xs text-[#4CCB7A]/90">
+                      Template sincronizado em{' '}
+                      {new Date(metodoImagensTemplate.syncedAt).toLocaleString('pt-BR')}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  disabled={loadingMetodoTemplate || !user}
+                  onClick={() => void loadMetodoImagensTemplate(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-[#E8EDED] hover:bg-white/15 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingMetodoTemplate ? 'animate-spin' : ''}`} />
+                  {loadingMetodoTemplate ? 'Sincronizando…' : 'Sincronizar da conta fonte'}
+                </button>
+              </div>
+              {metodoImagensTemplate ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(
+                    [
+                      ['ogImageUrl', 'OG'],
+                      ['faviconUrl', 'Favicon'],
+                      ['pdfLogoUrl', 'PDF'],
+                      ['drPageLogoUrl', 'Meu Link'],
+                      ['aplicacaoPageLogoUrl', 'Aplicações'],
+                      ['conclusaoPageLogoUrl', 'Conclusão'],
+                    ] as const
+                  ).map(([key, label]) => {
+                    const url = metodoImagensTemplate[key];
+                    if (!url) return null;
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1"
+                        title={url}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={label} className="h-8 w-8 rounded object-contain bg-white/10" />
+                        <span className="text-xs">{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : !loadingMetodoTemplate ? (
+                <p className="mt-2 text-xs text-amber-300/90">
+                  Template ainda não carregado. Clique em sincronizar ou abra a aba com a conta fonte configurada.
+                </p>
+              ) : null}
             </div>
             {loadingMedicos ? (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
@@ -2416,7 +2961,19 @@ function MetaAdminGeralContent() {
                           Cidades
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Código
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Análise IA
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Método
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Verificação
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Docs enviados
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Status
@@ -2486,6 +3043,95 @@ function MetaAdminGeralContent() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span
+                            className="font-mono text-xs text-[#E8EDED]/70"
+                            title={medico.id}
+                          >
+                            {medico.id}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isAnamneseInteligenteAtivoParaMedico(medico)}
+                              aria-label={`Análise inteligente ${isAnamneseInteligenteAtivoParaMedico(medico) ? 'ativa' : 'inativa'} para ${medico.nome}`}
+                              disabled={isMetaAdminGeralEmail(medico.email)}
+                              title={
+                                isMetaAdminGeralEmail(medico.email)
+                                  ? 'Administrador geral — sempre ativo'
+                                  : isAnamneseInteligenteAtivoParaMedico(medico)
+                                    ? 'Desativar análise inteligente'
+                                    : 'Ativar análise inteligente'
+                              }
+                              onClick={() =>
+                                handleToggleAnamneseInteligenteMedico(
+                                  medico.id,
+                                  medico.anamneseInteligenteAtivo === true
+                                )
+                              }
+                              className={`relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
+                                isAnamneseInteligenteAtivoParaMedico(medico)
+                                  ? 'bg-violet-600'
+                                  : 'bg-gray-500/60'
+                              } ${isMetaAdminGeralEmail(medico.email) ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:opacity-90'}`}
+                            >
+                              <span
+                                className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                  isAnamneseInteligenteAtivoParaMedico(medico) ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                            <span className="inline-flex items-center gap-1 text-xs text-[#E8EDED]/80">
+                              <Sparkles className="h-3.5 w-3.5 text-violet-300" />
+                              {isAnamneseInteligenteAtivoParaMedico(medico) ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isMetodoImagensAtivo(medico)}
+                              disabled={togglingMetodoMedicoId === medico.id || !metodoImagensTemplate}
+                              title={
+                                !metodoImagensTemplate
+                                  ? 'Sincronize o template Método antes de ativar'
+                                  : isMetodoImagensAtivo(medico)
+                                    ? 'Desativar padrão Método'
+                                    : 'Ativar padrão Método'
+                              }
+                              onClick={() =>
+                                handleToggleMetodoImagensMedico(
+                                  medico.id,
+                                  isMetodoImagensAtivo(medico)
+                                )
+                              }
+                              className={`relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
+                                isMetodoImagensAtivo(medico)
+                                  ? 'bg-emerald-600'
+                                  : 'bg-gray-500/60'
+                              } ${
+                                togglingMetodoMedicoId === medico.id || !metodoImagensTemplate
+                                  ? 'cursor-not-allowed opacity-60'
+                                  : 'cursor-pointer hover:opacity-90'
+                              }`}
+                            >
+                              <span
+                                className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                  isMetodoImagensAtivo(medico) ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                            <span className="inline-flex items-center gap-1 text-xs text-[#E8EDED]/80">
+                              <Flame className="h-3.5 w-3.5 text-emerald-300" />
+                              {isMetodoImagensAtivo(medico) ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {medico.isVerificado ? (
                             <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center">
                               <ShieldCheck className="w-3 h-3 mr-1" />
@@ -2497,6 +3143,43 @@ function MetaAdminGeralContent() {
                               Não Verificado
                             </span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
+                          <div className="flex flex-wrap gap-x-2 gap-y-1">
+                            {medico.docVerificacaoCnhUrl ? (
+                              <a
+                                href={medico.docVerificacaoCnhUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CNH
+                              </a>
+                            ) : null}
+                            {medico.docVerificacaoSelfieUrl ? (
+                              <a
+                                href={medico.docVerificacaoSelfieUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                Selfie
+                              </a>
+                            ) : null}
+                            {medico.docVerificacaoCrmUrl ? (
+                              <a
+                                href={medico.docVerificacaoCrmUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CRM
+                              </a>
+                            ) : null}
+                            {!medico.docVerificacaoCnhUrl && !medico.docVerificacaoSelfieUrl && !medico.docVerificacaoCrmUrl ? (
+                              <span className="text-gray-500">—</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span className={`px-2 py-1 text-xs rounded-full ${
@@ -2635,6 +3318,9 @@ function MetaAdminGeralContent() {
                           Verificado
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Docs enviados
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Status
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
@@ -2728,6 +3414,43 @@ function MetaAdminGeralContent() {
                               Não Verificado
                             </span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
+                          <div className="flex flex-wrap gap-x-2 gap-y-1">
+                            {nutri.docVerificacaoCnhUrl ? (
+                              <a
+                                href={nutri.docVerificacaoCnhUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CNH
+                              </a>
+                            ) : null}
+                            {nutri.docVerificacaoSelfieUrl ? (
+                              <a
+                                href={nutri.docVerificacaoSelfieUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                Selfie
+                              </a>
+                            ) : null}
+                            {nutri.docVerificacaoRegistroUrl ? (
+                              <a
+                                href={nutri.docVerificacaoRegistroUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CRN
+                              </a>
+                            ) : null}
+                            {!nutri.docVerificacaoCnhUrl && !nutri.docVerificacaoSelfieUrl && !nutri.docVerificacaoRegistroUrl ? (
+                              <span className="text-gray-500">—</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span className={`px-2 py-1 text-xs rounded-full ${
@@ -2874,6 +3597,9 @@ function MetaAdminGeralContent() {
                           Verificado
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Docs enviados
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Status
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
@@ -2967,6 +3693,43 @@ function MetaAdminGeralContent() {
                               Não Verificado
                             </span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
+                          <div className="flex flex-wrap gap-x-2 gap-y-1">
+                            {personal.docVerificacaoCnhUrl ? (
+                              <a
+                                href={personal.docVerificacaoCnhUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CNH
+                              </a>
+                            ) : null}
+                            {personal.docVerificacaoSelfieUrl ? (
+                              <a
+                                href={personal.docVerificacaoSelfieUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                Selfie
+                              </a>
+                            ) : null}
+                            {personal.docVerificacaoRegistroUrl ? (
+                              <a
+                                href={personal.docVerificacaoRegistroUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CREF
+                              </a>
+                            ) : null}
+                            {!personal.docVerificacaoCnhUrl && !personal.docVerificacaoSelfieUrl && !personal.docVerificacaoRegistroUrl ? (
+                              <span className="text-gray-500">—</span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span className={`px-2 py-1 text-xs rounded-full ${
@@ -3293,6 +4056,9 @@ function MetaAdminGeralContent() {
                         Documento (pacientes_completos)
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                        Documentos (solicitacoes_medico)
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                         Médico Responsável
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
@@ -3319,6 +4085,10 @@ function MetaAdminGeralContent() {
                     {pacientesFiltrados.map((paciente, index) => {
                       const medico = medicos.find(m => m.id === paciente.medicoResponsavelId);
                       const fontesSubcolecao = rastrosSubcolecoesPacientes[paciente.id] || [];
+                      const emailKey = (paciente.email || '').toLowerCase().trim();
+                      const idSolicitacaoMedico =
+                        idsSolicitacaoMedicoPorPaciente.porPacienteDocId[paciente.id] ||
+                        (emailKey ? idsSolicitacaoMedicoPorPaciente.porEmail[emailKey] : undefined);
                       const dosesAplicadas = calcularDosesAplicadas(paciente);
                       const tempoTratamento = calcularTempoTratamento(paciente);
                       const tempoTexto = tempoTratamento.meses > 0
@@ -3346,11 +4116,34 @@ function MetaAdminGeralContent() {
                               </div>
                             )}
                           </td>
+                          <td className="px-6 py-4 text-sm text-gray-400 font-mono text-xs max-w-[16rem] break-all" title={idSolicitacaoMedico || undefined}>
+                            {idSolicitacaoMedico || '—'}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {medico ? `${medico.genero === 'F' ? 'Dra.' : 'Dr.'} ${medico.nome}` : 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-[#E8EDED] font-medium">
-                            {dosesAplicadas}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPacienteDosesModal({
+                                  id: paciente.id,
+                                  nome:
+                                    paciente.dadosIdentificacao?.nomeCompleto ||
+                                    paciente.nome ||
+                                    paciente.email ||
+                                    paciente.id,
+                                })
+                              }
+                              className={`tabular-nums font-semibold underline underline-offset-2 ${
+                                dosesAplicadas > 0
+                                  ? 'text-[#4CCB7A] hover:text-[#6dd99a]'
+                                  : 'text-[#E8EDED]/50 hover:text-[#E8EDED]/80'
+                              }`}
+                              title="Ver aplicações e links (aplicacao_links)"
+                            >
+                              {dosesAplicadas}
+                            </button>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-[#E8EDED]/70">
                             {tempoTexto}
@@ -3533,19 +4326,8 @@ function MetaAdminGeralContent() {
 
                 const statusOrder: LeadStatus[] = ['nao_qualificado', 'enviado_contato', 'contato_feito', 'qualificado', 'excluido'];
 
-                const handleMoveLead = async (leadId: string, currentStatus: LeadStatus, direction: 'left' | 'right') => {
+                const handleSetLeadStatus = async (leadId: string, newStatus: LeadStatus) => {
                   try {
-                    const currentIndex = statusOrder.indexOf(currentStatus);
-                    let newStatus: LeadStatus;
-                    
-                    if (direction === 'right' && currentIndex < statusOrder.length - 1) {
-                      newStatus = statusOrder[currentIndex + 1];
-                    } else if (direction === 'left' && currentIndex > 0) {
-                      newStatus = statusOrder[currentIndex - 1];
-                    } else {
-                      return; // Não pode mover
-                    }
-
                     await LeadService.updateLeadStatus(leadId, newStatus, user?.email || undefined);
                     
                     // Atualizar estado local
@@ -3566,15 +4348,12 @@ function MetaAdminGeralContent() {
                     });
                     
                     Object.keys(leadsPorStatus).forEach(status => {
-                      leadsPorStatus[status as LeadStatus].sort((a, b) => {
-                        const dateA = a.dataStatus?.getTime() || 0;
-                        const dateB = b.dataStatus?.getTime() || 0;
-                        return dateB - dateA;
-                      });
+                      sortLeadsByStatusDate(status as LeadStatus, leadsPorStatus[status as LeadStatus]);
                     });
                     
                     setLeads(updatedLeads);
                     setLeadsByStatus(leadsPorStatus);
+                    setTimeout(() => scrollPipelineToStatus(newStatus), 80);
                   } catch (error) {
                     console.error('Erro ao mover lead:', error);
                     setMessage('Erro ao mover lead');
@@ -3582,21 +4361,60 @@ function MetaAdminGeralContent() {
                   }
                 };
 
+                const handleUpdateLeadEstrelas = async (leadId: string, estrelas: number) => {
+                  try {
+                    const leadAtual = leads.find(l => l.id === leadId);
+                    if (!leadAtual) return;
+
+                    const novasEstrelas = leadAtual.estrelas === estrelas ? 0 : estrelas;
+                    await LeadService.updateLeadEstrelas(leadId, novasEstrelas);
+
+                    const updatedLeads = leads.map(l =>
+                      l.id === leadId ? { ...l, estrelas: novasEstrelas } : l
+                    );
+
+                    const leadsPorStatus: Record<LeadStatus, Lead[]> = {
+                      nao_qualificado: [],
+                      enviado_contato: [],
+                      contato_feito: [],
+                      qualificado: [],
+                      excluido: [],
+                    };
+
+                    updatedLeads.forEach(lead => {
+                      leadsPorStatus[lead.status].push(lead);
+                    });
+
+                    Object.keys(leadsPorStatus).forEach(status => {
+                      sortLeadsByStatusDate(status as LeadStatus, leadsPorStatus[status as LeadStatus]);
+                    });
+
+                    setLeads(updatedLeads);
+                    setLeadsByStatus(leadsPorStatus);
+                  } catch (error) {
+                    console.error('Erro ao atualizar estrelas do lead:', error);
+                    setMessage('Erro ao atualizar classificação do lead');
+                    setTimeout(() => setMessage(''), 3000);
+                  }
+                };
+
+                const handleMoveLead = async (leadId: string, currentStatus: LeadStatus, direction: 'left' | 'right') => {
+                  const currentIndex = statusOrder.indexOf(currentStatus);
+                  let newStatus: LeadStatus;
+                  
+                  if (direction === 'right' && currentIndex < statusOrder.length - 1) {
+                    newStatus = statusOrder[currentIndex + 1];
+                  } else if (direction === 'left' && currentIndex > 0) {
+                    newStatus = statusOrder[currentIndex - 1];
+                  } else {
+                    return; // Não pode mover
+                  }
+                  
+                  await handleSetLeadStatus(leadId, newStatus);
+                };
+
                 return (
                   <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-2xl font-bold text-[#E8EDED]">Pipeline de Qualificação de Leads</h2>
-                      <button
-                        onClick={loadLeads}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        Atualizar
-                      </button>
-                    </div>
-                    <p className="text-sm text-[#E8EDED]/70">
-                      Use as setas para mover os leads entre os estágios do pipeline.
-                    </p>
                     {loadingLeads ? (
                       <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                         <div className="text-center py-8">
@@ -3605,7 +4423,7 @@ function MetaAdminGeralContent() {
                         </div>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto pb-4">
+                      <div ref={pipelineLeadsScrollRef} className="overflow-x-auto pb-4">
                         <div className="flex gap-4 min-w-max">
                           {statusOrder.map((status) => {
                             const config = statusConfig[status];
@@ -3613,11 +4431,11 @@ function MetaAdminGeralContent() {
                             const currentIndex = statusOrder.indexOf(status);
                             
                             return (
-                              <div key={status} className="flex-shrink-0 w-64 bg-white/5 rounded-xl border border-white/10">
+                              <div key={status} data-pipeline-column={status} className="flex-shrink-0 w-64 bg-white/5 rounded-xl border border-white/10">
                                 <div className={`${config.bgColor} ${config.color} px-4 py-3 rounded-t-lg border-b border-gray-200`}>
                                   <div className="flex items-center justify-between">
-                                    <h3 className="font-semibold text-sm">{config.label}</h3>
-                                    <span className={`${config.color} text-xs font-medium bg-white px-2 py-1 rounded-full`}>
+                                    <h3 className="font-semibold text-sm text-[#E8EDED]">{config.label}</h3>
+                                    <span className="text-xs font-semibold text-[#E8EDED] bg-[#0A1F44]/70 border border-white/20 px-2 py-1 rounded-full">
                                       {leadsInStatus.length}
                                     </span>
                                   </div>
@@ -3642,13 +4460,43 @@ function MetaAdminGeralContent() {
                                                 {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
                                               </p>
                                             )}
+                                            <div className="flex items-center gap-0.5 mt-1.5">
+                                              {[1, 2, 3, 4, 5].map((star) => (
+                                                <button
+                                                  key={star}
+                                                  onClick={() => handleUpdateLeadEstrelas(lead.id, star)}
+                                                  className="p-0 hover:scale-110 transition-transform"
+                                                  title={`${star} estrela${star > 1 ? 's' : ''}`}
+                                                >
+                                                  <Star
+                                                    size={14}
+                                                    className={
+                                                      star <= (lead.estrelas || 0)
+                                                        ? 'text-yellow-400 fill-yellow-400'
+                                                        : 'text-gray-300'
+                                                    }
+                                                  />
+                                                </button>
+                                              ))}
+                                            </div>
                                           </div>
+                                          {lead.telefone && (
+                                            <a
+                                              href={`https://wa.me/${lead.telefone.replace(/\D/g, '').startsWith('55') ? lead.telefone.replace(/\D/g, '') : `55${lead.telefone.replace(/\D/g, '')}`}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="ml-2 inline-flex items-center justify-center p-1.5 rounded-md bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 transition-colors"
+                                              title={`Abrir WhatsApp: ${lead.telefone}`}
+                                            >
+                                              <MessageCircle className="w-4 h-4" />
+                                            </a>
+                                          )}
                                         </div>
-                                        <div className="flex items-center justify-between gap-1 mt-2 pt-2 border-t border-gray-100">
+                                        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100">
                                           <button
                                             onClick={() => handleMoveLead(lead.id, lead.status, 'left')}
                                             disabled={currentIndex === 0}
-                                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                                            className={`w-8 sm:flex-1 px-1.5 sm:px-2 py-1 text-xs rounded transition-colors ${
                                               currentIndex === 0
                                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                                 : 'bg-white/10 text-[#E8EDED] hover:bg-white/20'
@@ -3657,10 +4505,27 @@ function MetaAdminGeralContent() {
                                           >
                                             ←
                                           </button>
+                                          <select
+                                            value={lead.status}
+                                            onChange={(e) => {
+                                              const selectedStatus = e.target.value as LeadStatus;
+                                              if (selectedStatus !== lead.status) {
+                                                handleSetLeadStatus(lead.id, selectedStatus);
+                                              }
+                                            }}
+                                            className="w-[122px] sm:w-auto sm:flex-[2] px-1.5 sm:px-2 py-1 text-[9px] sm:text-xs rounded bg-white/10 border border-white/20 text-[#E8EDED] focus:outline-none focus:ring-1 focus:ring-[#4CCB7A]"
+                                            title="Selecionar etapa do lead"
+                                          >
+                                            {statusOrder.map((statusOption) => (
+                                              <option key={statusOption} value={statusOption} className="text-[9px] sm:text-xs text-gray-900">
+                                                {statusConfig[statusOption].label}
+                                              </option>
+                                            ))}
+                                          </select>
                                           <button
                                             onClick={() => handleMoveLead(lead.id, lead.status, 'right')}
                                             disabled={currentIndex === statusOrder.length - 1}
-                                            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                                            className={`w-8 sm:flex-1 px-1.5 sm:px-2 py-1 text-xs rounded transition-colors ${
                                               currentIndex === statusOrder.length - 1
                                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                                 : 'bg-white/10 text-[#E8EDED] hover:bg-white/20'
@@ -3680,6 +4545,14 @@ function MetaAdminGeralContent() {
                         </div>
                       </div>
                     )}
+                    <button
+                      onClick={loadLeads}
+                      className="fixed bottom-6 right-4 lg:right-8 z-30 inline-flex items-center justify-center p-3 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-colors"
+                      aria-label="Atualizar leads"
+                      title="Atualizar leads"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
                   </div>
                 );
 
@@ -4430,6 +5303,67 @@ function MetaAdminGeralContent() {
         const medicosVerificados = medicos.filter(m => m.isVerificado).length;
         const medicosNaoVerificados = totalMedicos - medicosVerificados;
         const totalPacientes = pacientes.length;
+
+        const toDateEvolucao = (val: unknown): Date | null => {
+          if (!val) return null;
+          if (val instanceof Date) return val;
+          const t = (val as { toDate?: () => Date })?.toDate?.();
+          if (t) return t;
+          const d = new Date(val as string | number);
+          return isNaN(d.getTime()) ? null : d;
+        };
+
+        let kgPerdidoTotal = 0;
+        let totalAplicacoesMg = 0;
+        let totalAplicacoesQuantidade = 0;
+
+        pacientes.forEach((paciente) => {
+          const evolucao = paciente.evolucaoSeguimento || [];
+
+          evolucao.forEach((reg) => {
+            const doseAplicada = reg.doseAplicada;
+            const adherence = String(reg.adherence ?? reg.adesao ?? '').toUpperCase();
+            const contaAplicacao = Boolean(doseAplicada) && adherence !== 'MISSED';
+            const adesaoOk = reg.adherence !== 'MISSED' && reg.adesao !== 'esquecida';
+
+            if (contaAplicacao) {
+              totalAplicacoesQuantidade += 1;
+            }
+            if (adesaoOk) {
+              const qtd = reg.doseAplicada?.quantidade;
+              if (typeof qtd === 'number' && qtd > 0) {
+                totalAplicacoesMg += qtd;
+              }
+            }
+          });
+
+          const comPeso = evolucao
+            .filter((r) => typeof r.peso === 'number' && r.peso > 0)
+            .sort((a, b) => {
+              const sa = a.weekIndex ?? a.numeroSemana ?? 0;
+              const sb = b.weekIndex ?? b.numeroSemana ?? 0;
+              if (sa !== sb) return sa - sb;
+              const da = toDateEvolucao(a.dataRegistro) || new Date(0);
+              const db = toDateEvolucao(b.dataRegistro) || new Date(0);
+              return da.getTime() - db.getTime();
+            });
+
+          const pesoInicial =
+            comPeso[0]?.peso ??
+            paciente.dadosClinicos?.medidasIniciais?.peso ??
+            null;
+          const pesoFinal =
+            (comPeso.length > 0 ? comPeso[comPeso.length - 1]?.peso : null) ??
+            paciente.planoTerapeutico?.conclusaoTratamento?.pesoFinalKg ??
+            null;
+
+          if (pesoInicial != null && pesoFinal != null && pesoInicial > pesoFinal) {
+            kgPerdidoTotal += pesoInicial - pesoFinal;
+          }
+        });
+
+        const KCAL_POR_KG_PERDIDO = 7700;
+        const totalCaloriasPerdidas = Math.round(kgPerdidoTotal * KCAL_POR_KG_PERDIDO);
         
         // Calcular estatísticas de nutricionistas
         const totalNutricionistas = nutricionistas.length;
@@ -4633,8 +5567,8 @@ function MetaAdminGeralContent() {
                 </div>
               </div>
 
-              {/* Outros cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Pacientes e resultados clínicos agregados */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
                   <div className="flex items-center">
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
@@ -4656,6 +5590,59 @@ function MetaAdminGeralContent() {
                       <p className="text-2xl font-semibold text-[#E8EDED]">
                         {loadingPacientesCompartilhados ? '...' : totalPacientesCompartilhados}
                       </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Scale className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Peso Perdido</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">
+                        {kgPerdidoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Pill className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Aplicações (mg)</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">
+                        {totalAplicacoesMg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mg
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Activity className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Aplicações (quantidade)</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">
+                        {totalAplicacoesQuantidade.toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4CCB7A] to-[#2F8FA3] flex items-center justify-center flex-shrink-0">
+                      <Flame className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-[#E8EDED]/70">Total de Calorias Perdidas</p>
+                      <p className="text-2xl font-semibold text-[#E8EDED]">
+                        {totalCaloriasPerdidas.toLocaleString('pt-BR')} kcal
+                      </p>
+                      <p className="text-xs text-[#E8EDED]/50 mt-1">Equivalente ao peso total perdido</p>
                     </div>
                   </div>
                 </div>
@@ -7510,7 +8497,7 @@ function MetaAdminGeralContent() {
             <div className="flex justify-between items-center flex-wrap gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-[#E8EDED]">OftPay</h2>
-                <p className="text-sm text-[#E8EDED]/70 mt-1">Usuários que entraram no OftPay. Libere os cursos para cada um.</p>
+                <p className="text-sm text-[#E8EDED]/70 mt-1">Usuários que entraram no OftPay. Libere cursos e o Banco de Questões para cada um.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -7588,6 +8575,7 @@ function MetaAdminGeralContent() {
                         {OFTPAY_COURSES.map((c) => (
                           <th key={c.id} className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">{c.name}</th>
                         ))}
+                        <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Banco de Questões</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Ações</th>
                       </tr>
                     </thead>
@@ -7690,6 +8678,19 @@ function MetaAdminGeralContent() {
                               </td>
                             );
                           })}
+                          <td className="px-6 py-4 text-center">
+                            <input
+                              type="checkbox"
+                              checked={oftpayLocalQuestoesEnabled[u.email] ?? Boolean(u.questoesEnabled)}
+                              onChange={(e) => {
+                                setOftpayLocalQuestoesEnabled((prev) => ({
+                                  ...prev,
+                                  [u.email]: e.target.checked,
+                                }));
+                              }}
+                              className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                            />
+                          </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button
@@ -7700,6 +8701,7 @@ function MetaAdminGeralContent() {
                                   try {
                                     const token = await user.getIdToken();
                                     const courseIds = oftpayLocalCourseIds[u.email] ?? [];
+                                    const questoesEnabled = oftpayLocalQuestoesEnabled[u.email] ?? Boolean(u.questoesEnabled);
                                     const startStr = oftpayLocalAccessStart[u.email]?.trim();
                                     const endStr = oftpayLocalAccessEnd[u.email]?.trim();
                                     const accessStartAt = startStr ? new Date(startStr).getTime() : null;
@@ -7707,11 +8709,11 @@ function MetaAdminGeralContent() {
                                     const res = await fetch('/api/metaadmingeral/oftpay/users', {
                                       method: 'PATCH',
                                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                      body: JSON.stringify({ email: u.email, courseIds, accessStartAt, accessEndAt }),
+                                      body: JSON.stringify({ email: u.email, courseIds, questoesEnabled, accessStartAt, accessEndAt }),
                                     });
                                     const data = await res.json().catch(() => ({}));
                                     if (!res.ok) throw new Error(data.error || res.statusText);
-                                    setMessage('Cursos e vigência atualizados.');
+                                    setMessage('Cursos, Banco de Questões e vigência atualizados.');
                                   } catch (e) {
                                     setOftpayError(e instanceof Error ? e.message : 'Erro ao salvar');
                                   } finally {
@@ -7751,6 +8753,11 @@ function MetaAdminGeralContent() {
                                       delete next[u.email];
                                       return next;
                                     });
+                                    setOftpayLocalQuestoesEnabled((prev) => {
+                                      const next = { ...prev };
+                                      delete next[u.email];
+                                      return next;
+                                    });
                                     setOftpayLocalAccessStart((prev) => {
                                       const next = { ...prev };
                                       delete next[u.email];
@@ -7782,7 +8789,7 @@ function MetaAdminGeralContent() {
                         </tr>
                         {isExpanded && (
                           <tr className="bg-white/5">
-                            <td colSpan={6 + OFTPAY_COURSES.length + 1} className="px-6 py-4">
+                            <td colSpan={6 + OFTPAY_COURSES.length + 2} className="px-6 py-4">
                               <div className="space-y-3 text-sm">
                                 {details ? (
                                   <>
@@ -7836,6 +8843,277 @@ function MetaAdminGeralContent() {
                 )}
               </div>
             )}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-[#E8EDED] flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-[#4CCB7A]" />
+                    OftPay · Aprendizado (técnico)
+                  </h3>
+                  <p className="text-sm text-[#E8EDED]/65 mt-0.5 max-w-xl">
+                    Painel interno: eficácia e estabilidade dos insights na base global anonimizada (sem paciente,
+                    arquivo ou texto clínico livre).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void loadOftpayLearningInsights()}
+                  disabled={loadingOftpayLearn}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-[#E8EDED] hover:bg-white/10 disabled:opacity-50 text-sm font-medium"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingOftpayLearn ? 'animate-spin' : ''}`} />
+                  Atualizar painel
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 items-end">
+                <div>
+                  <label className="block text-xs text-[#E8EDED]/60 mb-1">Domínio</label>
+                  <select
+                    value={oftpayLearnDomain}
+                    onChange={(e) => setOftpayLearnDomain(e.target.value)}
+                    className="px-2 py-1.5 rounded-md bg-white/10 border border-white/15 text-[#E8EDED] text-sm"
+                  >
+                    <option value="">Todos</option>
+                    <option value="glaucoma">glaucoma</option>
+                    <option value="retina">retina</option>
+                    <option value="cornea">cornea</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-[#E8EDED]/60 mb-1">Tipo de exame (id)</label>
+                  <input
+                    value={oftpayLearnExam}
+                    onChange={(e) => setOftpayLearnExam(e.target.value)}
+                    placeholder="ex.: oct_macula"
+                    className="px-2 py-1.5 rounded-md bg-white/10 border border-white/15 text-[#E8EDED] text-sm w-40 placeholder:text-[#E8EDED]/35"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#E8EDED]/60 mb-1">Eficácia</label>
+                  <select
+                    value={oftpayLearnEff}
+                    onChange={(e) => setOftpayLearnEff(e.target.value)}
+                    className="px-2 py-1.5 rounded-md bg-white/10 border border-white/15 text-[#E8EDED] text-sm"
+                  >
+                    <option value="">Todas</option>
+                    <option value="promising">promising</option>
+                    <option value="mixed">mixed</option>
+                    <option value="weak_signal">weak_signal</option>
+                    <option value="insufficient_data">insufficient_data</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-[#E8EDED]/60 mb-1">Estabilidade</label>
+                  <select
+                    value={oftpayLearnStab}
+                    onChange={(e) => setOftpayLearnStab(e.target.value)}
+                    className="px-2 py-1.5 rounded-md bg-white/10 border border-white/15 text-[#E8EDED] text-sm"
+                  >
+                    <option value="">Todas</option>
+                    <option value="stable_positive">stable_positive</option>
+                    <option value="recently_improving">recently_improving</option>
+                    <option value="volatile">volatile</option>
+                    <option value="recently_weakening">recently_weakening</option>
+                    <option value="insufficient_recent_data">insufficient_recent_data</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void loadOftpayLearningInsights()}
+                  className="px-3 py-1.5 rounded-lg bg-[#4CCB7A]/20 border border-[#4CCB7A]/40 text-[#E8EDED] text-sm hover:bg-[#4CCB7A]/30"
+                >
+                  Aplicar filtros
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOftpayLearnDomain('');
+                    setOftpayLearnExam('');
+                    setOftpayLearnEff('');
+                    setOftpayLearnStab('');
+                    oftpayLearnFiltersRef.current = { domain: '', exam: '', eff: '', stab: '' };
+                    void loadOftpayLearningInsights();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[#E8EDED]/80 text-sm hover:bg-white/10"
+                >
+                  Limpar
+                </button>
+              </div>
+              {oftpayLearnError && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-200 text-sm">{oftpayLearnError}</div>
+              )}
+              {loadingOftpayLearn && !oftpayLearnPayload ? (
+                <div className="text-center py-6 text-[#E8EDED]/60 text-sm">Carregando agregações…</div>
+              ) : oftpayLearnPayload ? (
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-xs font-medium text-[#E8EDED]/55 uppercase tracking-wide mb-2">Resumo</p>
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      <span className="px-2 py-1 rounded bg-white/10 text-[#E8EDED]">
+                        Agregados: <strong>{oftpayLearnPayload.summary.totalInsights}</strong>
+                      </span>
+                      <span className="px-2 py-1 rounded bg-emerald-500/15 text-emerald-200">
+                        promising: {oftpayLearnPayload.summary.promisingCount}
+                      </span>
+                      <span className="px-2 py-1 rounded bg-amber-500/15 text-amber-100">
+                        mixed: {oftpayLearnPayload.summary.mixedCount}
+                      </span>
+                      <span className="px-2 py-1 rounded bg-orange-500/15 text-orange-100">
+                        weak_signal: {oftpayLearnPayload.summary.weakSignalCount}
+                      </span>
+                      <span className="px-2 py-1 rounded bg-slate-500/20 text-slate-200">
+                        insufficient_data: {oftpayLearnPayload.summary.insufficientDataCount}
+                      </span>
+                      <span className="text-[#E8EDED]/45 text-xs">
+                        Registros de impacto lidos: {oftpayLearnPayload.impactRecordsLoaded}
+                      </span>
+                    </div>
+                    {oftpayLearnPayload.summary.notes.length > 0 && (
+                      <ul className="mt-2 text-xs text-[#E8EDED]/55 list-disc list-inside">
+                        {oftpayLearnPayload.summary.notes.map((n) => (
+                          <li key={n}>{n}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-[#E8EDED]/55 uppercase tracking-wide mb-2">
+                      Top sinais promissores
+                    </p>
+                    <div className="overflow-x-auto rounded-lg border border-white/10">
+                      <table className="min-w-full text-xs text-left">
+                        <thead className="bg-white/5 text-[#E8EDED]/65">
+                          <tr>
+                            <th className="px-2 py-2">patternId / chave</th>
+                            <th className="px-2 py-2">tipo</th>
+                            <th className="px-2 py-2">domínio</th>
+                            <th className="px-2 py-2">exame</th>
+                            <th className="px-2 py-2">uses</th>
+                            <th className="px-2 py-2">agreeRate</th>
+                            <th className="px-2 py-2">eficácia</th>
+                            <th className="px-2 py-2">estabilidade</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10 text-[#E8EDED]/90">
+                          {oftpayLearnPayload.topPromising.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="px-2 py-3 text-[#E8EDED]/45">
+                                Nenhum no recorte atual.
+                              </td>
+                            </tr>
+                          ) : (
+                            oftpayLearnPayload.topPromising.map((row) => (
+                              <tr key={row.patternIdOrKey} className="hover:bg-white/5">
+                                <td className="px-2 py-2 font-mono text-[10px] max-w-[220px] truncate" title={row.patternIdOrKey}>
+                                  {row.patternIdOrKey}
+                                </td>
+                                <td className="px-2 py-2">{row.type}</td>
+                                <td className="px-2 py-2">{row.relatedDomain ?? '—'}</td>
+                                <td className="px-2 py-2">{row.relatedExamType ?? '—'}</td>
+                                <td className="px-2 py-2">{row.totalUses}</td>
+                                <td className="px-2 py-2">{(row.agreeRate * 100).toFixed(0)}%</td>
+                                <td className="px-2 py-2">{row.effectivenessStatus}</td>
+                                <td className="px-2 py-2">{row.stabilityStatus}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-[#E8EDED]/55 uppercase tracking-wide mb-2">
+                      Sinais fracos / enfraquecendo / voláteis
+                    </p>
+                    <div className="overflow-x-auto rounded-lg border border-white/10">
+                      <table className="min-w-full text-xs text-left">
+                        <thead className="bg-white/5 text-[#E8EDED]/65">
+                          <tr>
+                            <th className="px-2 py-2">patternId / chave</th>
+                            <th className="px-2 py-2">tipo</th>
+                            <th className="px-2 py-2">domínio</th>
+                            <th className="px-2 py-2">exame</th>
+                            <th className="px-2 py-2">uses</th>
+                            <th className="px-2 py-2">disagreeRate</th>
+                            <th className="px-2 py-2">eficácia</th>
+                            <th className="px-2 py-2">estabilidade</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10 text-[#E8EDED]/90">
+                          {oftpayLearnPayload.weakeningSignals.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="px-2 py-3 text-[#E8EDED]/45">
+                                Nenhum no recorte atual.
+                              </td>
+                            </tr>
+                          ) : (
+                            oftpayLearnPayload.weakeningSignals.map((row) => (
+                              <tr key={`w-${row.patternIdOrKey}`} className="hover:bg-white/5">
+                                <td className="px-2 py-2 font-mono text-[10px] max-w-[220px] truncate" title={row.patternIdOrKey}>
+                                  {row.patternIdOrKey}
+                                </td>
+                                <td className="px-2 py-2">{row.type}</td>
+                                <td className="px-2 py-2">{row.relatedDomain ?? '—'}</td>
+                                <td className="px-2 py-2">{row.relatedExamType ?? '—'}</td>
+                                <td className="px-2 py-2">{row.totalUses}</td>
+                                <td className="px-2 py-2">{(row.disagreeRate * 100).toFixed(0)}%</td>
+                                <td className="px-2 py-2">{row.effectivenessStatus}</td>
+                                <td className="px-2 py-2">{row.stabilityStatus}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-[#E8EDED]/55 uppercase tracking-wide mb-2">
+                      Pouco dado recente ou volume insuficiente
+                    </p>
+                    <div className="overflow-x-auto rounded-lg border border-white/10">
+                      <table className="min-w-full text-xs text-left">
+                        <thead className="bg-white/5 text-[#E8EDED]/65">
+                          <tr>
+                            <th className="px-2 py-2">patternId / chave</th>
+                            <th className="px-2 py-2">tipo</th>
+                            <th className="px-2 py-2">domínio</th>
+                            <th className="px-2 py-2">exame</th>
+                            <th className="px-2 py-2">uses (30d)</th>
+                            <th className="px-2 py-2">eficácia</th>
+                            <th className="px-2 py-2">estabilidade</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10 text-[#E8EDED]/90">
+                          {oftpayLearnPayload.lowDataSignals.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="px-2 py-3 text-[#E8EDED]/45">
+                                Nenhum no recorte atual.
+                              </td>
+                            </tr>
+                          ) : (
+                            oftpayLearnPayload.lowDataSignals.map((row) => (
+                              <tr key={`d-${row.patternIdOrKey}-${row.type}`} className="hover:bg-white/5">
+                                <td className="px-2 py-2 font-mono text-[10px] max-w-[220px] truncate" title={row.patternIdOrKey}>
+                                  {row.patternIdOrKey}
+                                </td>
+                                <td className="px-2 py-2">{row.type}</td>
+                                <td className="px-2 py-2">{row.relatedDomain ?? '—'}</td>
+                                <td className="px-2 py-2">{row.relatedExamType ?? '—'}</td>
+                                <td className="px-2 py-2">{row.recentUses}</td>
+                                <td className="px-2 py-2">{row.effectivenessStatus}</td>
+                                <td className="px-2 py-2">{row.stabilityStatus}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-[#E8EDED]/45">Sem dados ainda.</p>
+              )}
+            </div>
             {/* Painel dev: transcrição OFTREVIEW. Para ocultar em produção, adicione:
                 {process.env.NODE_ENV !== 'production' && (...)} */}
             <div className="mt-6">
@@ -7861,9 +9139,9 @@ function MetaAdminGeralContent() {
     }
   };
 
-  // Carregar dados NPS quando acessar o menu
+  // Carregar dados NPS quando acessar o menu ou dashboard da organização
   useEffect(() => {
-    if (activeMenu === 'nps') {
+    if (activeMenu === 'nps' || activeMenu === 'org-dashboard') {
       const loadNPS = async () => {
         setLoadingNPS(true);
         try {
@@ -7885,14 +9163,7 @@ function MetaAdminGeralContent() {
   }, [activeMenu]);
 
   if (userLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A1F44]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
-          <p className="mt-4 text-[#E8EDED]/80">Carregando...</p>
-        </div>
-      </div>
-    );
+    return <MetaAdminGeralLoadingScreen />;
   }
 
   if (!user) {
@@ -7909,22 +9180,17 @@ function MetaAdminGeralContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A1F44] metaadmingeral-page">
+    <div className={META_ADMIN_GERAL_SHELL.page}>
       <div className="flex">
-        <div className={`hidden lg:block fixed inset-y-0 left-0 z-40 bg-[#0A1F44]/95 backdrop-blur-md border-r border-white/10 shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
+        <div className={`hidden lg:block fixed inset-y-0 left-0 z-40 ${META_ADMIN_GERAL_SHELL.sidebar} transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
           <div className="flex flex-col h-full">
             {/* Logo e botão de toggle */}
-            <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
-              {!sidebarCollapsed && (
-                <div className="flex items-center">
-                  <img
-                    src="/logo-site.jpg"
-                    alt="Oftware Logo"
-                    className="h-10 w-10 rounded-lg object-cover"
-                  />
-                  <span className="ml-2 text-xl font-bold text-[#E8EDED]">Oftware</span>
-                </div>
-              )}
+            <div
+              className={`flex items-center h-16 border-b border-white/10 ${
+                sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'
+              }`}
+            >
+              {!sidebarCollapsed ? <MetaAdminGeralBrandMark variant="sidebar" /> : null}
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 className="p-2 rounded-md hover:bg-white/10 text-[#E8EDED] transition-colors"
@@ -7933,221 +9199,15 @@ function MetaAdminGeralContent() {
               </button>
             </div>
 
-            {/* User info */}
-            {!sidebarCollapsed && (
-              <div className="px-4 py-4 border-b border-white/10">
-                <p className="text-sm text-[#E8EDED]/80">
-                  Bem-vindo, Admin Geral
-                </p>
-                <p className="text-xs text-[#E8EDED]/60 mt-1">
-                  {user.email}
-                </p>
-              </div>
-            )}
-
-            {/* Navigation */}
-            <nav className="flex-1 px-4 py-4 space-y-2">
-              <button
-                onClick={() => setActiveMenu('estatisticas')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'estatisticas'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Estatísticas' : ''}
-              >
-                <BarChart3 size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Estatísticas'}
-              </button>
-              <a
-                href="/metaadmingeral/chatinicial"
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]`}
-                title={sidebarCollapsed ? 'Chat inicial' : ''}
-              >
-                <MessageSquare size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Chat inicial'}
-              </a>
-              <button
-                onClick={() => setActiveMenu('medicos')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'medicos'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Médicos' : ''}
-              >
-                <Stethoscope size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Médicos'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('nutricionistas')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'nutricionistas'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Nutricionistas' : ''}
-              >
-                <UtensilsCrossed size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Nutricionistas'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('personal_trainers')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'personal_trainers'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Personal Trainers' : ''}
-              >
-                <Dumbbell size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Personal Trainers'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('pacientes')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'pacientes'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Pacientes' : ''}
-              >
-                <Users size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Pacientes'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('leads')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'leads'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Leads' : ''}
-              >
-                <Target size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Leads'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('tirzepatida')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'tirzepatida'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Tirzepatida' : ''}
-              >
-                <Pill size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Tirzepatida'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('emails')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'emails'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'E-mails' : ''}
-              >
-                <Mail size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'E-mails'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('calendario')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'calendario'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Calendário' : ''}
-              >
-                <Calendar size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Calendário'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('banners')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'banners'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Banners' : ''}
-              >
-                <Image size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Banners'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('nps')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'nps'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'NPS' : ''}
-              >
-                <TrendingUp size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'NPS'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('relatorios')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'relatorios'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Relatórios' : ''}
-              >
-                <FileText size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Relatórios'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('exames-laboratoriais')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'exames-laboratoriais'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Exames Laboratoriais' : ''}
-              >
-                <FlaskConical size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Exames Laboratoriais'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('bio-impedancia')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'bio-impedancia'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Bio Impedância' : ''}
-              >
-                <Activity size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Bio Impedância'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('cores-do-sistema')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'cores-do-sistema'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'Cores do Sistema' : ''}
-              >
-                <Palette size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'Cores do Sistema'}
-              </button>
-              <button
-                onClick={() => setActiveMenu('oftpay')}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeMenu === 'oftpay'
-                    ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                    : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                }`}
-                title={sidebarCollapsed ? 'OftPay' : ''}
-              >
-                <BookOpen size={20} className={sidebarCollapsed ? '' : 'mr-3'} />
-                {!sidebarCollapsed && 'OftPay'}
-              </button>
-            </nav>
+            <MetaAdminGeralNavShell
+              navContext={navContext}
+              activeMenu={activeMenu}
+              activeOrganizationId={activeOrganizationId}
+              sidebarCollapsed={sidebarCollapsed}
+              onNavContextChange={setNavContext}
+              onOrganizationChange={setActiveOrganizationId}
+              onSelectMenu={selectMenu}
+            />
 
             {/* Logout button */}
             <div className="px-4 py-4 border-t border-white/10">
@@ -8167,16 +9227,9 @@ function MetaAdminGeralContent() {
         
         <div className={`flex-1 transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'} overflow-x-hidden pb-4 lg:pb-0`}>
           {/* Mobile Header - Only visible on mobile; menu abre barra lateral */}
-          <div className="lg:hidden bg-[#0A1F44]/95 backdrop-blur-md border-b border-white/10 px-4 py-3">
+          <div className={`lg:hidden ${META_ADMIN_GERAL_SHELL.mobileHeader} px-4 py-3`}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <img
-                  src="/logo-site.jpg"
-                  alt="Oftware Logo"
-                  className="h-8 w-8 rounded-lg object-cover"
-                />
-                <span className="ml-2 text-lg font-semibold text-[#E8EDED]">Meta Admin Geral</span>
-              </div>
+              <MetaAdminGeralBrandMark variant="mobile" />
               <button
                 onClick={() => setMobileMenuOpen(true)}
                 className="p-2 rounded-md text-[#E8EDED]/70 hover:text-[#E8EDED] hover:bg-white/10"
@@ -8189,7 +9242,7 @@ function MetaAdminGeralContent() {
           
           <main className="p-6">
             {message && (
-              <div className="mb-4 p-4 bg-[#4CCB7A]/20 border border-[#4CCB7A]/40 text-[#E8EDED] rounded-xl relative">
+              <div className="mb-4 p-4 bg-[#22C55E]/15 border border-[#22C55E]/30 text-[#E8EDED] rounded-xl relative">
                 <button
                   onClick={() => setMessage('')}
                   className="absolute top-2 right-2 text-[#E8EDED]/80 hover:text-[#E8EDED]"
@@ -8686,6 +9739,15 @@ function MetaAdminGeralContent() {
           </div>
         </div>
       )}
+
+      <ModalDosesAplicadasPaciente
+        open={pacienteDosesModal != null}
+        onClose={() => setPacienteDosesModal(null)}
+        pacienteId={pacienteDosesModal?.id ?? ''}
+        pacienteNome={pacienteDosesModal?.nome ?? ''}
+        user={user}
+        onDosesChanged={loadPacientes}
+      />
 
       {/* Modal de Edição de Paciente */}
       {showEditarPacienteModal && pacienteEditando && (
@@ -9427,7 +10489,7 @@ function MetaAdminGeralContent() {
           />
           <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-[#0A1F44] border-r border-white/10 shadow-xl z-50 lg:hidden flex flex-col overflow-hidden">
             <div className="flex items-center justify-between h-14 px-4 border-b border-white/10 shrink-0">
-              <span className="font-semibold text-[#E8EDED]">Menu</span>
+              <MetaAdminGeralBrandMark variant="mobile" />
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 rounded-md text-[#E8EDED]/70 hover:bg-white/10"
@@ -9436,50 +10498,17 @@ function MetaAdminGeralContent() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-              <a
-                href="/metaadmingeral/chatinicial"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]"
-              >
-                <MessageSquare size={20} className="mr-3" />
-                Chat inicial
-              </a>
-              {[
-                { id: 'estatisticas', label: 'Estatísticas', Icon: BarChart3 },
-                { id: 'medicos', label: 'Médicos', Icon: Stethoscope },
-                { id: 'nutricionistas', label: 'Nutricionistas', Icon: UtensilsCrossed },
-                { id: 'personal_trainers', label: 'Personal Trainers', Icon: Dumbbell },
-                { id: 'pacientes', label: 'Pacientes', Icon: Users },
-                { id: 'leads', label: 'Leads', Icon: Target },
-                { id: 'tirzepatida', label: 'Tirzepatida', Icon: Pill },
-                { id: 'emails', label: 'E-mails', Icon: Mail },
-                { id: 'calendario', label: 'Calendário', Icon: Calendar },
-                { id: 'banners', label: 'Banners', Icon: Image },
-                { id: 'nps', label: 'NPS', Icon: TrendingUp },
-                { id: 'relatorios', label: 'Relatórios', Icon: FileText },
-                { id: 'exames-laboratoriais', label: 'Exames Laboratoriais', Icon: FlaskConical },
-                { id: 'bio-impedancia', label: 'Bio Impedância', Icon: Activity },
-                { id: 'cores-do-sistema', label: 'Cores do Sistema', Icon: Palette },
-                { id: 'oftpay', label: 'OftPay', Icon: BookOpen },
-              ].map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => {
-                    setActiveMenu(id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
-                    activeMenu === id
-                      ? 'bg-[#4CCB7A]/20 text-[#4CCB7A] border-r-2 border-[#4CCB7A]'
-                      : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
-                  }`}
-                >
-                  <Icon size={20} className="mr-3" />
-                  {label}
-                </button>
-              ))}
-            </nav>
+            <MetaAdminGeralNavShell
+              navContext={navContext}
+              activeMenu={activeMenu}
+              activeOrganizationId={activeOrganizationId}
+              onNavContextChange={setNavContext}
+              onOrganizationChange={setActiveOrganizationId}
+              onSelectMenu={(id) => {
+                selectMenu(id);
+                setMobileMenuOpen(false);
+              }}
+            />
             <div className="px-3 py-4 border-t border-white/10">
               <button
                 onClick={() => {
@@ -9498,15 +10527,6 @@ function MetaAdminGeralContent() {
         </>
       )}
 
-      {/* FAQ Chat para Admin Geral - Posicionado no canto inferior direito na versão desktop */}
-      {user && (
-        <FAQChat
-          userName={user.displayName?.split(' ')[0] || 'Admin'}
-          position="right"
-          faqCategories={faqCategoriesMedico}
-          hideToggleButton={true}
-        />
-      )}
     </div>
   );
 }

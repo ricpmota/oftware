@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ScheduledNotificationService } from '@/services/scheduledNotificationService';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 
 // Esta função será chamada pelo cron job do Vercel ou serviço externo
 export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
   try {
     console.log('🕐 Iniciando cron job de notificações diárias...');
     

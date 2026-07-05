@@ -1,7 +1,8 @@
 /**
  * Datas de aplicação por semana alinhadas ao card "Esquema de Doses por Semana" no MetaAdmin.
- * Ordem: data do registro em evolução (semana) → datasAplicacaoIndividuais → grade semanal (primeira dose + 7d).
+ * Ordem: data real da dose aplicada (doseAplicada.data) → dataRegistro → datasAplicacaoIndividuais → grade.
  */
+import { contaComoDoseAplicada, dataRealAplicacaoSeguimento, registroEvolucaoPorSemana } from '@/utils/evolucaoAplicacaoHelpers';
 
 export type PlanoDatasSlice = {
   startDate?: Date | string | { toDate?: () => Date };
@@ -17,6 +18,9 @@ export type EvolucaoSemanaRef = {
   weekIndex?: number;
   numeroSemana?: number;
   dataRegistro?: unknown;
+  doseAplicada?: { quantidade?: number; data?: unknown };
+  adherence?: string;
+  adesao?: string;
 };
 
 function toDateLocal(v: unknown): Date | null {
@@ -93,6 +97,9 @@ export function ultimaSemanaNaoCancelada(plano: PlanoDatasSlice): number {
   return ultima > 0 ? ultima : n;
 }
 
+/** Dias entre a última aplicação do plano e a data de Conclusão (semana seguinte à última dose). */
+export const DIAS_APOS_ULTIMA_APLICACAO_PARA_CONCLUSAO = 8;
+
 /** Índice da “Semana Conclusão” no calendário (última dose ativa + 1). */
 export function semanaIndexConclusao(plano: PlanoDatasSlice): number {
   return ultimaSemanaNaoCancelada(plano) + 1;
@@ -114,9 +121,11 @@ export function dataPrevistaSemanaTratamento(
     return fallback;
   }
   const ev = evolucao || [];
-  const reg = ev.find((e) => (e.weekIndex ?? e.numeroSemana ?? 0) === weekIndex);
-  if (reg?.dataRegistro) {
-    const dr = toDateLocal(reg.dataRegistro);
+  const reg = registroEvolucaoPorSemana(ev as import('@/types/obesidade').SeguimentoSemanal[], weekIndex);
+  if (reg) {
+    const dr =
+      (contaComoDoseAplicada(reg) ? dataRealAplicacaoSeguimento(reg) : null) ??
+      (reg.dataRegistro ? toDateLocal(reg.dataRegistro) : null);
     if (dr) {
       dr.setHours(0, 0, 0, 0);
       return dr;
@@ -145,7 +154,7 @@ export function dataPrevistaSemanaTratamento(
 }
 
 /**
- * Data da semana de Conclusão: registro dessa semana → mapa (índice ou chave `conclusao`) → última dose + 7 dias.
+ * Data da semana de Conclusão: registro dessa semana → mapa (índice ou chave `conclusao`) → última dose + 8 dias.
  * Alinha badge roxo do calendário ao Firestore após normalização.
  */
 export function dataPrevistaConclusaoComoEsquema(
@@ -154,9 +163,9 @@ export function dataPrevistaConclusaoComoEsquema(
 ): Date {
   const semConcl = semanaIndexConclusao(plano);
   const ev = evolucao || [];
-  const reg = ev.find((e) => (e.weekIndex ?? e.numeroSemana ?? 0) === semConcl);
-  if (reg?.dataRegistro) {
-    const dr = toDateLocal(reg.dataRegistro);
+  const reg = registroEvolucaoPorSemana(ev as import('@/types/obesidade').SeguimentoSemanal[], semConcl);
+  if (reg) {
+    const dr = dataRealAplicacaoSeguimento(reg) ?? (reg.dataRegistro ? toDateLocal(reg.dataRegistro) : null);
     if (dr) {
       dr.setHours(0, 0, 0, 0);
       return dr;
@@ -170,7 +179,7 @@ export function dataPrevistaConclusaoComoEsquema(
   }
   const ultima = ultimaSemanaNaoCancelada(plano);
   const base = dataPrevistaSemanaTratamento(plano, ultima, evolucao);
-  const d = new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const d = new Date(base.getTime() + DIAS_APOS_ULTIMA_APLICACAO_PARA_CONCLUSAO * 24 * 60 * 60 * 1000);
   d.setHours(0, 0, 0, 0);
   return d;
 }
@@ -209,48 +218,59 @@ function parseYmdLocal(s: string): Date | null {
  * Reconstrói `datasAplicacaoIndividuais` para gravar no Firestore com chaves "1".."N"
  * e a semana de Conclusão (`última dose ativa + 1`), alinhada ao calendário:
  * - semanas 1..N: registro → mapa existente → grade;
- * - conclusão: registro dessa semana → mapa (índice ou `conclusao`) → data da última semana ativa + 7 dias.
+ * - conclusão: registro dessa semana → mapa (índice ou `conclusao`) → data da última semana ativa + 8 dias.
  */
+export type NormalizarDatasAplicacaoOpts = {
+  /** Quando true, semanas sem registro em evolucao usam só a grade (startDate), não o mapa salvo. */
+  ignorarMapaExistente?: boolean;
+};
+
 export function normalizarDatasAplicacaoIndividuaisParaFirestore(
   plano: PlanoDatasSlice,
-  evolucao: EvolucaoSemanaRef[] | undefined
+  evolucao: EvolucaoSemanaRef[] | undefined,
+  opts?: NormalizarDatasAplicacaoOpts
 ): Record<string, string> | undefined {
   const primeira = primeiraDoseDoPlano(plano);
   if (!primeira) return undefined;
 
+  const ignorarMapa = opts?.ignorarMapaExistente ?? false;
   const n = Number(plano.numeroSemanasTratamento) || 18;
   const ev = evolucao || [];
   const out: Record<string, string> = {};
 
   for (let w = 1; w <= n; w++) {
     const gradeYmd = ymdLocal(dataGradeSemanal(primeira, w));
-    const reg = ev.find((e) => (e.weekIndex ?? e.numeroSemana ?? 0) === w);
-    const dr = reg?.dataRegistro ? toDateLocal(reg.dataRegistro) : null;
+    const reg = registroEvolucaoPorSemana(ev as import('@/types/obesidade').SeguimentoSemanal[], w);
+    const dr =
+      (reg && contaComoDoseAplicada(reg) ? dataRealAplicacaoSeguimento(reg) : null) ??
+      (reg?.dataRegistro ? toDateLocal(reg.dataRegistro) : null);
     if (dr && !isNaN(dr.getTime())) {
       dr.setHours(0, 0, 0, 0);
       out[String(w)] = ymdLocal(dr);
       continue;
     }
-    const inc = leStringIndividuais(plano.datasAplicacaoIndividuais, w);
-    const parsed = inc ? parseYmdLocal(inc) : null;
-    if (parsed) {
-      out[String(w)] = ymdLocal(parsed);
-      continue;
+    if (!ignorarMapa) {
+      const inc = leStringIndividuais(plano.datasAplicacaoIndividuais, w);
+      const parsed = inc ? parseYmdLocal(inc) : null;
+      if (parsed) {
+        out[String(w)] = ymdLocal(parsed);
+        continue;
+      }
     }
     out[String(w)] = gradeYmd;
   }
 
   const semConcl = semanaIndexConclusao(plano);
-  const regC = ev.find((e) => (e.weekIndex ?? e.numeroSemana ?? 0) === semConcl);
+  const regC = registroEvolucaoPorSemana(ev as import('@/types/obesidade').SeguimentoSemanal[], semConcl);
   let concYmd: string | undefined;
-  if (regC?.dataRegistro) {
-    const drC = toDateLocal(regC.dataRegistro);
-    if (drC && !isNaN(drC.getTime())) {
-      drC.setHours(0, 0, 0, 0);
-      concYmd = ymdLocal(drC);
-    }
+  const drC =
+    (regC ? dataRealAplicacaoSeguimento(regC) : null) ??
+    (regC?.dataRegistro ? toDateLocal(regC.dataRegistro) : null);
+  if (drC && !isNaN(drC.getTime())) {
+    drC.setHours(0, 0, 0, 0);
+    concYmd = ymdLocal(drC);
   }
-  if (!concYmd) {
+  if (!concYmd && !ignorarMapa) {
     const incC = leStringIndividuais(plano.datasAplicacaoIndividuais, semConcl) || leChaveConclusaoLiteral(plano);
     const parsedC = incC ? parseYmdLocal(incC) : null;
     if (parsedC) concYmd = ymdLocal(parsedC);
@@ -259,11 +279,34 @@ export function normalizarDatasAplicacaoIndividuaisParaFirestore(
     const ultima = ultimaSemanaNaoCancelada(plano);
     const ultimaYmd = out[String(ultima)];
     const baseUlt = parseYmdLocal(ultimaYmd) ?? primeira;
-    const dConc = new Date(baseUlt.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const dConc = new Date(baseUlt.getTime() + DIAS_APOS_ULTIMA_APLICACAO_PARA_CONCLUSAO * 24 * 60 * 60 * 1000);
     dConc.setHours(0, 0, 0, 0);
     concYmd = ymdLocal(dConc);
   }
   out[String(semConcl)] = concYmd;
 
   return out;
+}
+
+/** Reconstrói datas só a partir de evolucao + grade (descarta mapa antigo). */
+export function reconstruirDatasAplicacaoIndividuaisDaGrade(
+  plano: PlanoDatasSlice,
+  evolucao?: EvolucaoSemanaRef[]
+): Record<string, string> | undefined {
+  return normalizarDatasAplicacaoIndividuaisParaFirestore(plano, evolucao ?? [], {
+    ignorarMapaExistente: true,
+  });
+}
+
+export function mesclarPlanoComDatasReconstruidas(
+  planoAtual: PlanoDatasSlice | undefined,
+  patch: Partial<PlanoDatasSlice>,
+  evolucao?: EvolucaoSemanaRef[],
+  opts?: NormalizarDatasAplicacaoOpts
+): PlanoDatasSlice {
+  const merged = { ...(planoAtual ?? {}), ...patch } as PlanoDatasSlice;
+  const datas = normalizarDatasAplicacaoIndividuaisParaFirestore(merged, evolucao ?? [], {
+    ignorarMapaExistente: opts?.ignorarMapaExistente ?? true,
+  });
+  return { ...merged, datasAplicacaoIndividuais: datas };
 }

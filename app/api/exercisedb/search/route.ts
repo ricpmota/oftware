@@ -24,6 +24,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl;
     const name = searchParams.get('name');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const requestedLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Number.isNaN(requestedLimit) ? 50 : Math.min(Math.max(requestedLimit, 1), 300);
+    const offset = (page - 1) * limit;
 
     if (!name) {
       return NextResponse.json(
@@ -32,7 +36,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const res = await fetch(`${base}/exercises/name/${encodeURIComponent(name)}`, {
+    const res = await fetch(`${base}/exercises/name/${encodeURIComponent(name)}?limit=${limit}&offset=${offset}`, {
       method: 'GET',
       headers: {
         'X-RapidAPI-Key': key,

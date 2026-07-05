@@ -10,7 +10,9 @@ type LabExamesConfigResponse = {
 };
 
 /**
- * Ordem dos exames por sistema e overrides de min/max — Firestore via `/api/lab-exames-config` ou fallback.
+ * Ordem dos exames por sistema e overrides de min/max.
+ * A estrutura de seções/exames (labOrderBySection) vem SEMPRE do código-fonte (types/labRanges.ts)
+ * para garantir sincronização com novos exames. Apenas labLimitOverrides vem do Firestore.
  */
 export function useLabOrderBySection(): {
   labOrderBySection: Record<string, string[]>;
@@ -18,7 +20,7 @@ export function useLabOrderBySection(): {
   loading: boolean;
   reload: () => void;
 } {
-  const [order, setOrder] = useState<Record<string, string[]>>(() => {
+  const [order] = useState<Record<string, string[]>>(() => {
     const o: Record<string, string[]> = {};
     for (const [k, v] of Object.entries(defaultLabOrderBySection)) {
       o[k] = [...v];
@@ -35,9 +37,6 @@ export function useLabOrderBySection(): {
       try {
         const res = await fetch('/api/lab-exames-config', { cache: 'no-store' });
         const j = (await res.json()) as LabExamesConfigResponse;
-        if (!cancelled && j.labOrderBySection && typeof j.labOrderBySection === 'object') {
-          setOrder(j.labOrderBySection);
-        }
         if (!cancelled && j.labLimitOverrides && typeof j.labLimitOverrides === 'object' && !Array.isArray(j.labLimitOverrides)) {
           setLimitOverrides(j.labLimitOverrides as LabLimitOverrides);
         } else if (!cancelled) {

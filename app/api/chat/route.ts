@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { JWT } from 'google-auth-library';
+import { resolveGeminiModelId } from '@/lib/gcp/geminiConfig';
 import { loadKnowledge } from '@/lib/knowledge/knowledgeLoader';
 import { buildKnowledgeBlock } from '@/lib/knowledge/buildKnowledgeBlock';
 
@@ -279,7 +280,7 @@ export async function POST(request: NextRequest) {
 
     // 3) Gemini (Vertex AI Generative API)
     const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-    const geminiModel = process.env.GEMINI_MODEL_ID || 'gemini-2.0-flash-001';
+    const geminiModel = resolveGeminiModelId();
     const geminiUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${creds.projectId}/locations/${location}/publishers/google/models/${geminiModel}:generateContent`;
 
     let userPrompt: string;

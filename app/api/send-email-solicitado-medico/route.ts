@@ -126,12 +126,16 @@ export async function POST(request: NextRequest) {
     }
 
     const emailTemplate = emailDoc.data();
-    const assunto = emailTemplate?.assunto || 'Bem-vindo ao tratamento!';
+    const pacienteNome = solicitacao.pacienteNome || 'Paciente';
+    let assunto = emailTemplate?.assunto || 'Bem-vindo ao tratamento!';
     let html = emailTemplate?.corpoHtml || '';
 
     // 4. Substituir variáveis
     const dataInicio = solicitacao.aceitaEm?.toDate() || new Date();
     const semanas = 18; // Padrão, pode ser ajustado depois
+    assunto = assunto.replace(/\{nome\}/g, pacienteNome);
+    assunto = assunto.replace(/\{medico\}/g, medicoNome);
+    html = html.replace(/\{nome\}/g, pacienteNome);
     html = html.replace(/\{medico\}/g, medicoNome);
     html = html.replace(/\{inicio\}/g, dataInicio.toLocaleDateString('pt-BR'));
     html = html.replace(/\{semanas\}/g, semanas.toString());
@@ -153,10 +157,42 @@ export async function POST(request: NextRequest) {
       `.trim();
     }
 
-    // 6. Enviar e-mail
+    // 6. Enviar e-mail (com trava de idempotência por solicitacaoId)
     let envioSucesso = false;
     let erroEnvio: string | undefined;
     let zeptoMessageId: string | undefined;
+    const envioLockId = `solicitado_medico_boas_vindas_${solicitacaoId}`;
+    const envioLockRef = enviosCollection.doc(envioLockId);
+
+    try {
+      await envioLockRef.create({
+        solicitacaoId,
+        leadId: solicitacao.pacienteId || '',
+        leadEmail: solicitacao.pacienteEmail,
+        leadNome: solicitacao.pacienteNome,
+        emailTipo: 'solicitado_medico_boas_vindas',
+        assunto,
+        enviadoEm: new Date(),
+        status: 'processando',
+        tentativas: 1,
+        erro: null,
+        tipo: 'automatico',
+      });
+    } catch (lockError) {
+      const jaExiste = (lockError as { code?: number })?.code === 6;
+      if (jaExiste) {
+        console.log('⚠️ Lock de envio já existe para esta solicitação. Evitando duplicação.', {
+          solicitacaoId,
+          pacienteEmail: solicitacao.pacienteEmail,
+        });
+        return NextResponse.json({
+          success: true,
+          message: 'E-mail já está em processamento ou foi enviado para esta solicitação',
+          jaEnviado: true,
+        });
+      }
+      throw lockError;
+    }
 
     try {
       if (isZeptoMailConfigured()) {
@@ -181,9 +217,9 @@ export async function POST(request: NextRequest) {
       console.error('❌ Erro ao enviar e-mail:', emailError);
     }
 
-    // 7. Registrar envio (usar solicitacaoId como identificador único para evitar duplicatas)
-    await enviosCollection.add({
-      solicitacaoId: solicitacaoId, // Adicionar ID da solicitação para rastreamento
+    // 7. Registrar envio final no mesmo documento lock para evitar duplicatas
+    await envioLockRef.set({
+      solicitacaoId: solicitacaoId,
       leadId: solicitacao.pacienteId || '',
       leadEmail: solicitacao.pacienteEmail,
       leadNome: solicitacao.pacienteNome,
@@ -197,7 +233,7 @@ export async function POST(request: NextRequest) {
       ...(isZeptoMailConfigured()
         ? zeptoEnvioFields(envioSucesso ? zeptoMessageId : null)
         : {}),
-    });
+    }, { merge: true });
 
     if (!envioSucesso) {
       return NextResponse.json(

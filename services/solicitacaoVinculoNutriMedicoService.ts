@@ -3,6 +3,7 @@
  */
 
 import { db } from '@/lib/firebase';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 import { 
   collection, 
   doc, 
@@ -10,7 +11,8 @@ import {
   getDocs, 
   query, 
   where, 
-  orderBy, 
+  orderBy,
+  limit,
   addDoc, 
   updateDoc, 
   deleteDoc,
@@ -44,14 +46,16 @@ export class SolicitacaoVinculoNutriMedicoService {
         collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO),
         where('nutricionistaId', '==', nutricionistaId),
         where('medicoId', '==', medicoId),
-        where('status', '==', SOLICITACAO_STATUS.PENDENTE)
+        where('status', '==', SOLICITACAO_STATUS.PENDENTE),
+        limit(1)
       );
       
       const qAceita = query(
         collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO),
         where('nutricionistaId', '==', nutricionistaId),
         where('medicoId', '==', medicoId),
-        where('status', '==', SOLICITACAO_STATUS.ACEITA)
+        where('status', '==', SOLICITACAO_STATUS.ACEITA),
+        limit(1)
       );
 
       const [pendentesSnap, aceitasSnap] = await Promise.all([
@@ -99,7 +103,10 @@ export class SolicitacaoVinculoNutriMedicoService {
         medicoNome: medicoNome || '',
       };
 
-      const docRef = await addDoc(collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO), novaSolicitacao);
+      const docRef = await addDoc(collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO), {
+        ...novaSolicitacao,
+        ...shadowOrganizationFields(),
+      });
       
       console.log('✅ [DEBUG] Solicitação de vínculo criada:', {
         id: docRef.id,
@@ -228,40 +235,16 @@ export class SolicitacaoVinculoNutriMedicoService {
    */
   static async listVinculoRequestsByNutri(nutricionistaId: string): Promise<SolicitacaoVinculoNutriMedicoDoc[]> {
     try {
-      console.log('🔍 [DEBUG] Buscando solicitações para nutricionistaId:', nutricionistaId);
-      
-      // Primeiro, buscar todas as solicitações para debug
-      const todasQuery = query(collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO));
-      const todasSnapshot = await getDocs(todasQuery);
-      console.log('🔍 [DEBUG] Total de solicitações na coleção:', todasSnapshot.docs.length);
-      
-      // Mostrar todas as solicitações para debug
-      todasSnapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data();
-        console.log('🔍 [DEBUG] Solicitação na coleção:', {
-          id: docSnap.id,
-          nutricionistaId: data.nutricionistaId,
-          medicoId: data.medicoId,
-          solicitadoPor: data.solicitadoPor,
-          status: data.status,
-          comparaCom: nutricionistaId,
-          match: data.nutricionistaId === nutricionistaId
-        });
-      });
-      
-      // Agora buscar com o filtro específico
       const q = query(
         collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO),
         where('nutricionistaId', '==', nutricionistaId)
       );
 
       const querySnapshot = await getDocs(q);
-      
-      console.log('🔍 [DEBUG] Total de documentos encontrados com filtro:', querySnapshot.docs.length);
-      
+
       const solicitacoes = querySnapshot.docs.map((docSnap) => {
         const data = docSnap.data();
-        const solicitacao = {
+        return {
           id: docSnap.id,
           nutricionistaId: data.nutricionistaId,
           medicoId: data.medicoId,
@@ -277,17 +260,6 @@ export class SolicitacaoVinculoNutriMedicoService {
           nutricionistaEmail: data.nutricionistaEmail,
           medicoNome: data.medicoNome,
         };
-        
-        console.log('🔍 [DEBUG] Solicitação encontrada:', {
-          id: solicitacao.id,
-          nutricionistaId: solicitacao.nutricionistaId,
-          medicoId: solicitacao.medicoId,
-          solicitadoPor: solicitacao.solicitadoPor,
-          status: solicitacao.status,
-          solicitadoPorOriginal: data.solicitadoPor
-        });
-        
-        return solicitacao;
       });
 
       return solicitacoes.sort((a, b) => {

@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const HOME_VERSION = 6;
+const HOME_VERSION = 30;
 
 export async function GET() {
   const res = NextResponse.json({ version: HOME_VERSION });

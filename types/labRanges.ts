@@ -13,6 +13,36 @@ export interface LabRange {
   max: number;
 }
 
+export type LabTargetQuartile = 'LOW' | 'HIGH' | 'MID' | 'NONE';
+
+export interface LabIdealRange {
+  min?: number;
+  max?: number;
+  targetQuartile?: LabTargetQuartile;
+  rationale?: string;
+}
+
+export type LabScoreGroup =
+  | 'glicidico'
+  | 'resistenciaInsulinica'
+  | 'inflamatorio'
+  | 'cardiovascular'
+  | 'hepatometabolico'
+  | 'tireoidiano'
+  | 'nutricional'
+  | 'adrenal'
+  | 'performance'
+  | 'hormonal'
+  | 'complementar';
+
+export interface LabExamMeta {
+  ideal?: LabIdealRange;
+  qualitative?: boolean;
+  optional?: boolean;
+  scoreGroup?: LabScoreGroup;
+  scoreEligible?: boolean;
+}
+
 type SexedRange = { M: LabRange; F: LabRange };
 
 type RangeEntry = LabRange | SexedRange;
@@ -84,7 +114,58 @@ export const labRanges: Record<string, RangeEntry> = {
   },
   ft4:            { label: 'T4 Livre (FT4)', unit: 'ng/dL', min: 0.8, max: 1.8 },
   b12:            { label: 'Vitamina B12', unit: 'pg/mL', min: 200, max: 900 },
-  vitaminD:       { label: 'Vitamina D (25-OH)', unit: 'ng/mL', min: 30, max: 60 }
+  vitaminD:       { label: 'Vitamina D (25-OH)', unit: 'ng/mL', min: 30, max: 60 },
+
+  // Metabolismo (adicionados)
+  homaIr:         { label: 'HOMA-IR', unit: '', min: 0, max: 2.5 },
+
+  // Renal/Metabólico
+  uricAcid: {
+    M: { label: 'Ácido úrico (M)', unit: 'mg/dL', min: 3.4, max: 7.0 },
+    F: { label: 'Ácido úrico (F)', unit: 'mg/dL', min: 2.4, max: 5.7 }
+  },
+
+  // Inflamação / Risco Cardiovascular
+  fibrinogen:     { label: 'Fibrinogênio', unit: 'mg/dL', min: 200, max: 400 },
+  homocysteine:   { label: 'Homocisteína', unit: 'µmol/L', min: 5, max: 15 },
+
+  // Lipídeos
+  vldl:           { label: 'VLDL-c', unit: 'mg/dL', min: 2, max: 30 },
+  apolipoproteinA1: {
+    M: { label: 'Apolipoproteína A1 (M)', unit: 'mg/dL', min: 104, max: 202 },
+    F: { label: 'Apolipoproteína A1 (F)', unit: 'mg/dL', min: 108, max: 225 }
+  },
+  apolipoproteinB: { label: 'Apolipoproteína B', unit: 'mg/dL', min: 55, max: 130 },
+
+  // Hepatobiliar (adicionados)
+  bilirubinTotal: { label: 'Bilirrubina total', unit: 'mg/dL', min: 0.1, max: 1.2 },
+  bilirubinDirect: { label: 'Bilirrubina direta', unit: 'mg/dL', min: 0.0, max: 0.3 },
+  bilirubinIndirect: { label: 'Bilirrubina indireta', unit: 'mg/dL', min: 0.1, max: 0.9 },
+  totalProteins:  { label: 'Proteínas totais', unit: 'g/dL', min: 6.0, max: 8.3 },
+  albumin:        { label: 'Albumina', unit: 'g/dL', min: 3.5, max: 5.0 },
+  globulins:      { label: 'Globulinas', unit: 'g/dL', min: 2.0, max: 3.5 },
+
+  // Hormônios (adicionados)
+  pth:            { label: 'PTH (Paratormônio)', unit: 'pg/mL', min: 15, max: 65 },
+
+  // Muscular/Metabólico
+  cpk: {
+    M: { label: 'CPK (M)', unit: 'U/L', min: 39, max: 308 },
+    F: { label: 'CPK (F)', unit: 'U/L', min: 26, max: 192 }
+  },
+
+  // Infecções/Triagem
+  antiHcv:        { label: 'Anti-HCV', unit: '', min: 0, max: 1 },
+
+  // Metais Tóxicos
+  aluminumSerum:  { label: 'Alumínio sérico', unit: 'µg/L', min: 0, max: 10 },
+
+  // Marcadores Tumorais
+  cea:            { label: 'CEA', unit: 'ng/mL', min: 0, max: 5 },
+  ca125:          { label: 'CA-125', unit: 'U/mL', min: 0, max: 35 },
+  ca199:          { label: 'CA 19-9', unit: 'U/mL', min: 0, max: 37 },
+  g6pd:           { label: 'G6PD', unit: 'U/g Hb', min: 4.6, max: 13.5 },
+  vitaminC:       { label: 'Vitamina C', unit: 'mg/dL', min: 0.4, max: 2.0 },
 };
 
 /**
@@ -115,32 +196,28 @@ export function isInRange(value: number | null | undefined, range: LabRange | nu
  */
 /** Chaves alinhadas a `data/limites_exames_atual_v2_idade.json` (via `getLabRange` em labRangesFromJson). */
 export const labOrderBySection: Record<string, string[]> = {
-  metabolismo: ['fastingGlucose', 'hba1c', 'fastingInsulin'],
-  renal: ['urea', 'creatinine', 'egfr', 'sodium', 'potassium'],
-  hepatobiliar: ['alt', 'ast', 'ggt', 'alp'],
-  pancreas: ['amylase', 'lipase'],
-  lipideos: ['cholTotal', 'ldl', 'hdl', 'tg'],
-  tireoide: ['tsh', 'calcitonin', 'ft4'],
-  tireoideAvancada: ['t3Livre', 'antiTPO', 'antiTg'],
-  hemograma: ['hgb', 'wbc', 'platelets'],
-  ferroVitaminas: ['ferritin', 'iron', 'b12', 'vitaminD'],
-  estadoNutricional: ['albumin'],
-  hormonios: [
-    'testosteronaTotal',
-    'testosteronaLivre',
-    'shbg',
-    'lh',
-    'fsh',
-    'estradiol',
-    'dht',
-    'dheas',
-    'prolactina',
-    'psa',
-    'progesterona',
-    'oh17Progesterona',
-    'amh'
+  metabolismoBasico: ['fastingGlucose', 'hba1c'],
+  metabolismoAvancado: ['fastingInsulin', 'homaIr', 'leptina', 'adiponectina'],
+  renalMetabolico: ['urea', 'creatinine', 'egfr', 'uricAcid', 'sodium', 'potassium'],
+  inflamacaoRiscoCardio: ['pcrUltra', 'fibrinogen', 'homocysteine', 'apolipoproteinB'],
+  lipideos: ['cholTotal', 'hdl', 'ldl', 'vldl', 'tg', 'apolipoproteinA1'],
+  hepatobiliar: ['alt', 'ast', 'ggt', 'alp', 'bilirubinTotal', 'bilirubinDirect', 'bilirubinIndirect'],
+  gastroPancreatico: ['amylase', 'lipase'],
+  tireoide: ['tsh', 'ft4', 't3Livre', 'antiTPO', 'antiTg', 'calcitonin'],
+  hormoniosSexuais: [
+    'testosteronaTotal', 'testosteronaLivre', 'shbg',
+    'lh', 'fsh', 'estradiol',
+    'psa', 'psaLivre', 'psaLivreTotalRatio',
+    'dht', 'prolactina', 'progesterona', 'oh17Progesterona', 'amh',
   ],
-  adrenalEstresse: ['cortisol8h', 'cortisol16h', 'acth'],
-  metabolismoHormonal: ['homaIr', 'leptina', 'adiponectina', 'igf1', 'pcrUltra']
+  eixoAdrenalEstresse: ['cortisol8h', 'cortisol16h', 'acth', 'dheas'],
+  performanceRecuperacao: ['igf1', 'cpk', 'pth'],
+  estadoNutricionalInflamatorio: ['totalProteins', 'albumin', 'globulins', 'ferritin', 'iron', 'b12', 'vitaminD'],
+  hemograma: ['hgb', 'wbc', 'platelets'],
+  infeccoesTriagem: ['antiHcv'],
+  metaisToxicos: ['aluminumSerum'],
+  parasitologia: ['stoolParasitologySeries'],
+  marcadoresTumorais: ['cea', 'ca125', 'ca199'],
+  estresseOxidativo: ['g6pd', 'vitaminC'],
 };
 

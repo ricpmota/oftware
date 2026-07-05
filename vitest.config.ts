@@ -4,7 +4,12 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['lib/**/*.spec.ts', 'services/**/*.spec.ts'],
+    include: [
+      'lib/**/*.spec.ts',
+      'services/**/*.spec.ts',
+      'components/**/*.spec.ts',
+      'app/**/*.spec.ts',
+    ],
   },
   resolve: {
     alias: {

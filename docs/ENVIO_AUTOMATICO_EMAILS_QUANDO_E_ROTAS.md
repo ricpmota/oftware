@@ -39,7 +39,8 @@ Chamada quando algo acontece na UI ou em serviço. Caminhos conferidos no reposi
 | **Nutri** pediu vínculo ao médico | `POST /api/send-email-nutri-pediu-vinculo` | `metanutri/page.v2.tsx` | `nutri_pediu_vinculo_aviso_medico` |
 | **Personal** pediu vínculo ao médico | `POST /api/send-email-personal-pediu-vinculo` | `metapersonal/page.v2.tsx` | `personal_pediu_vinculo_aviso_medico` |
 | **Plano** editado (médico, paciente Tirzepatida) | `POST /api/send-email-plano-editado` | `app/metaadmin/page.tsx` | `em_tratamento_plano_editado` |
-| **Novo lead** para o médico | `POST /api/send-email-novo-lead-medico` | `services/solicitacaoMedicoService.ts` | `novo_lead_medico_novo_lead` |
+| **Novo médico** solicitando cadastro (aviso gestor) | `POST /api/send-email-novo-lead-medico-gestor` | `app/metaadmin/page.tsx` (primeiro salvar perfil) | `novo_lead_medico_novo_lead` |
+| **Novo lead** para o médico | `POST /api/send-email-novo-lead-medico` | `services/solicitacaoMedicoService.ts` | `novo_lead_para_medico_novo_lead` |
 | Paciente leu **recomendações** (aviso médico) | `POST /api/send-email-check-recomendacoes` | `app/meta/page.tsx` | `check_recomendacoes_recomendacoes_lidas` |
 | **Conclusão** — parabéns + relatório (após médico concluir) | `POST /api/send-email-conclusao-tratamento` | `app/metaadmin/page.tsx` | `conclusao_tratamento_conclusao_tratamento` |
 | **Lead avulso** (gestor Metaadmin geral) | `POST /api/send-email-lead-avulso` | `app/metaadmingeral/page.tsx`, `contexts/AuthContext.tsx` | `lead_avulso_novo_lead` |
@@ -93,7 +94,8 @@ Configuráveis no Metaadmin geral (e em `NOVOS_MODULOS_EMAIL_DOCS`), mas **sem j
 | `solicitado_nutri_boas_vindas` | `POST send-email-solicitado-nutri` |
 | `solicitado_personal_boas_vindas` | `POST send-email-solicitado-personal` |
 | `em_tratamento_plano_editado` | `POST send-email-plano-editado` |
-| `novo_lead_medico_novo_lead` | `POST send-email-novo-lead-medico` |
+| `novo_lead_medico_novo_lead` | `POST send-email-novo-lead-medico-gestor` |
+| `novo_lead_para_medico_novo_lead` | `POST send-email-novo-lead-medico` |
 | `aplicacao_aplicacao_antes` / `aplicacao_aplicacao_dia` | Cron `send-email-aplicacao` + `POST send-email-aplicacao` |
 | `lead_avulso_novo_lead` | `POST send-email-lead-avulso` |
 | `check_recomendacoes_recomendacoes_lidas` | `POST send-email-check-recomendacoes` |

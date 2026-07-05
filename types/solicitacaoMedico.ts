@@ -1,3 +1,5 @@
+import type { LeadReferralSnapshot } from '@/types/leadMedico';
+
 export interface SolicitacaoMedico {
   id: string;
   pacienteId?: string; // ID do paciente se existir
@@ -13,6 +15,10 @@ export interface SolicitacaoMedico {
   desistiuEm?: Date; // Data de desistência (se desistiu)
   observacoes?: string; // Observações do médico ou paciente
   motivoDesistencia?: string; // Motivo da desistência
+  /** true quando o paciente concluiu todo o chat inicial antes de solicitar tratamento */
+  chatInicialCompleto?: boolean;
+  /** Snapshot de origem comercial capturada no momento da solicitação */
+  referral?: LeadReferralSnapshot;
 }
 
 // Motivos pré-definidos para desistência

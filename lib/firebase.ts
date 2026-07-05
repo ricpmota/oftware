@@ -1,4 +1,4 @@
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -14,14 +14,14 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase apenas se não houver apps existentes
-let app;
+let app: FirebaseApp;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
-  app = getApps()[0];
+  app = getApps()[0]!;
 }
 
-// Initialize Firebase Authentication and get a reference to the service
+// Uma única instância com getAuth — initializeAuth misturado com getRedirectResult costuma gerar auth/argument-error no Next.
 export const auth = getAuth(app);
 
 // Initialize Cloud Firestore and get a reference to the service

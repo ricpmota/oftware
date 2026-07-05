@@ -1,0 +1,70 @@
+# Cloud Build — Oftware WPPConnect central
+# Dispara build da imagem e deploy no Cloud Run (us-central1).
+
+substitutions:
+  _SERVICE_NAME: oftware-whatsapp-wppconnect
+  _REGION: us-central1
+  _IMAGE: gcr.io/${PROJECT_ID}/oftware-whatsapp-wppconnect
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      - -t
+      - ${_IMAGE}:${SHORT_SHA}
+      - -t
+      - ${_IMAGE}:latest
+      - -f
+      - infra/whatsapp/wppconnect/Dockerfile
+      - infra/whatsapp/wppconnect
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-sha
+    args:
+      - push
+      - ${_IMAGE}:${SHORT_SHA}
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-latest
+    args:
+      - push
+      - ${_IMAGE}:latest
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE_NAME}
+      - --image
+      - ${_IMAGE}:${SHORT_SHA}
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --port
+      - "21465"
+      - --memory
+      - 2Gi
+      - --cpu
+      - "1"
+      - --min-instances
+      - "1"
+      - --max-instances
+      - "1"
+      - --timeout
+      - "300"
+      - --allow-unauthenticated
+      - --set-env-vars
+      - HOST=0.0.0.0,PORT=21465
+      - --set-secrets
+      - SECRET_KEY=oftware-wppconnect-secret-key:latest
+
+images:
+  - ${_IMAGE}:${SHORT_SHA}
+  - ${_IMAGE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

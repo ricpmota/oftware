@@ -3,6 +3,9 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
 
+const EMAIL_DOC_ID = 'novo_lead_para_medico_novo_lead';
+const EMAIL_TIPO = 'novo_lead_para_medico_novo_lead';
+
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -88,7 +91,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 3. Buscar template do e-mail
-    const emailDoc = await db.collection('emails').doc('novo_lead_medico_novo_lead').get();
+    const emailDoc = await db.collection('emails').doc(EMAIL_DOC_ID).get();
     if (!emailDoc.exists) {
       return NextResponse.json(
         { error: 'Template de e-mail não configurado' },
@@ -97,14 +100,28 @@ export async function POST(request: NextRequest) {
     }
 
     const emailTemplate = emailDoc.data();
-    const assunto = emailTemplate?.assunto || 'Novo lead disponível';
+    const assuntoTemplate = emailTemplate?.assunto || 'Novo lead disponível';
     let html = emailTemplate?.corpoHtml || '';
 
     console.log('🔍 Debug - HTML antes da substituição:', html);
 
     // 4. Substituir variáveis
-    html = html.replace(/\{nome\}/g, solicitacao.pacienteNome || 'Paciente');
-    html = html.replace(/\{medico\}/g, medicoNome);
+    const leadNome = solicitacao.pacienteNome || solicitacao.nome || 'Paciente';
+    const fotoCrm = medico.docVerificacaoCrmUrl || '';
+    const fotoSelfie = medico.docVerificacaoSelfieUrl || '';
+    const fotoCnh = medico.docVerificacaoCnhUrl || '';
+    const leadEmail = solicitacao.pacienteEmail || '';
+    const replaceVars = (texto: string) =>
+      texto
+        .replace(/\{nome\}/g, leadNome)
+        .replace(/\{medico\}/g, medicoNome)
+        .replace(/\{lead_email\}/g, leadEmail)
+        .replace(/\{foto_crm\}/g, fotoCrm)
+        .replace(/\{foto_registro\}/g, fotoCrm)
+        .replace(/\{selfie\}/g, fotoSelfie)
+        .replace(/\{cnh\}/g, fotoCnh);
+    const assunto = replaceVars(assuntoTemplate);
+    html = replaceVars(html);
 
     console.log('🔍 Debug - HTML depois da substituição:', html);
 
@@ -171,7 +188,7 @@ export async function POST(request: NextRequest) {
       leadId: solicitacao.pacienteId || '',
       leadEmail: solicitacao.pacienteEmail,
       leadNome: solicitacao.pacienteNome,
-      emailTipo: 'novo_lead_medico_novo_lead',
+      emailTipo: EMAIL_TIPO,
       assunto,
       enviadoEm: new Date(),
       status: envioSucesso ? 'enviado' : 'falhou',

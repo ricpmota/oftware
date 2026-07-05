@@ -6,6 +6,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getCourseById } from '@/app/oftpay/coursesConfig';
 import CoursePlayer from '@/components/oftpay/CoursePlayer';
+import LaudoGuiadoWorkspace from '@/components/oftpay/laudos/LaudoGuiadoWorkspace';
 import type { CourseVideoItem } from '@/components/oftpay/CoursePlayer';
 import type { ApostilaItem } from '@/components/oftpay/ApostilaLibrary';
 import { extractVideoDuration } from '@/utils/extractVideoDuration';
@@ -26,6 +27,7 @@ export default function OftPayCursoPage() {
   const [apostilasDebug, setApostilasDebug] = useState<{ prefix?: string; bucket?: string; totalInFolder?: number } | null>(null);
 
   const course = getCourseById(courseId);
+  const isLaudoExames = course?.id === 'laudo-exames';
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -104,6 +106,7 @@ export default function OftPayCursoPage() {
   // Carregar vídeos do GCS via API quando o curso estiver definido
   useEffect(() => {
     if (!courseId || !course) return;
+    if (isLaudoExames) return;
     let cancelled = false;
     setVideosLoading(true);
     setVideosError(null);
@@ -137,11 +140,12 @@ export default function OftPayCursoPage() {
     return () => {
       cancelled = true;
     };
-  }, [courseId, course]);
+  }, [courseId, course, isLaudoExames]);
 
   // Carregar apostilas (PDFs) para o curso Oftreview
   useEffect(() => {
     if (!courseId || !course) return;
+    if (isLaudoExames) return;
     let cancelled = false;
     setApostilasLoading(true);
     setApostilasError(null);
@@ -171,11 +175,12 @@ export default function OftPayCursoPage() {
     return () => {
       cancelled = true;
     };
-  }, [courseId, course]);
+  }, [courseId, course, isLaudoExames]);
 
   // Preencher durações faltantes: extrair no cliente (HTMLVideoElement) e salvar no Firestore
   const fillingRef = useRef(false);
   useEffect(() => {
+    if (isLaudoExames) return;
     if (!courseId || !course || videos.length === 0 || videosLoading || fillingRef.current) return;
     const missing = videos.filter((v) => v.duration == null || v.duration <= 0);
     if (missing.length === 0) return;
@@ -209,7 +214,7 @@ export default function OftPayCursoPage() {
         .finally(() => runNext());
     };
     runNext();
-  }, [courseId, course, videos, videosLoading]);
+  }, [courseId, course, videos, videosLoading, isLaudoExames]);
 
   const isPurple = course?.theme === 'purple';
   const spinnerColor = isPurple ? 'border-purple-600' : 'border-blue-600';
@@ -220,6 +225,10 @@ export default function OftPayCursoPage() {
         <div className={`animate-spin rounded-full h-10 w-10 border-b-2 ${spinnerColor}`} />
       </div>
     );
+  }
+
+  if (isLaudoExames) {
+    return <LaudoGuiadoWorkspace courseId={course.id} courseName={course.name} />;
   }
 
   return (

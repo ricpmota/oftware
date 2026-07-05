@@ -23,21 +23,13 @@ import {
   TrendingUp,
   ListOrdered,
 } from 'lucide-react';
-import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
 import Countdown from '@/components/mentoria/Countdown';
-import AnimatedCounter from '@/components/mentoria/AnimatedCounter';
 import MentoriaLeadModal from '@/components/mentoria/MentoriaLeadModal';
+import IndicadoresPlataforma from '@/components/landing/IndicadoresPlataforma';
 import { useMentoriaLeadModal } from '@/hooks/useMentoriaLeadModal';
 import InitialLoadingSplash from '@/components/landing/InitialLoadingSplash';
 import OmetodoInstagramEmbed from '@/components/mentoria/OmetodoInstagramEmbed';
 import { ometodoInstagramPermalink } from '@/lib/ometodoInstagram';
-
-type IndicadoresData = {
-  kgReducaoTotal: number;
-  mgAplicacoesTotal: number;
-  pacientesEmAcompanhamento: number;
-  registrosEvolucao: number;
-};
 
 type DepoimentoItem = {
   pacienteId: string;
@@ -301,23 +293,10 @@ export default function MentoriaPage() {
 
   const [fixedCtaVisible, setFixedCtaVisible] = useState(false);
   const leadModal = useMentoriaLeadModal();
-  const [indicadores, setIndicadores] = useState<IndicadoresData | null>(null);
-  const [loadingIndicadores, setLoadingIndicadores] = useState(true);
   const [depoimentos, setDepoimentos] = useState<DepoimentoItem[]>([]);
   const [loadingDepoimentos, setLoadingDepoimentos] = useState(true);
   const [depoimentoIndex, setDepoimentoIndex] = useState(0);
   const [depoimentosPausado, setDepoimentosPausado] = useState(false);
-  const [depoimentoSelecionado, setDepoimentoSelecionado] = useState<DepoimentoItem | null>(null);
-  const [showModalDepoimento, setShowModalDepoimento] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/indicadores-plataforma')
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then(setIndicadores)
-      .catch(() => setIndicadores(null))
-      .finally(() => setLoadingIndicadores(false));
-  }, []);
-
   useEffect(() => {
     fetch(`/api/depoimentos-medico?medicoEmail=${encodeURIComponent(MEDICO_EMAIL_DEPOIMENTOS)}`)
       .then((res) => (res.ok ? res.json() : { depoimentos: [] }))
@@ -386,12 +365,12 @@ export default function MentoriaPage() {
   }, [mobileJornadaModal]);
 
   useEffect(() => {
-    if (loadingIndicadores || loadingDepoimentos) return;
+    if (loadingDepoimentos) return;
     const elapsed = Date.now() - splashMountRef.current;
     const delay = Math.max(0, MIN_SPLASH_MS - elapsed);
     const id = window.setTimeout(() => setShowSplash(false), delay);
     return () => window.clearTimeout(id);
-  }, [loadingIndicadores, loadingDepoimentos]);
+  }, [loadingDepoimentos]);
 
   const ctaButtonClass =
     'inline-flex items-center justify-center gap-2 px-6 py-4 sm:px-8 sm:py-4 rounded-xl font-bold text-[#0A1F44] transition-all duration-300 shadow-lg active:scale-[0.98] hover:shadow-[#4CCB7A]/40 hover:shadow-xl bg-[#4CCB7A] hover:bg-[#45b86d] hover:-translate-y-0.5';
@@ -428,9 +407,9 @@ export default function MentoriaPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
           <Link href="/" className="flex items-center">
             <img
-              src="/logo-site.jpg"
-              alt="Método Emagrecer"
-              className="h-8 md:h-10 w-auto object-contain"
+              src="/oftware-site-novo2.png"
+              alt="Oftware"
+              className="h-8 md:h-9 w-auto object-contain"
             />
           </Link>
           <div className="flex items-center gap-3">
@@ -447,15 +426,15 @@ export default function MentoriaPage() {
       </header>
 
       <main className="relative z-10 pt-[72px] md:pt-[80px]">
-        {/* Marca d'água fixa: canto superior direito (abaixo do header), visível ao rolar */}
+        {/* Marca d'água sutil Oftware */}
         <div
           className="fixed top-[72px] md:top-[80px] right-0 z-[25] flex items-start justify-end p-3 sm:p-5 pointer-events-none"
           aria-hidden
         >
           <img
-            src="/simbolo-metodo.png"
+            src="/oftware-site-novo2.png"
             alt=""
-            className="w-[min(200px,35vw)] h-auto opacity-[0.07]"
+            className="w-[min(160px,28vw)] h-auto opacity-[0.04]"
           />
         </div>
 
@@ -490,6 +469,9 @@ export default function MentoriaPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           >
+            <p className="text-sm uppercase tracking-[0.22em] text-[#4CCB7A]/90 mb-4">
+              Mentoria Médica · Produto Oftware
+            </p>
             <h1
               className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.15] mb-6"
               style={{ color: LIGHT }}
@@ -497,8 +479,8 @@ export default function MentoriaPage() {
               Você não precisa de consultório para faturar alto com medicina.
             </h1>
             <p className="text-lg sm:text-xl md:text-2xl text-[#E8EDED]/85 mb-10 max-w-2xl mx-auto">
-              Aprenda a transformar seu conhecimento em um modelo digital escalável
-              com o Método Emagrecer.
+              Aprenda a transformar seu conhecimento em uma operação digital escalável sobre a
+              infraestrutura White Label da Oftware.
             </p>
             <motion.div
               initial={{ opacity: 0, y: 12 }}
@@ -553,7 +535,7 @@ export default function MentoriaPage() {
           </div>
         </section>
 
-        {/* MÉTODO */}
+        {/* PLATAFORMA OFTWARE */}
         <section className="py-20 sm:py-28 px-4 sm:px-6">
           <div className="max-w-5xl mx-auto">
             <motion.h2
@@ -571,7 +553,7 @@ export default function MentoriaPage() {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
             >
-              O Método Emagrecer pode ser aplicado 100% online.
+              A Oftware entrega a infraestrutura. A mentoria ensina a operação comercial e clínica.
             </motion.p>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -600,92 +582,12 @@ export default function MentoriaPage() {
           </div>
         </section>
 
-        {/* PROVA NUMÉRICA */}
-        <section className="py-20 sm:py-28 px-4 sm:px-6 bg-white/5">
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-12"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={{
-                hidden: {},
-                visible: {
-                  transition: { staggerChildren: 0.15 },
-                },
-              }}
-            >
-              <motion.div
-                className="text-center"
-                variants={{
-                  hidden: { opacity: 0, y: 24 },
-                  visible: { opacity: 1, y: 0 },
-                }}
-              >
-                <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#4CCB7A] mb-2">
-                  {loadingIndicadores || indicadores == null ? (
-                    '—'
-                  ) : (
-                    <>+<AnimatedCounter end={indicadores.kgReducaoTotal} suffix=" kg" decimals={1} /> eliminados</>
-                  )}
-                </p>
-                <p className="text-[#E8EDED]/70 text-sm sm:text-base">
-                  Redução total acompanhada
-                </p>
-              </motion.div>
-              <motion.div
-                className="text-center"
-                variants={{
-                  hidden: { opacity: 0, y: 24 },
-                  visible: { opacity: 1, y: 0 },
-                }}
-              >
-                <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#4CCB7A] mb-2">
-                  {loadingIndicadores || indicadores == null ? (
-                    '—'
-                  ) : (
-                    <>+<AnimatedCounter end={indicadores.mgAplicacoesTotal} suffix=" mg" decimals={1} /> aplicados</>
-                  )}
-                </p>
-                <p className="text-[#E8EDED]/70 text-sm sm:text-base">
-                  Volume de aplicações
-                </p>
-              </motion.div>
-              <motion.div
-                className="text-center"
-                variants={{
-                  hidden: { opacity: 0, y: 24 },
-                  visible: { opacity: 1, y: 0 },
-                }}
-              >
-                <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#4CCB7A] mb-2">
-                  {loadingIndicadores || indicadores == null ? (
-                    '—'
-                  ) : (
-                    <>+<AnimatedCounter end={indicadores.pacientesEmAcompanhamento} /> pacientes</>
-                  )}
-                </p>
-                <p className="text-[#E8EDED]/70 text-sm sm:text-base">
-                  Acompanhados no método
-                </p>
-              </motion.div>
-            </motion.div>
+        {/* INDICADORES / RESULTADOS CONQUISTADOS — mesmo bloco da home */}
+        <IndicadoresPlataforma variant="institutional" />
 
-            <motion.p
-              className="text-lg sm:text-xl font-semibold text-center mt-12"
-              style={{ color: LIGHT }}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-            >
-              Isso não é teoria. É prática aplicada.
-            </motion.p>
-          </div>
-        </section>
-
-        {/* INSTAGRAM DO MÉTODO */}
+        {/* ECOSSISTEMA OFTWARE */}
         <section
-          id="instagram-metodo"
+          id="ecossistema-oftware"
           className="py-20 sm:py-28 px-4 sm:px-6 scroll-mt-24 border-t border-white/10"
         >
           <div className="max-w-5xl mx-auto">
@@ -696,24 +598,24 @@ export default function MentoriaPage() {
                 viewport={{ once: true }}
               >
                 <p className="text-sm uppercase tracking-widest text-[#4CCB7A]/90 mb-2">
-                  Instagram do método
+                  Ecossistema Oftware
                 </p>
                 <h2
                   className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6"
                   style={{ color: LIGHT }}
                 >
-                  Conteúdo e mídia pensados para a base
+                  Marca, alcance e confiança para quem entra na rede
                 </h2>
                 <p className="text-[#E8EDED]/85 text-base sm:text-lg leading-relaxed mb-4">
-                  Produzimos as publicações e rodamos patrocínios no perfil oficial do
-                  método — sempre alinhados ao posicionamento clínico e ao que a base
-                  precisa comunicar.
+                  A Oftware produz conteúdo e investe em presença digital para fortalecer o
+                  posicionamento de médicos que constroem sobre a plataforma — sempre alinhado
+                  à operação clínica e ao acompanhamento estruturado.
                 </p>
                 <p className="text-[#E8EDED]/85 text-base sm:text-lg leading-relaxed">
                   Esse esforço de marca e alcance{' '}
                   <span className="text-[#4CCB7A] font-semibold">reflete diretamente</span>{' '}
-                  para os médicos da base: mais reconhecimento do método, mais confiança
-                  do paciente e interesse qualificado convergindo para o ecossistema.
+                  para os médicos da rede: mais reconhecimento, mais confiança do paciente e
+                  demanda qualificada convergindo para sua operação.
                 </p>
               </motion.div>
               <motion.figure
@@ -790,22 +692,7 @@ export default function MentoriaPage() {
                           />
                         ))}
                       </div>
-                      <div className="flex items-center justify-center gap-3 mb-0.5">
-                        <p className="text-[#0A1F44] font-semibold">{depoimentos[depoimentoIndex]?.nome}</p>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDepoimentosPausado(true);
-                            setDepoimentoSelecionado(depoimentos[depoimentoIndex]);
-                            setShowModalDepoimento(true);
-                          }}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-pink-500 hover:bg-pink-600 text-white shadow-md"
-                          aria-label="Ver resultado do tratamento"
-                        >
-                          <BarChart3 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <p className="text-[#0A1F44] font-semibold mb-0.5">{depoimentos[depoimentoIndex]?.nome}</p>
                       {(depoimentos[depoimentoIndex]?.cidadeEstado || depoimentos[depoimentoIndex]?.idade != null) && (
                         <p className="text-[#0A1F44]/70 text-sm mb-2">
                           {[depoimentos[depoimentoIndex]?.cidadeEstado, depoimentos[depoimentoIndex]?.idade != null ? `${depoimentos[depoimentoIndex]?.idade} anos` : null].filter(Boolean).join(' · ')}
@@ -1102,7 +989,7 @@ export default function MentoriaPage() {
                       Imersão · 6 dias
                     </p>
                     <p className="truncate text-sm font-bold text-[#E8EDED] sm:text-base">
-                      Semana do método (visão calendário)
+                      Semana da imersão (visão calendário)
                     </p>
                   </div>
                 </div>
@@ -1341,15 +1228,16 @@ export default function MentoriaPage() {
                       Estrutura entregue
                     </p>
                     <p className="text-sm sm:text-base leading-relaxed text-[#E8EDED]/90">
-                      Você já inicia com material para colocar o protocolo em prática:{' '}
+                      Você inicia com estrutura operacional para colocar o acompanhamento em
+                      prática sobre a Oftware:{' '}
                       <span className="font-medium text-[#E8EDED]">
-                        1 ampola de tirzepatida (90 mg)
-                      </span>{' '}
-                      e{' '}
-                      <span className="font-medium text-[#E8EDED]">
-                        4 kits prontos para iniciar o acompanhamento
+                        acesso à plataforma White Label
                       </span>
-                      , alinhados ao fluxo e ao posicionamento trabalhados na mentoria.
+                      ,{' '}
+                      <span className="font-medium text-[#E8EDED]">
+                        kits de implantação do programa
+                      </span>{' '}
+                      e materiais alinhados ao fluxo comercial e clínico trabalhados na mentoria.
                     </p>
                   </div>
                 </div>
@@ -1502,13 +1390,16 @@ export default function MentoriaPage() {
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
             <Link href="/" className="flex items-center">
               <img
-                src="/logo-site.jpg"
-                alt="Método Emagrecer"
-                className="h-8 w-auto object-contain opacity-80"
+                src="/oftware-site-novo2.png"
+                alt="Oftware"
+                className="h-8 w-auto object-contain opacity-90"
               />
             </Link>
-            <p className="text-[#E8EDED]/50 text-sm">
-              © {new Date().getFullYear()} Método Emagrecer.
+            <p className="text-[#E8EDED]/50 text-sm text-center sm:text-right">
+              © {new Date().getFullYear()} Oftware — Mentoria Médica.
+              <span className="block sm:inline sm:ml-1">
+                Infraestrutura White Label para acompanhamento multidisciplinar.
+              </span>
             </p>
           </div>
         </footer>
@@ -1771,106 +1662,6 @@ export default function MentoriaPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Modal Resultado do Depoimento */}
-      {showModalDepoimento && depoimentoSelecionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 relative animate-modal-enter">
-            <button
-              type="button"
-              onClick={() => setShowModalDepoimento(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-              aria-label="Fechar"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Resultado do tratamento</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {depoimentoSelecionado.nome}
-              {(depoimentoSelecionado.cidadeEstado || depoimentoSelecionado.idade != null) && (
-                <>
-                  {' · '}
-                  {[depoimentoSelecionado.cidadeEstado, depoimentoSelecionado.idade != null ? `${depoimentoSelecionado.idade} anos` : null]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </>
-              )}
-            </p>
-
-            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-              <div className="bg-green-50 rounded-lg p-3">
-                <p className="text-xs text-green-700 font-medium">Peso inicial</p>
-                <p className="text-lg font-semibold text-green-900">
-                  {depoimentoSelecionado.pesoInicialKg != null ? `${depoimentoSelecionado.pesoInicialKg.toFixed(1)} kg` : '—'}
-                </p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3">
-                <p className="text-xs text-green-700 font-medium">Peso atual</p>
-                <p className="text-lg font-semibold text-green-900">
-                  {depoimentoSelecionado.pesoAtualKg != null ? `${depoimentoSelecionado.pesoAtualKg.toFixed(1)} kg` : '—'}
-                </p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3">
-                <p className="text-xs text-green-700 font-medium">Perda total (kg)</p>
-                <p className="text-lg font-semibold text-green-900">
-                  {depoimentoSelecionado.perdaTotalKg != null ? `-${depoimentoSelecionado.perdaTotalKg.toFixed(1)} kg` : '—'}
-                </p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-3">
-                <p className="text-xs text-green-700 font-medium">Perda percentual</p>
-                <p className="text-lg font-semibold text-green-900">
-                  {depoimentoSelecionado.perdaPercentual != null ? `-${depoimentoSelecionado.perdaPercentual.toFixed(1)}%` : '—'}
-                </p>
-              </div>
-            </div>
-
-            {depoimentoSelecionado.evolucao.length > 0 && (() => {
-              const maxDose = depoimentoSelecionado.evolucao.reduce((m, p) => Math.max(m, p.doseMg || 0), 0);
-              const maxDoseAxis = maxDose > 0 ? Math.min(30, maxDose * 2) : 15;
-              const baseTicks = [2.5, 5, 7.5, 10, 12.5, 15];
-              const doseTicks = baseTicks.filter((v) => v <= maxDoseAxis);
-              const chartData = depoimentoSelecionado.evolucao.map((p) => ({
-                semana: `S${p.weekIndex}`,
-                peso: p.peso ?? null,
-                dose: p.doseMg ?? 0,
-              }));
-              const patternId = `dosePat_mentoria_${String(depoimentoSelecionado.pacienteId || 'x').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-
-              return (
-                <div className="flex flex-col">
-                  <div className="h-56 w-full min-h-[14rem]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                        <defs>
-                          <pattern id={patternId} patternUnits="userSpaceOnUse" width={10} height={10}>
-                            <rect width="10" height="10" fill="#fdf2f8" />
-                            <path d="M0 10 L10 0 M-2 2 L2 -2 M8 12 L12 8" stroke="#db2777" strokeWidth={1.2} strokeOpacity={0.85} />
-                          </pattern>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="semana" tick={{ fontSize: 11 }} stroke="#6b7280" />
-                        <YAxis yAxisId="peso" tick={{ fontSize: 11 }} stroke="#6b7280" unit=" kg" />
-                        <YAxis yAxisId="dose" orientation="right" tick={{ fontSize: 11 }} stroke="#ec4899" unit=" mg" domain={[0, maxDoseAxis]} ticks={doseTicks} />
-                        <Tooltip
-                          formatter={(val: number, key: string) => {
-                            if (key === 'peso') return [`${val?.toFixed(1) ?? '—'} kg`, 'Peso'];
-                            if (key === 'dose') return [`${val?.toFixed(1) ?? '0'} mg`, 'Dose aplicada'];
-                            return [val, key];
-                          }}
-                          labelFormatter={(l) => `Semana ${l}`}
-                        />
-                        <Bar yAxisId="dose" dataKey="dose" name="Dose aplicada" fill={`url(#${patternId})`} stroke="#be185d" strokeWidth={1} barSize={Math.min(28, Math.max(10, 320 / chartData.length))} radius={[4, 4, 0, 0]} />
-                        <Line yAxisId="peso" type="monotone" dataKey="peso" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
 
       <MentoriaLeadModal isOpen={leadModal.isOpen} onClose={leadModal.close} />
     </div>

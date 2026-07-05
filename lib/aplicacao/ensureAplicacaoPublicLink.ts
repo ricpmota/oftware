@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import type { Firestore } from 'firebase-admin/firestore';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 
 /** Data local YYYY-MM-DD (mesma convenção de aplicacao_links). */
 export function toDataAplicacaoKeyLocal(d: Date): string {
@@ -36,12 +38,9 @@ export async function ensureAplicacaoPublicUrl(
       dose: params.dose,
       key,
       createdAt: new Date(),
+      ...shadowOrganizationFields(),
     });
   }
 
-  const fromEnv = (baseUrl || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
-  const fromVercel = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
-  const base = fromEnv || fromVercel || 'https://oftware.com.br';
-
-  return `${base.replace(/\/$/, '')}/aplicacao/${token}`;
+  return buildOrganizacaoPublicUrl(`/aplicacao/${token}`, baseUrl);
 }

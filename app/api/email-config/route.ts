@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
         corpoTexto: solicitadoMedicoDoc.data()?.corpoTexto || '',
       } : {
         assunto: 'Bem-vindo ao tratamento!',
-        corpoHtml: '<p>Olá,</p><p>Parabéns! Você foi aceito pelo Dr(a). {medico}.</p><p>Seu tratamento começará em {inicio} e terá duração de {semanas} semanas.</p>',
+        corpoHtml: '<p>Olá {nome},</p><p>Parabéns! Você foi aceito pelo Dr(a). {medico}.</p><p>Seu tratamento começará em {inicio} e terá duração de {semanas} semanas.</p>',
       },
     };
     
@@ -132,8 +132,8 @@ export async function GET(request: NextRequest) {
         corpoHtml: novoLeadMedicoDoc.data()?.corpoHtml || '',
         corpoTexto: novoLeadMedicoDoc.data()?.corpoTexto || '',
       } : {
-        assunto: 'Novo lead disponível',
-        corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Você tem um novo lead: {nome}</p>',
+        assunto: 'Novo Médico Solicitando Cadastro',
+        corpoHtml: '<p>Um novo médico concluiu o cadastro inicial no /metaadmin.</p><p><strong>Nome:</strong> {nome}</p><p><strong>Foto CRM:</strong> {foto_crm}<br/><strong>Selfie:</strong> {selfie}<br/><strong>CNH:</strong> {cnh}</p>',
       },
     };
     

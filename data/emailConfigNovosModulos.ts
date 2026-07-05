@@ -9,6 +9,7 @@ export type NovoModuloKey =
   | 'leads_nutri' | 'solicitado_nutri' | 'em_tratamento_nutri' | 'consulta_nutri'
   | 'leads_personal' | 'solicitado_personal' | 'em_tratamento_personal' | 'treino_personal'
   | 'nutri_pediu_vinculo' | 'personal_pediu_vinculo'
+  | 'novo_lead_para_medico'
   | 'novo_lead_nutri' | 'check_recomendacoes_nutri' | 'agenda_nutri'
   | 'novo_lead_personal' | 'check_presenca_personal' | 'agenda_personal'
   | 'lead_avulso_nutri' | 'lead_avulso_personal' | 'lead_mentoria' | 'bem_vindo_nutri' | 'bem_vindo_personal'
@@ -30,21 +31,13 @@ const defaultTemplate = (assunto: string, corpoHtml: string): EmailTemplate => (
 /** Lista de documentos de e-mail dos novos módulos (Firestore collection emails). */
 export const NOVOS_MODULOS_EMAIL_DOCS: DocEmailConfig[] = [
   // Pacientes - Nutri
-  { modulo: 'leads_nutri', templateKey: 'email1', docId: 'leads_nutri_email1', defaultTemplate: defaultTemplate('Bem-vindo à nutrição!', '<p>Olá {nome},</p><p>Ficamos felizes em ter você conosco!</p>') },
-  { modulo: 'leads_nutri', templateKey: 'email2', docId: 'leads_nutri_email2', defaultTemplate: defaultTemplate('Você ainda está aqui?', '<p>Oi {nome}, tudo bem?</p>') },
-  { modulo: 'leads_nutri', templateKey: 'email3', docId: 'leads_nutri_email3', defaultTemplate: defaultTemplate('Reacenda sua jornada', '<p>{nome}, vamos reacender?</p>') },
-  { modulo: 'leads_nutri', templateKey: 'email4', docId: 'leads_nutri_email4', defaultTemplate: defaultTemplate('Estamos aqui para ajudar', '<p>{nome}, entendemos suas dúvidas.</p>') },
-  { modulo: 'leads_nutri', templateKey: 'email5', docId: 'leads_nutri_email5', defaultTemplate: defaultTemplate('Última chance', '<p>{nome}, não perca essa oportunidade!</p>') },
+  { modulo: 'leads_nutri', templateKey: 'email1', docId: 'leads_nutri_email1', defaultTemplate: defaultTemplate('Novo lead nutri', '<p>Novo lead Nutri: {nome}</p><p>E-mail do lead: {lead_email}</p><p><strong>Registro:</strong> {foto_registro}<br/><strong>Selfie:</strong> {selfie}<br/><strong>CNH:</strong> {cnh}</p>') },
   { modulo: 'solicitado_nutri', templateKey: 'boas_vindas', docId: 'solicitado_nutri_boas_vindas', defaultTemplate: defaultTemplate('Bem-vindo ao acompanhamento nutricional!', '<p>Olá {nome},</p><p>Parabéns! Você foi aceito(a) por {nutricionista}.</p><p>Início: {inicio}. Duração: {semanas}.</p>') },
   { modulo: 'em_tratamento_nutri', templateKey: 'plano_editado', docId: 'em_tratamento_nutri_plano_editado', defaultTemplate: defaultTemplate('Seu plano foi atualizado', '<p>Olá {nome},</p><p>{nutricionista} atualizou seu plano. Acesse o painel para ver.</p>') },
   { modulo: 'consulta_nutri', templateKey: 'consulta_antes', docId: 'consulta_nutri_consulta_antes', defaultTemplate: defaultTemplate('Lembrete: consulta amanhã', '<p>Olá {nome},</p><p>Sua consulta com {nutricionista} é amanhã.</p>') },
   { modulo: 'consulta_nutri', templateKey: 'consulta_dia', docId: 'consulta_nutri_consulta_dia', defaultTemplate: defaultTemplate('Lembrete: consulta hoje', '<p>Olá {nome},</p><p>Hoje você tem consulta com {nutricionista}.</p>') },
   // Pacientes - Personal
-  { modulo: 'leads_personal', templateKey: 'email1', docId: 'leads_personal_email1', defaultTemplate: defaultTemplate('Bem-vindo ao treino!', '<p>Olá {nome},</p><p>Ficamos felizes em ter você!</p>') },
-  { modulo: 'leads_personal', templateKey: 'email2', docId: 'leads_personal_email2', defaultTemplate: defaultTemplate('Você ainda está aqui?', '<p>Oi {nome}, tudo bem?</p>') },
-  { modulo: 'leads_personal', templateKey: 'email3', docId: 'leads_personal_email3', defaultTemplate: defaultTemplate('Reacenda sua jornada', '<p>{nome}, vamos reacender?</p>') },
-  { modulo: 'leads_personal', templateKey: 'email4', docId: 'leads_personal_email4', defaultTemplate: defaultTemplate('Estamos aqui para ajudar', '<p>{nome}, entendemos.</p>') },
-  { modulo: 'leads_personal', templateKey: 'email5', docId: 'leads_personal_email5', defaultTemplate: defaultTemplate('Última chance', '<p>{nome}, não perca!</p>') },
+  { modulo: 'leads_personal', templateKey: 'email1', docId: 'leads_personal_email1', defaultTemplate: defaultTemplate('Novo lead personal', '<p>Novo lead Personal: {nome}</p><p>E-mail do lead: {lead_email}</p><p><strong>Registro:</strong> {foto_registro}<br/><strong>Selfie:</strong> {selfie}<br/><strong>CNH:</strong> {cnh}</p>') },
   { modulo: 'solicitado_personal', templateKey: 'boas_vindas', docId: 'solicitado_personal_boas_vindas', defaultTemplate: defaultTemplate('Bem-vindo ao acompanhamento com personal!', '<p>Olá {nome},</p><p>Parabéns! Você foi aceito(a) por {personal}. Início: {inicio}. Duração: {semanas}.</p>') },
   { modulo: 'em_tratamento_personal', templateKey: 'plano_editado', docId: 'em_tratamento_personal_plano_editado', defaultTemplate: defaultTemplate('Seu plano de treinos foi atualizado', '<p>Olá {nome},</p><p>{personal} atualizou seu plano. Acesse o painel.</p>') },
   { modulo: 'treino_personal', templateKey: 'treino_antes', docId: 'treino_personal_treino_antes', defaultTemplate: defaultTemplate('Lembrete: treino amanhã', '<p>Olá {nome},</p><p>Amanhã você tem treino com {personal}.</p>') },
@@ -52,13 +45,14 @@ export const NOVOS_MODULOS_EMAIL_DOCS: DocEmailConfig[] = [
   // Médicos
   { modulo: 'nutri_pediu_vinculo', templateKey: 'aviso_medico', docId: 'nutri_pediu_vinculo_aviso_medico', defaultTemplate: defaultTemplate('Nutricionista solicitou vínculo', '<p>Olá Dr(a). {medico},</p><p>O(a) nutricionista {nutricionista} solicitou vínculo relacionado ao paciente {nome}. Acesse o painel.</p>') },
   { modulo: 'personal_pediu_vinculo', templateKey: 'aviso_medico', docId: 'personal_pediu_vinculo_aviso_medico', defaultTemplate: defaultTemplate('Personal solicitou vínculo', '<p>Olá Dr(a). {medico},</p><p>O personal {personal} solicitou vínculo relacionado ao paciente {nome}. Acesse o painel.</p>') },
+  { modulo: 'novo_lead_para_medico', templateKey: 'novo_lead', docId: 'novo_lead_para_medico_novo_lead', defaultTemplate: defaultTemplate('Novo lead selecionou você', '<p>Olá Dr(a). {medico},</p><p>Um novo lead selecionou você como médico responsável.</p><p><strong>Nome:</strong> {nome}<br/><strong>E-mail:</strong> {lead_email}</p><p>Acesse o painel para avaliar a solicitação.</p>') },
   // Nutricionistas
-  { modulo: 'novo_lead_nutri', templateKey: 'novo_lead', docId: 'novo_lead_nutri_novo_lead', defaultTemplate: defaultTemplate('Novo lead/paciente', '<p>Olá {nutricionista},</p><p>Um novo lead/paciente ({nome}) solicitou acompanhamento. Acesse o painel.</p>') },
+  { modulo: 'novo_lead_nutri', templateKey: 'novo_lead', docId: 'novo_lead_nutri_novo_lead', defaultTemplate: defaultTemplate('Novo lead/paciente', '<p>Olá {nutricionista},</p><p>Um novo lead/paciente ({nome}) solicitou acompanhamento. Acesse o painel.</p><p><strong>Registro:</strong> {foto_registro}<br/><strong>Selfie:</strong> {selfie}<br/><strong>CNH:</strong> {cnh}</p>') },
   { modulo: 'check_recomendacoes_nutri', templateKey: 'recomendacoes_lidas', docId: 'check_recomendacoes_nutri_recomendacoes_lidas', defaultTemplate: defaultTemplate('Paciente leu suas recomendações', '<p>Olá {nutricionista},</p><p>O paciente {nome} leu suas recomendações no painel.</p>') },
   { modulo: 'agenda_nutri', templateKey: 'agenda_semanal', docId: 'agenda_nutri_agenda_semanal', defaultTemplate: defaultTemplate('Sua agenda semanal', '<p>Olá {nutricionista},</p><p>Agenda de {dataInicio} a {dataFim}:</p>{agendaHtml}') },
   { modulo: 'agenda_nutri', templateKey: 'agenda_diario', docId: 'agenda_nutri_agenda_diario', defaultTemplate: defaultTemplate('Sua agenda de hoje', '<p>Olá {nutricionista},</p><p>Agenda para {dataHoje}:</p>{agendaHtml}') },
   // Personal
-  { modulo: 'novo_lead_personal', templateKey: 'novo_lead', docId: 'novo_lead_personal_novo_lead', defaultTemplate: defaultTemplate('Novo lead/aluno', '<p>Olá {personal},</p><p>Um novo lead/aluno ({nome}) solicitou acompanhamento. Acesse o painel.</p>') },
+  { modulo: 'novo_lead_personal', templateKey: 'novo_lead', docId: 'novo_lead_personal_novo_lead', defaultTemplate: defaultTemplate('Novo lead/aluno', '<p>Olá {personal},</p><p>Um novo lead/aluno ({nome}) solicitou acompanhamento. Acesse o painel.</p><p><strong>Registro:</strong> {foto_registro}<br/><strong>Selfie:</strong> {selfie}<br/><strong>CNH:</strong> {cnh}</p>') },
   { modulo: 'check_presenca_personal', templateKey: 'presenca_confirmada', docId: 'check_presenca_personal_presenca_confirmada', defaultTemplate: defaultTemplate('Aluno confirmou presença', '<p>Olá {personal},</p><p>O aluno {nome} confirmou presença.</p>') },
   { modulo: 'agenda_personal', templateKey: 'agenda_semanal', docId: 'agenda_personal_agenda_semanal', defaultTemplate: defaultTemplate('Sua semana de treinos', '<p>Olá {personal},</p><p>Agenda de {dataInicio} a {dataFim}:</p>{agendaHtml}') },
   { modulo: 'agenda_personal', templateKey: 'agenda_diario', docId: 'agenda_personal_agenda_diario', defaultTemplate: defaultTemplate('Seu dia de treinos', '<p>Olá {personal},</p><p>Agenda para {dataHoje}:</p>{agendaHtml}') },

@@ -1,3 +1,8 @@
+import {
+  calcularDoseTitulacaoMg,
+  DOSE_INICIAL_PADRAO_MG,
+} from '@/lib/tirzepatida/doseTitulacao';
+
 /**
  * Calendário de doses (mesma lógica da Pasta 7 e do cron de e-mail de aplicação).
  */
@@ -33,7 +38,7 @@ export function criarCalendarioDoses(
     primeiraDose.setDate(primeiraDose.getDate() + 1);
   }
 
-  const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
+  const doseInicial = planoTerapeutico.currentDoseMg || DOSE_INICIAL_PADRAO_MG;
   const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
 
   const calendario: Array<{
@@ -82,7 +87,7 @@ export function criarCalendarioDoses(
       }
     }
 
-    return doseInicial + Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5;
+    return calcularDoseTitulacaoMg(doseInicial, semanasDesdeUltimoCiclo);
   };
 
   const semanasCanceladas = planoTerapeutico.semanasCanceladas || [];

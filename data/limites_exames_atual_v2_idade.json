@@ -4,19 +4,28 @@
       "label": "Glicemia de jejum",
       "unit": "mg/dL",
       "min": 70,
-      "max": 99
+      "max": 99,
+      "ideal": { "max": 90, "targetQuartile": "LOW" },
+      "scoreGroup": "glicidico",
+      "scoreEligible": true
     },
     "hba1c": {
       "label": "Hemoglobina glicada (HbA1c)",
       "unit": "%",
       "min": 4.0,
-      "max": 5.7
+      "max": 5.7,
+      "ideal": { "max": 5.3, "targetQuartile": "LOW" },
+      "scoreGroup": "glicidico",
+      "scoreEligible": true
     },
     "fastingInsulin": {
       "label": "Insulina de jejum",
       "unit": "µUI/mL",
       "min": 2,
-      "max": 25
+      "max": 25,
+      "ideal": { "max": 8, "targetQuartile": "LOW" },
+      "scoreGroup": "resistenciaInsulinica",
+      "scoreEligible": true
     }
   },
   "funcao_renal": {
@@ -45,6 +54,23 @@
       "unit": "mL/min/1,73m²",
       "min": 90,
       "max": 120
+    },
+    "uricAcid": {
+      "M": {
+        "label": "Ácido úrico (M)",
+        "unit": "mg/dL",
+        "min": 3.4,
+        "max": 7.0
+      },
+      "F": {
+        "label": "Ácido úrico (F)",
+        "unit": "mg/dL",
+        "min": 2.4,
+        "max": 5.7
+      },
+      "ideal": { "max": 5.5, "targetQuartile": "LOW" },
+      "scoreGroup": "inflamatorio",
+      "scoreEligible": true
     },
     "sodium": {
       "label": "Sódio",
@@ -100,13 +126,46 @@
         "unit": "U/L",
         "min": 5,
         "max": 36
-      }
+      },
+      "ideal": { "max": 25, "targetQuartile": "LOW" },
+      "scoreGroup": "hepatometabolico",
+      "scoreEligible": true
     },
     "alp": {
       "label": "Fosfatase alcalina",
       "unit": "U/L",
       "min": 44,
       "max": 147
+    },
+    "bilirubinTotal": {
+      "label": "Bilirrubina total",
+      "unit": "mg/dL",
+      "min": 0.1,
+      "max": 1.2
+    },
+    "bilirubinDirect": {
+      "label": "Bilirrubina direta",
+      "unit": "mg/dL",
+      "min": 0.0,
+      "max": 0.3
+    },
+    "bilirubinIndirect": {
+      "label": "Bilirrubina indireta",
+      "unit": "mg/dL",
+      "min": 0.1,
+      "max": 0.9
+    },
+    "totalProteins": {
+      "label": "Proteínas totais",
+      "unit": "g/dL",
+      "min": 6.0,
+      "max": 8.3
+    },
+    "globulins": {
+      "label": "Globulinas",
+      "unit": "g/dL",
+      "min": 2.0,
+      "max": 3.5
     }
   },
   "pancreas": {
@@ -130,12 +189,6 @@
       "min": 125,
       "max": 190
     },
-    "ldl": {
-      "label": "LDL-c",
-      "unit": "mg/dL",
-      "min": 60,
-      "max": 100
-    },
     "hdl": {
       "M": {
         "label": "HDL-c (M)",
@@ -150,11 +203,49 @@
         "max": 90
       }
     },
+    "ldl": {
+      "label": "LDL-c",
+      "unit": "mg/dL",
+      "min": 60,
+      "max": 100
+    },
+    "vldl": {
+      "label": "VLDL-c",
+      "unit": "mg/dL",
+      "min": 2,
+      "max": 30
+    },
     "tg": {
       "label": "Triglicerídeos",
       "unit": "mg/dL",
       "min": 40,
-      "max": 150
+      "max": 150,
+      "ideal": { "max": 100, "targetQuartile": "LOW" },
+      "scoreGroup": "cardiovascular",
+      "scoreEligible": true
+    },
+    "apolipoproteinA1": {
+      "M": {
+        "label": "Apolipoproteína A1 (M)",
+        "unit": "mg/dL",
+        "min": 104,
+        "max": 202
+      },
+      "F": {
+        "label": "Apolipoproteína A1 (F)",
+        "unit": "mg/dL",
+        "min": 108,
+        "max": 225
+      }
+    },
+    "apolipoproteinB": {
+      "label": "Apolipoproteína B",
+      "unit": "mg/dL",
+      "min": 55,
+      "max": 130,
+      "ideal": { "max": 80, "targetQuartile": "LOW" },
+      "scoreGroup": "cardiovascular",
+      "scoreEligible": true
     }
   },
   "tireoide_men2": {
@@ -272,7 +363,10 @@
       "label": "Vitamina D (25-OH)",
       "unit": "ng/mL",
       "min": 30,
-      "max": 60
+      "max": 60,
+      "ideal": { "min": 40, "max": 70, "targetQuartile": "HIGH" },
+      "scoreGroup": "nutricional",
+      "scoreEligible": true
     }
   },
   "estado_nutricional": {
@@ -534,7 +628,10 @@
       "label": "HOMA-IR",
       "unit": "",
       "min": 0,
-      "max": 2.5
+      "max": 2.5,
+      "ideal": { "max": 1.5, "targetQuartile": "LOW" },
+      "scoreGroup": "resistenciaInsulinica",
+      "scoreEligible": true
     },
     "leptina": {
       "M": {
@@ -771,7 +868,120 @@
       "label": "PCR-ultra",
       "unit": "mg/L",
       "min": 0,
-      "max": 3
+      "max": 3,
+      "ideal": { "max": 1, "targetQuartile": "LOW" },
+      "scoreGroup": "inflamatorio",
+      "scoreEligible": true
+    }
+  },
+  "inflamacao_risco_cardio": {
+    "fibrinogen": {
+      "label": "Fibrinogênio",
+      "unit": "mg/dL",
+      "min": 200,
+      "max": 400,
+      "ideal": { "targetQuartile": "LOW" },
+      "scoreGroup": "inflamatorio",
+      "scoreEligible": true
+    },
+    "homocysteine": {
+      "label": "Homocisteína",
+      "unit": "µmol/L",
+      "min": 5,
+      "max": 15,
+      "ideal": { "max": 10, "targetQuartile": "LOW" },
+      "scoreGroup": "inflamatorio",
+      "scoreEligible": true
+    }
+  },
+  "hormonios_extra": {
+    "pth": {
+      "label": "PTH (Paratormônio)",
+      "unit": "pg/mL",
+      "min": 15,
+      "max": 65
+    }
+  },
+  "muscular_metabolico": {
+    "cpk": {
+      "M": {
+        "label": "CPK (M)",
+        "unit": "U/L",
+        "min": 39,
+        "max": 308
+      },
+      "F": {
+        "label": "CPK (F)",
+        "unit": "U/L",
+        "min": 26,
+        "max": 192
+      }
+    }
+  },
+  "infeccoes_triagem": {
+    "antiHcv": {
+      "label": "Anti-HCV",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "qualitative": true,
+      "interpretation": "Não reagente (< 1.0) = negativo"
+    }
+  },
+  "metais_toxicos": {
+    "aluminumSerum": {
+      "label": "Alumínio sérico",
+      "unit": "µg/L",
+      "min": 0,
+      "max": 10
+    }
+  },
+  "parasitologia": {
+    "stoolParasitologySeries": {
+      "label": "Parasitológico de fezes (seriado)",
+      "unit": "",
+      "qualitative": true,
+      "interpretation": "Negativo = ausência de parasitas"
+    }
+  },
+  "marcadores_tumorais": {
+    "cea": {
+      "label": "CEA (Antígeno Carcinoembrionário)",
+      "unit": "ng/mL",
+      "min": 0,
+      "max": 5,
+      "notes": ["Valores > 5 ng/mL em não fumantes justificam investigação; fumantes podem ter até 10 ng/mL."]
+    },
+    "ca125": {
+      "label": "CA-125",
+      "unit": "U/mL",
+      "min": 0,
+      "max": 35,
+      "notes": ["Marcador complementar; útil em acompanhamento ginecológico."]
+    },
+    "ca199": {
+      "label": "CA 19-9",
+      "unit": "U/mL",
+      "min": 0,
+      "max": 37,
+      "notes": ["Marcador complementar; útil em acompanhamento pancreático/biliar."]
+    }
+  },
+  "estresse_oxidativo": {
+    "g6pd": {
+      "label": "G6PD",
+      "unit": "U/g Hb",
+      "min": 4.6,
+      "max": 13.5,
+      "notes": ["Deficiência associada a hemólise e maior sensibilidade a estresse oxidativo."]
+    },
+    "vitaminC": {
+      "label": "Vitamina C",
+      "unit": "mg/dL",
+      "min": 0.4,
+      "max": 2.0,
+      "ideal": { "min": 0.8, "max": 2.0 },
+      "notes": ["Antioxidante essencial; níveis adequados protegem contra estresse oxidativo."]
     }
   }
 }

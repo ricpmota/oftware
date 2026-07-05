@@ -4,8 +4,16 @@
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getAuth, type Auth } from 'firebase-admin/auth';
+import { getStorage, type Storage } from 'firebase-admin/storage';
 
 let cachedApp: App | null = null;
+
+function adminStorageBucketName(): string {
+  return (
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+    `${process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'oftware-9201e'}.appspot.com`
+  );
+}
 
 function getOrInitApp(): App {
   const existing = getApps();
@@ -28,4 +36,13 @@ export function getFirestoreAdmin(): Firestore {
 
 export function getAuthAdmin(): Auth {
   return getAuth(getOrInitApp());
+}
+
+export function getStorageAdmin(): Storage {
+  return getStorage(getOrInitApp());
+}
+
+/** Bucket padrão do projeto (Firebase / GCS). */
+export function getAdminStorageBucket() {
+  return getStorageAdmin().bucket(adminStorageBucketName());
 }

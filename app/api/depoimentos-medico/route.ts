@@ -69,10 +69,14 @@ export type DepoimentoItem = {
   pesoAtualKg: number | null;
   perdaTotalKg: number | null;
   perdaPercentual: number | null;
-  evolucao: { weekIndex: number; peso: number; doseMg: number }[];
+  comprimentoAbdominalInicialCm: number | null;
+  comprimentoAbdominalAtualCm: number | null;
+  perdaAbdominalCm: number | null;
+  perdaPercentualAbdominal: number | null;
+  evolucao: { weekIndex: number; peso: number; doseMg: number; circunferenciaAbdominal?: number | null }[];
 };
 
-type EvolucaoRow = { weekIndex: number; peso: number | null; doseMg: number };
+type EvolucaoRow = { weekIndex: number; peso: number | null; doseMg: number; circunferenciaAbdominal: number | null };
 
 function evolucaoOrdenadaFromRaw(evolucaoRaw: unknown[]): EvolucaoRow[] {
   return evolucaoRaw
@@ -81,13 +85,18 @@ function evolucaoOrdenadaFromRaw(evolucaoRaw: unknown[]): EvolucaoRow[] {
       const q = (p.doseAplicada as { quantidade?: unknown } | undefined)?.quantidade;
       const doseNum =
         typeof q === 'number' ? q : typeof q === 'string' ? parseFloat(String(q).replace(',', '.')) : 0;
+      const circVal =
+        typeof p.circunferenciaAbdominal === 'number' && p.circunferenciaAbdominal > 0
+          ? (p.circunferenciaAbdominal as number)
+          : null;
       return {
         weekIndex: (p.weekIndex ?? p.numeroSemana ?? 0) as number,
         peso: pesoVal,
         doseMg: Number.isFinite(doseNum) && doseNum > 0 ? doseNum : 0,
+        circunferenciaAbdominal: circVal,
       };
     })
-    .filter((p) => p.weekIndex > 0 && (p.peso !== null || p.doseMg > 0))
+    .filter((p) => p.weekIndex > 0 && (p.peso !== null || p.doseMg > 0 || p.circunferenciaAbdominal !== null))
     .sort((a, b) => a.weekIndex - b.weekIndex);
 }
 
@@ -106,6 +115,8 @@ export async function GET(request: NextRequest) {
   try {
     const medicoIdParam = request.nextUrl.searchParams.get('medicoId');
     const medicoEmailParam = request.nextUrl.searchParams.get('medicoEmail');
+    const limitParam = Number(request.nextUrl.searchParams.get('limit') || '30');
+    const limit = Number.isFinite(limitParam) ? Math.min(100, Math.max(1, Math.floor(limitParam))) : 30;
     let medicoId = medicoIdParam;
 
     const db = getFirebaseAdmin();
@@ -125,12 +136,10 @@ export async function GET(request: NextRequest) {
     const pacientesSnap = await db
       .collection('pacientes_completos')
       .where('medicoResponsavelId', '==', medicoId)
+      .select('dadosIdentificacao', 'nome', 'evolucaoSeguimento', 'dadosClinicos', 'planoTerapeutico')
       .get();
 
-    const candidatos: { ordenacao: number; item: DepoimentoItem }[] = [];
-    let instanceSeq = 0;
-
-    for (const doc of pacientesSnap.docs) {
+    const candidatosPorPaciente = await Promise.all(pacientesSnap.docs.map(async (doc) => {
       const data = doc.data();
       const pacienteId = doc.id;
       const docIdClassificacao = `${pacienteId}_medico_${medicoId}`;
@@ -138,6 +147,8 @@ export async function GET(request: NextRequest) {
       const estrelasAtual = typeof classSnap.data()?.estrelas === 'number'
         ? Math.min(5, Math.max(1, Math.round(classSnap.data()!.estrelas)))
         : 0;
+      const candidatos: { ordenacao: number; item: DepoimentoItem }[] = [];
+      let instanceSeq = 0;
 
       const nome = nomeCompletoPaciente(data.dadosIdentificacao?.nomeCompleto, data.nome);
       const cidade = data.dadosIdentificacao?.endereco?.cidade?.trim();
@@ -173,11 +184,24 @@ export async function GET(request: NextRequest) {
           typeof conclusao.perdaPercentual === 'number' && !isNaN(conclusao.perdaPercentual as number)
             ? (conclusao.perdaPercentual as number)
             : null;
+        let comprimentoAbdominalInicialCm: number | null =
+          typeof conclusao.comprimentoAbdominalInicialCm === 'number' && !isNaN(conclusao.comprimentoAbdominalInicialCm as number)
+            ? (conclusao.comprimentoAbdominalInicialCm as number)
+            : typeof conclusao.circunferenciaAbdominalInicialCm === 'number' && !isNaN(conclusao.circunferenciaAbdominalInicialCm as number)
+            ? (conclusao.circunferenciaAbdominalInicialCm as number)
+            : null;
+        let comprimentoAbdominalAtualCm: number | null =
+          typeof conclusao.comprimentoAbdominalFinalCm === 'number' && !isNaN(conclusao.comprimentoAbdominalFinalCm as number)
+            ? (conclusao.comprimentoAbdominalFinalCm as number)
+            : typeof conclusao.circunferenciaAbdominalFinalCm === 'number' && !isNaN(conclusao.circunferenciaAbdominalFinalCm as number)
+            ? (conclusao.circunferenciaAbdominalFinalCm as number)
+            : null;
 
         const evolucaoOut: DepoimentoItem['evolucao'] = evolucaoOrdenada.map((p) => ({
           weekIndex: p.weekIndex,
           peso: p.peso ?? 0,
           doseMg: p.doseMg,
+          circunferenciaAbdominal: p.circunferenciaAbdominal ?? null,
         }));
 
         if (pesoInicialKg == null || pesoAtualKg == null) {
@@ -195,6 +219,29 @@ export async function GET(request: NextRequest) {
           perdaTotalKg = pesoInicialKg - pesoAtualKg;
           perdaPercentual = perdaPercentual ?? (pesoInicialKg > 0 ? (perdaTotalKg / pesoInicialKg) * 100 : null);
         }
+        if (comprimentoAbdominalInicialCm == null) {
+          const medidas = data.dadosClinicos?.medidasIniciais;
+          comprimentoAbdominalInicialCm =
+            typeof medidas?.comprimentoAbdominal === 'number'
+              ? medidas.comprimentoAbdominal
+              : typeof medidas?.circunferenciaAbdominal === 'number'
+              ? medidas.circunferenciaAbdominal
+              : null;
+        }
+        if (comprimentoAbdominalAtualCm == null && evolucaoOrdenada.length > 0) {
+          const ultimo = evolucaoOrdenada[evolucaoOrdenada.length - 1];
+          if (typeof ultimo.circunferenciaAbdominal === 'number' && !isNaN(ultimo.circunferenciaAbdominal)) {
+            comprimentoAbdominalAtualCm = ultimo.circunferenciaAbdominal;
+          }
+        }
+        const perdaAbdominalCm =
+          comprimentoAbdominalInicialCm != null && comprimentoAbdominalAtualCm != null
+            ? comprimentoAbdominalInicialCm - comprimentoAbdominalAtualCm
+            : null;
+        const perdaPercentualAbdominal =
+          perdaAbdominalCm != null && comprimentoAbdominalInicialCm != null && comprimentoAbdominalInicialCm > 0
+            ? (perdaAbdominalCm / comprimentoAbdominalInicialCm) * 100
+            : null;
 
         const ordenacao = timestampOrdenacaoConclusao(conclusao);
         instanceSeq += 1;
@@ -212,6 +259,10 @@ export async function GET(request: NextRequest) {
             pesoAtualKg,
             perdaTotalKg,
             perdaPercentual,
+            comprimentoAbdominalInicialCm,
+            comprimentoAbdominalAtualCm,
+            perdaAbdominalCm,
+            perdaPercentualAbdominal,
             evolucao: evolucaoOut,
           },
         });
@@ -243,12 +294,21 @@ export async function GET(request: NextRequest) {
       if (conclusao) {
         pushDepoimento(conclusao, estrelasAtual, evolucaoOrdenada);
       }
-    }
+      return candidatos;
+    }));
 
+    const candidatos = candidatosPorPaciente.flat();
     candidatos.sort((a, b) => b.ordenacao - a.ordenacao);
-    const depoimentos = candidatos.map((c) => c.item);
+    const depoimentos = candidatos.slice(0, limit).map((c) => c.item);
 
-    return NextResponse.json({ depoimentos });
+    return NextResponse.json(
+      { depoimentos },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (err) {
     console.error('Erro em depoimentos-medico:', err);
     return NextResponse.json(

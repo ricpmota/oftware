@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { NutricionistaService } from '@/services/nutricionistaService';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
 import { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import { PacienteNutricionistaService } from '@/services/pacienteNutricionistaService';
 import { PagamentoService } from '@/services/pagamentoService';
@@ -61,8 +62,13 @@ import {
   ChevronRight,
   Printer,
   Star,
-  Scale
+  Scale,
+  Bell
 } from 'lucide-react';
+import ModalNovoLembrete from '@/components/metaadmin/ModalNovoLembrete';
+import { LembreteService } from '@/services/lembreteService';
+import type { Lembrete } from '@/types/lembrete';
+import { LEMBRETE_TAG_CONFIG } from '@/types/lembrete';
 import { ClassificacaoProfissionalService, type DetalhamentoClassificacao } from '@/services/classificacaoProfissionalService';
 import { estadosCidades, estadosList } from '@/data/cidades-brasil';
 import { MedicoService } from '@/services/medicoService';
@@ -79,6 +85,10 @@ import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predi
 import { ProgressPill } from '@/components/ProgressPill';
 import { AlertBadges } from '@/components/AlertBadges';
 import { LabRangeBar } from '@/components/LabRangeBar';
+import { LabOptimizationBadge } from '@/components/LabOptimizationBadge';
+import { LabSectionScoreBadge } from '@/components/LabSectionScoreBadge';
+import { LabMetabolicSummarySection } from '@/components/LabMetabolicSummarySection';
+import { calculateSectionMetabolicScore } from '@/lib/labExames/labSectionScore';
 import { Sex } from '@/types/labRanges';
 import { useLabOrderBySection } from '@/hooks/useLabOrderBySection';
 import { LAB_SECTION_LABELS_PT } from '@/lib/labExames/labSectionLabels';
@@ -100,8 +110,26 @@ import { SOLICITACAO_STATUS as SOLICITACAO_STATUS_PERSONAL } from '@/features/me
 import { trainingSessionService } from '@/services/trainingSessionService';
 import { BioImpedanciaDisplay } from '@/components/bodymap/BioImpedanciaDisplay';
 import { salvarBioImpedanciaRegistros } from '@/services/bioImpedanciaService';
+import MetaNutriPersonalWizard from '@/components/meta/MetaNutriPersonalWizard';
+import ProfissionalCadastroGateModal from '@/components/meta/ProfissionalCadastroGateModal';
+import PageLoadingScreen from '@/components/landing/PageLoadingScreen';
+import { ProntuarioNutriTab } from '@/app/metaadmin/components/paciente-modal/prontuario/ProntuarioNutriTab';
+import { ExamesImagemPacientePanel } from '@/components/metaadmin/ExamesImagemPacientePanel';
+import { PacienteIdentificacaoTabContent } from '@/components/metaadmin/paciente-modal/PacienteIdentificacaoTabContent';
+import { PacienteDadosClinicosTabContent } from '@/components/metaadmin/paciente-modal/PacienteDadosClinicosTabContent';
 
 type MenuNutri = 'home' | 'medicos' | 'pacientes' | 'financeiro' | 'calendario' | 'meu-perfil';
+
+function labelMedicoResponsavelPaciente(
+  medicoId: string | null | undefined,
+  medicos: Array<{ medicoId: string; nome: string; genero?: string }>
+): string {
+  if (!medicoId) return '';
+  const medico = medicos.find((m) => m.medicoId === medicoId);
+  if (!medico?.nome) return '';
+  const titulo = medico.genero === 'F' ? 'Dra.' : 'Dr.';
+  return `${titulo} ${medico.nome}`;
+}
 
 function MetaNutriPageV2() {
   const router = useRouter();
@@ -122,6 +150,9 @@ function MetaNutriPageV2() {
   const [showModalClassificacaoVisualizar, setShowModalClassificacaoVisualizar] = useState(false);
   const [detalhamentoVisualizar, setDetalhamentoVisualizar] = useState<DetalhamentoClassificacao | null>(null);
   const [loadingNutricionista, setLoadingNutricionista] = useState(false);
+  const [salvandoCadastroNutri, setSalvandoCadastroNutri] = useState(false);
+  const [criandoCadastroNutri, setCriandoCadastroNutri] = useState(false);
+  const [metaNutriLoadTick, setMetaNutriLoadTick] = useState(0);
   
   // Estados para Home (KPIs)
   const [pacientesCompartilhados, setPacientesCompartilhados] = useState(0);
@@ -151,12 +182,12 @@ function MetaNutriPageV2() {
   const [showPerfilModal, setShowPerfilModal] = useState(false);
   const [showVisualizarPacienteModal, setShowVisualizarPacienteModal] = useState(false);
   const [pacienteVisualizando, setPacienteVisualizando] = useState<PacienteCompleto | null>(null);
-  /** Quando true, modal de visualização mostra só 2 abas (Identificação + Dados Clínicos), igual Metapersonal mobile */
+  /** Quando true, modal de visualização mostra 3 abas (Identificação, Anamnese, Prontuário), igual Metapersonal mobile */
   const [modalVisualizacaoEstiloPersonal, setModalVisualizacaoEstiloPersonal] = useState(false);
   /** Visualização do paciente na própria página (não modal), mantendo menu inferior no mobile */
   const [pacienteVisualizandoInline, setPacienteVisualizandoInline] = useState<PacienteCompleto | null>(null);
   const [pacientesVisiveis, setPacientesVisiveis] = useState<PacienteVisivelNutri[]>([]);
-  const [pastaAtiva, setPastaAtiva] = useState(1); // Estado para controlar qual pasta está ativa no modal (1-9)
+  const [pastaAtiva, setPastaAtiva] = useState(1); // Estado para controlar qual pasta está ativa no modal (1-11)
   const [showGraficosModal, setShowGraficosModal] = useState(false);
   const [pacienteGraficos, setPacienteGraficos] = useState<PacienteCompleto | null>(null);
   const [graficoAtivo, setGraficoAtivo] = useState<'peso' | 'circunferencia' | 'hba1c' | 'imc'>('peso');
@@ -265,6 +296,7 @@ function MetaNutriPageV2() {
   const [pacienteBioImpedanciaSelecionado, setPacienteBioImpedanciaSelecionado] = useState<PacienteCompleto | null>(null);
   const [exameDataSelecionada, setExameDataSelecionada] = useState<string>('');
   const [exameDataSelecionadaNoModal, setExameDataSelecionadaNoModal] = useState<string>(''); // Para aba Exames no modal unificado
+  const [examesNutriSubpasta, setExamesNutriSubpasta] = useState<'laboratoriais' | 'imagem'>('laboratoriais');
   const [secoesExpandidas, setSecoesExpandidas] = useState<Set<string>>(new Set());
   const [examesExpandidos, setExamesExpandidos] = useState<Set<string>>(new Set());
   const [showAdicionarExameModalMobile, setShowAdicionarExameModalMobile] = useState(false);
@@ -348,6 +380,9 @@ function MetaNutriPageV2() {
     dose: number;
     localAplicacao: string;
   }>>([]);
+  const [lembretes, setLembretes] = useState<Lembrete[]>([]);
+  const [lembretesDiaSelecionado, setLembretesDiaSelecionado] = useState<Lembrete[]>([]);
+  const [showModalNovoLembrete, setShowModalNovoLembrete] = useState(false);
   const [pagamentosDiaSelecionado, setPagamentosDiaSelecionado] = useState<Array<{
     paciente: PacienteCompleto;
     parcela: ParcelaPagamento;
@@ -662,6 +697,9 @@ function MetaNutriPageV2() {
       if (!firebaseUser) {
         setUser(null);
         setNutricionista(null);
+        setRegistroNumero('');
+        setTelefoneContato('');
+        setCidadesSelecionadas([]);
         setLoading(false);
         router.push('/');
         return;
@@ -671,19 +709,15 @@ function MetaNutriPageV2() {
       setLoadingNutricionista(true);
 
       try {
-        const nutriDoc = await NutricionistaService.createOrUpdateNutricionista(
-          firebaseUser.uid,
-          firebaseUser.email || '',
-          firebaseUser.displayName || ''
-        );
+        const nutriDoc = await NutricionistaService.getNutricionistaByUserId(firebaseUser.uid);
 
         setNutricionista(nutriDoc);
-        setRegistroNumero(nutriDoc.registroNumero);
-        setTelefoneContato(nutriDoc.telefone || '');
-        setCidadesSelecionadas(nutriDoc.cidades);
+        setRegistroNumero(nutriDoc?.registroNumero || '');
+        setTelefoneContato(nutriDoc?.telefone || '');
+        setCidadesSelecionadas(nutriDoc?.cidades || []);
         
         // Carregar médicos verificados
-        if (nutriDoc.isVerificado) {
+        if (nutriDoc?.isVerificado) {
           loadMedicosVerificados();
         }
       } catch (error) {
@@ -694,6 +728,35 @@ function MetaNutriPageV2() {
       }
     });
     return () => unsubscribe();
+  }, [router]);
+
+  const handleConfirmarCadastroNutri = useCallback(async () => {
+    if (!user) return;
+    setCriandoCadastroNutri(true);
+    try {
+      const nutriDoc = await NutricionistaService.createOrUpdateNutricionista(
+        user.uid,
+        user.email || '',
+        user.displayName || ''
+      );
+      setNutricionista(nutriDoc);
+      setRegistroNumero(nutriDoc.registroNumero || '');
+      setTelefoneContato(nutriDoc.telefone || '');
+      setCidadesSelecionadas(nutriDoc.cidades || []);
+    } catch (error) {
+      console.error('Erro ao iniciar cadastro de nutricionista:', error);
+      alert('Nao foi possivel iniciar seu cadastro agora. Tente novamente.');
+    } finally {
+      setCriandoCadastroNutri(false);
+    }
+  }, [user]);
+
+  const handleRecusarCadastroNutri = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.href = 'https://www.oftware.com.br';
+      return;
+    }
+    router.push('/');
   }, [router]);
 
   // Carregar agregado de classificação do nutricionista
@@ -1071,82 +1134,51 @@ function MetaNutriPageV2() {
         }
       });
       
-      // BUSCAR TODAS AS SOLICITAÇÕES DA COLEÇÃO diretamente (sem filtro)
-      // Depois filtrar no cliente para garantir que não perdemos nenhuma
       const { db } = await import('@/lib/firebase');
-      const { collection, getDocs, query } = await import('firebase/firestore');
+      const { collection, getDocs, query, where } = await import('firebase/firestore');
       const { COL_SOLICITACOES_VINCULO_NUTRI_MEDICO } = await import('@/features/metaNutri/metaNutri.constants');
-      
-      const todasQuery = query(collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO));
-      const todasSnapshot = await getDocs(todasQuery);
-      
-      console.log('🔍 [DEBUG] Total de solicitações na coleção:', todasSnapshot.docs.length);
-      
+
       // IDs possíveis do nutricionista atual
       const idsPossiveisNutri = [user.uid, nutricionista.id, nutricionista.userId].filter(Boolean);
-      
-      // Converter todos os documentos
-      const todasSolicitacoes = todasSnapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          nutricionistaId: data.nutricionistaId,
-          medicoId: data.medicoId,
-          solicitadoPor: data.solicitadoPor || 'nutricionista',
-          status: data.status,
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          aceitoEm: data.aceitoEm?.toDate(),
-          rejeitadoEm: data.rejeitadoEm?.toDate(),
-          canceladoEm: data.canceladoEm?.toDate(),
-          motivoRejeicao: data.motivoRejeicao,
-          motivoCancelamento: data.motivoCancelamento,
-          nutricionistaNome: data.nutricionistaNome,
-          nutricionistaEmail: data.nutricionistaEmail,
-          medicoNome: data.medicoNome,
-        };
-      });
-      
-      console.log('🔍 [DEBUG] TODAS as solicitações da coleção:', todasSolicitacoes.map(s => ({
-        id: s.id,
-        nutricionistaId: s.nutricionistaId,
-        medicoId: s.medicoId,
-        solicitadoPor: s.solicitadoPor,
-        status: s.status,
-        correspondeNutri: idsPossiveisNutri.includes(s.nutricionistaId)
-      })));
-      
-      // Filtrar apenas as RECEBIDAS pelo nutricionista (solicitadoPor === 'medico')
-      // Mostrar APENAS pendentes - aceitas vão para "Médicos Vinculados", rejeitadas não aparecem mais
-      const solicitacoesRecebidas = todasSolicitacoes.filter(s => {
-        // Verificar se o nutricionistaId corresponde a qualquer um dos IDs possíveis
-        const nutricionistaIdCorresponde = idsPossiveisNutri.includes(s.nutricionistaId);
-        
-        // Verificar se foi solicitado pelo médico (várias variações de case)
-        const solicitadoPorMedico = s.solicitadoPor === 'medico' || 
-                                     s.solicitadoPor === 'Medico' || 
-                                     s.solicitadoPor === 'MÉDICO' ||
-                                     String(s.solicitadoPor).toLowerCase() === 'medico';
-        
-        // Mostrar APENAS pendentes - aceitas e rejeitadas não aparecem mais aqui
-        const statusPendente = s.status === SOLICITACAO_STATUS.PENDENTE;
-        
-        const passaFiltro = nutricionistaIdCorresponde && solicitadoPorMedico && statusPendente;
-        
-        console.log('🔍 [DEBUG] Verificando solicitação:', {
-          id: s.id,
-          nutricionistaId: s.nutricionistaId,
-          medicoId: s.medicoId,
-          solicitadoPor: s.solicitadoPor,
-          status: s.status,
-          idsPossiveisNutri,
-          nutricionistaIdCorresponde,
-          solicitadoPorMedico,
-          statusPendente,
-          passaFiltro
+
+      // Buscar apenas as solicitações recebidas pendentes do nutricionista atual.
+      const snapshots = await Promise.all(
+        idsPossiveisNutri.map((nutriId) =>
+          getDocs(
+            query(
+              collection(db, COL_SOLICITACOES_VINCULO_NUTRI_MEDICO),
+              where('nutricionistaId', '==', nutriId),
+              where('status', '==', SOLICITACAO_STATUS.PENDENTE),
+              where('solicitadoPor', '==', 'medico')
+            )
+          )
+        )
+      );
+
+      const dedupe = new Map<string, any>();
+      snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((docSnap) => {
+          if (dedupe.has(docSnap.id)) return;
+          const data = docSnap.data();
+          dedupe.set(docSnap.id, {
+            id: docSnap.id,
+            nutricionistaId: data.nutricionistaId,
+            medicoId: data.medicoId,
+            solicitadoPor: data.solicitadoPor || 'nutricionista',
+            status: data.status,
+            criadoEm: data.criadoEm?.toDate() || new Date(),
+            aceitoEm: data.aceitoEm?.toDate(),
+            rejeitadoEm: data.rejeitadoEm?.toDate(),
+            canceladoEm: data.canceladoEm?.toDate(),
+            motivoRejeicao: data.motivoRejeicao,
+            motivoCancelamento: data.motivoCancelamento,
+            nutricionistaNome: data.nutricionistaNome,
+            nutricionistaEmail: data.nutricionistaEmail,
+            medicoNome: data.medicoNome,
+          });
         });
-        
-        return passaFiltro;
       });
+      const solicitacoesRecebidas = Array.from(dedupe.values());
       
       console.log('🔍 [DEBUG] Solicitações recebidas filtradas:', {
         total: solicitacoesRecebidas.length,
@@ -1563,12 +1595,23 @@ function MetaNutriPageV2() {
     }
   }, [user, nutricionista, activeMenu, loadingPacientesList, pacientesVisiveis, loadPagamentos]);
 
+  const loadLembretes = useCallback(async () => {
+    if (!user?.uid) return;
+    try {
+      const data = await LembreteService.getLembretesPorNutricionista(user.uid);
+      setLembretes(data);
+    } catch (error) {
+      console.error('[Metanutri] Erro ao carregar lembretes:', error);
+    }
+  }, [user?.uid]);
+
   // Carregar dados quando entrar na seção calendário
   useEffect(() => {
     if (user && nutricionista && activeMenu === 'calendario') {
       loadPacientesList();
+      void loadLembretes();
     }
-  }, [user, nutricionista, activeMenu, loadPacientesList]);
+  }, [user, nutricionista, activeMenu, loadPacientesList, loadLembretes]);
 
   // Handler para aceitar solicitação
   const handleAceitarSolicitacao = async (requestId: string) => {
@@ -1608,16 +1651,17 @@ function MetaNutriPageV2() {
     }
   };
 
-  // Handler para visualizar paciente (abre modal - desktop: 9 abas; mobile estilo personal: 2 abas)
-  // abaInicial: 1=Identificação, 2=Dados Clínicos, 3=Exames, ...
-  // estiloPersonal: true = mesmo modal do Metapersonal mobile (só Identificação + Dados Clínicos)
+  // Handler para visualizar paciente (desktop: 11 abas; mobile estilo personal: 3 abas)
+  // abaInicial: 1=Identificação, 2=Anamnese, 3=Prontuário, 4=Exames, 5=Bio, 6=Evolução, 7=Prescrições, 8=Nutrologia, 9=Personal, 10=Pagamento, 11=Gráficos
+  // estiloPersonal: true = modal com Identificação + Anamnese + Prontuário
   const handleVisualizarPaciente = (paciente: PacienteCompleto, abaInicial: number = 1, estiloPersonal?: boolean) => {
+    setPacienteVisualizandoInline(null);
     setPacienteVisualizando(paciente);
     setModalVisualizacaoEstiloPersonal(estiloPersonal ?? false);
-    setPastaAtiva(estiloPersonal ? Math.min(abaInicial, 2) : abaInicial);
+    setPastaAtiva(estiloPersonal ? Math.min(abaInicial, 3) : abaInicial);
     setShowVisualizarPacienteModal(true);
-    // Inicializar data de exame para aba 3 quando abrir nela
-    if (abaInicial === 3) {
+    // Inicializar data de exame para aba Exames (id 4) quando abrir nela
+    if (abaInicial === 4) {
       const exames = paciente.examesLaboratoriais || [];
       if (exames.length > 0) {
         const ordenados = [...exames].sort((a, b) => {
@@ -1636,7 +1680,7 @@ function MetaNutriPageV2() {
 
   // Inicializar/resetar data de exame quando paciente muda ou data selecionada não é válida
   useEffect(() => {
-    if (!showVisualizarPacienteModal || !pacienteVisualizando || pastaAtiva !== 3) return;
+    if (!showVisualizarPacienteModal || !pacienteVisualizando || pastaAtiva !== 4) return;
     const safeDate = (d: any) => {
       if (!d) return '';
       try {
@@ -1657,7 +1701,7 @@ function MetaNutriPageV2() {
 
   // Sincronizar pagamento quando usuário abre aba 9 no modal
   useEffect(() => {
-    if (showVisualizarPacienteModal && pacienteVisualizando && pastaAtiva === 9) {
+    if (showVisualizarPacienteModal && pacienteVisualizando && pastaAtiva === 10) {
       setPacientePagamentoSelecionado(pacienteVisualizando);
       const pag = pagamentosPacientes[pacienteVisualizando.id];
       if (pag) setDadosPagamento(pag);
@@ -1734,7 +1778,7 @@ function MetaNutriPageV2() {
 
   // Carregar prescrições e sincronizar paciente quando usuário abre aba 5 no modal
   useEffect(() => {
-    if (showVisualizarPacienteModal && pacienteVisualizando && pastaAtiva === 6 && nutricionista) {
+    if (showVisualizarPacienteModal && pacienteVisualizando && pastaAtiva === 7 && nutricionista) {
       setPacientePrescricoesSelecionado(pacienteVisualizando);
       loadPrescricoesModal(pacienteVisualizando);
     }
@@ -4287,125 +4331,6 @@ function MetaNutriPageV2() {
         );
 
       case 'pacientes': {
-        // Mobile: visualização do paciente na própria página (mantém menu inferior)
-        if (pacienteVisualizandoInline && pacienteVisualizando) {
-          const p = pacienteVisualizando;
-          return (
-            <div className="space-y-6 pb-20">
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-gray-200 bg-yellow-50">
-                  <div className="flex justify-between items-center">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="w-5 h-5 text-yellow-600" />
-                        <h2 className="text-xl font-bold text-gray-900">Visualizar Paciente</h2>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {p.dadosIdentificacao?.nomeCompleto || p.nome || 'Paciente'}
-                      </p>
-                      <div className="mt-2 space-y-2">
-                        <div className="bg-yellow-100 border border-yellow-300 rounded-md px-3 py-2">
-                          <p className="text-sm text-yellow-800 font-medium">
-                            ⚠️ Somente visualização — alterações apenas pelo médico responsável
-                          </p>
-                        </div>
-                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                          p.statusTratamento === 'em_tratamento' ? 'bg-green-100 text-green-800' :
-                          p.statusTratamento === 'concluido' ? 'bg-blue-100 text-blue-800' :
-                          p.statusTratamento === 'abandono' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {p.statusTratamento === 'pendente' ? 'Pendente' : p.statusTratamento === 'em_tratamento' ? 'Em Tratamento' : p.statusTratamento === 'concluido' ? 'Concluído' : p.statusTratamento === 'abandono' ? 'Abandono' : 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => { setPacienteVisualizandoInline(null); setPastaAtiva(1); }}
-                      className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
-                      aria-label="Fechar"
-                    >
-                      <X size={24} />
-                    </button>
-                  </div>
-                </div>
-                <div className="flex border-b border-gray-200 overflow-x-auto">
-                  {[{ id: 1, nome: 'Dados de Identificação' }, { id: 2, nome: 'Dados Clínicos' }].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setPastaAtiva(tab.id)}
-                      className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                        pastaAtiva === tab.id ? 'border-green-500 text-green-700 bg-green-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      {tab.nome}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex-1 overflow-y-auto p-6">
-                  {pastaAtiva === 1 && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados de Identificação</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.nomeCompleto || p.nome || 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Email</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.email || 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Telefone</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.telefone || 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">CPF</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.cpf || 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Data de Nascimento</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.dataNascimento ? (() => { try { const d = new Date(p.dadosIdentificacao!.dataNascimento); return !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : 'N/A'; } catch { return 'N/A'; } })() : 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Sexo Biológico</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.sexoBiologico === 'M' ? 'Masculino' : p.dadosIdentificacao?.sexoBiologico === 'F' ? 'Feminino' : p.dadosIdentificacao?.sexoBiologico === 'Outro' ? 'Outro' : 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">CEP</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.endereco?.cep || 'N/A'}</div></div>
-                        <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-2">Endereço (Rua)</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.endereco?.rua || 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.endereco?.cidade || 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Estado</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosIdentificacao?.endereco?.estado || 'N/A'}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-2">Data de Cadastro</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dataCadastro ? (() => { try { const d = new Date(p.dataCadastro); return !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : 'N/A'; } catch { return 'N/A'; } })() : 'N/A'}</div></div>
-                      </div>
-                    </div>
-                  )}
-                  {pastaAtiva === 2 && (
-                    <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados Clínicos da Anamnese</h3>
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-4">2.1 Medidas Iniciais</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          <div><label className="block text-sm font-medium text-gray-700 mb-2">Peso (kg)</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosClinicos?.medidasIniciais?.peso ? p.dadosClinicos.medidasIniciais.peso.toFixed(1) : 'N/A'}</div></div>
-                          <div><label className="block text-sm font-medium text-gray-700 mb-2">Altura (cm)</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosClinicos?.medidasIniciais?.altura || 'N/A'}</div></div>
-                          <div><label className="block text-sm font-medium text-gray-700 mb-2">IMC (kg/m²)</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosClinicos?.medidasIniciais?.imc ? p.dadosClinicos.medidasIniciais.imc.toFixed(2) : 'N/A'}</div>{p.dadosClinicos?.medidasIniciais?.imc ? <p className={`mt-2 text-sm ${getCorGrauObesidade(calcularGrauObesidade(p.dadosClinicos.medidasIniciais.imc))}`}><strong>Grau de Obesidade:</strong> {calcularGrauObesidade(p.dadosClinicos.medidasIniciais.imc)}</p> : null}</div>
-                          <div><label className="block text-sm font-medium text-gray-700 mb-2">Circunf. Abdominal (cm)</label><div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">{p.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal || 'N/A'}</div></div>
-                        </div>
-                      </div>
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-4">2.2 Diagnóstico Principal</h4>
-                        <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                          {p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'dm2' ? 'Diabetes mellitus tipo 2 (DM2)' : p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'obesidade' ? 'Obesidade (IMC ≥ 30)' : p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'sobrepeso_comorbidade' ? 'Sobrepeso com comorbidade' : p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'pre_diabetes' ? 'Pré-diabetes (IFG/ITG)' : p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'resistencia_insulinica' ? 'Resistência insulínica/Síndrome metabólica' : p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'sop_ri' ? 'SOP com RI' : p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'ehna_sem_dm2' ? 'EHNA sem DM2' : p.dadosClinicos?.diagnosticoPrincipal?.tipo === 'outro' ? `Outro: ${p.dadosClinicos.diagnosticoPrincipal.outro || ''}` : 'N/A'}
-                        </div>
-                      </div>
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-800 mb-4">2.3 Comorbidades</h4>
-                        <div className="space-y-2 text-sm text-gray-900">
-                          {p.dadosClinicos?.comorbidades?.hipertensaoArterial && <div>✓ Hipertensão arterial (HAS)</div>}
-                          {p.dadosClinicos?.comorbidades?.dislipidemia && <div>✓ Dislipidemia (DLP)</div>}
-                          {p.dadosClinicos?.comorbidades?.apneiaObstrutivaSono && <div>✓ Apneia obstrutiva do sono (AOS)</div>}
-                          {p.dadosClinicos?.comorbidades?.esteatoseEHNA && <div>✓ Esteatose/EHNA</div>}
-                          {p.dadosClinicos?.comorbidades?.doencaCardiovascular && <div>✓ Doença cardiovascular</div>}
-                          {p.dadosClinicos?.comorbidades?.doencaRenalCronica && <div>✓ Doença renal crônica (DRC)</div>}
-                          {p.dadosClinicos?.comorbidades?.sop && <div>✓ SOP</div>}
-                          {p.dadosClinicos?.comorbidades?.hipotireoidismo && <div>✓ Hipotireoidismo</div>}
-                          {p.dadosClinicos?.comorbidades?.asmaDPOC && <div>✓ Asma/DPOC</div>}
-                          {p.dadosClinicos?.comorbidades?.transtornoAnsiedadeDepressao && <div>✓ Transtorno de ansiedade/depressão</div>}
-                          {p.dadosClinicos?.comorbidades?.nenhuma && <div>✓ Nenhuma</div>}
-                          {p.dadosClinicos?.comorbidades?.outra && <div>✓ Outra: {p.dadosClinicos.comorbidades.outraDescricao || ''}</div>}
-                          {(!p.dadosClinicos?.comorbidades || Object.values(p.dadosClinicos.comorbidades).every(v => !v)) && <div className="text-gray-500">Nenhuma comorbidade registrada</div>}
-                        </div>
-                      </div>
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-sm text-blue-800"><strong>Nota:</strong> Visualização somente leitura. Para editar, entre em contato com o médico responsável.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        }
-
         // Médicos únicos (vinculados) para o filtro
         const medicosUnicosPacientes = (() => {
           const map = new Map<string, { nome: string; genero?: 'M' | 'F' }>();
@@ -4938,7 +4863,7 @@ function MetaNutriPageV2() {
                                               dataUltimaAtualizacao: new Date()
                                             });
                                           }
-                                          handleVisualizarPaciente(paciente, 8);
+                                          handleVisualizarPaciente(paciente, 10);
                                         }}
                                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                           pagamento?.statusPagamento === 'pago'
@@ -4990,18 +4915,13 @@ function MetaNutriPageV2() {
                                 {/* Botões de ação - Editar, Aplicações, Exames, Prescrições, Nutri, Personal, Excluir */}
                                 <div className="mb-3">
                                   <div className="flex items-center justify-center gap-1 flex-wrap">
-                                    {/* Botão Editar — abre na própria página (mantém menu inferior), sem modal */}
+                                    {/* Botão Editar — modal tela cheia (igual metaadmin mobile) */}
                                     <button
-                                      onClick={() => {
-                                        setPacienteVisualizandoInline(paciente);
-                                        setPacienteVisualizando(paciente);
-                                        setPastaAtiva(1);
-                                        setModalVisualizacaoEstiloPersonal(true);
-                                      }}
+                                      onClick={() => handleVisualizarPaciente(paciente, 1, true)}
                                       className="p-2 rounded-md bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
-                                      title="Visualizar paciente"
+                                      title="Editar"
                                     >
-                                      <Edit size={18} />
+                                      <UserIcon size={18} />
                                     </button>
                                     {/* Botão Aplicações */}
                                     {(() => {
@@ -5709,7 +5629,7 @@ function MetaNutriPageV2() {
                                       <button
                                         onClick={() => {
                                           setPacienteGraficos(paciente);
-                                          handleVisualizarPaciente(paciente, 9);
+                                          handleVisualizarPaciente(paciente, 11);
                                         }}
                                         className="px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center gap-1.5"
                                         title="Ver gráficos"
@@ -6160,12 +6080,28 @@ function MetaNutriPageV2() {
           return pagamentosDoMes;
         };
 
+        const obterLembretesMes = () => {
+          const ano = mesCalendario.getFullYear();
+          const mes = mesCalendario.getMonth();
+          const mesInicio = new Date(ano, mes, 1);
+          const mesFim = new Date(ano, mes + 1, 0);
+          mesFim.setHours(23, 59, 59);
+
+          return lembretes.filter((l) => {
+            const [y, m, d] = l.data.split('-').map(Number);
+            if (!y || !m || !d) return false;
+            const data = new Date(y, m - 1, d);
+            return data >= mesInicio && data <= mesFim;
+          });
+        };
+
         // Função para renderizar calendário
         const renderizarCalendario = () => {
           const ano = mesCalendario.getFullYear();
           const mes = mesCalendario.getMonth();
           const aplicacoes = obterAplicacoesMes();
           const pagamentos = obterPagamentosMes();
+          const lembretesMes = obterLembretesMes();
 
           // Primeiro dia do mês
           const primeiroDia = new Date(ano, mes, 1);
@@ -6221,16 +6157,30 @@ function MetaNutriPageV2() {
                      dataPagamento.getFullYear() === data.getFullYear();
             });
 
+            const lembretesDoDia = lembretesMes.filter((l) => {
+              const [y, m, d] = l.data.split('-').map(Number);
+              return d === data.getDate() && m - 1 === data.getMonth() && y === data.getFullYear();
+            });
+
             setDiaSelecionado(data);
             setAplicacoesDiaSelecionado(aplicacoesDoDia);
             setPagamentosDiaSelecionado(pagamentosDoDia);
+            setLembretesDiaSelecionado(lembretesDoDia);
           };
 
           return (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Calendário de Aplicações</h2>
-                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Calendário</h2>
+                <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto flex-wrap justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowModalNovoLembrete(true)}
+                    className="px-3 py-2 text-xs sm:text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors flex items-center gap-1.5"
+                  >
+                    <Bell size={16} />
+                    Novo lembrete
+                  </button>
                   <button
                     onClick={() => mudarMes('anterior')}
                     className="p-2 hover:bg-gray-100 rounded-md transition-colors"
@@ -6283,14 +6233,21 @@ function MetaNutriPageV2() {
                              dataPagamento.getFullYear() === dia.getFullYear();
                     }) : [];
 
+                    const lembretesDoDia = dia
+                      ? lembretesMes.filter((l) => {
+                          const [y, m, d] = l.data.split('-').map(Number);
+                          return d === dia.getDate() && m - 1 === dia.getMonth() && y === dia.getFullYear();
+                        })
+                      : [];
+
                     const hoje = new Date();
                     const eHoje = dia && dia.getDate() === hoje.getDate() &&
                                   dia.getMonth() === hoje.getMonth() &&
                                   dia.getFullYear() === hoje.getFullYear();
 
-                    // Verificar se tem aplicações ou pagamentos para definir cor de fundo
                     const temAplicacoes = aplicacoesDoDia.length > 0;
                     const temPagamentos = pagamentosDoDia.length > 0;
+                    const temLembretes = lembretesDoDia.length > 0;
 
                     return (
                       <div
@@ -6305,6 +6262,8 @@ function MetaNutriPageV2() {
                             ? 'bg-green-50 hover:bg-green-100'
                             : temPagamentos
                             ? 'bg-blue-50 hover:bg-blue-100'
+                            : temLembretes
+                            ? 'bg-orange-50 hover:bg-orange-100'
                             : 'hover:bg-gray-50'
                         }`}
                       >
@@ -6333,7 +6292,7 @@ function MetaNutriPageV2() {
                               {/* Pagamentos (azul claro) */}
                               {pagamentosDoDia.length > 0 && (
                                 <>
-                                  {pagamentosDoDia.slice(0, temAplicacoes ? 1 : 2).map((pagamento, idx) => (
+                                  {pagamentosDoDia.slice(0, 1).map((pagamento, idx) => (
                                     <div
                                       key={`pag-${idx}`}
                                       className="text-[10px] sm:text-xs bg-blue-300 text-blue-900 px-1 sm:px-2 py-0.5 sm:py-1 rounded truncate font-medium"
@@ -6344,10 +6303,19 @@ function MetaNutriPageV2() {
                                   ))}
                                 </>
                               )}
-                              {/* Contador de itens extras */}
-                              {(aplicacoesDoDia.length + pagamentosDoDia.length) > 2 && (
+                              {lembretesDoDia.length > 0 && (
+                                <div
+                                  className="text-[10px] sm:text-xs bg-orange-500 text-white px-1 sm:px-2 py-0.5 sm:py-1 rounded truncate"
+                                  title={lembretesDoDia.map((l) => l.pacienteNome).join(', ')}
+                                >
+                                  {lembretesDoDia.length === 1
+                                    ? lembretesDoDia[0].pacienteNome
+                                    : `${lembretesDoDia.length} lembretes`}
+                                </div>
+                              )}
+                              {(aplicacoesDoDia.length + pagamentosDoDia.length + lembretesDoDia.length) > 2 && (
                                 <div className="text-[10px] sm:text-xs text-gray-600 font-medium">
-                                  +{(aplicacoesDoDia.length + pagamentosDoDia.length) - 2} mais
+                                  +{(aplicacoesDoDia.length + pagamentosDoDia.length + lembretesDoDia.length) - 2} mais
                                 </div>
                               )}
                             </div>
@@ -6376,6 +6344,7 @@ function MetaNutriPageV2() {
                         setDiaSelecionado(null);
                         setAplicacoesDiaSelecionado([]);
                         setPagamentosDiaSelecionado([]);
+                        setLembretesDiaSelecionado([]);
                       }}
                       className="text-gray-400 hover:text-gray-600 p-1"
                     >
@@ -6480,11 +6449,118 @@ function MetaNutriPageV2() {
                       </div>
                     </div>
                   )}
+
+                  {lembretesDiaSelecionado.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <Bell className="h-5 w-5 text-orange-600" />
+                        Lembretes ({lembretesDiaSelecionado.length})
+                      </h4>
+                      <div className="space-y-3">
+                        {lembretesDiaSelecionado.map((lembrete) => {
+                          const tagCfg = LEMBRETE_TAG_CONFIG[lembrete.tag];
+                          return (
+                            <div
+                              key={lembrete.id}
+                              className={`border rounded-lg p-4 transition-shadow ${
+                                lembrete.concluido
+                                  ? 'border-green-200 bg-green-50/80 opacity-90'
+                                  : 'border-orange-200 bg-orange-50 hover:shadow-md'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className={`text-sm font-semibold truncate ${
+                                      lembrete.concluido ? 'text-gray-500 line-through' : 'text-gray-900'
+                                    }`}
+                                  >
+                                    {lembrete.pacienteNome}
+                                  </p>
+                                  <p
+                                    className={`text-sm mt-1 ${
+                                      lembrete.concluido ? 'text-gray-400 line-through' : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {lembrete.texto}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span
+                                    className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${tagCfg.bgLight} ${tagCfg.textLight}`}
+                                  >
+                                    {lembrete.tag}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!confirm('Deletar este lembrete?')) return;
+                                      try {
+                                        await LembreteService.deletarLembrete(lembrete.id);
+                                        await loadLembretes();
+                                        setLembretesDiaSelecionado((prev) =>
+                                          prev.filter((l) => l.id !== lembrete.id)
+                                        );
+                                      } catch (err) {
+                                        console.error(err);
+                                      }
+                                    }}
+                                    className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                    title="Deletar lembrete"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between pt-2 border-t border-orange-100">
+                                <span
+                                  className={`text-xs font-medium ${
+                                    lembrete.concluido ? 'text-green-600' : 'text-gray-500'
+                                  }`}
+                                >
+                                  {lembrete.concluido ? 'Realizado' : 'Pendente'}
+                                </span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={!!lembrete.concluido}
+                                  onClick={async () => {
+                                    try {
+                                      const novo = !lembrete.concluido;
+                                      setLembretesDiaSelecionado((prev) =>
+                                        prev.map((l) =>
+                                          l.id === lembrete.id ? { ...l, concluido: novo } : l
+                                        )
+                                      );
+                                      await LembreteService.toggleConcluido(lembrete.id, novo);
+                                      await loadLembretes();
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                                    lembrete.concluido ? 'bg-green-500' : 'bg-gray-400'
+                                  }`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                                      lembrete.concluido ? 'translate-x-4' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   
-                  {/* Mensagem quando não há nada */}
-                  {aplicacoesDiaSelecionado.length === 0 && pagamentosDiaSelecionado.length === 0 && (
+                  {aplicacoesDiaSelecionado.length === 0 &&
+                    pagamentosDiaSelecionado.length === 0 &&
+                    lembretesDiaSelecionado.length === 0 && (
                     <p className="text-gray-500 text-center py-8">
-                      Nenhuma aplicação ou pagamento agendado para este dia.
+                      Nenhuma aplicação, pagamento ou lembrete para este dia.
                     </p>
                   )}
                 </div>
@@ -6493,7 +6569,33 @@ function MetaNutriPageV2() {
           );
         };
 
-        return renderizarCalendario();
+        const pacientesCalendarioLista = pacientesVisiveis.map((p) => p.paciente);
+
+        return (
+          <>
+            {renderizarCalendario()}
+            {showModalNovoLembrete && (
+              <ModalNovoLembrete
+                pacientes={pacientesCalendarioLista}
+                onFechar={() => setShowModalNovoLembrete(false)}
+                onSalvar={async (dados) => {
+                  if (!user?.uid) return;
+                  await LembreteService.criarLembrete({
+                    nutricionistaId: user.uid,
+                    pacienteId: dados.pacienteId,
+                    pacienteNome: dados.pacienteNome,
+                    data: dados.data,
+                    texto: dados.texto,
+                    tag: dados.tag,
+                    concluido: false,
+                  });
+                  await loadLembretes();
+                  setShowModalNovoLembrete(false);
+                }}
+              />
+            )}
+          </>
+        );
       }
 
       case 'meu-perfil':
@@ -6524,16 +6626,8 @@ function MetaNutriPageV2() {
     }
   };
 
-  // Loading state
-  if (loading || loadingNutricionista) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando...</p>
-        </div>
-      </div>
-    );
+  if (loadingNutricionista || (loading && !user)) {
+    return <PageLoadingScreen />;
   }
 
   if (!user) {
@@ -6541,16 +6635,65 @@ function MetaNutriPageV2() {
   }
   if (!nutricionista) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando perfil...</p>
-        </div>
-      </div>
+      <ProfissionalCadastroGateModal
+        tipo="nutri"
+        loading={criandoCadastroNutri}
+        onConfirm={handleConfirmarCadastroNutri}
+        onDecline={handleRecusarCadastroNutri}
+      />
     );
   }
 
+  const telaBloqueioVerificacaoNutri =
+    !!user?.uid &&
+    !loading &&
+    !loadingNutricionista &&
+    !!nutricionista &&
+    nutricionista.isVerificado !== true;
+
   return (
+    <>
+      {telaBloqueioVerificacaoNutri && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col bg-black/50"
+          aria-modal="true"
+          role="dialog"
+          aria-labelledby="metanutri-bloqueio-verificacao-titulo"
+        >
+          <span id="metanutri-bloqueio-verificacao-titulo" className="sr-only">
+            Verificação obrigatória — cadastro de nutricionista
+          </span>
+          <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-white shadow-none dark:bg-gray-800">
+            <MetaNutriPersonalWizard
+              tipo="nutri"
+              profissional={nutricionista}
+              setProfissional={setNutricionista}
+              userDisplayName={user.displayName}
+              userId={user.uid}
+              onSave={async (_closeAfter, m) => {
+                if (!m?.userId) return;
+                await NutricionistaService.updateCadastroVerificacao(m.userId, {
+                  nome: m.nome,
+                  telefone: m.telefone,
+                  registroNumero: m.registroNumero,
+                  cidades: m.cidades,
+                  docVerificacaoCnhUrl: m.docVerificacaoCnhUrl ?? null,
+                  docVerificacaoSelfieUrl: m.docVerificacaoSelfieUrl ?? null,
+                  docVerificacaoRegistroUrl: m.docVerificacaoRegistroUrl ?? null,
+                });
+                const fresh = await NutricionistaService.getNutricionistaByUserId(user.uid);
+                if (fresh) {
+                  setNutricionista(fresh);
+                  setMetaNutriLoadTick((t) => t + 1);
+                }
+              }}
+              saving={salvandoCadastroNutri}
+              setSaving={setSalvandoCadastroNutri}
+              resumeAfterLoadTick={metaNutriLoadTick}
+            />
+          </div>
+        </div>
+      )}
     <div className="flex">
       {/* Sidebar Desktop */}
       <div className={`hidden lg:block fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
@@ -7150,8 +7293,7 @@ function MetaNutriPageV2() {
                       const slugMedico = gerarSlug(medicoSelecionado.nome);
                       const slugNutricionista = gerarSlug(nutricionista.nome);
                       
-                      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                      const link = `${baseUrl}/dr/${slugMedico}/${slugNutricionista}`;
+                      const link = buildOrganizacaoPublicUrl(`/dr/${slugMedico}/${slugNutricionista}`);
                       setLinkReferralGerado(link);
                       setLinkCopiado(false);
                     }}
@@ -7414,50 +7556,87 @@ function MetaNutriPageV2() {
       )}
 
       {/* Modal Visualizar Paciente (Read-Only) com Abas */}
-      {showVisualizarPacienteModal && pacienteVisualizando && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
+      {showVisualizarPacienteModal && pacienteVisualizando && (() => {
+        const modalPacienteTelaCheia = isMobile || modalVisualizacaoEstiloPersonal;
+        return (
+        <div
+          className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center ${
+            modalPacienteTelaCheia ? 'z-[9999] p-0' : 'z-50 p-4'
+          }`}
+        >
+          <div
+            className={`bg-white overflow-hidden flex flex-col shadow-xl ${
+              modalPacienteTelaCheia ? 'w-full h-full' : 'rounded-lg w-full max-w-7xl h-[90vh]'
+            }`}
+          >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-yellow-50">
+            <div
+              className={`border-b border-gray-200 flex-shrink-0 bg-white ${
+                modalPacienteTelaCheia
+                  ? 'px-4 py-3 sticky top-0 z-10'
+                  : 'px-6 py-4'
+              }`}
+            >
               <div className="flex justify-between items-center">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle className="w-5 h-5 text-yellow-600" />
-                    <h2 className="text-2xl font-bold text-gray-900">Visualizar Paciente</h2>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <h2
+                    className={`font-bold text-gray-900 ${
+                      modalPacienteTelaCheia ? 'text-xl' : 'text-2xl'
+                    }`}
+                  >
                     {pacienteVisualizando.dadosIdentificacao?.nomeCompleto || pacienteVisualizando.nome || 'Paciente'}
-                  </p>
-                  <div className="mt-2 space-y-2">
-                    <div className="bg-yellow-100 border border-yellow-300 rounded-md px-3 py-2">
-                      <p className="text-sm text-yellow-800 font-medium">
-                        ⚠️ Somente visualização — alterações apenas pelo médico responsável
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700">Status do Tratamento:</span>
-                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                        pacienteVisualizando.statusTratamento === 'em_tratamento'
-                          ? 'bg-green-100 text-green-800'
-                          : pacienteVisualizando.statusTratamento === 'concluido'
-                          ? 'bg-blue-100 text-blue-800'
-                          : pacienteVisualizando.statusTratamento === 'abandono'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {pacienteVisualizando.statusTratamento === 'pendente' ? 'Pendente' :
-                         pacienteVisualizando.statusTratamento === 'em_tratamento' ? 'Em Tratamento' :
-                         pacienteVisualizando.statusTratamento === 'concluido' ? 'Concluído' :
-                         pacienteVisualizando.statusTratamento === 'abandono' ? 'Abandono' :
-                         'N/A'}
-                      </span>
-                    </div>
+                  </h2>
+                  <div
+                    className={`flex flex-wrap items-center gap-2 mt-2 text-sm text-gray-600 ${
+                      modalPacienteTelaCheia ? 'gap-y-1' : 'gap-3'
+                    }`}
+                  >
+                    <span>
+                      {pacienteVisualizando.dadosIdentificacao?.dataNascimento
+                        ? (() => {
+                            try {
+                              const nascimento = new Date(pacienteVisualizando.dadosIdentificacao.dataNascimento);
+                              if (!isNaN(nascimento.getTime())) {
+                                const hoje = new Date();
+                                let idade = hoje.getFullYear() - nascimento.getFullYear();
+                                const m = hoje.getMonth() - nascimento.getMonth();
+                                if (m < 0 || (m === 0 && hoje.getDate() < nascimento.getDate())) idade--;
+                                return `${idade} anos`;
+                              }
+                            } catch {}
+                            return 'Idade N/A';
+                          })()
+                        : 'Idade N/A'}
+                    </span>
+                    <span className="text-gray-300">•</span>
+                    <span>
+                      {pacienteVisualizando.dadosIdentificacao?.endereco?.cidade
+                        ? `${pacienteVisualizando.dadosIdentificacao.endereco.cidade}${pacienteVisualizando.dadosIdentificacao.endereco.estado ? ` - ${pacienteVisualizando.dadosIdentificacao.endereco.estado}` : ''}`
+                        : 'Cidade N/A'}
+                    </span>
+                    <span className="text-gray-300">•</span>
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                      pacienteVisualizando.statusTratamento === 'em_tratamento'
+                        ? 'bg-green-100 text-green-800'
+                        : pacienteVisualizando.statusTratamento === 'concluido'
+                        ? 'bg-blue-100 text-blue-800'
+                        : pacienteVisualizando.statusTratamento === 'abandono'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {pacienteVisualizando.statusTratamento === 'pendente' ? 'Pendente' :
+                       pacienteVisualizando.statusTratamento === 'em_tratamento' ? 'Em Tratamento' :
+                       pacienteVisualizando.statusTratamento === 'concluido' ? 'Concluído' :
+                       pacienteVisualizando.statusTratamento === 'abandono' ? 'Abandono' :
+                       'N/A'}
+                    </span>
                   </div>
                 </div>
                 <button
                   onClick={() => {
                     setShowVisualizarPacienteModal(false);
                     setPacienteVisualizando(null);
+                    setPacienteVisualizandoInline(null);
                     setPastaAtiva(1);
                     setModalVisualizacaoEstiloPersonal(false);
                   }}
@@ -7468,30 +7647,40 @@ function MetaNutriPageV2() {
               </div>
             </div>
 
-            {/* Tabs: 2 abas (estilo Metapersonal mobile) ou 10 abas (desktop) */}
-            <div className="flex border-b border-gray-200 overflow-x-auto">
+            {/* Tabs: 3 abas (mobile / estilo personal) ou 11 abas (desktop) */}
+            <div
+              className={`flex border-b border-gray-200 flex-shrink-0 bg-white w-full ${
+                modalVisualizacaoEstiloPersonal ? '' : 'overflow-x-auto'
+              }`}
+            >
               {(modalVisualizacaoEstiloPersonal
                 ? [
-                    { id: 1, nome: 'Dados de Identificação' },
-                    { id: 2, nome: 'Dados Clínicos' }
+                    { id: 1, nome: 'Identificação' },
+                    { id: 2, nome: 'Anamnese' },
+                    { id: 3, nome: 'Prontuário' },
                   ]
                 : [
-                    { id: 1, nome: 'Dados de Identificação' },
-                    { id: 2, nome: 'Dados Clínicos' },
-                    { id: 3, nome: 'Exames' },
-                    { id: 4, nome: 'Bio Impedância' },
-                    { id: 5, nome: 'Evolução/Aplicações' },
-                    { id: 6, nome: 'Prescrições' },
-                    { id: 7, nome: 'Nutrologia' },
-                    { id: 8, nome: 'Personal Trainer' },
-                    { id: 9, nome: 'Pagamento' },
-                    { id: 10, nome: 'Gráficos' }
+                    { id: 1, nome: 'Identificação' },
+                    { id: 2, nome: 'Anamnese' },
+                    { id: 3, nome: 'Prontuário' },
+                    { id: 4, nome: 'Exames' },
+                    { id: 5, nome: 'Bio Impedância' },
+                    { id: 6, nome: 'Evolução/Aplicações' },
+                    { id: 7, nome: 'Prescrições' },
+                    { id: 8, nome: 'Nutrologia' },
+                    { id: 9, nome: 'Personal Trainer' },
+                    { id: 10, nome: 'Pagamento' },
+                    { id: 11, nome: 'Gráficos' },
                   ]
               ).map((pasta) => (
                 <button
                   key={pasta.id}
                   onClick={() => setPastaAtiva(pasta.id)}
-                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+                    modalVisualizacaoEstiloPersonal
+                      ? 'flex-1 min-w-0 px-2 text-center'
+                      : 'px-4 whitespace-nowrap'
+                  } ${
                     pastaAtiva === pasta.id
                       ? 'border-green-500 text-green-700 bg-green-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -7503,288 +7692,44 @@ function MetaNutriPageV2() {
             </div>
 
             {/* Conteúdo da Pasta Ativa */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div
+              className={`flex-1 overflow-y-auto min-h-0 ${
+                modalPacienteTelaCheia ? 'p-4' : 'p-6'
+              }`}
+            >
               {pastaAtiva === 1 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados de Identificação</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.nomeCompleto || pacienteVisualizando.nome || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.email || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.telefone || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.cpf || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Data de Nascimento</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.dataNascimento
-                          ? (() => {
-                              try {
-                                const d = new Date(pacienteVisualizando.dadosIdentificacao.dataNascimento);
-                                if (!isNaN(d.getTime())) {
-                                  return d.toLocaleDateString('pt-BR');
-                                }
-                              } catch {}
-                              return 'N/A';
-                            })()
-                          : 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Sexo Biológico</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.sexoBiologico === 'M' ? 'Masculino' :
-                         pacienteVisualizando.dadosIdentificacao?.sexoBiologico === 'F' ? 'Feminino' :
-                         pacienteVisualizando.dadosIdentificacao?.sexoBiologico === 'Outro' ? 'Outro' :
-                         'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">CEP</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.endereco?.cep || 'N/A'}
-                      </div>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Endereço (Rua)</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.endereco?.rua || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.endereco?.cidade || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosIdentificacao?.endereco?.estado || 'N/A'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Data de Cadastro</label>
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dataCadastro
-                          ? (() => {
-                              try {
-                                const d = new Date(pacienteVisualizando.dataCadastro);
-                                if (!isNaN(d.getTime())) {
-                                  return d.toLocaleDateString('pt-BR');
-                                }
-                              } catch {}
-                              return 'N/A';
-                            })()
-                          : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <PacienteIdentificacaoTabContent
+                  paciente={pacienteVisualizando}
+                  medicoResponsavelLabel={labelMedicoResponsavelPaciente(
+                    pacienteVisualizando.medicoResponsavelId,
+                    medicosList
+                  )}
+                />
               )}
 
               {pastaAtiva === 2 && (
-                <div className="space-y-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados Clínicos da Anamnese</h3>
-                  
-                  {/* 2.1 Medidas Iniciais */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-4">2.1 Medidas Iniciais</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Peso (kg)</label>
-                        <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                          {pacienteVisualizando.dadosClinicos?.medidasIniciais?.peso ? pacienteVisualizando.dadosClinicos.medidasIniciais.peso.toFixed(1) : 'N/A'}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Altura (cm)</label>
-                        <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                          {pacienteVisualizando.dadosClinicos?.medidasIniciais?.altura || 'N/A'}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">IMC (kg/m²)</label>
-                        <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                          {pacienteVisualizando.dadosClinicos?.medidasIniciais?.imc ? pacienteVisualizando.dadosClinicos.medidasIniciais.imc.toFixed(2) : 'N/A'}
-                        </div>
-                        {pacienteVisualizando.dadosClinicos?.medidasIniciais?.imc && (
-                          <p className={`mt-2 text-sm ${getCorGrauObesidade(calcularGrauObesidade(pacienteVisualizando.dadosClinicos.medidasIniciais.imc))}`}>
-                            <strong>Grau de Obesidade:</strong> {calcularGrauObesidade(pacienteVisualizando.dadosClinicos.medidasIniciais.imc)}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Circunf. Abdominal (cm)</label>
-                        <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                          {pacienteVisualizando.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal || 'N/A'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2.2 Diagnóstico Principal */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-4">2.2 Diagnóstico Principal</h4>
-                    <div className="space-y-2">
-                      <div className="text-gray-900 bg-gray-50 border border-gray-300 rounded-md px-3 py-2">
-                        {pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'dm2' ? 'Diabetes mellitus tipo 2 (DM2)' :
-                         pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'obesidade' ? 'Obesidade (IMC ≥ 30)' :
-                         pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'sobrepeso_comorbidade' ? 'Sobrepeso com comorbidade (IMC 27-29,9 + comorbidade)' :
-                         pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'pre_diabetes' ? 'Pré-diabetes (IFG/ITG)' :
-                         pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'resistencia_insulinica' ? 'Resistência insulínica/Síndrome metabólica' :
-                         pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'sop_ri' ? 'Síndrome dos ovários policísticos (SOP) com RI' :
-                         pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'ehna_sem_dm2' ? 'Esteatose hepática não alcoólica (EHNA) sem DM2' :
-                         pacienteVisualizando.dadosClinicos?.diagnosticoPrincipal?.tipo === 'outro' ? `Outro: ${pacienteVisualizando.dadosClinicos.diagnosticoPrincipal.outro || ''}` :
-                         'N/A'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2.3 Comorbidades Associadas */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-4">2.3 Comorbidades Associadas</h4>
-                    <div className="space-y-2">
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.hipertensaoArterial && (
-                        <div className="text-sm text-gray-900">✓ Hipertensão arterial (HAS)</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.dislipidemia && (
-                        <div className="text-sm text-gray-900">✓ Dislipidemia (DLP)</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.apneiaObstrutivaSono && (
-                        <div className="text-sm text-gray-900">✓ Apneia obstrutiva do sono (AOS)</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.esteatoseEHNA && (
-                        <div className="text-sm text-gray-900">✓ Esteatose/EHNA</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.doencaCardiovascular && (
-                        <div className="text-sm text-gray-900">✓ Doença cardiovascular (ex.: DAC, IC, AVE prévio)</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.doencaRenalCronica && (
-                        <div className="text-sm text-gray-900">✓ Doença renal crônica (DRC)</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.sop && (
-                        <div className="text-sm text-gray-900">✓ SOP</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.hipotireoidismo && (
-                        <div className="text-sm text-gray-900">✓ Hipotireoidismo</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.asmaDPOC && (
-                        <div className="text-sm text-gray-900">✓ Asma/DPOC</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.transtornoAnsiedadeDepressao && (
-                        <div className="text-sm text-gray-900">✓ Transtorno de ansiedade/depressão</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.nenhuma && (
-                        <div className="text-sm text-gray-900">✓ Nenhuma</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.comorbidades?.outra && (
-                        <div className="text-sm text-gray-900">✓ Outra: {pacienteVisualizando.dadosClinicos.comorbidades.outraDescricao || ''}</div>
-                      )}
-                      {(!pacienteVisualizando.dadosClinicos?.comorbidades ||
-                        (!pacienteVisualizando.dadosClinicos.comorbidades.hipertensaoArterial &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.dislipidemia &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.apneiaObstrutivaSono &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.esteatoseEHNA &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.doencaCardiovascular &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.doencaRenalCronica &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.sop &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.hipotireoidismo &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.asmaDPOC &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.transtornoAnsiedadeDepressao &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.nenhuma &&
-                         !pacienteVisualizando.dadosClinicos.comorbidades.outra)) && (
-                        <div className="text-sm text-gray-500">Nenhuma comorbidade registrada</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 2.4 Medicações em uso atual */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-4">2.4 Medicações em uso atual</h4>
-                    {pacienteVisualizando.dadosClinicos?.medicacoesUsoAtual && pacienteVisualizando.dadosClinicos.medicacoesUsoAtual.length > 0 ? (
-                      <div className="space-y-2">
-                        {pacienteVisualizando.dadosClinicos.medicacoesUsoAtual.map((med, index) => (
-                          <div key={index} className="text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-md p-3">
-                            <div><strong>Categoria:</strong> {
-                              med.categoria === 'metformina' ? 'Metformina' :
-                              med.categoria === 'sglt2i' ? 'SGLT2i (dapagliflozina/empagliflozina)' :
-                              med.categoria === 'insulina' ? 'Insulina basal/bolus' :
-                              med.categoria === 'statina' ? 'Estatina' :
-                              med.categoria === 'anti_hipertensivo' ? 'Anti-hipertensivo (IECA/BRA, BCC, tiazídico)' :
-                              med.categoria === 'antidepressivo' ? 'Antidepressivo/ansiolítico' :
-                              med.categoria === 'outro' ? 'Outro' : med.categoria
-                            }</div>
-                            {med.nomeFarmaco && <div><strong>Nome:</strong> {med.nomeFarmaco}</div>}
-                            {med.dose && <div><strong>Dose:</strong> {med.dose}</div>}
-                            {med.frequencia && <div><strong>Frequência:</strong> {med.frequencia}</div>}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-gray-500">Nenhuma medicação registrada</div>
-                    )}
-                  </div>
-
-                  {/* 2.5 Alergias */}
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-4">2.5 Alergias</h4>
-                    <div className="space-y-2">
-                      {pacienteVisualizando.dadosClinicos?.alergias?.semAlergias && (
-                        <div className="text-sm text-gray-900">✓ Sem alergias conhecidas</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.alergias?.medicamentosa && (
-                        <div className="text-sm text-gray-900">
-                          ✓ Medicamentosa: {pacienteVisualizando.dadosClinicos.alergias.medicamentosa.farmaco || ''} 
-                          {pacienteVisualizando.dadosClinicos.alergias.medicamentosa.reacao && ` - Reação: ${pacienteVisualizando.dadosClinicos.alergias.medicamentosa.reacao}`}
-                        </div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.alergias?.alimento !== undefined && pacienteVisualizando.dadosClinicos.alergias.alimento && (
-                        <div className="text-sm text-gray-900">✓ Alimento: {pacienteVisualizando.dadosClinicos.alergias.alimento}</div>
-                      )}
-                      {pacienteVisualizando.dadosClinicos?.alergias?.latexAdesivo !== undefined && pacienteVisualizando.dadosClinicos.alergias.latexAdesivo && (
-                        <div className="text-sm text-gray-900">✓ Látex/adesivo: {pacienteVisualizando.dadosClinicos.alergias.latexAdesivo}</div>
-                      )}
-                      {(!pacienteVisualizando.dadosClinicos?.alergias ||
-                        (!pacienteVisualizando.dadosClinicos.alergias.semAlergias &&
-                         !pacienteVisualizando.dadosClinicos.alergias.medicamentosa &&
-                         pacienteVisualizando.dadosClinicos.alergias.alimento === undefined &&
-                         pacienteVisualizando.dadosClinicos.alergias.latexAdesivo === undefined)) && (
-                        <div className="text-sm text-gray-500">Nenhuma alergia registrada</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Observação */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">
-                      <strong>Nota:</strong> Esta é uma visualização somente leitura. Para editar informações do paciente, entre em contato com o médico responsável.
-                    </p>
-                  </div>
-                </div>
+                <PacienteDadosClinicosTabContent
+                  paciente={pacienteVisualizando}
+                  allowGerarAnaliseInteligente={false}
+                />
               )}
 
-              {/* Aba 3: Exames Laboratoriais */}
-              {pastaAtiva === 3 && pacienteVisualizando && (() => {
-                const exames = pacienteVisualizando.examesLaboratoriais || [];
+              {pastaAtiva === 3 && pacienteVisualizando && (
+                <ProntuarioNutriTab
+                  paciente={pacienteVisualizando}
+                  pacienteId={pacienteVisualizando.id}
+                  nutricionistaId={nutricionista?.userId || nutricionista?.id}
+                  onIrParaAba={(aba) => {
+                    setPastaAtiva(aba);
+                    if (aba === 4) setExamesNutriSubpasta('laboratoriais');
+                  }}
+                />
+              )}
+
+              {/* Aba 4: Exames (Laboratoriais + Imagem) */}
+              {pastaAtiva === 4 && pacienteVisualizando && (() => {
+                const pExames = pacienteVisualizando;
+                const exames = pExames.examesLaboratoriais || [];
                 const safeDateToString = (date: any): string => {
                   if (!date) return '';
                   try {
@@ -7838,6 +7783,47 @@ function MetaNutriPageV2() {
                 };
                 return (
                   <div className="space-y-6">
+                    <div className="flex w-full justify-center gap-3 sm:gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setExamesNutriSubpasta('laboratoriais')}
+                        className={`flex-1 min-h-[3.25rem] sm:min-h-[3.5rem] flex items-center justify-center text-center px-3 sm:px-6 py-3 text-sm sm:text-base font-bold rounded-xl border-2 transition-colors shadow-sm ${
+                          examesNutriSubpasta === 'laboratoriais'
+                            ? 'border-green-600 bg-green-100 text-green-900 ring-2 ring-green-300/70'
+                            : 'border-gray-200 text-gray-600 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        Exames Laboratoriais
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExamesNutriSubpasta('imagem')}
+                        className={`flex-1 min-h-[3.25rem] sm:min-h-[3.5rem] flex items-center justify-center text-center px-3 sm:px-6 py-3 text-sm sm:text-base font-bold rounded-xl border-2 transition-colors shadow-sm ${
+                          examesNutriSubpasta === 'imagem'
+                            ? 'border-green-600 bg-green-100 text-green-900 ring-2 ring-green-300/70'
+                            : 'border-gray-200 text-gray-600 bg-white hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        Exames de Imagem
+                      </button>
+                    </div>
+
+                    {examesNutriSubpasta === 'imagem' && (
+                      <ExamesImagemPacientePanel
+                        pacienteId={pExames.id}
+                        nomePacienteProntuario={
+                          pExames.dadosIdentificacao?.nomeCompleto || pExames.nome || ''
+                        }
+                        examesDeImagem={pExames.examesDeImagem}
+                        onAdicionarExame={() => {}}
+                        onRemoverExame={() => {}}
+                        confirmarNomePacienteDoAnexo={async () => true}
+                        somenteLeitura
+                      />
+                    )}
+
+                    {examesNutriSubpasta === 'laboratoriais' && (
+                    <>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Exames Laboratoriais</h3>
                     <div className="flex items-end gap-3 flex-wrap">
                       <div className="flex-1">
@@ -7887,14 +7873,27 @@ function MetaNutriPageV2() {
                           if (!Number.isFinite(valor)) return false;
                           return valor < min || valor > max;
                         });
+                        const sectionScoreNutriDesktop = calculateSectionMetabolicScore({
+                          sectionKey: secao.sectionId,
+                          examKeys: secao.fields.map((f) => f.key),
+                          labValues: exameSelecionado as Record<string, unknown>,
+                          sex: pacienteSex,
+                          dob: pacienteVisualizando?.dadosIdentificacao?.dataNascimento,
+                          limitOverrides: labLimitOverrides,
+                          sectionLabel: secao.section,
+                        });
+
                         return (
                           <div key={secao.sectionId} className="border border-gray-200 rounded-lg p-2.5 text-sm">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full shrink-0 ${secaoComExameForaDaFaixa ? 'bg-red-500' : 'bg-green-500'}`}
-                                aria-hidden="true"
-                              />
-                              <h4 className="font-semibold text-gray-800 text-sm">{secao.section}</h4>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full shrink-0 ${secaoComExameForaDaFaixa ? 'bg-red-500' : 'bg-green-500'}`}
+                                  aria-hidden="true"
+                                />
+                                <h4 className="font-semibold text-gray-800 text-sm">{secao.section}</h4>
+                              </div>
+                              <LabSectionScoreBadge score={sectionScoreNutriDesktop.score} color={sectionScoreNutriDesktop.color} />
                             </div>
                             {camposComValor.map((campo) => {
                               const rangeToUse = getLabRange(campo.key as string, pacienteSex, pacienteVisualizando?.dadosIdentificacao?.dataNascimento, labLimitOverrides);
@@ -7908,6 +7907,7 @@ function MetaNutriPageV2() {
                                       {value != null ? `${value}${rangeToUse.unit ? ` ${rangeToUse.unit}` : ''}` : '-'}
                                     </div>
                                     <LabRangeBar range={rangeToUse} value={value ?? null} />
+                                    <LabOptimizationBadge examKey={campo.key} value={value ?? null} range={rangeToUse} />
                                     {campo.key === 'egfr' && value != null && value < 15 && (
                                       <p className="text-sm text-red-600 mt-1">⚠️ Alerta crítico: eGFR &lt; 15</p>
                                     )}
@@ -7947,12 +7947,30 @@ function MetaNutriPageV2() {
                         );
                       })
                     )}
+
+                    {/* Resumo Metabólico Desktop */}
+                    {exameSelecionado && (() => {
+                      const allNutriDesktopScores = patientLabSections.map((secao) =>
+                        calculateSectionMetabolicScore({
+                          sectionKey: secao.sectionId,
+                          examKeys: secao.fields.map((f) => f.key),
+                          labValues: exameSelecionado as Record<string, unknown>,
+                          sex: pacienteSex,
+                          dob: pacienteVisualizando?.dadosIdentificacao?.dataNascimento,
+                          limitOverrides: labLimitOverrides,
+                          sectionLabel: secao.section,
+                        })
+                      );
+                      return <LabMetabolicSummarySection scores={allNutriDesktopScores} />;
+                    })()}
+                    </>
+                    )}
                   </div>
                 );
               })()}
 
-              {/* Aba 4: Bio Impedância - padrão Exames: seções, Detalhes, Novo Registro */}
-              {pastaAtiva === 4 && pacienteVisualizando && (() => {
+              {/* Aba 5: Bio Impedância - padrão Exames: seções, Detalhes, Novo Registro */}
+              {pastaAtiva === 5 && pacienteVisualizando && (() => {
                 const p = pacienteVisualizando;
                 const registros = p?.bioimpedanciaRegistros || [];
                 const sexoBiologico = p?.dadosIdentificacao?.sexoBiologico ?? (p as any)?.dadosidentificacao?.sexobiologico;
@@ -7980,7 +7998,7 @@ function MetaNutriPageV2() {
               })()}
 
               {/* Aba 5: Evolução/Aplicações - supera MetaAdmin: resumo, gráficos integrados, cards ricos */}
-              {pastaAtiva === 5 && pacienteVisualizando && (() => {
+              {pastaAtiva === 6 && pacienteVisualizando && (() => {
                 const p = pacienteVisualizando;
                 const evolucao = p?.evolucaoSeguimento || [];
                 const planoTerapeutico = p?.planoTerapeutico;
@@ -8378,7 +8396,7 @@ function MetaNutriPageV2() {
                           </div>
                         </div>
                         <div className="flex justify-end pt-2">
-                          <button onClick={() => setPastaAtiva(9)} className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-200 transition-colors">
+                          <button onClick={() => setPastaAtiva(11)} className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-200 transition-colors">
                             <BarChart3 size={18} /> Ver mais gráficos (aba Gráficos)
                           </button>
                         </div>
@@ -8395,7 +8413,7 @@ function MetaNutriPageV2() {
               })()}
 
               {/* Aba 6: Prescrições - usa pacientePrescricoesSelecionado (sincronizado com pacienteVisualizando na aba 6) */}
-              {pastaAtiva === 6 && pacienteVisualizando && nutricionista && (
+              {pastaAtiva === 7 && pacienteVisualizando && nutricionista && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Prescrições</h3>
@@ -8541,7 +8559,7 @@ function MetaNutriPageV2() {
               )}
 
               {/* Aba 7: Nutrologia - área do nutricionista */}
-              {pastaAtiva === 7 && pacienteVisualizando && (
+              {pastaAtiva === 8 && pacienteVisualizando && (
                 <div className="min-h-[400px] -m-4 sm:-m-6 rounded-xl overflow-hidden border border-emerald-200/60 bg-gradient-to-b from-emerald-50/50 to-white">
                   {/* Header da área nutricionista */}
                   <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
@@ -8566,7 +8584,7 @@ function MetaNutriPageV2() {
               )}
 
               {/* Aba 8: Personal Trainer */}
-              {pastaAtiva === 8 && pacienteVisualizando && (
+              {pastaAtiva === 9 && pacienteVisualizando && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Treinos com Personal Trainer</h3>
                   <CalendarioTreinosPersonal
@@ -8578,7 +8596,7 @@ function MetaNutriPageV2() {
               )}
 
               {/* Aba 9: Pagamento - usa pacientePagamentoSelecionado e dadosPagamento (sincronizados na aba 9) */}
-              {pastaAtiva === 9 && pacienteVisualizando && (
+              {pastaAtiva === 10 && pacienteVisualizando && (
                 <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Controle de Pagamento</h3>
                   <div>
@@ -8611,7 +8629,7 @@ function MetaNutriPageV2() {
               )}
 
               {/* Aba 10: Gráficos - reutiliza lógica do modal com pacienteVisualizando */}
-              {pastaAtiva === 10 && pacienteVisualizando && (() => {
+              {pastaAtiva === 11 && pacienteVisualizando && (() => {
                 const p = pacienteVisualizando;
                 const evolucao = p?.evolucaoSeguimento || [];
                 const planoTerapeutico = p?.planoTerapeutico;
@@ -8703,7 +8721,8 @@ function MetaNutriPageV2() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Modal de Gráficos do Paciente */}
       {showGraficosModal && pacienteGraficos && (() => {
@@ -9470,6 +9489,16 @@ function MetaNutriPageV2() {
                       return valor < min || valor > max;
                     });
 
+                    const sectionScoreNutriMobile = calculateSectionMetabolicScore({
+                      sectionKey: secao.sectionId,
+                      examKeys: secao.fields.map((f) => f.key),
+                      labValues: exameSelecionado as Record<string, unknown>,
+                      sex: pacienteSex,
+                      dob: pacienteExamesSelecionado?.dadosIdentificacao?.dataNascimento,
+                      limitOverrides: labLimitOverrides,
+                      sectionLabel: secao.section,
+                    });
+
                     return (
                       <div key={secao.sectionId} className="border border-gray-200 rounded-lg overflow-hidden">
                         {/* Cabeçalho da seção */}
@@ -9477,7 +9506,7 @@ function MetaNutriPageV2() {
                           onClick={() => toggleSecao(secaoKey)}
                           className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-gray-100 transition-colors"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span
                               className={`h-2.5 w-2.5 rounded-full shrink-0 ${secaoComExameForaDaFaixa ? 'bg-red-500' : 'bg-green-500'}`}
                               aria-hidden="true"
@@ -9486,11 +9515,14 @@ function MetaNutriPageV2() {
                               {secao.section}
                             </h4>
                           </div>
-                          {isSecaoExpandida ? (
-                            <ChevronUp className="w-4 h-4 text-black" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-black" />
-                          )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <LabSectionScoreBadge score={sectionScoreNutriMobile.score} color={sectionScoreNutriMobile.color} />
+                            {isSecaoExpandida ? (
+                              <ChevronUp className="w-4 h-4 text-black" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-black" />
+                            )}
+                          </div>
                         </button>
                         
                         {/* Conteúdo da seção */}
@@ -9532,6 +9564,7 @@ function MetaNutriPageV2() {
                                   {/* Barra de range */}
                                   <div className="p-2 bg-white border-t border-gray-200">
                                     <LabRangeBar range={range} value={value || null} />
+                                    <LabOptimizationBadge examKey={campo.key} value={value || null} range={range} />
                                   </div>
                                   
                                   {/* Gráfico de evolução */}
@@ -9574,6 +9607,22 @@ function MetaNutriPageV2() {
                       </div>
                     );
                   })}
+
+                  {/* Resumo Metabólico Mobile */}
+                  {exameSelecionado && (() => {
+                    const allNutriMobileScores = patientLabSections.map((secao) =>
+                      calculateSectionMetabolicScore({
+                        sectionKey: secao.sectionId,
+                        examKeys: secao.fields.map((f) => f.key),
+                        labValues: exameSelecionado as Record<string, unknown>,
+                        sex: pacienteSex,
+                        dob: pacienteExamesSelecionado?.dadosIdentificacao?.dataNascimento,
+                        limitOverrides: labLimitOverrides,
+                        sectionLabel: secao.section,
+                      })
+                    );
+                    return <LabMetabolicSummarySection scores={allNutriMobileScores} />;
+                  })()}
                 </div>
               )}
             </div>
@@ -9748,6 +9797,7 @@ function MetaNutriPageV2() {
                             {novoExameDataMobile[field] && rangeToUse && (
                               <div className="mt-1">
                                 <LabRangeBar range={rangeToUse} value={novoExameDataMobile[field]} />
+                                <LabOptimizationBadge examKey={campoKey} value={novoExameDataMobile[field]} range={rangeToUse} compact />
                               </div>
                             )}
                           </div>
@@ -11146,6 +11196,7 @@ function MetaNutriPageV2() {
       )}
 
     </div>
+    </>
   );
 }
 

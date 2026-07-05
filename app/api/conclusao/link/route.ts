@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'crypto';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -76,14 +78,11 @@ export async function GET(request: NextRequest) {
         medicoId: medicoId.trim(),
         key,
         createdAt: new Date(),
+        ...shadowOrganizationFields(),
       });
     }
 
-    const baseUrl =
-      (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '') ||
-      (typeof request.headers.get('origin') === 'string' ? request.headers.get('origin')!.replace(/\/$/, '') : '') ||
-      'https://oftware.com.br';
-    const url = `${baseUrl}/conclusao/${token}`;
+    const url = buildOrganizacaoPublicUrl(`/conclusao/${token}`);
 
     return NextResponse.json({ url, token });
   } catch (error) {

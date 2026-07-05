@@ -23,6 +23,12 @@ export interface Prescricao {
   criadoPor: string; // Email do médico
   isTemplate: boolean; // Se é um template ou prescrição específica para um paciente
   pesoPaciente?: number; // Peso do paciente no momento da criação (para prescrições baseadas em peso)
+  /** Catálogo SISTEMA: aba no metaadmingeral (`prescricao` | `protocolo`). */
+  catalogoAba?: 'prescricao' | 'protocolo';
+  /** Pasta do catálogo SISTEMA (Firestore `prescricao_pastas`). */
+  pastaId?: string;
+  /** Nome da pasta (desnormalizado para exibição). */
+  pastaNome?: string;
 }
 
 export interface PrescricaoItem {

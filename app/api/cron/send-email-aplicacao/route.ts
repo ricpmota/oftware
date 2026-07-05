@@ -7,6 +7,7 @@ import {
   cronEmailThrottle,
   getCronZeptoMaxSendsPerRun,
 } from '@/lib/email/cronZeptoBatch';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 import { criarCalendarioDoses } from '@/lib/aplicacao/criarCalendarioDoses';
 import { ensureAplicacaoPublicUrl } from '@/lib/aplicacao/ensureAplicacaoPublicLink';
 import { zeptoEnvioFields } from '@/lib/email/emailEnvioLog';
@@ -162,6 +163,11 @@ async function enviarEmailAplicacao(
 }
 
 export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
   try {
     console.log('--- Iniciando Cron Job de E-mails de Aplicação ---');
     const zeptoGate = assertCronZeptoConfigured();

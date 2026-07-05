@@ -177,6 +177,12 @@ export default function OftPayDashboard({
     );
   }, [dashboardVideos, progressMap]);
 
+  const watchedHoursPercentage = useMemo(() => {
+    if (!Number.isFinite(progressStats.totalHours) || progressStats.totalHours <= 0) return 0;
+    const value = (progressStats.watchedHours / progressStats.totalHours) * 100;
+    return Number.isFinite(value) ? value : 0;
+  }, [progressStats.totalHours, progressStats.watchedHours]);
+
   // Real vs Previsto por HORAS de vídeo: Previsto = horas planejadas até hoje / total de horas; Real = horas assistidas / total de horas.
   const ganttChartData = useMemo(() => {
     if (!schedule || schedule.days.length === 0) return null;
@@ -333,7 +339,7 @@ export default function OftPayDashboard({
           <div className="min-w-0">
             <p className="text-[10px] md:text-xs text-gray-600 mb-0.5 truncate">Assistidos</p>
             <p className="text-lg md:text-xl font-bold text-green-600 tabular-nums">
-              {progressStats.watchedHoursPercentage.toFixed(1)}%
+              {watchedHoursPercentage.toFixed(1)}%
             </p>
           </div>
           <div className="min-w-0">
@@ -345,7 +351,7 @@ export default function OftPayDashboard({
           <div className="min-w-0">
             <p className="text-[10px] md:text-xs text-gray-600 mb-0.5 truncate">Horas Assistidas</p>
             <p className="text-lg md:text-xl font-bold text-purple-600 tabular-nums">
-              {progressStats.watchedHours.toFixed(1)}h ({progressStats.watchedHoursPercentage.toFixed(1)}%)
+              {progressStats.watchedHours.toFixed(1)}h ({watchedHoursPercentage.toFixed(1)}%)
             </p>
           </div>
         </div>

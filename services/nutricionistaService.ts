@@ -3,6 +3,7 @@
  */
 
 import { db } from '@/lib/firebase';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import { COL_NUTRICIONISTAS, NUTRI_STATUS } from '@/features/metaNutri/metaNutri.constants';
@@ -35,6 +36,9 @@ export class NutricionistaService {
         status: data.status || NUTRI_STATUS.INATIVO,
         medicoVinculadoIds: data.medicoVinculadoIds || [],
         dataCadastro: data.dataCadastro?.toDate() || new Date(),
+        docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+        docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+        docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
       };
     } catch (error) {
       console.error('Erro ao buscar nutricionista:', error);
@@ -73,6 +77,7 @@ export class NutricionistaService {
 
         await setDoc(docRef, {
           ...newNutricionista,
+          ...shadowOrganizationFields(),
           dataCadastro: Timestamp.fromDate(newNutricionista.dataCadastro),
         });
 
@@ -131,6 +136,9 @@ export class NutricionistaService {
           status: data.status || NUTRI_STATUS.INATIVO,
           medicoVinculadoIds: data.medicoVinculadoIds || [],
           dataCadastro: data.dataCadastro?.toDate() || new Date(),
+          docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+          docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+          docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
         };
       }
     } catch (error) {
@@ -161,6 +169,36 @@ export class NutricionistaService {
     }
   }
 
+  /** Atualiza dados cadastrais e documentos de verificação (fluxo de chat / bloqueio). */
+  static async updateCadastroVerificacao(
+    userId: string,
+    data: {
+      nome: string;
+      telefone: string;
+      registroNumero: string;
+      cidades: { estado: string; cidade: string }[];
+      docVerificacaoCnhUrl?: string | null;
+      docVerificacaoSelfieUrl?: string | null;
+      docVerificacaoRegistroUrl?: string | null;
+    }
+  ): Promise<void> {
+    try {
+      const docRef = doc(db, COL_NUTRICIONISTAS, userId);
+      await updateDoc(docRef, {
+        nome: data.nome,
+        telefone: data.telefone,
+        registroNumero: data.registroNumero,
+        cidades: data.cidades,
+        docVerificacaoCnhUrl: data.docVerificacaoCnhUrl ?? null,
+        docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl ?? null,
+        docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl ?? null,
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar cadastro de verificação do nutricionista:', error);
+      throw error;
+    }
+  }
+
   /**
    * Lista nutricionistas vinculados a um médico específico
    */
@@ -187,6 +225,9 @@ export class NutricionistaService {
             status: data.status || NUTRI_STATUS.INATIVO,
             medicoVinculadoIds: data.medicoVinculadoIds || [],
             dataCadastro: data.dataCadastro?.toDate() || new Date(),
+            docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+            docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+            docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
           };
         })
         .filter((nutri) => 
@@ -224,6 +265,9 @@ export class NutricionistaService {
           status: data.status || NUTRI_STATUS.INATIVO,
           medicoVinculadoIds: data.medicoVinculadoIds || [],
           dataCadastro: data.dataCadastro?.toDate() || new Date(),
+          docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+          docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+          docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
         };
       });
     } catch (error) {

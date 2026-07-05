@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { OFTPAY_OWNER_EMAIL } from '@/types/oftpayAccess';
+import { metaAdminGeralAcessarUrl } from '@/lib/metaadmin/metaAdminGeralLogin';
 
 /**
  * Redireciona para o Meta Admin Geral com o menu OftPay ativo.
@@ -16,7 +17,7 @@ export default function MetaAdminGeralOftPayRedirectPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
-        router.replace('/');
+        router.replace(metaAdminGeralAcessarUrl('/metaadmingeral?menu=oftpay'));
         return;
       }
       if (firebaseUser.email?.trim().toLowerCase() !== OFTPAY_OWNER_EMAIL.trim().toLowerCase()) {

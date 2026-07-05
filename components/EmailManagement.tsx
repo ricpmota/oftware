@@ -53,7 +53,7 @@ const emailInfoEmTratamento = {
 };
 
 const emailInfoNovoLeadMedico = {
-  novo_lead: { nome: 'Novo Lead', descricao: 'Avisa ao médico que chegou um novo lead (nova solicitacao_medico)' },
+  novo_lead: { nome: 'Novo Lead', descricao: 'Avisa o gestor quando um novo médico conclui o cadastro inicial' },
 };
 
 const emailInfoAplicacao = {
@@ -240,8 +240,8 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
             },
             novo_lead_medico: {
               novo_lead: {
-                assunto: 'Novo lead disponível',
-                corpoHtml: '<p>Olá Dr(a). {medico},</p><p>Você tem um novo lead: {nome}</p>',
+                assunto: 'Novo Médico Solicitando Cadastro',
+                corpoHtml: '<p>Um novo médico concluiu o cadastro inicial no /metaadmin.</p><p><strong>Nome:</strong> {nome}</p><p><strong>Foto CRM:</strong> {foto_crm}<br/><strong>Selfie:</strong> {selfie}<br/><strong>CNH:</strong> {cnh}</p>',
               },
             },
             aplicacao: {
@@ -510,6 +510,9 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
     
     // Variável {numero} - Número da aplicação da Tirzepatida (aplicação 1, 2, 3…)
     const variavelNumero = { nome: '{numero}', descricao: 'Número da aplicação da Tirzepatida (aplicação 1, 2, 3…)' };
+    const variavelFotoCrm = { nome: '{foto_crm}', descricao: 'URL da foto do CRM enviada no cadastro do médico' };
+    const variavelSelfie = { nome: '{selfie}', descricao: 'URL da selfie enviada no cadastro' };
+    const variavelCnh = { nome: '{cnh}', descricao: 'URL da foto da CNH enviada no cadastro' };
     
     if (modulo === 'leads') {
       return {
@@ -525,7 +528,7 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
       };
     } else if (modulo === 'novo_lead_medico') {
       return {
-        variaveis: [variavelNome, variavelMedico]
+        variaveis: [variavelNome, variavelMedico, variavelFotoCrm, variavelSelfie, variavelCnh]
       };
     } else if (modulo === 'aplicacao') {
       return {
@@ -1362,7 +1365,7 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
                   <Users size={16} className={activeModulo === 'novo_lead_medico' ? 'text-green-600' : 'text-gray-500'} />
                   <span className="font-medium text-sm text-gray-900">Novo Lead Médico</span>
                 </div>
-                <div className="text-xs text-gray-500 ml-6">Aviso ao médico</div>
+                <div className="text-xs text-gray-500 ml-6">Aviso ao gestor</div>
               </button>
               <button
                 onClick={() => {
@@ -1715,7 +1718,12 @@ export default function EmailManagement({ leads }: EmailManagementProps) {
           'novo_lead_medico_novo_lead': { 
             modulo: 'Novo Lead Médico',
             nome: 'Novo Lead', 
-            descricao: 'Aviso ao médico sobre novo paciente'
+            descricao: 'Aviso ao gestor sobre novo médico cadastrando'
+          },
+          'novo_lead_para_medico_novo_lead': {
+            modulo: 'Novo Lead para Médico',
+            nome: 'Novo Lead',
+            descricao: 'Aviso ao médico quando um paciente seleciona seu perfil'
           },
           'solicitado_medico_boas_vindas': { 
             modulo: 'Solicitado Médico',

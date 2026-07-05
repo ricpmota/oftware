@@ -16,6 +16,27 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: [
+    'screenshot-desktop',
+    'pdf-parse',
+    'pdfjs-dist',
+    '@napi-rs/canvas',
+  ],
+  outputFileTracingIncludes: {
+    "/*": [
+      "./scripts/capture-print.js",
+      "./node_modules/screenshot-desktop/**/*",
+    ],
+    "/api/oftpay/content/extract": [
+      "./node_modules/pdf-parse/**/*",
+      "./node_modules/pdfjs-dist/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-musl/**/*",
+      "./node_modules/@napi-rs/canvas-linux-arm64-gnu/**/*",
+      "./node_modules/@napi-rs/canvas-linux-arm64-musl/**/*",
+    ],
+  },
   async headers() {
     return [
       {

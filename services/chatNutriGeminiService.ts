@@ -5,6 +5,7 @@
  */
 
 import { JWT } from 'google-auth-library';
+import { resolveGeminiModelId } from '@/lib/gcp/geminiConfig';
 import type { ChatNutriDayTotals } from '@/lib/chatnutri/types';
 import {
   safeParseGeminiJson,
@@ -189,6 +190,53 @@ function inferMimeType(gsUri: string): string {
   return 'image/jpeg';
 }
 
+function buildMealVisionResponseSchema(): Record<string, unknown> {
+  const itemSchema = {
+    type: 'OBJECT',
+    properties: {
+      name: { type: 'STRING' },
+      portionDescription: { type: 'STRING' },
+      calories: { type: 'NUMBER' },
+      protein: { type: 'NUMBER' },
+      carbs: { type: 'NUMBER' },
+      fat: { type: 'NUMBER' },
+    },
+    required: ['name', 'portionDescription', 'calories', 'protein', 'carbs', 'fat'],
+  };
+
+  return {
+    type: 'OBJECT',
+    properties: {
+      items: { type: 'ARRAY', items: itemSchema },
+      totals: {
+        type: 'OBJECT',
+        properties: {
+          calories: { type: 'NUMBER' },
+          protein: { type: 'NUMBER' },
+          carbs: { type: 'NUMBER' },
+          fat: { type: 'NUMBER' },
+        },
+        required: ['calories', 'protein', 'carbs', 'fat'],
+      },
+      confidence: { type: 'STRING' },
+      notes: { type: 'STRING' },
+    },
+    required: ['items', 'totals', 'confidence', 'notes'],
+  };
+}
+
+function extractGeminiResponseText(
+  parts: Array<{ text?: string; thought?: boolean }> | undefined
+): string {
+  if (!parts?.length) return '';
+  let text = '';
+  for (const part of parts) {
+    if (part?.thought) continue;
+    if (typeof part.text === 'string') text += part.text;
+  }
+  return text;
+}
+
 export async function analyzeMealFromImage({
   gsUri,
   mealType = 'almoco',
@@ -202,7 +250,7 @@ export async function analyzeMealFromImage({
   }
   const accessToken = await getAccessToken(creds);
   const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-  const model = process.env.GEMINI_MODEL_ID || 'gemini-2.0-flash-001';
+  const model = resolveGeminiModelId();
   const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${creds.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
 
   const mimeType = inferMimeType(gsUri);
@@ -223,8 +271,11 @@ export async function analyzeMealFromImage({
       },
     ],
     generationConfig: {
-      maxOutputTokens: 1024,
+      maxOutputTokens: 2048,
       temperature: 0.2,
+      responseMimeType: 'application/json',
+      responseSchema: buildMealVisionResponseSchema(),
+      thinkingConfig: { thinkingBudget: 0 },
     },
   };
 
@@ -235,7 +286,11 @@ export async function analyzeMealFromImage({
   });
 
   const data = (await res.json().catch(() => ({}))) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: string; thought?: boolean }> };
+      finishReason?: string;
+    }>;
+    promptFeedback?: { blockReason?: string };
     error?: { message?: string };
   };
 
@@ -244,13 +299,29 @@ export async function analyzeMealFromImage({
     throw new Error(`Gemini Vision error: ${errMsg}`);
   }
 
-  const parts = data?.candidates?.[0]?.content?.parts ?? [];
-  let text = '';
-  for (const p of parts) {
-    if (typeof p.text === 'string') text += p.text;
+  const candidate = data?.candidates?.[0];
+  const text = extractGeminiResponseText(candidate?.content?.parts);
+
+  if (!text.trim()) {
+    const finishReason = candidate?.finishReason ?? 'unknown';
+    const blockReason = data?.promptFeedback?.blockReason;
+    console.error('[chatNutriGemini] Vision resposta vazia', { finishReason, blockReason, model });
+    throw new Error(
+      blockReason
+        ? `Gemini Vision bloqueou a imagem (${blockReason}).`
+        : `Gemini Vision retornou resposta vazia (${finishReason}).`
+    );
   }
 
-  return safeParseGeminiJson(text);
+  const parsed = safeParseGeminiJson(text);
+  if (parsed.notes === 'Falha ao interpretar resposta do modelo') {
+    console.error('[chatNutriGemini] Vision JSON inválido', {
+      model,
+      preview: text.slice(0, 400),
+    });
+  }
+
+  return parsed;
 }
 
 export interface ChatHistoryEntry {
@@ -394,7 +465,7 @@ export async function chatNutriTextReply({
   }
   const accessToken = await getAccessToken(creds);
   const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
-  const model = process.env.GEMINI_MODEL_ID || 'gemini-2.0-flash-001';
+  const model = resolveGeminiModelId();
   const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${creds.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
 
   const knowledge = await loadKnowledge({

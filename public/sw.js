@@ -1,9 +1,9 @@
 // Service Worker — escopo mínimo: ícones/manifest offline; app não interceptada (evita HTML/JS antigo)
-const STATIC_CACHE = 'oftware-static-v1.0.5';
-const DYNAMIC_CACHE = 'oftware-dynamic-v1.0.5';
+const STATIC_CACHE = 'oftware-static-v1.0.7';
+const DYNAMIC_CACHE = 'oftware-dynamic-v1.0.7';
 
 const STATIC_ASSETS = [
-  '/icones/metodo-simbolo-pwa.jpg',
+  '/icones/metodo-simbolo-17.png',
   '/icones/oftware.png',
   '/icones/greens.png',
   '/icones/catarata.png',
@@ -106,6 +106,14 @@ self.addEventListener('fetch', (event) => {
 
   // Bundles RSC/chunks Next: não interceptar — stale-while-revalidate servia JS antigo na hora
   if (url.pathname.startsWith('/_next/')) {
+    return;
+  }
+
+  // APIs de páginas públicas de paciente: não interceptar (Safari/iOS retorna "Load failed")
+  if (
+    url.pathname.startsWith('/api/aplicacao/') ||
+    url.pathname.startsWith('/api/conclusao/')
+  ) {
     return;
   }
 

@@ -1,5 +1,6 @@
 import { collection, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 import { Medico } from '@/types/medico';
 
 /**
@@ -28,31 +29,64 @@ function removeUndefined(obj: any): any {
 }
 
 export class MedicoService {
+  private static normalizeEmail(email?: string | null): string {
+    return (email || '').trim().toLowerCase();
+  }
+
+  private static async findMedicoDocByEmailNormalized(email?: string | null) {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) return null;
+
+    const exactQuery = query(collection(db, 'medicos'), where('email', '==', normalizedEmail));
+    const exactSnapshot = await getDocs(exactQuery);
+    if (!exactSnapshot.empty) {
+      return exactSnapshot.docs[0];
+    }
+
+    const allSnapshot = await getDocs(collection(db, 'medicos'));
+    return (
+      allSnapshot.docs.find((d) => {
+        const data = d.data() as { email?: string };
+        return this.normalizeEmail(data.email) === normalizedEmail;
+      }) || null
+    );
+  }
+
   // Criar ou atualizar perfil do médico
   static async createOrUpdateMedico(medico: Omit<Medico, 'id'>): Promise<string> {
     try {
-      // Verificar se já existe médico com este userId
-      const existingQuery = query(collection(db, 'medicos'), where('userId', '==', medico.userId));
-      const existingSnapshot = await getDocs(existingQuery);
-      
-      if (!existingSnapshot.empty) {
-        // Atualizar médico existente
-        const existingDoc = existingSnapshot.docs[0];
-        const medicoData = removeUndefined({
-          ...medico,
-          dataCadastro: new Date()
-        });
-        await updateDoc(doc(db, 'medicos', existingDoc.id), medicoData);
-        return existingDoc.id;
-      } else {
-        // Criar novo médico
-        const medicoData = removeUndefined({
-          ...medico,
-          dataCadastro: new Date()
-        });
-        const docRef = await addDoc(collection(db, 'medicos'), medicoData);
-        return docRef.id;
+      const normalizedEmail = this.normalizeEmail(medico.email);
+      const medicoData = removeUndefined({
+        ...medico,
+        email: normalizedEmail,
+        dataCadastro: new Date()
+      });
+
+      // 1) Tenta por userId (regra atual)
+      const userId = (medico.userId || '').trim();
+      if (userId) {
+        const existingQuery = query(collection(db, 'medicos'), where('userId', '==', userId));
+        const existingSnapshot = await getDocs(existingQuery);
+        if (!existingSnapshot.empty) {
+          const existingDoc = existingSnapshot.docs[0];
+          await updateDoc(doc(db, 'medicos', existingDoc.id), medicoData);
+          return existingDoc.id;
+        }
       }
+
+      // 2) Fallback por e-mail (evita duplicação legado/UID diferente)
+      const existingByEmailDoc = await this.findMedicoDocByEmailNormalized(normalizedEmail);
+      if (existingByEmailDoc) {
+        await updateDoc(doc(db, 'medicos', existingByEmailDoc.id), medicoData);
+        return existingByEmailDoc.id;
+      }
+
+      // 3) Não encontrou: cria novo
+      const docRef = await addDoc(collection(db, 'medicos'), {
+        ...medicoData,
+        ...shadowOrganizationFields(),
+      });
+      return docRef.id;
     } catch (error) {
       console.error('Erro ao criar/atualizar médico:', error);
       throw error;
@@ -105,16 +139,22 @@ export class MedicoService {
   // Buscar médico por email
   static async getMedicoByEmail(email: string): Promise<Medico | null> {
     try {
-      const medicoQuery = query(collection(db, 'medicos'), where('email', '==', email));
+      const normalizedEmail = this.normalizeEmail(email);
+      if (!normalizedEmail) return null;
+
+      const medicoQuery = query(collection(db, 'medicos'), where('email', '==', normalizedEmail));
       const medicoSnapshot = await getDocs(medicoQuery);
       
-      if (medicoSnapshot.empty) {
-        return null;
-      }
-      
-      const medicoData = medicoSnapshot.docs[0].data();
+      const medicoDoc =
+        !medicoSnapshot.empty
+          ? medicoSnapshot.docs[0]
+          : await this.findMedicoDocByEmailNormalized(normalizedEmail);
+
+      if (!medicoDoc) return null;
+
+      const medicoData = medicoDoc.data();
       return {
-        id: medicoSnapshot.docs[0].id,
+        id: medicoDoc.id,
         ...medicoData,
         dataCadastro: medicoData.dataCadastro?.toDate(),
       } as Medico;

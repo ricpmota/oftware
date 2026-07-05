@@ -4,6 +4,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
 import crypto from 'crypto';
 import type { MedicoPerfilRelatorio } from '@/utils/relatorioPacientePdf';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -152,24 +154,13 @@ export async function POST(request: NextRequest) {
 
     const duracaoTratamento = duracaoTratamentoTexto(evolucao);
 
-    // Usa sempre o site próprio: NEXT_PUBLIC_APP_URL ou origem do request. Nunca usa Vercel para o link do paciente.
-    const originHeader = request.headers.get('origin');
-    const refererHeader = request.headers.get('referer');
-    const refererOrigin = refererHeader ? (() => { try { return new URL(refererHeader).origin; } catch { return ''; } })() : '';
-    const baseUrl =
-      (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
-      || (typeof originHeader === 'string' ? originHeader.replace(/\/$/, '') : '')
-      || refererOrigin
-      || 'https://oftware.com.br';
-    const baseNorm = baseUrl.replace(/\/$/, '');
-
-    // Gera link seguro do relatório para usar no e-mail (variável {relatorio})
     const token = crypto.randomBytes(32).toString('hex');
-    const linkRelatorio = `${baseNorm}/relatorio/${token}`;
+    const linkRelatorio = buildOrganizacaoPublicUrl(`/relatorio/${token}`);
 
     await db.collection('relatorio_paciente_links').doc(token).set({
       pacienteId,
       createdAt: new Date(),
+      ...shadowOrganizationFields(),
     });
 
     const emailDoc = await db.collection('emails').doc('conclusao_tratamento_conclusao_tratamento').get();

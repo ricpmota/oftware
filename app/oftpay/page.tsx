@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, User, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { OFTPAY_COURSES } from './coursesConfig';
-import { BookOpen, Video, User as UserIcon, ChevronDown } from 'lucide-react';
+import { BookOpen, Video, User as UserIcon, ChevronDown, ClipboardList } from 'lucide-react';
 
 function OftPayContent() {
   const router = useRouter();
@@ -16,6 +16,7 @@ function OftPayContent() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [allowedCourseIds, setAllowedCourseIds] = useState<string[] | null>(null);
+  const [questoesEnabled, setQuestoesEnabled] = useState<boolean | null>(null);
   const [accessStartAt, setAccessStartAt] = useState<number | null>(null);
   const [accessEndAt, setAccessEndAt] = useState<number | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -57,6 +58,7 @@ function OftPayContent() {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setAllowedCourseIds(Array.isArray(data.allowedCourseIds) ? data.allowedCourseIds : []);
+        setQuestoesEnabled(Boolean(data.questoesEnabled));
         setAccessStartAt(typeof data.accessStartAt === 'number' ? data.accessStartAt : null);
         setAccessEndAt(typeof data.accessEndAt === 'number' ? data.accessEndAt : null);
         setLoginError(null);
@@ -67,6 +69,7 @@ function OftPayContent() {
           return false;
         }
         setAllowedCourseIds([]);
+        setQuestoesEnabled(false);
         setAccessStartAt(null);
         setAccessEndAt(null);
       }
@@ -81,6 +84,7 @@ function OftPayContent() {
   useEffect(() => {
     if (!user) {
       setAllowedCourseIds(null);
+      setQuestoesEnabled(null);
       return;
     }
     let cancelled = false;
@@ -125,7 +129,9 @@ function OftPayContent() {
 
   const hasAccess = (courseId: string) =>
     allowedCourseIds === null || allowedCourseIds.includes(courseId);
+  const hasQuestoesAccess = questoesEnabled === true;
   const noCoursesLiberados = allowedCourseIds !== null && allowedCourseIds.length === 0;
+  const nothingLiberado = noCoursesLiberados && !hasQuestoesAccess;
 
   const handleGoogleLogin = async () => {
     if (isLoggingIn) return;
@@ -264,8 +270,8 @@ function OftPayContent() {
                 </div>
               </div>
               <div className="py-2">
-                <p className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Cursos com acesso</p>
-                {allowedCourseIds != null && allowedCourseIds.length > 0 ? (
+                <p className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">Recursos com acesso</p>
+                {allowedCourseIds != null && (allowedCourseIds.length > 0 || hasQuestoesAccess) ? (
                   <ul className="px-2">
                     {OFTPAY_COURSES.filter((c) => allowedCourseIds.includes(c.id)).map((course) => {
                       const vig = formatVigencia();
@@ -286,9 +292,17 @@ function OftPayContent() {
                         </li>
                       );
                     })}
+                    {hasQuestoesAccess && (
+                      <li className="flex flex-col gap-0.5 px-2 py-2 rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-gray-800">Banco de Questões</span>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">{formatVigencia().texto}</span>
+                        </div>
+                      </li>
+                    )}
                   </ul>
                 ) : (
-                  <p className="px-4 py-2 text-sm text-gray-500">Nenhum curso liberado.</p>
+                  <p className="px-4 py-2 text-sm text-gray-500">Nenhum recurso liberado.</p>
                 )}
               </div>
               <div className="border-t border-gray-100">
@@ -312,9 +326,9 @@ function OftPayContent() {
         <h2 className="text-xl font-bold text-gray-900 mb-1">Cursos disponíveis</h2>
         <p className="text-gray-600 mb-6">Escolha um curso para começar.</p>
 
-        {noCoursesLiberados && (
+        {nothingLiberado && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm mb-6">
-            Nenhum curso liberado para sua conta. Entre em contato com o administrador para solicitar acesso.
+            Nenhum curso ou recurso liberado para sua conta. Entre em contato com o administrador para solicitar acesso.
           </div>
         )}
 
@@ -351,6 +365,34 @@ function OftPayContent() {
               </div>
             );
           })}
+          {(() => {
+            const liberado = hasQuestoesAccess;
+            const iconBg = liberado
+              ? 'bg-emerald-100 text-emerald-600 active:bg-emerald-600 active:text-white'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed';
+            const content = (
+              <>
+                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-md transition-colors ${iconBg}`}>
+                  <ClipboardList className="w-10 h-10" />
+                </div>
+                <span className={`text-sm font-medium text-center max-w-[100px] ${liberado ? 'text-gray-800' : 'text-gray-400'}`}>
+                  Banco de Questões
+                </span>
+              </>
+            );
+            if (liberado) {
+              return (
+                <Link key="questoes" href="/oftpay/questoes" className="group flex flex-col items-center gap-3 touch-manipulation">
+                  {content}
+                </Link>
+              );
+            }
+            return (
+              <div key="questoes" className="flex flex-col items-center gap-3 cursor-not-allowed opacity-80" title="Banco de Questões não liberado para sua conta">
+                {content}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Desktop: cards — colorido se liberado, cinza se desativado */}
@@ -396,6 +438,46 @@ function OftPayContent() {
               </div>
             );
           })}
+          {(() => {
+            const liberado = hasQuestoesAccess;
+            const cardBorder = liberado ? 'hover:border-emerald-200' : '';
+            const iconBg = liberado
+              ? 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600'
+              : 'bg-gray-100 text-gray-400';
+            const titleHover = liberado ? 'group-hover:text-emerald-600' : '';
+            const linkColor = liberado ? 'text-emerald-600 group-hover:underline' : 'text-gray-400';
+            const baseClasses = `group block rounded-xl bg-white border border-gray-200 p-6 shadow-sm ${liberado ? 'hover:shadow-md ' + cardBorder : 'opacity-80 cursor-not-allowed'} transition-all`;
+            const inner = (
+              <div className="flex items-start gap-4">
+                <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${iconBg} ${liberado ? 'group-hover:text-white' : ''}`}>
+                  <ClipboardList className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className={`font-semibold transition-colors ${liberado ? `text-gray-900 ${titleHover}` : 'text-gray-500'}`}>
+                    Banco de Questões
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                    Simulados personalizados por tópico e acompanhamento de desempenho.
+                  </p>
+                  <span className={`inline-block mt-3 text-sm font-medium ${linkColor}`}>
+                    {liberado ? 'Acessar banco →' : 'Não liberado'}
+                  </span>
+                </div>
+              </div>
+            );
+            if (liberado) {
+              return (
+                <Link key="questoes" href="/oftpay/questoes" className={baseClasses}>
+                  {inner}
+                </Link>
+              );
+            }
+            return (
+              <div key="questoes" className={baseClasses} title="Banco de Questões não liberado para sua conta">
+                {inner}
+              </div>
+            );
+          })()}
         </div>
       </main>
     </div>

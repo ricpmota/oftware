@@ -22,6 +22,8 @@ export interface ParcelaPagamento {
   status: 'pendente' | 'paga' | 'atrasada';
   formaPagamento?: 'dinheiro' | 'pix' | 'cartao_credito' | 'cartao_debito' | 'transferencia' | 'boleto';
   observacoes?: string;
+  /** Presente apenas na primeira parcela de vendas adicionais (Venda 2, 3...). */
+  dataVenda?: Date;
 }
 
 // Tipo para vendas avulsas (sem paciente)

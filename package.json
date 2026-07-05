@@ -6,11 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@napi-rs/canvas": "^1.0.0",
     "@types/imap": "^0.8.42",
     "@types/mailparser": "^3.4.6",
     "@types/nodemailer": "^7.0.4",
@@ -26,21 +32,28 @@
     "next": "^15.4.8",
     "nodemailer": "^7.0.11",
     "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^6.0.227",
+    "qrcode": "^1.5.4",
     "react": "^19.1.2",
     "react-dom": "^19.1.2",
     "react-qr-code": "^2.0.18",
     "recharts": "^3.1.0",
+    "screenshot-desktop": "^1.15.4",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^15.4.8",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }

@@ -3,7 +3,8 @@
  */
 
 import { db } from '@/lib/firebase';
-import { 
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import {
   collection, 
   doc, 
   getDoc, 
@@ -116,7 +117,10 @@ export class SolicitacaoNutricionistaService {
         nutricionistaEmail: nutricionistaEmail || '',
       };
 
-      const docRef = await addDoc(collection(db, COL_SOLICITACOES_NUTRICIONISTA), novaSolicitacao);
+      const docRef = await addDoc(collection(db, COL_SOLICITACOES_NUTRICIONISTA), {
+        ...novaSolicitacao,
+        ...shadowOrganizationFields(),
+      });
       
       // Log de auditoria
       await AuditLogService.logPacienteCompartilhadoComNutri(medicoId, nutricionistaId, pacienteId, medicoId);
@@ -268,6 +272,7 @@ export class SolicitacaoNutricionistaService {
         medicoId: requestData.medicoId,
         status: 'ativo',
         dataCompartilhamento: Timestamp.now(),
+        ...shadowOrganizationFields(),
       });
       
       // Log de auditoria

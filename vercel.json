@@ -10,7 +10,11 @@
     },
     {
       "path": "/api/cron/send-automatic-emails",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/send-automatic-emails-leads-nutri-personal",
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/atualizar-conversao",

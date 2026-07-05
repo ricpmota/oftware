@@ -76,9 +76,13 @@ export async function GET(request: NextRequest) {
 
     // Oftreview: PDFs em pasta única OFTREVIEW 2023/APOSTILAS/
     // Propedeutics: PDFs dentro de cada subpasta (ex: PROPEDEUTICS/EMERGÊNCIA/Emergency.pdf) — busca ativa em todas as subpastas
+    // Laudo Exames: pasta dedicada LAUDO EXAMES/APOSTILAS/
     const isPropedeutics = courseId.toLowerCase() === 'propedeutics';
+    const isLaudoExames = courseId.toLowerCase() === 'laudo-exames';
     const prefix = isPropedeutics
       ? 'PROPEDEUTICS/'
+      : isLaudoExames
+        ? 'LAUDO EXAMES/APOSTILAS/'
       : courseId === 'oftreview'
         ? 'OFTREVIEW 2023/APOSTILAS/'
         : `${courseId.toUpperCase()}/APOSTILAS/`;

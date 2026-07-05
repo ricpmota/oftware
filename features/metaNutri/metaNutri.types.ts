@@ -28,6 +28,11 @@ export interface NutricionistaDoc {
   status: NutriStatus; // 'ativo' | 'inativo'
   medicoVinculadoIds: string[]; // IDs dos médicos vinculados
   dataCadastro: Date;
+  /** URLs de documentos enviados no fluxo de verificação (Suporte). */
+  docVerificacaoCnhUrl?: string;
+  docVerificacaoSelfieUrl?: string;
+  /** Foto do registro profissional (CRN). */
+  docVerificacaoRegistroUrl?: string;
 }
 
 /**

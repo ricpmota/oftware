@@ -1,3 +1,31 @@
+import type { DoctorSignatureProvider } from '@/types/doctorSignatureProvider';
+import type { MedicoInstagramBio } from '@/types/medicoInstagramBio';
+
+export interface MedicoWhiteLabelStored {
+  brandName?: string;
+  description?: string;
+  ogImageUrl?: string;
+  /** Logo exibido no canto superior direito dos PDFs de prescrição e requisição de exames. */
+  pdfLogoUrl?: string;
+  /** Ícone da aba do navegador (favicon) white label. */
+  faviconUrl?: string;
+  primaryColor?: string;
+  /** @deprecated use drPageBackgroundColor, aplicacaoPageBackgroundColor, conclusaoPageBackgroundColor */
+  pageBackgroundColor?: string;
+  /** @deprecated use drPageLogoUrl, aplicacaoPageLogoUrl, conclusaoPageLogoUrl */
+  publicPageLogoUrl?: string;
+  drPageBackgroundColor?: string;
+  drPageTextColor?: string;
+  drPageLogoUrl?: string;
+  aplicacaoPageBackgroundColor?: string;
+  aplicacaoPageTextColor?: string;
+  aplicacaoPageLogoUrl?: string;
+  conclusaoPageBackgroundColor?: string;
+  conclusaoPageTextColor?: string;
+  conclusaoPageLogoUrl?: string;
+  showPoweredByOftware?: boolean;
+}
+
 /** Item salvo: título curto na lista; texto completo vai para o PDF ao escolher. */
 export interface HipoteseDiagnosticaSalva {
   titulo: string;
@@ -12,6 +40,8 @@ export interface Medico {
   /** URL pública (ex.: Storage) da foto de perfil em recorte circular; definida no Metaadmin. */
   fotoPerfilUrl?: string | null;
   genero?: 'M' | 'F'; // Para exibir Dr./Dra.
+  /** Usuário público do Instagram (sem @); ex.: "drfulano". Preenchido em Metaadmin. */
+  instagramUsuario?: string | null;
   telefone?: string; // Telefone do médico
   /** CPF (pessoa física), opcional — usado no recibo quando o médico escolher exibir CPF. */
   cpfPessoal?: string;
@@ -24,7 +54,13 @@ export interface Medico {
   localizacao: {
     endereco: string;
     cep?: string;
+    /** Número do imóvel (complementa o logradouro do CEP). */
+    numero?: string;
+    /** Nome do consultório, clínica ou local de atendimento. */
+    nomeLocal?: string;
     pontoReferencia?: string;
+    /** Link compartilhado do Google Maps (maps.app.goo.gl, google.com/maps, etc.). */
+    googleMapsUrl?: string;
     lat?: number;
     lng?: number;
   };
@@ -35,6 +71,14 @@ export interface Medico {
   dataCadastro: Date;
   status: 'ativo' | 'inativo';
   isVerificado?: boolean; // Verificação do médico pelo admin
+  /** Análise inteligente (IA) na aba Dados Clínicos — ativado pelo metaadmingeral. */
+  anamneseInteligenteAtivo?: boolean;
+  /** Foto da CNH (verificação — enviada no chat de primeiro acesso). */
+  docVerificacaoCnhUrl?: string | null;
+  /** Selfie para verificação de identidade. */
+  docVerificacaoSelfieUrl?: string | null;
+  /** Foto do documento do CRM. */
+  docVerificacaoCrmUrl?: string | null;
   temPlanoIndicacao?: boolean; // Se o médico tem plano de indicações ativo
   planoIndicacao?: {
     tipoValor: 'negociado' | 'fixo'; // Valor negociado com cada cliente ou fixo para todos
@@ -51,6 +95,14 @@ export interface Medico {
    * Firestore pode ter legado `string[]`; normalizar com `normalizeHipotesesDiagnosticasSalvas`.
    */
   hipotesesDiagnosticasSalvas?: HipoteseDiagnosticaSalva[] | string[];
+  /** Preferência de provedor de assinatura digital (sem credenciais). */
+  doctorSignatureProvider?: DoctorSignatureProvider;
+  /** Identidade white label para links públicos enviados aos pacientes. */
+  whiteLabel?: MedicoWhiteLabelStored;
+  /** Configurações do hub /instagram/[crmUf] (Link da Bio). */
+  instagramBio?: MedicoInstagramBio;
+  /** Quando true, usa as 6 imagens padrão do Método (platformSettings/metodoImagens). */
+  metodoImagensAtivo?: boolean;
 }
 
 export function normalizeHipotesesDiagnosticasSalvas(raw: unknown): HipoteseDiagnosticaSalva[] {

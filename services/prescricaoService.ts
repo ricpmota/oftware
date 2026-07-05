@@ -1,10 +1,42 @@
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Prescricao, PrescricaoItem } from '@/types/prescricao';
+import type { PrescricaoPasta } from '@/types/prescricaoPasta';
 import { PRESCRICOES_PADRAO } from '@/data/prescricoesPadraoCompleto';
 
 export class PrescricaoService {
   private static COLLECTION_NAME = 'prescricoes';
+  private static PASTAS_COLLECTION_NAME = 'prescricao_pastas';
+
+  private static mapDocToPrescricao(id: string, data: Record<string, unknown>): Prescricao {
+    return {
+      id,
+      medicoId: data.medicoId as string,
+      pacienteId: (data.pacienteId as string) || undefined,
+      pacienteNome: (data.pacienteNome as string) || undefined,
+      nome: data.nome as string,
+      descricao: (data.descricao as string) ?? '',
+      itens: (data.itens as PrescricaoItem[]) ?? [],
+      observacoes: (data.observacoes as string) || undefined,
+      criadoEm: (data.criadoEm as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+      atualizadoEm: (data.atualizadoEm as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+      criadoPor: (data.criadoPor as string) ?? '',
+      isTemplate: data.isTemplate === true,
+      pesoPaciente: data.pesoPaciente != null ? Number(data.pesoPaciente) : undefined,
+      tipoDocumento: data.tipoDocumento as Prescricao['tipoDocumento'],
+      valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
+      dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
+      reciboDocumentoProfissional:
+        data.reciboDocumentoProfissional === 'cpf' ||
+        data.reciboDocumentoProfissional === 'cnpj' ||
+        data.reciboDocumentoProfissional === 'omitir'
+          ? data.reciboDocumentoProfissional
+          : undefined,
+      catalogoAba: data.catalogoAba as Prescricao['catalogoAba'],
+      pastaId: (data.pastaId as string) || undefined,
+      pastaNome: (data.pastaNome as string) || undefined,
+    };
+  }
 
   /**
    * Criar ou atualizar uma prescrição
@@ -38,6 +70,10 @@ export class PrescricaoService {
         prescricaoData.pesoPaciente = prescricao.pesoPaciente;
       }
 
+      if (prescricao.catalogoAba) prescricaoData.catalogoAba = prescricao.catalogoAba;
+      if (prescricao.pastaId) prescricaoData.pastaId = prescricao.pastaId;
+      if (prescricao.pastaNome) prescricaoData.pastaNome = prescricao.pastaNome;
+
       if (prescricao.tipoDocumento === 'recibo_medico') {
         prescricaoData.tipoDocumento = 'recibo_medico';
         if (prescricao.valorConsulta != null && !Number.isNaN(Number(prescricao.valorConsulta))) {
@@ -55,8 +91,11 @@ export class PrescricaoService {
         }
       }
 
-      // Se tem ID, atualizar; senão, criar novo
-      if ('id' in prescricao && prescricao.id) {
+      // Se tem ID persistido (string não vazia), atualizar; senão, criar novo
+      const prescricaoComId = prescricao as Prescricao;
+      const idPersistido =
+        typeof prescricaoComId.id === 'string' && prescricaoComId.id.length > 0 ? prescricaoComId.id : null;
+      if (idPersistido) {
         prescricaoData.criadoEm = prescricao.criadoEm;
         // Se pacienteId for undefined/null e estiver atualizando, remover os campos do documento
         if (!prescricao.pacienteId) {
@@ -66,8 +105,8 @@ export class PrescricaoService {
           // Se pacienteId existe mas pacienteNome não, remover pacienteNome
           prescricaoData.pacienteNome = deleteField();
         }
-        await updateDoc(doc(db, this.COLLECTION_NAME, prescricao.id), prescricaoData);
-        return prescricao.id;
+        await updateDoc(doc(db, this.COLLECTION_NAME, idPersistido), prescricaoData);
+        return idPersistido;
       } else {
         prescricaoData.criadoEm = new Date();
         const docRef = doc(collection(db, this.COLLECTION_NAME));
@@ -94,33 +133,9 @@ export class PrescricaoService {
       
       const snapshot = await getDocs(q);
       
-      const prescricoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          medicoId: data.medicoId,
-          pacienteId: data.pacienteId || undefined, // Garantir que seja undefined se não existir
-          pacienteNome: data.pacienteNome || undefined,
-          nome: data.nome,
-          descricao: data.descricao,
-          itens: data.itens || [],
-          observacoes: data.observacoes,
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          atualizadoEm: data.atualizadoEm?.toDate() || new Date(),
-          criadoPor: data.criadoPor,
-          isTemplate: data.isTemplate || false,
-          pesoPaciente: data.pesoPaciente,
-          tipoDocumento: data.tipoDocumento,
-          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
-          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
-          reciboDocumentoProfissional:
-            data.reciboDocumentoProfissional === 'cpf' ||
-            data.reciboDocumentoProfissional === 'cnpj' ||
-            data.reciboDocumentoProfissional === 'omitir'
-              ? data.reciboDocumentoProfissional
-              : undefined,
-        } as Prescricao;
-      });
+      const prescricoes = snapshot.docs.map((docSnap) =>
+        this.mapDocToPrescricao(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
       
       // Ordenar no cliente (mais recente primeiro)
       return prescricoes.sort((a, b) => b.atualizadoEm.getTime() - a.atualizadoEm.getTime());
@@ -144,38 +159,43 @@ export class PrescricaoService {
       const snapshot = await getDocs(q);
       console.log('📋 Prescrições template encontradas:', snapshot.docs.length);
       
-      const prescricoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          medicoId: data.medicoId,
-          pacienteId: data.pacienteId || undefined,
-          pacienteNome: data.pacienteNome || undefined,
-          nome: data.nome,
-          descricao: data.descricao,
-          itens: data.itens || [],
-          observacoes: data.observacoes,
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          atualizadoEm: data.atualizadoEm?.toDate() || new Date(),
-          criadoPor: data.criadoPor,
-          isTemplate: data.isTemplate || false,
-          pesoPaciente: data.pesoPaciente,
-          tipoDocumento: data.tipoDocumento,
-          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
-          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
-          reciboDocumentoProfissional:
-            data.reciboDocumentoProfissional === 'cpf' ||
-            data.reciboDocumentoProfissional === 'cnpj' ||
-            data.reciboDocumentoProfissional === 'omitir'
-              ? data.reciboDocumentoProfissional
-              : undefined,
-        } as Prescricao;
-      });
+      const prescricoes = snapshot.docs.map((docSnap) =>
+        this.mapDocToPrescricao(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
       
       // Ordenar no cliente (mais recente primeiro)
       return prescricoes.sort((a, b) => b.atualizadoEm.getTime() - a.atualizadoEm.getTime());
     } catch (error) {
       console.error('Erro ao buscar prescrições template:', error);
+      return [];
+    }
+  }
+
+  /** Pastas do catálogo global (metaadmingeral) — inclui pastas vazias. */
+  static async getPastasCatalogoSistema(): Promise<PrescricaoPasta[]> {
+    try {
+      const q = query(
+        collection(db, this.PASTAS_COLLECTION_NAME),
+        where('medicoId', '==', 'SISTEMA')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs
+        .map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            medicoId: 'SISTEMA' as const,
+            catalogoAba: (data.catalogoAba as PrescricaoPasta['catalogoAba']) || 'prescricao',
+            nome: String(data.nome ?? ''),
+            ordem: typeof data.ordem === 'number' ? data.ordem : 0,
+            sistemaPadrao: data.sistemaPadrao === true,
+            criadoEm: (data.criadoEm as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+            atualizadoEm: (data.atualizadoEm as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+          };
+        })
+        .sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, 'pt-BR'));
+    } catch (error) {
+      console.error('Erro ao buscar pastas do catálogo SISTEMA:', error);
       return [];
     }
   }
@@ -198,6 +218,57 @@ export class PrescricaoService {
         }
       }
       templatesExistentes = await this.getPrescricoesTemplate();
+
+      const nomeReciboPadrao = 'Recibo Médico — Consulta padrão';
+      const tituloRecibo = (nome: string) => {
+        const n = (nome || '').trim();
+        return n.includes(' — ') ? n.split(' — ')[1]?.trim() || n : n;
+      };
+      const normalizarNomeRecibo = (nome: string) =>
+        tituloRecibo(nome)
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/\p{M}/gu, '');
+      const normalizarNomeTemplate = (nome: string) =>
+        (nome || '')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/\p{M}/gu, '');
+      const isReciboConsultaPadrao = (t: Prescricao) =>
+        t.tipoDocumento === 'recibo_medico' && normalizarNomeRecibo(t.nome).includes('consulta padrao');
+      const nomeProbioticosPadrao = 'Prescrição de Probióticos';
+      const isProbioticosPadrao = (t: Prescricao) =>
+        t.medicoId === 'SISTEMA' && normalizarNomeTemplate(t.nome).includes('probiotico');
+
+      const recibosConsultaPadrao = templatesExistentes.filter(isReciboConsultaPadrao);
+      if (recibosConsultaPadrao.length > 1) {
+        const canonico =
+          recibosConsultaPadrao.find((t) => t.nome === nomeReciboPadrao && t.medicoId === 'SISTEMA') ??
+          recibosConsultaPadrao.find((t) => t.medicoId === 'SISTEMA') ??
+          recibosConsultaPadrao[0];
+        for (const t of recibosConsultaPadrao) {
+          if (t.id !== canonico.id) {
+            await this.deletePrescricao(t.id);
+            console.log('🗑️ Recibo Consulta padrão duplicado removido:', t.nome);
+          }
+        }
+        templatesExistentes = await this.getPrescricoesTemplate();
+      }
+
+      const probioticosDuplicados = templatesExistentes.filter(isProbioticosPadrao);
+      if (probioticosDuplicados.length > 1) {
+        const canonico =
+          probioticosDuplicados.find((t) => t.nome === nomeProbioticosPadrao) ?? probioticosDuplicados[0];
+        for (const t of probioticosDuplicados) {
+          if (t.id !== canonico.id) {
+            await this.deletePrescricao(t.id);
+            console.log('🗑️ Prescrição de Probióticos duplicada removida:', t.nome);
+          }
+        }
+        templatesExistentes = await this.getPrescricoesTemplate();
+      }
+
       const nomesExistentes = templatesExistentes.map((t) => t.nome);
       
       // Criar templates padrão (sem pacienteId, sem medicoId específico, isTemplate: true)
@@ -226,7 +297,7 @@ export class PrescricaoService {
       }
 
       // Prescrição 2: Probióticos
-      if (!nomesExistentes.includes('Prescrição de Probióticos')) {
+      if (!templatesExistentes.some(isProbioticosPadrao)) {
         const prescricaoProbioticos: Omit<Prescricao, 'id'> = {
           medicoId: 'SISTEMA',
           nome: 'Prescrição de Probióticos',
@@ -242,8 +313,7 @@ export class PrescricaoService {
         console.log('✅ Prescrição de Probióticos criada');
       }
 
-      const nomeReciboPadrao = 'Recibo Médico — Consulta padrão';
-      if (!nomesExistentes.includes(nomeReciboPadrao)) {
+      if (!templatesExistentes.some(isReciboConsultaPadrao)) {
         const descReciboPadrao =
           'Consulta médica para avaliação clínica, orientação terapêutica, planejamento metabólico e acompanhamento médico no tratamento da obesidade.';
         const reciboPadrao: Omit<Prescricao, 'id'> = {
@@ -301,33 +371,9 @@ export class PrescricaoService {
       const snapshot = await getDocs(q);
       console.log(`📋 Prescrições do paciente ${pacienteId} encontradas:`, snapshot.docs.length);
       
-      const prescricoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          medicoId: data.medicoId,
-          pacienteId: data.pacienteId || undefined,
-          pacienteNome: data.pacienteNome || undefined,
-          nome: data.nome,
-          descricao: data.descricao,
-          itens: data.itens || [],
-          observacoes: data.observacoes,
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          atualizadoEm: data.atualizadoEm?.toDate() || new Date(),
-          criadoPor: data.criadoPor,
-          isTemplate: data.isTemplate || false,
-          pesoPaciente: data.pesoPaciente,
-          tipoDocumento: data.tipoDocumento,
-          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
-          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
-          reciboDocumentoProfissional:
-            data.reciboDocumentoProfissional === 'cpf' ||
-            data.reciboDocumentoProfissional === 'cnpj' ||
-            data.reciboDocumentoProfissional === 'omitir'
-              ? data.reciboDocumentoProfissional
-              : undefined,
-        } as Prescricao;
-      });
+      const prescricoes = snapshot.docs.map((docSnap) =>
+        this.mapDocToPrescricao(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
       
       // Ordenar no cliente (mais recente primeiro)
       return prescricoes.sort((a, b) => b.atualizadoEm.getTime() - a.atualizadoEm.getTime());
@@ -345,39 +391,16 @@ export class PrescricaoService {
       const snapshot = await getDocs(collection(db, this.COLLECTION_NAME));
       console.log('📋 TOTAL de prescrições no Firestore:', snapshot.docs.length);
       
-      const prescricoes = snapshot.docs.map(doc => {
-        const data = doc.data();
+      const prescricoes = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
         console.log('📋 Prescrição encontrada:', {
-          id: doc.id,
+          id: docSnap.id,
           nome: data.nome,
           isTemplate: data.isTemplate,
           pacienteId: data.pacienteId,
-          medicoId: data.medicoId
-        });
-        return {
-          id: doc.id,
           medicoId: data.medicoId,
-          pacienteId: data.pacienteId || undefined,
-          pacienteNome: data.pacienteNome || undefined,
-          nome: data.nome,
-          descricao: data.descricao,
-          itens: data.itens || [],
-          observacoes: data.observacoes,
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          atualizadoEm: data.atualizadoEm?.toDate() || new Date(),
-          criadoPor: data.criadoPor,
-          isTemplate: data.isTemplate || false,
-          pesoPaciente: data.pesoPaciente,
-          tipoDocumento: data.tipoDocumento,
-          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
-          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
-          reciboDocumentoProfissional:
-            data.reciboDocumentoProfissional === 'cpf' ||
-            data.reciboDocumentoProfissional === 'cnpj' ||
-            data.reciboDocumentoProfissional === 'omitir'
-              ? data.reciboDocumentoProfissional
-              : undefined,
-        } as Prescricao;
+        });
+        return this.mapDocToPrescricao(docSnap.id, data as Record<string, unknown>);
       });
       
       return prescricoes;
@@ -394,31 +417,7 @@ export class PrescricaoService {
     try {
       const docSnap = await getDoc(doc(db, this.COLLECTION_NAME, id));
       if (docSnap.exists()) {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          medicoId: data.medicoId,
-          pacienteId: data.pacienteId || undefined,
-          pacienteNome: data.pacienteNome || undefined,
-          nome: data.nome,
-          descricao: data.descricao,
-          itens: data.itens || [],
-          observacoes: data.observacoes,
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          atualizadoEm: data.atualizadoEm?.toDate() || new Date(),
-          criadoPor: data.criadoPor,
-          isTemplate: data.isTemplate || false,
-          pesoPaciente: data.pesoPaciente,
-          tipoDocumento: data.tipoDocumento,
-          valorConsulta: data.valorConsulta != null ? Number(data.valorConsulta) : undefined,
-          dataRecibo: typeof data.dataRecibo === 'string' ? data.dataRecibo : undefined,
-          reciboDocumentoProfissional:
-            data.reciboDocumentoProfissional === 'cpf' ||
-            data.reciboDocumentoProfissional === 'cnpj' ||
-            data.reciboDocumentoProfissional === 'omitir'
-              ? data.reciboDocumentoProfissional
-              : undefined,
-        } as Prescricao;
+        return this.mapDocToPrescricao(docSnap.id, docSnap.data() as Record<string, unknown>);
       }
       return null;
     } catch (error) {

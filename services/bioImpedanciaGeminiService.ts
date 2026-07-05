@@ -1,70 +1,89 @@
 /**
- * Extração de resultado de bioimpedância (InBody / relatório similar) via Vertex AI (Gemini).
+ * Extração de resultado de bioimpedância (InBody / Tanita / apps de balança) via Vertex AI (Gemini).
  * Server-only.
  */
 
+import { DEFAULT_GEMINI_MODEL_ID } from '@/lib/gcp/geminiConfig';
 import { getGoogleVertexCredentials, getVertexAccessToken } from '@/lib/gcp/googleVertexAuth';
 import { normalizarRespostaBioImpedanciaIA } from '@/lib/metaadmin/bioImpedanciaExtracao';
 import type { BioImpedanciaExtracaoNormalizada } from '@/lib/metaadmin/bioImpedanciaExtracao';
 
 function buildBioImpedanciaPrompt(): string {
-  return `Você analisa relatórios de BIOIMPEDÂNCIA (InBody 270/570/770, InBody S10, Tanita, Omron, seca, equipamentos de clínica, laudos em PDF ou foto).
+  return `Você analisa relatórios de BIOIMPEDÂNCIA: InBody (270/570/770/S10), Tanita, Omron, Xiaomi, Renpho, seca, apps de balança inteligente, laudos de clínica em PDF ou foto.
 
-Sua tarefa: ler TODO o documento (todas as páginas / todas as regiões visíveis) e extrair o máximo possível de valores numéricos do PACIENTE que alimentam o JSON abaixo. Relatórios são bagunçados: tabelas, gráficos, duas colunas (valor atual vs faixa), abas “Composition”, “Obesity”, “Segmental”.
+Sua tarefa: ler TODO o documento e extrair o máximo possível de valores numéricos MEDIDOS do paciente (resultado atual), preenchendo o JSON abaixo.
 
-REGRAS:
-1) Use SOMENTE números que estejam explicitamente no laudo. NÃO invente, NÃO arredonde além do que o documento mostra, NÃO preencha lacunas com médias.
-2) Priorize sempre a coluna de **resultado / medido / atual / analysis / measurement**, NÃO use só “low / normal / high”, faixa de referência ou “target”, exceto se for o único número disponível (raro).
-3) **Vírgula decimal brasileira (3,5)** → número JSON com ponto (3.5). Remova separadores de milhar se houver.
-4) **Peso (kg):** “Weight”, “WT”, “Peso”, “PBW”, “Body Weight”.
-5) **Composição corporal (composicaoCorporal):**
-   - **aguaTotalLitros:** “TBW”, “Total Body Water”, “Água Total”, “Água corporal total”, valores em **L** (litros). Se o laudo mostrar só “água” em kg, converta para litros SE o documento disser explícito que é kg de água (caso contrário, omitir).
-   - **proteinasKg:** “Protein”, “Solid”, “Proteína”, “Massa proteica” (normalmente kg).
-   - **mineraisKg:** “Minerals”, “Mineral”, “Massa mineral”, “osteoporosis” section mass — use o valor de **minerais/osseous** em kg se claramente indicado; senão omita.
-   - **massaGorduraKg:** “BFM”, “Body Fat Mass”, “Massa de gordura”, “Gordura corporal (kg)”, “Fat Mass”. NÃO confundir com **percentual** de gordura.
-6) **Músculo–gordura (analiseMusculoGordura):**
-   - **massaMuscularKg:** “SMM”, “SLM”, “Skeletal Muscle Mass”, “Muscle Mass”, “Massa muscular esquelética”, “Lean Soft Mass” quando for claramente massa muscular (kg), não peso total.
-   - **massaGorduraKg:** repetir a massa de gordura em kg se aparecer nesta seção (pode ser o mesmo BFM da composição).
-7) **PGC (analiseObesidade.percentualGordura):** “PBF”, “Percent Body Fat”, “BF%”, “Gordura %”, “% de gordura”. Número em percentual (ex.: SEM o símbolo % no JSON).
-8) **Segmentar (massaMagraSegmentar e gorduraSegmentar):** procure tabelas “Segmental Lean / Fat / ECW” etc.
-   - Use SEMPRE as chaves: arm_r, arm_l, trunk, leg_r, leg_l.
-   - Mapeamento InBody comum: **RA**→arm_r, **LA**→arm_l, **TR**→trunk, **RL**→leg_r, **LL**→leg_l.
-   - Cada segmento: { "kg": número, "percentual": número }. Se só um existir, envie só esse (pode omitir o outro campo do objeto ou usar 0 somente se o laudo mostrar zero).
-9) **dataRegistro:** data do exame ou impressão, formato **YYYY-MM-DD**; se estiver DD/MM/AAAA, converta. Se ilegível, null.
-10) **avisos:** lista de problemas (foto cortada, contraste baixo, mais de um paciente, tabela ilegível, idioma misto, etc.).
-11) Saída: **apenas JSON válido**, sem markdown, sem comentários.
+REGRAS GERAIS:
+1) Use SOMENTE números explicitamente no laudo. NUNCA invente, NUNCA use faixa de referência, alvo ou "normal range" como se fosse resultado.
+2) Priorize coluna **medido / atual / resultado / measurement / analysis** — NÃO use apenas "low/normal/high" ou faixas ideais.
+3) Vírgula decimal brasileira (69,85) → ponto no JSON (69.85). Remova separadores de milhar.
+4) Se o exame for genérico (app de balança) e NÃO tiver proteínas, minerais ou segmentar, OMITA esses campos — não preencha com zero.
+5) Se água vier em **kg** ("peso da água", "water kg"), preencha **aguaKg** E também **composicaoCorporal.aguaTotalLitros** com o mesmo valor (aproximação 1 kg ≈ 1 L) e adicione aviso em **avisos**.
+6) **origemExame** (obrigatório quando identificável): um de: inbody | tanita | omron | xiaomi | renpho | seca | generico | outro
+   - InBody no cabeçalho/logo → inbody
+   - Tanita → tanita | Omron → omron | Xiaomi/Mi Body → xiaomi | Renpho → renpho | seca → seca
+   - App de balança genérico sem marca clara → generico
+7) **dataRegistro:** YYYY-MM-DD se legível; senão null.
+8) **avisos:** problemas de leitura, campos ambíguos, conversões feitas, idioma misto, etc.
 
-DICA: Se o PDF tem várias páginas, faça uma varredura completa antes de responder — muitos campos estão na página 2 (segmentar).
+MAPEAMENTOS OBRIGATÓRIOS (sinônimos → campo JSON):
+- "Gordura(%)", "BF%", "PBF", "Percent Body Fat", "Body Fat %" → **percentualGordura** E **analiseObesidade.percentualGordura**
+- "Peso da gordura", "Fat Mass", "Body Fat Mass", "Massa de gordura", "BFM" → **massaGorduraKg** + **composicaoCorporal.massaGorduraKg** + **analiseMusculoGordura.massaGorduraKg**
+- "Massa muscular", "Muscle Mass", "Peso da massa muscular" (total) → **massaMuscularKg** + **analiseMusculoGordura.massaMuscularKg**
+- "Skeletal Muscle Mass", "SMM", "Massa muscular esquelética" (kg) → **massaMuscularEsqueleticaKg**; se não houver "massa muscular" total separada, também **analiseMusculoGordura.massaMuscularKg**
+- "Água(%)", "Water %", "Body Water %" → **aguaPercentual**
+- "Peso da água", "Water kg", "água corporal kg" → **aguaKg** (+ litros conforme regra 5)
+- "TBW", "Total Body Water" em litros → **composicaoCorporal.aguaTotalLitros**
+- "Gordura visceral", "Visceral Fat", "VFA" (índice) → **gorduraVisceral**
+- "Metabolismo", "BMR", "Basal Metabolic Rate", "kcal/dia" → **metabolismoBasalKcal**
+- "IMC", "BMI" → **imc**
+- "Peso", "Weight", "WT", "Body Weight" → **peso**
+- "Altura", "Height" → **alturaCm** (cm; se vier em m, converta)
+- "Idade corporal", "Body Age" → **idadeCorporal**
+- "Proteína %", "Protein %" → **proteinaPercentual**
+- "Massa óssea", "Bone Mass" (kg) → **massaOsseaKg**; se for só minerais InBody, **composicaoCorporal.mineraisKg**
+- "Circunferência abdominal", "Waist" (cm) → **circunferenciaAbdominalCm**
 
-FORMATO EXATO DO JSON DE SAÍDA:
+SEGMENTAR (InBody/Tanita com tabela segmentar):
+- Chaves: arm_r, arm_l, trunk, leg_r, leg_l (RA→arm_r, LA→arm_l, TR→trunk, RL→leg_r, LL→leg_l)
+- Cada segmento: { "kg": número, "percentual": número } — omita campo não presente no laudo
+
+CAMPOS LEGADOS (preencher quando houver equivalência):
+- composicaoCorporal: aguaTotalLitros, proteinasKg, mineraisKg, massaGorduraKg
+- analiseMusculoGordura: massaMuscularKg, massaGorduraKg
+- analiseObesidade: percentualGordura
+- massaMagraSegmentar, gorduraSegmentar
+
+FORMATO JSON DE SAÍDA (omitir campos ausentes; não enviar null para números não lidos):
 {
+  "origemExame": "inbody" | "tanita" | "omron" | "xiaomi" | "renpho" | "seca" | "generico" | "outro",
   "dataRegistro": "YYYY-MM-DD" | null,
-  "peso": número | omitir,
-  "composicaoCorporal": {
-    "aguaTotalLitros": número,
-    "proteinasKg": número,
-    "mineraisKg": número,
-    "massaGorduraKg": número
-  } | omitir objeto vazio,
-  "analiseMusculoGordura": {
-    "massaMuscularKg": número,
-    "massaGorduraKg": número
-  } | omitir,
-  "analiseObesidade": {
-    "percentualGordura": número
-  } | omitir,
-  "massaMagraSegmentar": {
-    "arm_r": { "kg": número, "percentual": número },
-    "arm_l": { "kg": número, "percentual": número },
-    "trunk": { "kg": número, "percentual": número },
-    "leg_r": { "kg": número, "percentual": número },
-    "leg_l": { "kg": número, "percentual": número }
-  } | omitir,
-  "gorduraSegmentar": { mesmo formato que massaMagraSegmentar } | omitir,
-  "avisos": ["...", ...]
+  "peso": número,
+  "imc": número,
+  "percentualGordura": número,
+  "massaGorduraKg": número,
+  "massaMuscularKg": número,
+  "massaMuscularEsqueleticaKg": número,
+  "gorduraVisceral": número,
+  "aguaPercentual": número,
+  "aguaKg": número,
+  "metabolismoBasalKcal": número,
+  "massaOsseaKg": número,
+  "proteinaPercentual": número,
+  "idadeCorporal": número,
+  "alturaCm": número,
+  "circunferenciaAbdominalCm": número,
+  "composicaoCorporal": { "aguaTotalLitros", "proteinasKg", "mineraisKg", "massaGorduraKg" },
+  "analiseMusculoGordura": { "massaMuscularKg", "massaGorduraKg" },
+  "analiseObesidade": { "percentualGordura" },
+  "massaMagraSegmentar": { arm_r, arm_l, trunk, leg_r, leg_l },
+  "gorduraSegmentar": { arm_r, arm_l, trunk, leg_r, leg_l },
+  "avisos": ["..."]
 }
 
-Se o documento não for claramente um laudo de bioimpedância, retorne poucos campos e explique em avisos. Mesmo assim, devolva TUDO que conseguir ler com segurança.`;
+Exemplo app genérico (valores ilustrativos do tipo de laudo): peso 69.85, IMC 21.8, gordura 17.9%, massa gordura 12.5 kg, SMM 29.6 kg (42.4%), massa muscular total 53.7 kg, água 55.6% / 38.9 kg, visceral 8.5, BMR 1563.1 kcal, altura 179 cm, idade 41 → origemExame "generico", sem segmentar/proteínas/minerais se ausentes.
+
+Saída: APENAS JSON válido, sem markdown.`;
 }
 
 function segmentSchema(): Record<string, unknown> {
@@ -92,8 +111,23 @@ function buildBioImpedanciaResponseSchema(): Record<string, unknown> {
   return {
     type: 'OBJECT',
     properties: {
+      origemExame: { type: 'STRING', nullable: true },
       dataRegistro: { type: 'STRING', nullable: true },
       peso: { type: 'NUMBER' },
+      imc: { type: 'NUMBER' },
+      percentualGordura: { type: 'NUMBER' },
+      massaGorduraKg: { type: 'NUMBER' },
+      massaMuscularKg: { type: 'NUMBER' },
+      massaMuscularEsqueleticaKg: { type: 'NUMBER' },
+      gorduraVisceral: { type: 'NUMBER' },
+      aguaPercentual: { type: 'NUMBER' },
+      aguaKg: { type: 'NUMBER' },
+      metabolismoBasalKcal: { type: 'NUMBER' },
+      massaOsseaKg: { type: 'NUMBER' },
+      proteinaPercentual: { type: 'NUMBER' },
+      idadeCorporal: { type: 'NUMBER' },
+      alturaCm: { type: 'NUMBER' },
+      circunferenciaAbdominalCm: { type: 'NUMBER' },
       composicaoCorporal: {
         type: 'OBJECT',
         properties: {
@@ -184,13 +218,12 @@ export async function extrairBioImpedanciaComGemini(params: {
     process.env.GEMINI_BIO_IMPEDANCIA_MODEL_ID ||
     process.env.GEMINI_EXAME_LAB_MODEL_ID ||
     process.env.GEMINI_MODEL_ID ||
-    'gemini-2.0-flash-001';
+    DEFAULT_GEMINI_MODEL_ID;
   const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${creds.projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
 
   const prompt = buildBioImpedanciaPrompt();
   const base64 = buffer.toString('base64');
 
-  // Schema estrito costuma reduzir campos em laudos complexos; alinhar a exames lab: só se BIO_IMPEDANCIA_IA_USE_RESPONSE_SCHEMA=1
   const useResponseSchema = process.env.BIO_IMPEDANCIA_IA_USE_RESPONSE_SCHEMA === '1';
   const disableSchemaExplicit = process.env.BIO_IMPEDANCIA_IA_DISABLE_RESPONSE_SCHEMA === '1';
   const applySchema = useResponseSchema && !disableSchemaExplicit;

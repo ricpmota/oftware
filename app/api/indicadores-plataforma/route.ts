@@ -35,22 +35,19 @@ function toDate(val: unknown): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/** ~7.700 kcal por kg de massa corporal (aproximação clínica para exibição agregada). */
+const KCAL_POR_KG_PERDIDO = 7700;
+
 function processPacienteDoc(data: Record<string, unknown>) {
   const evolucao = (data.evolucaoSeguimento || []) as Array<{
-    doseAplicada?: { quantidade?: number };
-    adherence?: string;
-    adesao?: string;
     peso?: number;
     weekIndex?: number;
     numeroSemana?: number;
     dataRegistro?: unknown;
+    adherence?: string;
+    adesao?: string;
+    doseAplicada?: { quantidade?: number };
   }>;
-  let mg = 0;
-  evolucao.forEach((reg) => {
-    const qtd = reg.doseAplicada?.quantidade;
-    const adesaoOk = reg.adherence !== 'MISSED' && reg.adesao !== 'esquecida';
-    if (adesaoOk && typeof qtd === 'number' && qtd > 0) mg += qtd;
-  });
   const comPeso = evolucao
     .filter((r) => typeof r.peso === 'number' && r.peso > 0)
     .sort((a, b) => {
@@ -66,7 +63,36 @@ function processPacienteDoc(data: Record<string, unknown>) {
   const pesoInicial = comPeso[0]?.peso ?? dadosClinicos?.medidasIniciais?.peso ?? null;
   const pesoFinal = comPeso.length > 0 ? comPeso[comPeso.length - 1]?.peso : planoTerapeutico?.conclusaoTratamento?.pesoFinalKg ?? null;
   const kg = pesoInicial != null && pesoFinal != null && pesoInicial > pesoFinal ? pesoInicial - pesoFinal : 0;
-  return { mg, kg, registros: evolucao.length };
+
+  let mg = 0;
+  let aplicacoesRegistradas = 0;
+  let checkInsRealizados = 0;
+
+  evolucao.forEach((reg) => {
+    const qtd = reg.doseAplicada?.quantidade;
+    const adesaoOk = reg.adherence !== 'MISSED' && reg.adesao !== 'esquecida';
+    if (adesaoOk && typeof qtd === 'number' && qtd > 0) {
+      mg += qtd;
+      aplicacoesRegistradas += 1;
+    }
+    if (reg.adherence || reg.adesao || reg.dataRegistro) {
+      checkInsRealizados += 1;
+    }
+  });
+
+  const status = data.statusTratamento as string | undefined;
+  const jornadaAtiva = status === 'em_tratamento' || status === 'pendente' ? 1 : 0;
+  const protocoloAtivo = status === 'em_tratamento' ? 1 : 0;
+
+  return {
+    kg,
+    mg,
+    registros: evolucao.length,
+    aplicacoesRegistradas,
+    checkInsRealizados,
+    jornadaAtiva,
+    protocoloAtivo,
+  };
 }
 
 /**
@@ -77,35 +103,71 @@ function processPacienteDoc(data: Record<string, unknown>) {
 export async function GET() {
   try {
     const db = getFirebaseAdmin();
-    const [snapCompletos, snapAbandono] = await Promise.all([
-      db.collection('pacientes_completos').get(),
-      db.collection('pacientes_abandono').get(),
+    const camposIndicadores = [
+      'statusTratamento',
+      'evolucaoSeguimento',
+      'dadosClinicos.medidasIniciais.peso',
+      'planoTerapeutico.conclusaoTratamento.pesoFinalKg',
+    ] as const;
+
+    const [snapCompletos, snapAbandono, snapMedicos, snapNutris, snapPersonal] = await Promise.all([
+      db.collection('pacientes_completos').select(...camposIndicadores).get(),
+      db.collection('pacientes_abandono').select(...camposIndicadores).get(),
+      db.collection('medicos').select('nome').get(),
+      db.collection('nutricionistas').select('nome').get(),
+      db.collection('personal_trainers').select('nome').get(),
     ]);
 
     let kgPerdidoTotal = 0;
     let mgAplicadaTotal = 0;
     let totalRegistrosEvolucao = 0;
     let pacientesEmAcompanhamento = 0;
+    let pacientesConcluidos = 0;
+    let aplicacoesRegistradas = 0;
+    let checkInsRealizados = 0;
+    let jornadasAtivas = 0;
+    let protocolosAtivos = 0;
 
     const processar = (doc: { data: () => Record<string, unknown> }, contaEmAcompanhamento: boolean) => {
       const data = doc.data();
       if (contaEmAcompanhamento && data.statusTratamento === 'em_tratamento') {
         pacientesEmAcompanhamento += 1;
       }
-      const { mg, kg, registros } = processPacienteDoc(data);
-      kgPerdidoTotal += kg;
-      mgAplicadaTotal += mg;
-      totalRegistrosEvolucao += registros;
+      if (data.statusTratamento === 'concluido') {
+        pacientesConcluidos += 1;
+      }
+      const stats = processPacienteDoc(data);
+      kgPerdidoTotal += stats.kg;
+      mgAplicadaTotal += stats.mg;
+      totalRegistrosEvolucao += stats.registros;
+      aplicacoesRegistradas += stats.aplicacoesRegistradas;
+      checkInsRealizados += stats.checkInsRealizados;
+      jornadasAtivas += stats.jornadaAtiva;
+      protocolosAtivos += stats.protocoloAtivo;
     };
 
     snapCompletos.docs.forEach((doc) => processar(doc, true));
     snapAbandono.docs.forEach((doc) => processar(doc, false));
 
+    const kgReducaoTotal = Math.round(kgPerdidoTotal * 10) / 10;
+    const caloriasPerdidasTotal = Math.round(kgReducaoTotal * KCAL_POR_KG_PERDIDO);
+    const profissionaisConectados =
+      snapMedicos.docs.length + snapNutris.docs.length + snapPersonal.docs.length;
+
     return NextResponse.json({
-      kgReducaoTotal: Math.round(kgPerdidoTotal * 10) / 10,
-      mgAplicacoesTotal: Math.round(mgAplicadaTotal * 10) / 10,
+      kgReducaoTotal,
+      mgAplicadaTotal: Math.round(mgAplicadaTotal),
+      caloriasPerdidasTotal,
+      totalPacientes: snapCompletos.docs.length + snapAbandono.docs.length,
+      pacientesConcluidos,
       pacientesEmAcompanhamento,
       registrosEvolucao: totalRegistrosEvolucao,
+      profissionaisConectados,
+      registrosClinicos: totalRegistrosEvolucao,
+      checkInsRealizados,
+      aplicacoesRegistradas,
+      jornadasAtivas,
+      protocolosAtivos,
     });
   } catch (err) {
     console.error('Erro em indicadores-plataforma:', err);

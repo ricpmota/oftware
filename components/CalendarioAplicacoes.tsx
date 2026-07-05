@@ -6,6 +6,7 @@ import { AplicacaoService } from '@/services/aplicacaoService';
 import { MedicoService } from '@/services/medicoService';
 import { EmailAplicacaoService } from '@/services/emailAplicacaoService';
 import { Calendar, CheckCircle, XCircle, Clock, Filter, RefreshCw, Mail } from 'lucide-react';
+import { DoseMgTirzepatidaSelectOptions } from '@/components/tirzepatida/DoseMgTirzepatidaSelectOptions';
 import { PacienteCompleto } from '@/types/obesidade';
 
 interface CalendarioAplicacoesProps {
@@ -185,12 +186,7 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="">Todas</option>
-              <option value="2.5">2.5 mg</option>
-              <option value="5">5 mg</option>
-              <option value="7.5">7.5 mg</option>
-              <option value="10">10 mg</option>
-              <option value="12.5">12.5 mg</option>
-              <option value="15">15 mg</option>
+              <DoseMgTirzepatidaSelectOptions />
             </select>
           </div>
         </div>

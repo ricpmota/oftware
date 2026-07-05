@@ -3,14 +3,10 @@
 import type { MutableRefObject } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PacienteCompleto } from '@/types/obesidade';
-import {
-  primeiraDoseDoPlano,
-  injectionDayKeyFromLocalDate,
-  INJECTION_DAY_LABEL_PT,
-  dataPrevistaConclusaoComoEsquema,
-  semanaIndexConclusao,
-} from '@/utils/datasAplicacaoSemanaPlano';
+import { injectionDayKeyFromLocalDate, INJECTION_DAY_LABEL_PT, mesclarPlanoComDatasReconstruidas } from '@/utils/datasAplicacaoSemanaPlano';
 import { MetaadminMetasTratamentoBlock } from '@/components/metaadmin/MetaadminMetasTratamentoBlock';
+import { EsquemaDosesPorSemanaEditor } from '@/components/metaadmin/EsquemaDosesPorSemanaEditor';
+import { DoseMgTirzepatidaSelectOptions } from '@/components/tirzepatida/DoseMgTirzepatidaSelectOptions';
 
 export type MetaadminPlanoTerapeuticoSectionMode = 'plano' | 'meta' | 'full';
 
@@ -69,6 +65,7 @@ export function MetaadminPlanoTerapeuticoEditSections({
                                     startDate: undefined,
                                     dataInicioTratamento: undefined,
                                     injectionDayOfWeek: undefined,
+                                    datasAplicacaoIndividuais: undefined,
                                   }
                                 });
                                 return;
@@ -85,12 +82,15 @@ export function MetaadminPlanoTerapeuticoEditSections({
                                 | 'sab';
                               setPaciente({
                                 ...paciente!,
-                                planoTerapeutico: {
-                                  ...paciente?.planoTerapeutico,
-                                  startDate: localDate,
-                                  dataInicioTratamento: localDate,
-                                  injectionDayOfWeek: inj,
-                                }
+                                planoTerapeutico: mesclarPlanoComDatasReconstruidas(
+                                  paciente?.planoTerapeutico,
+                                  {
+                                    startDate: localDate,
+                                    dataInicioTratamento: localDate,
+                                    injectionDayOfWeek: inj,
+                                  },
+                                  paciente?.evolucaoSeguimento
+                                ),
                               });
                             }}
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
@@ -117,25 +117,41 @@ export function MetaadminPlanoTerapeuticoEditSections({
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Número de semanas do tratamento *
-                            <span className="text-xs text-gray-500 ml-2">(padrão: 18, pode ser ampliado depois)</span>
                           </label>
                           <input
                             type="number"
                             min="1"
                             max="200"
-                            value={paciente?.planoTerapeutico?.numeroSemanasTratamento || 18}
+                            value={
+                              paciente?.planoTerapeutico?.numeroSemanasTratamento === undefined ||
+                              paciente?.planoTerapeutico?.numeroSemanasTratamento === null
+                                ? ''
+                                : String(paciente.planoTerapeutico.numeroSemanasTratamento)
+                            }
                             onChange={(e) => {
-                              const valor = parseInt(e.target.value) || 18;
+                              const raw = e.target.value;
+                              if (raw === '') {
+                                setPaciente({
+                                  ...paciente!,
+                                  planoTerapeutico: {
+                                    ...paciente?.planoTerapeutico,
+                                    numeroSemanasTratamento: undefined,
+                                  },
+                                });
+                                return;
+                              }
+                              const n = parseInt(raw, 10);
+                              if (!Number.isFinite(n)) return;
+                              const clamped = Math.min(200, Math.max(1, n));
                               setPaciente({
                                 ...paciente!,
                                 planoTerapeutico: {
                                   ...paciente?.planoTerapeutico,
-                                  numeroSemanasTratamento: valor
-                                }
+                                  numeroSemanasTratamento: clamped,
+                                },
                               });
                             }}
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                            required
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Defina a duração inicial do tratamento. Após finalizar essas semanas, você poderá ampliar o tratamento adicionando mais semanas.
@@ -173,12 +189,7 @@ export function MetaadminPlanoTerapeuticoEditSections({
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                           >
                             <option value="">Selecione</option>
-                            <option value="2.5">2.5 mg</option>
-                            <option value="5">5 mg</option>
-                            <option value="7.5">7.5 mg</option>
-                            <option value="10">10 mg</option>
-                            <option value="12.5">12.5 mg</option>
-                            <option value="15">15 mg</option>
+                            <DoseMgTirzepatidaSelectOptions />
                           </select>
                         </div>
                         <div>
@@ -226,383 +237,11 @@ export function MetaadminPlanoTerapeuticoEditSections({
                     </div>
                   </div>
 
-                    {/* Editor de Esquema de Doses por Semana */}
-                    {(() => {
-                      const ptPlanoEsq = paciente?.planoTerapeutico;
-                      const primeiraDose = ptPlanoEsq ? primeiraDoseDoPlano(ptPlanoEsq) : null;
-                      if (!primeiraDose) {
-                        return (
-                          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md dark:bg-yellow-950/30 dark:border-yellow-800">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                              Configure a data de início para visualizar o esquema de doses.
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      const doseInicial = paciente!.planoTerapeutico!.currentDoseMg || 2.5;
-                      const numeroSemanas = Number(paciente.planoTerapeutico.numeroSemanasTratamento) || 18;
-                      const hoje = new Date();
-                      hoje.setHours(0, 0, 0, 0);
-                      const evolucao = paciente.evolucaoSeguimento || [];
-                      const datasAplicacaoIndividuais = paciente.planoTerapeutico?.datasAplicacaoIndividuais || {};
-
-                      // Obter registro de aplicação para uma semana (prioriza weekIndex para manter itens aplicados imutáveis ao alterar dia semanal)
-                      const getRegistroParaSemana = (semanaNum: number, dataPrevista: Date): any => {
-                        const byWeekIndex = evolucao.find((e: any) => (e.weekIndex ?? e.numeroSemana) === semanaNum);
-                        if (byWeekIndex?.dataRegistro) return byWeekIndex;
-                        const dataPrevNorm = new Date(dataPrevista);
-                        dataPrevNorm.setHours(0, 0, 0, 0);
-                        return evolucao.find((e: any) => {
-                          if (!e.dataRegistro) return false;
-                          const dataRegistro = e.dataRegistro instanceof Date ? new Date(e.dataRegistro) : new Date(e.dataRegistro as any);
-                          if (isNaN(dataRegistro.getTime())) return false;
-                          dataRegistro.setHours(0, 0, 0, 0);
-                          const diffDias = Math.abs((dataRegistro.getTime() - dataPrevNorm.getTime()) / (1000 * 60 * 60 * 24));
-                          return diffDias <= 1;
-                        }) ?? null;
-                      };
-
-                      const temRegistroParaData = (dataPrevista: Date, semanaNum?: number) => {
-                        if (semanaNum != null) return !!getRegistroParaSemana(semanaNum, dataPrevista);
-                        const dataPrevNorm = new Date(dataPrevista);
-                        dataPrevNorm.setHours(0, 0, 0, 0);
-                        return evolucao.some((e: any) => {
-                          if (!e.dataRegistro) return false;
-                          const dataRegistro = e.dataRegistro instanceof Date ? new Date(e.dataRegistro) : new Date(e.dataRegistro as any);
-                          if (isNaN(dataRegistro.getTime())) return false;
-                          dataRegistro.setHours(0, 0, 0, 0);
-                          const diffDias = Math.abs((dataRegistro.getTime() - dataPrevNorm.getTime()) / (1000 * 60 * 60 * 24));
-                          return diffDias <= 1;
-                        });
-                      };
-
-                      // Função para calcular dose automática (mesma lógica do calendário)
-                      const calcularDoseAutomatica = (semanaIndex: number) => {
-                        let semanasDesdeUltimoCiclo = semanaIndex;
-                        for (let s = 0; s < semanaIndex; s++) {
-                          const dataPrevista = new Date(primeiraDose);
-                          dataPrevista.setDate(primeiraDose.getDate() + (s * 7));
-                          const registro = evolucao.find((e: any) => {
-                            if (!e.dataRegistro) return false;
-                            const dataRegistro = e.dataRegistro instanceof Date 
-                              ? new Date(e.dataRegistro)
-                              : new Date(e.dataRegistro as any);
-                            if (isNaN(dataRegistro.getTime())) return false;
-                            dataRegistro.setHours(0, 0, 0, 0);
-                            const diffDias = Math.abs((dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
-                            return diffDias <= 1;
-                          });
-                          if (registro && registro.dataRegistro) {
-                            const dataRegistro = registro.dataRegistro instanceof Date 
-                              ? new Date(registro.dataRegistro)
-                              : new Date(registro.dataRegistro as any);
-                            dataRegistro.setHours(0, 0, 0, 0);
-                            const diffDias = (dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
-                            if (diffDias >= 4) {
-                              semanasDesdeUltimoCiclo = semanaIndex - s - 1;
-                              break;
-                            }
-                          }
-                        }
-                        return doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
-                      };
-
-                      // Criar array de semanas com dados
-                      const semanasCanceladas = paciente.planoTerapeutico.semanasCanceladas || [];
-                      const semanas = [];
-                      for (let s = 0; s < numeroSemanas; s++) {
-                        const dataDose = new Date(primeiraDose);
-                        dataDose.setDate(primeiraDose.getDate() + (s * 7));
-                        const semanaNum = s + 1;
-                        const doseAutomatica = calcularDoseAutomatica(s);
-                        const doseCustomizada = paciente.planoTerapeutico.esquemaDosesCustomizado?.[semanaNum];
-                        const doseAtual = doseCustomizada || doseAutomatica;
-                        const isPassada = dataDose < hoje;
-                        const isFutura = dataDose >= hoje;
-                        const isCancelada = semanasCanceladas.includes(semanaNum);
-                        const registroAplicacao = getRegistroParaSemana(semanaNum, dataDose);
-                        const temRegistroAplicacao = !!registroAplicacao;
-                        // Data de exibição: aplicados usam data real (imutável ao alterar dia semanal); não aplicados usam data individual se houver, senão calculada
-                        let dataExibicao = dataDose;
-                        if (temRegistroAplicacao && registroAplicacao.dataRegistro) {
-                          const dr = registroAplicacao.dataRegistro instanceof Date ? new Date(registroAplicacao.dataRegistro) : new Date(registroAplicacao.dataRegistro as any);
-                          dataExibicao = dr;
-                        } else if (datasAplicacaoIndividuais[semanaNum]) {
-                          try {
-                            const [y, m, d] = datasAplicacaoIndividuais[semanaNum].split('-').map(Number);
-                            const parsed = new Date(y, m - 1, d);
-                            if (!isNaN(parsed.getTime())) dataExibicao = parsed;
-                          } catch { /* manter dataDose */ }
-                        }
-
-                        semanas.push({
-                          semana: semanaNum,
-                          data: dataDose,
-                          dataExibicao,
-                          doseAutomatica,
-                          doseAtual,
-                          doseCustomizada: doseCustomizada || undefined,
-                          isPassada,
-                          isFutura,
-                          isCancelada,
-                          temRegistroAplicacao,
-                          isConclusao: false
-                        });
-                      }
-                      // Semana de Conclusão: mesma regra do calendário / Firestore (registro → mapa → última dose ativa + 7d)
-                      const dataConclusao = dataPrevistaConclusaoComoEsquema(paciente.planoTerapeutico, evolucao);
-                      const semConclNum = semanaIndexConclusao(paciente.planoTerapeutico);
-                      const registroConclusaoEsq = getRegistroParaSemana(semConclNum, dataConclusao);
-                      let dataExibicaoConclusao = dataConclusao;
-                      if (registroConclusaoEsq?.dataRegistro) {
-                        const dr = registroConclusaoEsq.dataRegistro instanceof Date
-                          ? new Date(registroConclusaoEsq.dataRegistro)
-                          : new Date(registroConclusaoEsq.dataRegistro as any);
-                        if (!isNaN(dr.getTime())) dataExibicaoConclusao = dr;
-                      }
-                      semanas.push({
-                        semana: semConclNum,
-                        data: dataConclusao,
-                        dataExibicao: dataExibicaoConclusao,
-                        doseAutomatica: 0,
-                        doseAtual: 0,
-                        doseCustomizada: undefined,
-                        isPassada: dataExibicaoConclusao < hoje,
-                        isFutura: dataExibicaoConclusao >= hoje,
-                        isCancelada: false,
-                        temRegistroAplicacao: !!registroConclusaoEsq,
-                        isConclusao: true
-                      });
-
-                      // Calcular somatório total de miligramas (apenas semanas de dose não canceladas)
-                      const totalMiligramas = semanas
-                        .filter(s => !s.isCancelada && !(s as { isConclusao?: boolean }).isConclusao)
-                        .reduce((total, s) => total + (s.doseAtual || 0), 0);
-
-                      return (
-                        <div className="mt-6 border-t border-gray-200 pt-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <h5 className="text-sm font-semibold text-gray-800">Esquema de Doses por Semana</h5>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Edite as doses das semanas em que ainda não foi registrada uma aplicação (Novo Registro). Após registrar a aplicação, a dose daquela semana fica bloqueada.
-                              </p>
-                              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                                <p className="text-xs font-semibold text-blue-800">
-                                  Total de miligramas no tratamento: <span className="text-blue-900">{totalMiligramas.toFixed(1)} mg</span>
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => {
-                                // Limpar todas as doses customizadas
-                                setPaciente({
-                                  ...paciente!,
-                                  planoTerapeutico: {
-                                    ...paciente?.planoTerapeutico,
-                                    esquemaDosesCustomizado: undefined
-                                  }
-                                });
-                              }}
-                              className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                            >
-                              Resetar para Automático
-                            </button>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <div className="inline-flex gap-2 min-w-full pb-2" style={{ minWidth: 'max-content' }}>
-                              {semanas.map((item) => {
-                                const isConclusao = (item as { isConclusao?: boolean }).isConclusao;
-                                const isEditable = !item.temRegistroAplicacao && !isConclusao;
-                                return (
-                                  <div
-                                    key={item.semana}
-                                    className={`flex-shrink-0 w-24 border rounded-lg p-2 ${
-                                      isConclusao
-                                        ? 'bg-purple-50 border-purple-300'
-                                        : item.isCancelada
-                                        ? 'bg-red-50 border-red-300'
-                                        : item.temRegistroAplicacao
-                                        ? 'bg-gray-50 border-gray-200 opacity-60'
-                                        : isEditable
-                                        ? 'bg-blue-50 border-blue-200'
-                                        : 'bg-white border-gray-200'
-                                    }`}
-                                  >
-                                    <div className="text-center">
-                                      <div className="text-xs font-semibold text-gray-600 mb-1">
-                                        {isConclusao ? 'Conclusão' : `Sem ${item.semana}`}
-                                      </div>
-                                      <div className="text-xs text-gray-500 mb-2">
-                                        {((item as { dataExibicao?: Date }).dataExibicao ?? item.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                      </div>
-                                      {isConclusao ? (
-                                        <div className="text-[10px] text-purple-700 font-medium">
-                                          Peso final
-                                        </div>
-                                      ) : item.isCancelada ? (
-                                        <div className="text-center">
-                                          <div className="text-xs font-semibold text-red-700 mb-1">
-                                            ⚠️ Cancelada
-                                          </div>
-                                          <button
-                                            onClick={() => {
-                                              const semanasCanceladasAtual = paciente?.planoTerapeutico?.semanasCanceladas || [];
-                                              const novasCanceladas = semanasCanceladasAtual.filter(s => s !== item.semana);
-                                              
-                                              setPaciente({
-                                                ...paciente!,
-                                                planoTerapeutico: {
-                                                  ...paciente?.planoTerapeutico,
-                                                  semanasCanceladas: novasCanceladas.length > 0 ? novasCanceladas : undefined
-                                                }
-                                              });
-                                            }}
-                                            className="text-[10px] text-red-600 hover:text-red-800 underline"
-                                          >
-                                            Reativar
-                                          </button>
-                                        </div>
-                                      ) : isEditable ? (
-                                        <div className="space-y-1">
-                                          <select
-                                            value={item.doseAtual}
-                                            onChange={(e) => {
-                                              const novaDose = parseFloat(e.target.value);
-                                              const esquemaAtual = paciente?.planoTerapeutico?.esquemaDosesCustomizado || {};
-                                              const novoEsquema = { ...esquemaAtual };
-                                              
-                                              if (novaDose === item.doseAutomatica) {
-                                                delete novoEsquema[item.semana];
-                                              } else {
-                                                novoEsquema[item.semana] = novaDose;
-                                              }
-                                              
-                                              setPaciente({
-                                                ...paciente!,
-                                                planoTerapeutico: {
-                                                  ...paciente?.planoTerapeutico,
-                                                  esquemaDosesCustomizado: Object.keys(novoEsquema).length > 0 ? novoEsquema : undefined
-                                                }
-                                              });
-                                            }}
-                                            className="w-full text-xs border border-gray-300 rounded px-1 py-1 text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                          >
-                                            <option value="2.5">2.5 mg</option>
-                                            <option value="5">5 mg</option>
-                                            <option value="7.5">7.5 mg</option>
-                                            <option value="10">10 mg</option>
-                                            <option value="12.5">12.5 mg</option>
-                                            <option value="15">15 mg</option>
-                                          </select>
-                                          <input
-                                            type="date"
-                                            value={(() => {
-                                              const d = (item as { dataExibicao?: Date }).dataExibicao ?? item.data;
-                                              const y = d.getFullYear();
-                                              const m = String(d.getMonth() + 1).padStart(2, '0');
-                                              const day = String(d.getDate()).padStart(2, '0');
-                                              return `${y}-${m}-${day}`;
-                                            })()}
-                                            onFocus={() => {
-                                              const d = (item as { dataExibicao?: Date }).dataExibicao ?? item.data;
-                                              const valor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                              dataAplicacaoFocoRef.current = { semana: item.semana, valor };
-                                            }}
-                                            onChange={(e) => {
-                                              const novaDataStr = e.target.value;
-                                              if (!novaDataStr) return;
-                                              const datasAtual = paciente?.planoTerapeutico?.datasAplicacaoIndividuais || {};
-                                              const novoDatas = { ...datasAtual, [item.semana]: novaDataStr };
-                                              setPaciente({
-                                                ...paciente!,
-                                                planoTerapeutico: {
-                                                  ...paciente?.planoTerapeutico,
-                                                  datasAplicacaoIndividuais: novoDatas
-                                                }
-                                              });
-                                            }}
-                                            onBlur={(e) => {
-                                              const atual = dataAplicacaoFocoRef.current;
-                                              if (!atual || atual.semana !== item.semana) return;
-                                              const novaDataStr = e.target.value;
-                                              if (!novaDataStr) return;
-                                              if (novaDataStr === atual.valor) return;
-                                              if (!window.confirm('Deseja salvar a alteração da data da aplicação?')) {
-                                                const datasAtual = paciente?.planoTerapeutico?.datasAplicacaoIndividuais || {};
-                                                const novoDatas = { ...datasAtual };
-                                                delete novoDatas[item.semana];
-                                                setPaciente({
-                                                  ...paciente!,
-                                                  planoTerapeutico: {
-                                                    ...paciente?.planoTerapeutico,
-                                                    datasAplicacaoIndividuais: Object.keys(novoDatas).length > 0 ? novoDatas : undefined
-                                                  }
-                                                });
-                                              }
-                                              dataAplicacaoFocoRef.current = null;
-                                            }}
-                                            className="w-full text-[10px] border border-gray-300 rounded px-1 py-0.5 text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                          />
-                                          <label className="flex items-center justify-center cursor-pointer text-[10px] text-red-600 hover:text-red-800">
-                                            <input
-                                              type="checkbox"
-                                              checked={false}
-                                              onChange={(e) => {
-                                                const semanasCanceladasAtual = paciente?.planoTerapeutico?.semanasCanceladas || [];
-                                                const novasCanceladas = [...semanasCanceladasAtual, item.semana];
-                                                
-                                                setPaciente({
-                                                  ...paciente!,
-                                                  planoTerapeutico: {
-                                                    ...paciente?.planoTerapeutico,
-                                                    semanasCanceladas: novasCanceladas
-                                                  }
-                                                });
-                                              }}
-                                              className="mr-1 h-3 w-3"
-                                            />
-                                            Cancelar
-                                          </label>
-                                        </div>
-                                      ) : (
-                                        <div className={`text-xs font-medium ${
-                                          item.doseCustomizada ? 'text-blue-700' : 'text-gray-700'
-                                        }`}>
-                                          {item.doseAtual} mg
-                                          {item.doseCustomizada && (
-                                            <span className="block text-[10px] text-blue-500 mt-0.5">(custom)</span>
-                                          )}
-                                        </div>
-                                      )}
-                                      {item.temRegistroAplicacao && !item.isCancelada && (
-                                        <div className="text-[10px] text-gray-400 mt-1">Aplicada</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          {(semanas.some(s => paciente?.planoTerapeutico?.esquemaDosesCustomizado?.[s.semana]) || 
-                            semanas.some(s => s.isCancelada)) && (
-                            <div className="mt-3 space-y-2">
-                              {semanas.some(s => paciente?.planoTerapeutico?.esquemaDosesCustomizado?.[s.semana]) && (
-                                <p className="text-xs text-blue-600">
-                                  <strong>Nota:</strong> Semanas com doses customizadas aparecem destacadas. As doses automáticas são calculadas considerando ajustes e atrasos do tratamento.
-                                </p>
-                              )}
-                              {semanas.some(s => s.isCancelada) && (
-                                <p className="text-xs text-red-600">
-                                  <strong>Atenção:</strong> Semanas canceladas aparecem em vermelho. Ao salvar o paciente, essas semanas serão automaticamente registradas como puladas na Pasta 6 (Evolução/Seguimento) e não aparecerão nos calendários futuros.
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <EsquemaDosesPorSemanaEditor
+                      paciente={paciente}
+                      setPaciente={setPaciente}
+                      dataAplicacaoFocoRef={dataAplicacaoFocoRef}
+                    />
 
                   <MetaadminMetasTratamentoBlock paciente={paciente!} setPaciente={setPaciente} />
 
@@ -648,6 +287,7 @@ export function MetaadminPlanoTerapeuticoEditSections({
                                     startDate: undefined,
                                     dataInicioTratamento: undefined,
                                     injectionDayOfWeek: undefined,
+                                    datasAplicacaoIndividuais: undefined,
                                   }
                                 });
                                 return;
@@ -664,12 +304,15 @@ export function MetaadminPlanoTerapeuticoEditSections({
                                 | 'sab';
                               setPaciente({
                                 ...paciente!,
-                                planoTerapeutico: {
-                                  ...paciente?.planoTerapeutico,
-                                  startDate: localDate,
-                                  dataInicioTratamento: localDate,
-                                  injectionDayOfWeek: inj,
-                                }
+                                planoTerapeutico: mesclarPlanoComDatasReconstruidas(
+                                  paciente?.planoTerapeutico,
+                                  {
+                                    startDate: localDate,
+                                    dataInicioTratamento: localDate,
+                                    injectionDayOfWeek: inj,
+                                  },
+                                  paciente?.evolucaoSeguimento
+                                ),
                               });
                             }}
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
@@ -696,25 +339,41 @@ export function MetaadminPlanoTerapeuticoEditSections({
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Número de semanas do tratamento *
-                            <span className="text-xs text-gray-500 ml-2">(padrão: 18, pode ser ampliado depois)</span>
                           </label>
                           <input
                             type="number"
                             min="1"
                             max="200"
-                            value={paciente?.planoTerapeutico?.numeroSemanasTratamento || 18}
+                            value={
+                              paciente?.planoTerapeutico?.numeroSemanasTratamento === undefined ||
+                              paciente?.planoTerapeutico?.numeroSemanasTratamento === null
+                                ? ''
+                                : String(paciente.planoTerapeutico.numeroSemanasTratamento)
+                            }
                             onChange={(e) => {
-                              const valor = parseInt(e.target.value) || 18;
+                              const raw = e.target.value;
+                              if (raw === '') {
+                                setPaciente({
+                                  ...paciente!,
+                                  planoTerapeutico: {
+                                    ...paciente?.planoTerapeutico,
+                                    numeroSemanasTratamento: undefined,
+                                  },
+                                });
+                                return;
+                              }
+                              const n = parseInt(raw, 10);
+                              if (!Number.isFinite(n)) return;
+                              const clamped = Math.min(200, Math.max(1, n));
                               setPaciente({
                                 ...paciente!,
                                 planoTerapeutico: {
                                   ...paciente?.planoTerapeutico,
-                                  numeroSemanasTratamento: valor
-                                }
+                                  numeroSemanasTratamento: clamped,
+                                },
                               });
                             }}
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                            required
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Defina a duração inicial do tratamento. Após finalizar essas semanas, você poderá ampliar o tratamento adicionando mais semanas.
@@ -752,12 +411,7 @@ export function MetaadminPlanoTerapeuticoEditSections({
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                           >
                             <option value="">Selecione</option>
-                            <option value="2.5">2.5 mg</option>
-                            <option value="5">5 mg</option>
-                            <option value="7.5">7.5 mg</option>
-                            <option value="10">10 mg</option>
-                            <option value="12.5">12.5 mg</option>
-                            <option value="15">15 mg</option>
+                            <DoseMgTirzepatidaSelectOptions />
                           </select>
                         </div>
                         <div>
@@ -805,383 +459,11 @@ export function MetaadminPlanoTerapeuticoEditSections({
                     </div>
                   </div>
 
-                    {/* Editor de Esquema de Doses por Semana */}
-                    {(() => {
-                      const ptPlanoEsq = paciente?.planoTerapeutico;
-                      const primeiraDose = ptPlanoEsq ? primeiraDoseDoPlano(ptPlanoEsq) : null;
-                      if (!primeiraDose) {
-                        return (
-                          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md dark:bg-yellow-950/30 dark:border-yellow-800">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                              Configure a data de início para visualizar o esquema de doses.
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      const doseInicial = paciente!.planoTerapeutico!.currentDoseMg || 2.5;
-                      const numeroSemanas = Number(paciente.planoTerapeutico.numeroSemanasTratamento) || 18;
-                      const hoje = new Date();
-                      hoje.setHours(0, 0, 0, 0);
-                      const evolucao = paciente.evolucaoSeguimento || [];
-                      const datasAplicacaoIndividuais = paciente.planoTerapeutico?.datasAplicacaoIndividuais || {};
-
-                      // Obter registro de aplicação para uma semana (prioriza weekIndex para manter itens aplicados imutáveis ao alterar dia semanal)
-                      const getRegistroParaSemana = (semanaNum: number, dataPrevista: Date): any => {
-                        const byWeekIndex = evolucao.find((e: any) => (e.weekIndex ?? e.numeroSemana) === semanaNum);
-                        if (byWeekIndex?.dataRegistro) return byWeekIndex;
-                        const dataPrevNorm = new Date(dataPrevista);
-                        dataPrevNorm.setHours(0, 0, 0, 0);
-                        return evolucao.find((e: any) => {
-                          if (!e.dataRegistro) return false;
-                          const dataRegistro = e.dataRegistro instanceof Date ? new Date(e.dataRegistro) : new Date(e.dataRegistro as any);
-                          if (isNaN(dataRegistro.getTime())) return false;
-                          dataRegistro.setHours(0, 0, 0, 0);
-                          const diffDias = Math.abs((dataRegistro.getTime() - dataPrevNorm.getTime()) / (1000 * 60 * 60 * 24));
-                          return diffDias <= 1;
-                        }) ?? null;
-                      };
-
-                      const temRegistroParaData = (dataPrevista: Date, semanaNum?: number) => {
-                        if (semanaNum != null) return !!getRegistroParaSemana(semanaNum, dataPrevista);
-                        const dataPrevNorm = new Date(dataPrevista);
-                        dataPrevNorm.setHours(0, 0, 0, 0);
-                        return evolucao.some((e: any) => {
-                          if (!e.dataRegistro) return false;
-                          const dataRegistro = e.dataRegistro instanceof Date ? new Date(e.dataRegistro) : new Date(e.dataRegistro as any);
-                          if (isNaN(dataRegistro.getTime())) return false;
-                          dataRegistro.setHours(0, 0, 0, 0);
-                          const diffDias = Math.abs((dataRegistro.getTime() - dataPrevNorm.getTime()) / (1000 * 60 * 60 * 24));
-                          return diffDias <= 1;
-                        });
-                      };
-
-                      // Função para calcular dose automática (mesma lógica do calendário)
-                      const calcularDoseAutomatica = (semanaIndex: number) => {
-                        let semanasDesdeUltimoCiclo = semanaIndex;
-                        for (let s = 0; s < semanaIndex; s++) {
-                          const dataPrevista = new Date(primeiraDose);
-                          dataPrevista.setDate(primeiraDose.getDate() + (s * 7));
-                          const registro = evolucao.find((e: any) => {
-                            if (!e.dataRegistro) return false;
-                            const dataRegistro = e.dataRegistro instanceof Date 
-                              ? new Date(e.dataRegistro)
-                              : new Date(e.dataRegistro as any);
-                            if (isNaN(dataRegistro.getTime())) return false;
-                            dataRegistro.setHours(0, 0, 0, 0);
-                            const diffDias = Math.abs((dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
-                            return diffDias <= 1;
-                          });
-                          if (registro && registro.dataRegistro) {
-                            const dataRegistro = registro.dataRegistro instanceof Date 
-                              ? new Date(registro.dataRegistro)
-                              : new Date(registro.dataRegistro as any);
-                            dataRegistro.setHours(0, 0, 0, 0);
-                            const diffDias = (dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
-                            if (diffDias >= 4) {
-                              semanasDesdeUltimoCiclo = semanaIndex - s - 1;
-                              break;
-                            }
-                          }
-                        }
-                        return doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
-                      };
-
-                      // Criar array de semanas com dados
-                      const semanasCanceladas = paciente.planoTerapeutico.semanasCanceladas || [];
-                      const semanas = [];
-                      for (let s = 0; s < numeroSemanas; s++) {
-                        const dataDose = new Date(primeiraDose);
-                        dataDose.setDate(primeiraDose.getDate() + (s * 7));
-                        const semanaNum = s + 1;
-                        const doseAutomatica = calcularDoseAutomatica(s);
-                        const doseCustomizada = paciente.planoTerapeutico.esquemaDosesCustomizado?.[semanaNum];
-                        const doseAtual = doseCustomizada || doseAutomatica;
-                        const isPassada = dataDose < hoje;
-                        const isFutura = dataDose >= hoje;
-                        const isCancelada = semanasCanceladas.includes(semanaNum);
-                        const registroAplicacao = getRegistroParaSemana(semanaNum, dataDose);
-                        const temRegistroAplicacao = !!registroAplicacao;
-                        // Data de exibição: aplicados usam data real (imutável ao alterar dia semanal); não aplicados usam data individual se houver, senão calculada
-                        let dataExibicao = dataDose;
-                        if (temRegistroAplicacao && registroAplicacao.dataRegistro) {
-                          const dr = registroAplicacao.dataRegistro instanceof Date ? new Date(registroAplicacao.dataRegistro) : new Date(registroAplicacao.dataRegistro as any);
-                          dataExibicao = dr;
-                        } else if (datasAplicacaoIndividuais[semanaNum]) {
-                          try {
-                            const [y, m, d] = datasAplicacaoIndividuais[semanaNum].split('-').map(Number);
-                            const parsed = new Date(y, m - 1, d);
-                            if (!isNaN(parsed.getTime())) dataExibicao = parsed;
-                          } catch { /* manter dataDose */ }
-                        }
-
-                        semanas.push({
-                          semana: semanaNum,
-                          data: dataDose,
-                          dataExibicao,
-                          doseAutomatica,
-                          doseAtual,
-                          doseCustomizada: doseCustomizada || undefined,
-                          isPassada,
-                          isFutura,
-                          isCancelada,
-                          temRegistroAplicacao,
-                          isConclusao: false
-                        });
-                      }
-                      // Semana de Conclusão: mesma regra do calendário / Firestore (registro → mapa → última dose ativa + 7d)
-                      const dataConclusao = dataPrevistaConclusaoComoEsquema(paciente.planoTerapeutico, evolucao);
-                      const semConclNum = semanaIndexConclusao(paciente.planoTerapeutico);
-                      const registroConclusaoEsq = getRegistroParaSemana(semConclNum, dataConclusao);
-                      let dataExibicaoConclusao = dataConclusao;
-                      if (registroConclusaoEsq?.dataRegistro) {
-                        const dr = registroConclusaoEsq.dataRegistro instanceof Date
-                          ? new Date(registroConclusaoEsq.dataRegistro)
-                          : new Date(registroConclusaoEsq.dataRegistro as any);
-                        if (!isNaN(dr.getTime())) dataExibicaoConclusao = dr;
-                      }
-                      semanas.push({
-                        semana: semConclNum,
-                        data: dataConclusao,
-                        dataExibicao: dataExibicaoConclusao,
-                        doseAutomatica: 0,
-                        doseAtual: 0,
-                        doseCustomizada: undefined,
-                        isPassada: dataExibicaoConclusao < hoje,
-                        isFutura: dataExibicaoConclusao >= hoje,
-                        isCancelada: false,
-                        temRegistroAplicacao: !!registroConclusaoEsq,
-                        isConclusao: true
-                      });
-
-                      // Calcular somatório total de miligramas (apenas semanas de dose não canceladas)
-                      const totalMiligramas = semanas
-                        .filter(s => !s.isCancelada && !(s as { isConclusao?: boolean }).isConclusao)
-                        .reduce((total, s) => total + (s.doseAtual || 0), 0);
-
-                      return (
-                        <div className="mt-6 border-t border-gray-200 pt-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <h5 className="text-sm font-semibold text-gray-800">Esquema de Doses por Semana</h5>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Edite as doses das semanas em que ainda não foi registrada uma aplicação (Novo Registro). Após registrar a aplicação, a dose daquela semana fica bloqueada.
-                              </p>
-                              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                                <p className="text-xs font-semibold text-blue-800">
-                                  Total de miligramas no tratamento: <span className="text-blue-900">{totalMiligramas.toFixed(1)} mg</span>
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => {
-                                // Limpar todas as doses customizadas
-                                setPaciente({
-                                  ...paciente!,
-                                  planoTerapeutico: {
-                                    ...paciente?.planoTerapeutico,
-                                    esquemaDosesCustomizado: undefined
-                                  }
-                                });
-                              }}
-                              className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                            >
-                              Resetar para Automático
-                            </button>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <div className="inline-flex gap-2 min-w-full pb-2" style={{ minWidth: 'max-content' }}>
-                              {semanas.map((item) => {
-                                const isConclusao = (item as { isConclusao?: boolean }).isConclusao;
-                                const isEditable = !item.temRegistroAplicacao && !isConclusao;
-                                return (
-                                  <div
-                                    key={item.semana}
-                                    className={`flex-shrink-0 w-24 border rounded-lg p-2 ${
-                                      isConclusao
-                                        ? 'bg-purple-50 border-purple-300'
-                                        : item.isCancelada
-                                        ? 'bg-red-50 border-red-300'
-                                        : item.temRegistroAplicacao
-                                        ? 'bg-gray-50 border-gray-200 opacity-60'
-                                        : isEditable
-                                        ? 'bg-blue-50 border-blue-200'
-                                        : 'bg-white border-gray-200'
-                                    }`}
-                                  >
-                                    <div className="text-center">
-                                      <div className="text-xs font-semibold text-gray-600 mb-1">
-                                        {isConclusao ? 'Conclusão' : `Sem ${item.semana}`}
-                                      </div>
-                                      <div className="text-xs text-gray-500 mb-2">
-                                        {((item as { dataExibicao?: Date }).dataExibicao ?? item.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                      </div>
-                                      {isConclusao ? (
-                                        <div className="text-[10px] text-purple-700 font-medium">
-                                          Peso final
-                                        </div>
-                                      ) : item.isCancelada ? (
-                                        <div className="text-center">
-                                          <div className="text-xs font-semibold text-red-700 mb-1">
-                                            ⚠️ Cancelada
-                                          </div>
-                                          <button
-                                            onClick={() => {
-                                              const semanasCanceladasAtual = paciente?.planoTerapeutico?.semanasCanceladas || [];
-                                              const novasCanceladas = semanasCanceladasAtual.filter(s => s !== item.semana);
-                                              
-                                              setPaciente({
-                                                ...paciente!,
-                                                planoTerapeutico: {
-                                                  ...paciente?.planoTerapeutico,
-                                                  semanasCanceladas: novasCanceladas.length > 0 ? novasCanceladas : undefined
-                                                }
-                                              });
-                                            }}
-                                            className="text-[10px] text-red-600 hover:text-red-800 underline"
-                                          >
-                                            Reativar
-                                          </button>
-                                        </div>
-                                      ) : isEditable ? (
-                                        <div className="space-y-1">
-                                          <select
-                                            value={item.doseAtual}
-                                            onChange={(e) => {
-                                              const novaDose = parseFloat(e.target.value);
-                                              const esquemaAtual = paciente?.planoTerapeutico?.esquemaDosesCustomizado || {};
-                                              const novoEsquema = { ...esquemaAtual };
-                                              
-                                              if (novaDose === item.doseAutomatica) {
-                                                delete novoEsquema[item.semana];
-                                              } else {
-                                                novoEsquema[item.semana] = novaDose;
-                                              }
-                                              
-                                              setPaciente({
-                                                ...paciente!,
-                                                planoTerapeutico: {
-                                                  ...paciente?.planoTerapeutico,
-                                                  esquemaDosesCustomizado: Object.keys(novoEsquema).length > 0 ? novoEsquema : undefined
-                                                }
-                                              });
-                                            }}
-                                            className="w-full text-xs border border-gray-300 rounded px-1 py-1 text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                          >
-                                            <option value="2.5">2.5 mg</option>
-                                            <option value="5">5 mg</option>
-                                            <option value="7.5">7.5 mg</option>
-                                            <option value="10">10 mg</option>
-                                            <option value="12.5">12.5 mg</option>
-                                            <option value="15">15 mg</option>
-                                          </select>
-                                          <input
-                                            type="date"
-                                            value={(() => {
-                                              const d = (item as { dataExibicao?: Date }).dataExibicao ?? item.data;
-                                              const y = d.getFullYear();
-                                              const m = String(d.getMonth() + 1).padStart(2, '0');
-                                              const day = String(d.getDate()).padStart(2, '0');
-                                              return `${y}-${m}-${day}`;
-                                            })()}
-                                            onFocus={() => {
-                                              const d = (item as { dataExibicao?: Date }).dataExibicao ?? item.data;
-                                              const valor = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                              dataAplicacaoFocoRef.current = { semana: item.semana, valor };
-                                            }}
-                                            onChange={(e) => {
-                                              const novaDataStr = e.target.value;
-                                              if (!novaDataStr) return;
-                                              const datasAtual = paciente?.planoTerapeutico?.datasAplicacaoIndividuais || {};
-                                              const novoDatas = { ...datasAtual, [item.semana]: novaDataStr };
-                                              setPaciente({
-                                                ...paciente!,
-                                                planoTerapeutico: {
-                                                  ...paciente?.planoTerapeutico,
-                                                  datasAplicacaoIndividuais: novoDatas
-                                                }
-                                              });
-                                            }}
-                                            onBlur={(e) => {
-                                              const atual = dataAplicacaoFocoRef.current;
-                                              if (!atual || atual.semana !== item.semana) return;
-                                              const novaDataStr = e.target.value;
-                                              if (!novaDataStr) return;
-                                              if (novaDataStr === atual.valor) return;
-                                              if (!window.confirm('Deseja salvar a alteração da data da aplicação?')) {
-                                                const datasAtual = paciente?.planoTerapeutico?.datasAplicacaoIndividuais || {};
-                                                const novoDatas = { ...datasAtual };
-                                                delete novoDatas[item.semana];
-                                                setPaciente({
-                                                  ...paciente!,
-                                                  planoTerapeutico: {
-                                                    ...paciente?.planoTerapeutico,
-                                                    datasAplicacaoIndividuais: Object.keys(novoDatas).length > 0 ? novoDatas : undefined
-                                                  }
-                                                });
-                                              }
-                                              dataAplicacaoFocoRef.current = null;
-                                            }}
-                                            className="w-full text-[10px] border border-gray-300 rounded px-1 py-0.5 text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                          />
-                                          <label className="flex items-center justify-center cursor-pointer text-[10px] text-red-600 hover:text-red-800">
-                                            <input
-                                              type="checkbox"
-                                              checked={false}
-                                              onChange={(e) => {
-                                                const semanasCanceladasAtual = paciente?.planoTerapeutico?.semanasCanceladas || [];
-                                                const novasCanceladas = [...semanasCanceladasAtual, item.semana];
-                                                
-                                                setPaciente({
-                                                  ...paciente!,
-                                                  planoTerapeutico: {
-                                                    ...paciente?.planoTerapeutico,
-                                                    semanasCanceladas: novasCanceladas
-                                                  }
-                                                });
-                                              }}
-                                              className="mr-1 h-3 w-3"
-                                            />
-                                            Cancelar
-                                          </label>
-                                        </div>
-                                      ) : (
-                                        <div className={`text-xs font-medium ${
-                                          item.doseCustomizada ? 'text-blue-700' : 'text-gray-700'
-                                        }`}>
-                                          {item.doseAtual} mg
-                                          {item.doseCustomizada && (
-                                            <span className="block text-[10px] text-blue-500 mt-0.5">(custom)</span>
-                                          )}
-                                        </div>
-                                      )}
-                                      {item.temRegistroAplicacao && !item.isCancelada && (
-                                        <div className="text-[10px] text-gray-400 mt-1">Aplicada</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          {(semanas.some(s => paciente?.planoTerapeutico?.esquemaDosesCustomizado?.[s.semana]) || 
-                            semanas.some(s => s.isCancelada)) && (
-                            <div className="mt-3 space-y-2">
-                              {semanas.some(s => paciente?.planoTerapeutico?.esquemaDosesCustomizado?.[s.semana]) && (
-                                <p className="text-xs text-blue-600">
-                                  <strong>Nota:</strong> Semanas com doses customizadas aparecem destacadas. As doses automáticas são calculadas considerando ajustes e atrasos do tratamento.
-                                </p>
-                              )}
-                              {semanas.some(s => s.isCancelada) && (
-                                <p className="text-xs text-red-600">
-                                  <strong>Atenção:</strong> Semanas canceladas aparecem em vermelho. Ao salvar o paciente, essas semanas serão automaticamente registradas como puladas na Pasta 6 (Evolução/Seguimento) e não aparecerão nos calendários futuros.
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <EsquemaDosesPorSemanaEditor
+                      paciente={paciente}
+                      setPaciente={setPaciente}
+                      dataAplicacaoFocoRef={dataAplicacaoFocoRef}
+                    />
                 </div>
     );
   }

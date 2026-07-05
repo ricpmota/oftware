@@ -3,6 +3,7 @@
  */
 
 import { db } from '@/lib/firebase';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
 import { COL_PERSONAL_TRAINERS, PERSONAL_STATUS } from '@/features/metaPersonal/metaPersonal.constants';
@@ -35,6 +36,9 @@ export class PersonalTrainerService {
         status: data.status || PERSONAL_STATUS.INATIVO,
         medicoVinculadoIds: data.medicoVinculadoIds || [],
         dataCadastro: data.dataCadastro?.toDate() || new Date(),
+        docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+        docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+        docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
       };
     } catch (error) {
       console.error('Erro ao buscar personal trainer:', error);
@@ -73,6 +77,7 @@ export class PersonalTrainerService {
 
         await setDoc(docRef, {
           ...newPersonalTrainer,
+          ...shadowOrganizationFields(),
           dataCadastro: Timestamp.fromDate(newPersonalTrainer.dataCadastro),
         });
 
@@ -131,6 +136,9 @@ export class PersonalTrainerService {
           status: data.status || PERSONAL_STATUS.INATIVO,
           medicoVinculadoIds: data.medicoVinculadoIds || [],
           dataCadastro: data.dataCadastro?.toDate() || new Date(),
+          docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+          docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+          docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
         };
       }
     } catch (error) {
@@ -161,6 +169,36 @@ export class PersonalTrainerService {
     }
   }
 
+  /** Atualiza dados cadastrais e documentos de verificação (fluxo de chat / bloqueio). */
+  static async updateCadastroVerificacao(
+    userId: string,
+    data: {
+      nome: string;
+      telefone: string;
+      registroNumero: string;
+      cidades: { estado: string; cidade: string }[];
+      docVerificacaoCnhUrl?: string | null;
+      docVerificacaoSelfieUrl?: string | null;
+      docVerificacaoRegistroUrl?: string | null;
+    }
+  ): Promise<void> {
+    try {
+      const docRef = doc(db, COL_PERSONAL_TRAINERS, userId);
+      await updateDoc(docRef, {
+        nome: data.nome,
+        telefone: data.telefone,
+        registroNumero: data.registroNumero,
+        cidades: data.cidades,
+        docVerificacaoCnhUrl: data.docVerificacaoCnhUrl ?? null,
+        docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl ?? null,
+        docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl ?? null,
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar cadastro de verificação do personal trainer:', error);
+      throw error;
+    }
+  }
+
   /**
    * Lista Personal Trainers vinculados a um médico específico
    */
@@ -187,6 +225,9 @@ export class PersonalTrainerService {
             status: data.status || PERSONAL_STATUS.INATIVO,
             medicoVinculadoIds: data.medicoVinculadoIds || [],
             dataCadastro: data.dataCadastro?.toDate() || new Date(),
+            docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+            docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+            docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
           };
         })
         .filter((personal) => 
@@ -224,6 +265,9 @@ export class PersonalTrainerService {
           status: data.status || PERSONAL_STATUS.INATIVO,
           medicoVinculadoIds: data.medicoVinculadoIds || [],
           dataCadastro: data.dataCadastro?.toDate() || new Date(),
+          docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+          docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+          docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
         };
       });
     } catch (error) {

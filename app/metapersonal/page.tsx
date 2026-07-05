@@ -5,6 +5,7 @@
 
 import { Suspense } from 'react';
 import MetaPersonalPageV2 from './page.v2';
+import PageLoadingScreen from '@/components/landing/PageLoadingScreen';
 
 // Flag para controlar qual versão usar
 // Pode ser alterada via env: NEXT_PUBLIC_METAPERSONAL_V2=1
@@ -12,7 +13,7 @@ const USE_METAPERSONAL_V2 = process.env.NEXT_PUBLIC_METAPERSONAL_V2 === '1' || t
 
 export default function MetaPersonalPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">Carregando...</div>}>
+    <Suspense fallback={<PageLoadingScreen />}>
       <MetaPersonalPageV2 />
     </Suspense>
   );

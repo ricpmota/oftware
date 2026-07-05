@@ -1,0 +1,351 @@
+{
+  "catalogoAba": "protocolo",
+  "pastaMae": "Protocolo",
+  "medicoId": "SISTEMA",
+  "isTemplate": true,
+  "protocolos": [
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Minha Prática",
+      "conteudo": "Estratégias utilizadas conforme alterações laboratoriais e clínicas:\n\n• Vitamina D:\n  - Otimizar para valores > 60.\n\n• Glicemia de jejum alterada:\n  - NADH + ALA.\n\n• Homocisteína alterada:\n  - Complexo B + B12.\n\n• Deficiência de B12:\n  - Otimizar para níveis > 500.\n\n• Intoxicação por alumínio:\n  - ALA + quelantes.\n\n• PCR alterada:\n  - Protocolo Anti-inflamatório.\n\n• Ferritina baixa (< 40):\n  - Ferro endovenoso.\n\n• Ferritina alta:\n  - Queima de gordura + Detox hepático.\n\n• Massa muscular:\n  - HMB.\n\n• Deficiência de Vitamina C:\n  - Avaliar reposição EV.\n\n• Energia:\n  - NMN (precursor do NAD).\n\n• Suporte geral:\n  - Pool de vitaminas e minerais.",
+      "observacoes": "Protocolo mestre de decisão clínica baseado em alterações laboratoriais e sintomas."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Controle da Inflamação",
+      "conteudo": "Conduta oral de base para controle inflamatório:\n\n• Ômega 3 1 g:\n  - 2 cápsulas a cada 12 horas.\n\n• Óleo de Borragem 500 mg:\n  - 1 cápsula a cada 12 horas.\n\n• Óleo de Krill 500 mg:\n  - 2 cápsulas a cada 12 horas.\n\n• Melatonina (essencial):\n  - 1 cápsula antes de deitar.\n\n• Curcumina 600 mg + Piperina 5 mg:\n  - 1 cápsula a cada 12 horas.\n  - Alternativa: Curcuvail® 1 cápsula a cada 12 horas.\n\nDirecionar injetáveis conforme perfil:\n• Anti-inflamatório / Antioxidante EV.\n• Anti-inflamatório / Antioxidante IM.\n• Detoxificação IM.\n• Queima de Gordura EV/IM quando houver obesidade inflamatória.",
+      "observacoes": "Protocolo oral mestre; associar protocolos injetáveis da pasta Inflamação conforme indicação."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Aumentar a Termogênese",
+      "conteudo": "Fórmula Manipulada:\n• Raspberry Ketone 120 mg.\n• Capsiate 8 mg.\n• Gengibre 250 mg.\n• Cinnamomum Cassia 275 mg.\n• Tadalafila 2,5 mg.\n\nPosologia:\n• Ao acordar e no almoço.\n\nObservação:\n• Se não utilizar Venvanse, pode associar cafeína até 200 mg.\n\nShot da Imunidade:\nMisturar:\n• Suco de 1 limão espremido.\n• 1 colher de chá de cúrcuma.\n• 1 colher de chá de gengibre.\n• 15 gotas de própolis verde.",
+      "observacoes": "Protocolo oral mestre de termogênese e suporte metabólico."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Adjuvante GLP-1 / GIP",
+      "conteudo": "Fórmula:\n• Naringenina 450 mg.\n• EGCG Pure 150 mg.\n• Transresveratrol 30 mg.\n\nPosologia:\n• Tomar 1 dose pela manhã.\n• Ou fracionar ao longo do dia.",
+      "observacoes": "Adjuvante oral para pacientes em estratégia com GLP-1/GIP."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Aumento da Excreção Urinária de Glicose (iSGLT2)",
+      "conteudo": "Classe: inibidores de SGLT2 (iSGLT2).\n\nOpções:\n• Empagliflozina (Jardiance): 25 mg/dia.\n• Dapagliflozina (Forxiga): 10 mg/dia.\n\nHorário:\n• Café da manhã.\n\nCuidados:\n• Atentar ITU.\n• Lavagem + Cranberry 500 mg 2x/dia.\n• Atentar M1: redução da inflamação.\n\nUtilizar protocolos específicos da pasta Resistência Insulínica para cada fármaco.",
+      "observacoes": "Visão mestre da classe iSGLT2; prescrever fármaco específico conforme perfil."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Bloqueio da Absorção de Gorduras",
+      "conteudo": "• Orlistate 120 mg.\n  - 1 dose antes do almoço.\n  - 1 dose antes do jantar.\n  - Suspender se houver queixa de diarreia frequente.\n\nObservação do material:\n• Muito além do peso: inibe a lipase, inibe formação de câncer e melhora produção de dopamina.",
+      "observacoes": "Atenção a efeitos gastrointestinais e indicação individual."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Disbiose – Como Eu Faço",
+      "conteudo": "Conduta mestre para disbiose:\n\nConsiderar:\n• Protocolo Disbiose completo (pasta Saúde Intestinal).\n• Akkermansia.\n• Probióticos específicos.\n• XOS.\n• Glutamina.\n• Reparo intestinal.\n• Controle de inflamação intestinal.\n\nIndicar quando houver:\n• Sintomas gastrointestinais.\n• Distensão abdominal.\n• Constipação.\n• Suspeita de disbiose metabólica.",
+      "observacoes": "Fluxo mestre; prescrição completa na pasta Saúde Intestinal."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Correção de Distúrbios Hormonais",
+      "conteudo": "Conduta mestre para correção hormonal:\n\nAvaliar e direcionar conforme achado dominante:\n• Hipotireoidismo → protocolo específico.\n• Testosterona baixa em homens → protocolo específico.\n• Estradiol / testosterona feminina → protocolo específico.\n• Progesterona → protocolo específico.\n• Implantes hormonais → pasta Implantes (protocolos individuais).\n• Anabolismo → pasta Anabolismo (protocolos individuais).\n\nMonitorar:\n• TSH, T3 livre, testosterona total, estradiol, progesterona, hematócrito.",
+      "observacoes": "Visão mestre hormonal; utilizar protocolos individuais da pasta Hormônios."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Modulação de Neurotransmissores",
+      "conteudo": "Conduta mestre para modulação neurocomportamental:\n\nConsiderar conforme perfil:\n• Compulsão alimentar / TDAH → Venvanse.\n• Humor / ansiedade → Fluoxetina.\n• Compulsão com perfil adequado → Bupropiona + Naltrexona.\n• Compulsão por doces / estagnação de peso → Ocitocina nasal.\n• Suporte complementar → CBD.\n\nAtenção geral:\n• Contactar psiquiatra quando indicado.\n• Evitar estimulantes em contraindicações psiquiátricas ou cardiovasculares.",
+      "observacoes": "Fluxo mestre; prescrever protocolos individuais da pasta Neurotransmissores."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Protocolo Mestre",
+      "nome": "Libido e Saúde Sexual",
+      "conteudo": "Conduta mestre para libido e saúde sexual:\n\n• Tadalafila 5 mg/dia.\n  - Melhora browning.\n  - Queima de gordura + massa muscular.\n  - Atenção em homens com contraindicações.\n\nAssociar conforme perfil:\n• CBD (pasta Neurotransmissores).\n• Correção hormonal (pasta Hormônios).\n• Implante Tadalafil (pasta Implantes).",
+      "observacoes": "Visão mestre de libido e saúde sexual."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Resistência Insulínica",
+      "nome": "Resistência Insulínica – ALA Oral",
+      "conteudo": "• Ácido Alfa Lipóico (ALA) 400 mg em cápsulas gastro-resistentes.\n  - Tomar no café da manhã, almoço e jantar.\n\nObjetivo:\n• Melhora da sensibilidade insulínica via via oral.",
+      "observacoes": "Protocolo oral de ALA para resistência insulínica."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Resistência Insulínica",
+      "nome": "Resistência Insulínica – ALA Endovenoso",
+      "conteudo": "Via Endovenosa:\n• Ácido Alfa Lipóico (ALA) 600 mg – 24 mL.\n\nDiluição:\n• SF 0,9% – 250 mL.\n\nAdministração:\n• Gotejamento lento.\n\nFrequência:\n• Aplicar com intervalos de 15 a 30 dias, conforme necessidade clínica.\n\nObjetivo:\n• Melhora da sensibilidade insulínica.",
+      "observacoes": "Protocolo EV isolado de ácido alfa lipóico (ALA) para resistência insulínica."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Resistência Insulínica",
+      "nome": "Resistência Insulínica – Transresveratrol",
+      "conteudo": "• Transresveratrol 50 mg.\n  - 1 comprimido sublingual em jejum.\n\nObjetivo:\n• Suporte metabólico e sensibilidade insulínica.",
+      "observacoes": "Protocolo oral de transresveratrol para resistência insulínica."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Resistência Insulínica",
+      "nome": "Resistência Insulínica – Empagliflozina",
+      "conteudo": "• Empagliflozina (Jardiance): 25 mg/dia.\n• Horário: café da manhã.\n\nObservações:\n• Atentar ITU.\n• Lavagem + Cranberry 500 mg 2x/dia.\n• Atentar M1: redução da inflamação.",
+      "observacoes": "iSGLT2 — empagliflozina. Avaliar risco de ITU e indicação individual."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Resistência Insulínica",
+      "nome": "Resistência Insulínica – Dapagliflozina",
+      "conteudo": "• Dapagliflozina (Forxiga): 10 mg/dia.\n• Horário: café da manhã.\n\nObservações:\n• Atentar ITU.\n• Lavagem + Cranberry 500 mg 2x/dia.\n• Atentar M1: redução da inflamação.",
+      "observacoes": "iSGLT2 — dapagliflozina. Avaliar risco de ITU e indicação individual."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Inflamação",
+      "nome": "Anti-inflamatório / Antioxidante EV",
+      "conteudo": "Via Endovenosa – Bolsa 1 (Isolado):\n• Ácido Alfa Lipóico 600 mg – 24 mL.\n\nDiluição:\n• SF 0,9% – 250 mL.\n\nVia Intramuscular – Sítio 1:\n• Curcumina 200 mg – 2 mL.\n• Lidocaína 2% – 1 mL.\n\nAplicação:\n• Aplicar 3 mL em glúteo.\n\nVia Endovenosa – Bolsa 2:\n• Vitamina C 20% (1 g) – 5 mL (5 ampolas).\n• Sulfato de Zinco 20 mg – 2 mL.\n• Selênio 100 mcg – 2 mL.\n• N-Acetil Cisteína 300 mg – 2 mL.\n• Complexo B sem B1 – 2 mL.\n• L-Glutationa 1 g – 10 mL.\n• Melatonina 10 mg – 2 mL.\n• Alanil Glutamina 1 g – 10 mL.\n\nDiluição:\n• SF 0,9% – 500 mL.\n\nAdministração:\n• Gotejamento lento.\n\nVia Intramuscular – Sítio 2:\n• Coenzima Q10 100 mg – 2 mL.\n• Aplicar 2 mL em outro glúteo.",
+      "observacoes": "Protocolo EV com componentes antioxidantes e anti-inflamatórios."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Inflamação",
+      "nome": "Anti-inflamatório / Antioxidante EV – Off Label",
+      "conteudo": "Via Endovenosa:\n• Metformina 500 mg – 2 mL.\n• Vitamina C 20% (1 g) – 5 mL (5 ampolas).\n• Sulfato de Zinco 20 mg – 2 mL.\n• Selênio 100 mcg – 2 mL.\n• N-Acetil Cisteína 300 mg – 2 mL.\n• Complexo B sem B1 – 2 mL.\n• L-Glutationa 1 g – 10 mL.\n• Melatonina 10 mg – 2 mL.\n• Alanil Glutamina 1 g – 10 mL.\n\nDiluição:\n• SF 0,9% – 500 mL.\n\nAdministração:\n• Gotejamento lento.\n\nVia Intramuscular – Sítio 1:\n• Curcumina 200 mg – 2 mL.\n• PQQ 5 mg – 2 mL.\n• Lidocaína 2% – 1 mL.\n\nAplicação:\n• Aplicar IM profunda lentamente (5 mL) em glúteo.\n\nVia Intramuscular – Sítio 2 (Veículo Oleoso):\n• Coenzima Q10 100 mg – 2 mL.\n\nAplicação:\n• Aplicar IM profunda lentamente (2 mL) no outro glúteo.",
+      "observacoes": "Protocolo classificado como off label no material original."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Inflamação",
+      "nome": "Anti-inflamatório / Antioxidante IM – Resveratrol",
+      "conteudo": "Via Intramuscular – 1º sítio:\n• Resveratrol 100 mg – 2 mL.\n• Curcumina 200 mg – 2 mL.\n• Lidocaína 2% – 1 mL.\n\nAplicação:\n• Aplicar IM profunda e lenta.\n• Aplicar 5 mL no glúteo.\n\nVia Intramuscular – Veículo Oleoso – 2º sítio:\n• Coenzima Q10 100 mg – 2 mL.\n\nAplicação:\n• Aplicar IM profunda e lenta.\n• Aplicar 2 mL no outro glúteo.",
+      "observacoes": "Opção IM com resveratrol (antioxidante/anti-inflamatório)."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Inflamação",
+      "nome": "Anti-inflamatório / Antioxidante IM – Melatonina",
+      "conteudo": "Via Intramuscular – 1º sítio:\n• Melatonina 10 mg – 2 mL.\n• Curcumina 200 mg – 2 mL.\n• Lidocaína 2% – 1 mL.\n\nAplicação:\n• Aplicar IM profunda e lenta.\n• Aplicar 5 mL no glúteo.\n\nVia Intramuscular – Veículo Oleoso – 2º sítio:\n• Coenzima Q10 100 mg – 2 mL.\n\nAplicação:\n• Aplicar IM profunda separadamente.\n• Aplicar 2 mL no outro glúteo.",
+      "observacoes": "Opção IM com melatonina (antioxidante/anti-inflamatório)."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Inflamação",
+      "nome": "Detoxificação IM",
+      "conteudo": "Via Intramuscular:\n• Curcumina 200 mg – 2 mL.\n• Complexo B com B1 – 1 mL.\n• Metilcobalamina 2500 mcg – 1 mL.\n• N-Acetil Cisteína 300 mg – 2 mL.\n• L-Glutationa 0,1 g – 2 mL.\n• Lidocaína 2% – 1 mL.\n\nAdministração:\n• Aplicar IM profunda e lentamente.\n• Aplicar 4,5 mL em cada glúteo.",
+      "observacoes": "Protocolo IM de suporte antioxidante/detoxificação."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Energia Mitocondrial",
+      "nome": "Disposição e Energia EV",
+      "conteudo": "Via Endovenosa:\n• Vitamina C 20% – 5 mL (3 a 5 ampolas).\n• L-Glutationa 1 g – 10 mL.\n• Complexo B sem B1 – 2 mL.\n• Sulfato de Magnésio 10% – 5 mL.\n• L-Carnitina 600 mg – 2 mL.\n• Sulfato de Zinco 20 mg – 2 mL.\n• Pool de Aminoácidos – 10 mL:\n  - Glicina 7 mg.\n  - L-Arginina 5 mg.\n  - Ácido L-Aspártico 5 mg.\n  - Metionina 4 mg.\n  - L-Carnitina Base 1 mg.\n  - L-Treonato 12 mg.\n  - L-Tirosina 8 mg.\n  - L-Triptofano 5 mg.\n• Piracetam 1,3 g – 5 mL.\n• Ribosídeo de Nicotinamida 200 mg – 2 mL.\n\nDiluição:\n• Solução fisiológica 0,9% – 500 mL.\n\nVia Intramuscular (Veículo Oleoso):\n• Coenzima Q10 100 mg – 2 mL.\n\nAplicação:\n• Aplicar IM profunda lentamente (2 mL) na região glútea.",
+      "observacoes": "Protocolo EV de energia e suporte mitocondrial."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Energia Mitocondrial",
+      "nome": "Disposição e Energia EV – Off Label",
+      "conteudo": "Via Endovenosa:\n• Vitamina C 20% – 5 mL (3 a 5 ampolas).\n• Complexo B sem B1 – 2 mL.\n• Sulfato de Magnésio 10% – 5 mL.\n• Sulfato de Zinco 20 mg – 2 mL.\n• Pool de Aminoácidos – 10 mL:\n  - Glicina 7 mg.\n  - L-Arginina 5 mg.\n  - Ácido L-Aspártico 5 mg.\n  - Metionina 4 mg.\n  - L-Carnitina Base 1 mg.\n  - L-Treonato 12 mg.\n  - L-Tirosina 8 mg.\n  - L-Triptofano 5 mg.\n• Piracetam 1,3 g – 5 mL.\n• D-Ribose 500 mg – 2 mL.\n\nVia Intramuscular (Veículo Oleoso):\n• Coenzima Q10 100 mg – 2 mL.\n\nAplicação:\n• Aplicar IM profunda lentamente (2 mL) na região glútea.",
+      "observacoes": "Variante off label do protocolo EV de disposição e energia (com D-Ribose)."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Energia Mitocondrial",
+      "nome": "Disposição e Energia IM",
+      "conteudo": "Via Intramuscular – Sítio 1:\n• D-Ribose 500 mg – 2 mL.\n• Complexo B com B1 – 1 mL.\n• Cafeína 100 mg + L-Carnitina 300 mg + Lidocaína 1% – 2 mL.\n\nAdministração:\n• Aplicar 5 mL em cada glúteo.\n\nVia Intramuscular – Sítio 2 (Veículo Oleoso):\n• Coenzima Q10 100 mg – 2 mL.\n\nAdministração:\n• Aplicar separado.\n• IM profunda e lenta.\n• 2 mL no outro glúteo.",
+      "observacoes": "Protocolo IM para disposição e energia."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Energia Mitocondrial",
+      "nome": "Disposição e Energia IM – Off Label",
+      "conteudo": "Via Intramuscular – Sítio 1:\n• Ribosídeo de Nicotinamida 200 mg – 2 mL.\n• Teacrina 50 mg – 2 mL.\n• Lidocaína 2% – 1 mL.\n\nAdministração:\n• Aplicar IM profunda e lentamente.\n• 5 mL em glúteo.\n\nVia Intramuscular – Sítio 2 (Veículo Oleoso):\n• Coenzima Q10 100 mg – 2 mL.\n\nAdministração:\n• Aplicar separado.\n• IM profunda e lenta.\n• 2 mL no outro glúteo.",
+      "observacoes": "Protocolo IM classificado como off label no material original."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Composição Corporal",
+      "nome": "Queima de Gordura EV",
+      "conteudo": "Via Endovenosa:\n• L-Triptofano 1% – 10 mL.\n• L-Carnitina 600 mg – 2 mL.\n• Selênio 80 mcg – 2 mL.\n• Complexo B (sem B1) – 2 mL.\n• L-Arginina 50% – 10 mL.\n• Alanil Glutamina 1 g – 10 mL.\n• L-Glutationa 1 g – 10 mL.\n• Vitamina C 20% – 5 mL.\n• Inositol 10% + Taurina 10% – 2 mL.\n\nDiluição:\n• SF 0,9% – 500 mL.\n\nAdministração:\n• Gotejamento lento.",
+      "observacoes": "Protocolo EV voltado à queima de gordura."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Composição Corporal",
+      "nome": "Queima de Gordura IM",
+      "conteudo": "Via Intramuscular:\n• Resveratrol 100 mg – 2 mL.\n• L-Carnitina 600 mg – 2 mL.\n• L-Glutationa 0,1 g – 2 mL.\n• Metilcobalamina 2500 mcg – 1 mL.\n• Curcumina 200 mg – 2 mL.\n• Lidocaína 2% – 1 mL.\n\nAplicação:\n• Aplicar IM profunda e lentamente.\n• Aplicar 5 mL em cada glúteo.",
+      "observacoes": "Protocolo IM de queima de gordura."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Composição Corporal",
+      "nome": "Queima de Gordura IM – Off Label",
+      "conteudo": "Via Intramuscular:\n• L-Carnitina 600 mg – 2 mL.\n• Resveratrol 100 mg – 2 mL.\n• PQQ 5 mg – 2 mL.\n• Teacrina 50 mg – 2 mL.\n• L-Arginina 50% + Lidocaína 1% – 2 mL.\n\nAplicação:\n• Aplicar IM profunda e lentamente.\n• Aplicar 5 mL em cada glúteo.\n\nObservação:\n• Retirar L-Arginina 50% + Lidocaína 1% em pacientes com histórico de herpes.\n• Substituir por:\n  - L-Lisina 50% – 1 mL.\n  - Lidocaína 2% – 1 mL.",
+      "observacoes": "Protocolo IM off label; atenção ao histórico de herpes."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Composição Corporal",
+      "nome": "Termogênico IM",
+      "conteudo": "Via Intramuscular:\n• L-Carnitina 600 mg – 2 mL.\n• Beta-Alanina 750 mg – 2 mL.\n• Curcumina 200 mg – 2 mL.\n• Resveratrol 100 mg – 2 mL.\n• Cafeína 100 mg + L-Carnitina 300 mg + Lidocaína 1% – 2 mL.\n\nAplicação:\n• Aplicar IM profunda e lentamente.\n• Aplicar 5 mL em cada glúteo.",
+      "observacoes": "Protocolo IM termogênico."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Composição Corporal",
+      "nome": "Termogênico IM – Off Label",
+      "conteudo": "Via Intramuscular:\n• L-Carnitina 600 mg – 2 mL.\n• PQQ 5 mg – 2 mL.\n• Curcumina 200 mg – 2 mL.\n• Resveratrol 100 mg – 2 mL.\n• Cafeína 100 mg + L-Carnitina 300 mg + Lidocaína 1% – 2 mL.\n\nAplicação:\n• Aplicar IM profunda e lentamente.\n• Aplicar 5 mL em cada glúteo.",
+      "observacoes": "Protocolo IM termogênico classificado como off label no material original."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Saúde Intestinal",
+      "nome": "Disbiose – Protocolo Completo",
+      "conteudo": "Fórmula 1:\n• Akkermansia muciniphila 50 mg.\n• Transresveratrol 250 mg.\n• Lactobacillus paracasei 1 bilhão UFC.\n• Lactobacillus rhamnosus 1 bilhão UFC.\n• Lactobacillus plantarum 3 bilhões UFC.\n• Lactobacillus gasseri 5 bilhões UFC.\n• Bifidobacterium lactis 3 bilhões UFC.\n• XOS 200 mg.\n• Glutamina 10 g.\n\nApresentação:\n• 70 sachês.\n\nPosologia:\n• Tomar 1 sachê pela manhã junto com whey.\n\nFórmula 2:\n• Glutamina 20 g.\n\nApresentação:\n• 70 sachês.\n\nPosologia:\n• Tomar 1 sachê à noite.",
+      "observacoes": "Protocolo completo de modulação intestinal, probióticos, prebiótico e reparo intestinal."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Implantes",
+      "nome": "NADH 400",
+      "conteudo": "• NADH 400:\n  - 2 a 4 pellets.",
+      "observacoes": "Implante de NADH — dose conforme necessidade clínica."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Implantes",
+      "nome": "Ocitocina 500",
+      "conteudo": "• Ocitocina 500:\n  - 1 pellet.",
+      "observacoes": "Implante de ocitocina."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Implantes",
+      "nome": "CoQ10 100",
+      "conteudo": "• CoQ10 100:\n  - 1 pellet.",
+      "observacoes": "Implante de coenzima Q10."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Implantes",
+      "nome": "Tadalafil",
+      "conteudo": "• Tadalafil:\n  - Mulher: 25–50 mg.\n  - Homem: 50–200 mg.",
+      "observacoes": "Implante de tadalafil — ajustar dose conforme sexo e indicação."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Implantes",
+      "nome": "Testosterona 200",
+      "conteudo": "• Testosterona 200:\n  - 6 a 8 pellets.",
+      "observacoes": "Implante de testosterona — monitorar hematócrito."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Anabolismo",
+      "nome": "Oxandrolona",
+      "conteudo": "• Oxandrolona:\n  - 2,5–10 mg VO.\n  - Ou pellets 10 mg (50 pellets).",
+      "observacoes": "Registrar conduta em prontuário médico."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Anabolismo",
+      "nome": "Decadurabolin (Nandrolona)",
+      "conteudo": "• Decadurabolin (Nandrolona):\n  - Posologia variável.\n  - Intervalo: 21/21 dias.",
+      "observacoes": "Registrar conduta em prontuário médico."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Anabolismo",
+      "nome": "Durateston / Deposteron",
+      "conteudo": "• Durateston / Deposteron:\n  - 1 ampola a cada 10, 15 ou 21 dias.\n  - Monitorar hematócrito.",
+      "observacoes": "Monitorar hematócrito. Registrar conduta em prontuário médico."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Anabolismo",
+      "nome": "Hormus",
+      "conteudo": "• Hormus.",
+      "observacoes": "Registrar conduta em prontuário médico."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Anabolismo",
+      "nome": "Semaglutida em doses baixas",
+      "conteudo": "• Semaglutida em doses baixas:\n  - Não exceder 9 cliques diários.",
+      "observacoes": "Registrar conduta em prontuário médico."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Hormônios",
+      "nome": "Progesterona",
+      "conteudo": "• Uso oral:\n  - Utrogestan 100 mg.\n  - Uso contínuo.\n\n• Uso pellet:\n  - Progesterona 50 mg.\n  - Dose conforme necessidade oral da paciente.",
+      "observacoes": "Protocolo de progesterona oral e pellet."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Hormônios",
+      "nome": "Estradiol / Testosterona Feminina",
+      "conteudo": "Estradiol:\n• Valores ideais de estradiol: 60–150.\n• Adesivo ou pellets.\n• Systen 25, 50 ou 100.\n• Pellets 25 mg.\n• Ajuste conforme dose do adesivo.\n\nTestosterona:\n• Manter próxima do limite superior.\n• Gel testosterona 0,5%.\n• Pellet 50–100 mg.",
+      "observacoes": "Protocolo de estradiol e testosterona feminina."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Hormônios",
+      "nome": "Hipotireoidismo",
+      "conteudo": "• Objetivo: TSH < 2.\n• Iniciar tratamento quando TSH > 5.\n• Utilizar:\n  - Puran T25.\n• Ajustar para manter T3 Livre > 3,2.",
+      "observacoes": "Protocolo de correção do hipotireoidismo."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Hormônios",
+      "nome": "Testosterona Masculina",
+      "conteudo": "• Repor testosterona quando testosterona total < 350 ng/dL.\n\nOpções:\n• Aplicação IM a cada 15 ou 21 dias.\n• Implantes hormonais.\n\nMonitorar:\n• Hematócrito.",
+      "observacoes": "Protocolo de reposição de testosterona em homens."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Neurotransmissores",
+      "nome": "Venvanse",
+      "conteudo": "• Venvanse 30, 50 ou 70 mg.\n  - Ao acordar ou fracionar manhã e almoço.\n\nAtenção:\n• Contactar psiquiatra.\n• Evitar em portadores de ideias suicidas.\n• Evitar em usuários de drogas.\n• Evitar em glaucoma de ângulo fechado.\n• Evitar em arritmia cardíaca.\n• Evitar em HAS descontrolada.",
+      "observacoes": "Estimulante para TDAH/compulsão alimentar; avaliar contraindicações."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Neurotransmissores",
+      "nome": "Fluoxetina",
+      "conteudo": "• Fluoxetina 20–60 mg/dia.\n\nIndicações comuns:\n• Humor.\n• Ansiedade.\n• Compulsão alimentar (avaliar perfil).\n\nAvaliar interações e contraindicações antes de prescrever.",
+      "observacoes": "Modulação serotoninérgica; considerar avaliação psiquiátrica."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Neurotransmissores",
+      "nome": "Bupropiona + Naltrexona",
+      "conteudo": "• Bupropiona + Naltrexona 90/8 mg.\n  - Não usar em crise convulsiva.\n\nEscalonamento:\n• 1ª semana: 1 comprimido pela manhã.\n• 2ª semana: 1 comprimido manhã e 1 no final da tarde.\n• 3ª semana: 2 comprimidos manhã e 1 comprimido tarde.\n• 4ª semana: 2 comprimidos manhã e 2 comprimidos tarde.",
+      "observacoes": "Protocolo para compulsão alimentar; contraindicado em crise convulsiva."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Neurotransmissores",
+      "nome": "Ocitocina Nasal",
+      "conteudo": "• Ocitocina 06 UI/Jato.\n• Aplicação: 1 borrifada em cada narina a cada 12 horas.\n\nIndicações:\n• Compulsão por doces.\n• Estagnação de peso.",
+      "observacoes": "Modulação comportamental via ocitocina nasal."
+    },
+    {
+      "pastaMae": "Protocolo",
+      "pasta": "Neurotransmissores",
+      "nome": "CBD",
+      "conteudo": "• CBD 5000 mg:\n  - 2 gotas embaixo da língua a cada 8 horas.",
+      "observacoes": "Suporte complementar para modulação neurocomportamental e libido."
+    }
+  ]
+}

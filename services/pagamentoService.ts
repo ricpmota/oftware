@@ -4,6 +4,7 @@ import { PagamentoPaciente, VendaAvulsa } from '@/types/pagamento';
 
 export class PagamentoService {
   private static readonly COLLECTION = 'pagamentos_pacientes';
+  private static readonly COLLECTION_NUTRI_PACIENTE = 'pagamentos_nutricionista_paciente';
 
   private static resolvePagamentoDocId(pagamento: PagamentoPaciente): string {
     const pacienteId = typeof pagamento?.pacienteId === 'string' ? pagamento.pacienteId.trim() : '';
@@ -98,6 +99,29 @@ export class PagamentoService {
       console.error('Erro ao buscar pagamento:', error);
       throw error;
     }
+  }
+
+  /** Busca pagamentos apenas dos pacientes informados (evita full-scan da coleção). */
+  static async getPagamentosPorPacienteIds(
+    pacienteIds: string[]
+  ): Promise<Record<string, PagamentoPaciente>> {
+    if (pacienteIds.length === 0) return {};
+
+    const pagamentos: Record<string, PagamentoPaciente> = {};
+    const BATCH = 25;
+    for (let i = 0; i < pacienteIds.length; i += BATCH) {
+      const batch = pacienteIds.slice(i, i + BATCH);
+      const results = await Promise.all(
+        batch.map(async (pacienteId) => {
+          const pagamento = await this.getPagamentoPorPacienteId(pacienteId);
+          return pagamento ? ([pacienteId, pagamento] as const) : null;
+        })
+      );
+      results.forEach((entry) => {
+        if (entry) pagamentos[entry[0]] = entry[1];
+      });
+    }
+    return pagamentos;
   }
 
   // Buscar todos os pagamentos
@@ -291,6 +315,75 @@ export class PagamentoService {
       console.error('Erro ao excluir venda avulsa:', error);
       throw error;
     }
+  }
+
+  // ========== PAGAMENTOS NUTRICIONISTA × PACIENTE ==========
+
+  private static nutriPacienteDocId(nutricionistaId: string, pacienteId: string): string {
+    return `${nutricionistaId}_${pacienteId}`;
+  }
+
+  private static mapPagamentoDoc(data: Record<string, unknown>, pacienteId: string): PagamentoPaciente {
+    return {
+      ...data,
+      pacienteId,
+      dataUltimaAtualizacao:
+        (data.dataUltimaAtualizacao as { toDate?: () => Date })?.toDate?.() || new Date(),
+      dataVencimento: (data.dataVencimento as { toDate?: () => Date })?.toDate?.(),
+      dataPagamento: (data.dataPagamento as { toDate?: () => Date })?.toDate?.(),
+      parcelas:
+        (data.parcelas as Array<Record<string, unknown>>)?.map((p) => ({
+          ...p,
+          dataVencimento: (p.dataVencimento as { toDate?: () => Date })?.toDate?.(),
+          dataPagamento: (p.dataPagamento as { toDate?: () => Date })?.toDate?.(),
+        })) || [],
+    } as PagamentoPaciente;
+  }
+
+  static async salvarPagamentoNutricionistaPaciente(
+    nutricionistaId: string,
+    pacienteId: string,
+    pagamento: Omit<PagamentoPaciente, 'pacienteId'>
+  ): Promise<void> {
+    const docId = this.nutriPacienteDocId(nutricionistaId, pacienteId);
+    const ref = doc(db, this.COLLECTION_NUTRI_PACIENTE, docId);
+    await setDoc(
+      ref,
+      {
+        ...pagamento,
+        nutricionistaId,
+        pacienteId,
+        pacienteIdRef: pacienteId,
+      },
+      { merge: true }
+    );
+  }
+
+  static async getPagamentoNutricionistaPorPaciente(
+    nutricionistaId: string,
+    pacienteId: string
+  ): Promise<PagamentoPaciente | null> {
+    const docId = this.nutriPacienteDocId(nutricionistaId, pacienteId);
+    const snap = await getDoc(doc(db, this.COLLECTION_NUTRI_PACIENTE, docId));
+    if (!snap.exists()) return null;
+    return this.mapPagamentoDoc(snap.data() as Record<string, unknown>, pacienteId);
+  }
+
+  static async getAllPagamentosNutricionista(
+    nutricionistaId: string
+  ): Promise<Record<string, PagamentoPaciente>> {
+    const q = query(
+      collection(db, this.COLLECTION_NUTRI_PACIENTE),
+      where('nutricionistaId', '==', nutricionistaId)
+    );
+    const snap = await getDocs(q);
+    const out: Record<string, PagamentoPaciente> = {};
+    snap.forEach((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const pacienteId = (data.pacienteId as string) || d.id.split('_').slice(1).join('_');
+      out[pacienteId] = this.mapPagamentoDoc(data, pacienteId);
+    });
+    return out;
   }
 }
 

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { LogOut, Stethoscope, UserCheck, UtensilsCrossed, Dumbbell, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
+import { withIndicacaoRef } from '@/lib/landing/appNavigation';
 
 function getFirstName(displayName: string | null): string {
   if (!displayName) return 'Usuário';
@@ -15,7 +16,16 @@ interface LandingPageHeaderProps {
   onLogout: () => void;
   /** Quando não logado, ao clicar em um item do menu: abre login Google e navega após sucesso */
   onAccessPath?: (path: string) => void | Promise<void>;
+  logoSrc?: string;
+  logoAlt?: string;
+  logoHref?: string;
 }
+
+const DEFAULT_LOGO = {
+  src: '/oftware-site-novo2.png',
+  alt: 'Oftware',
+  href: '/',
+} as const;
 
 const MENU_ITEMS = [
   { label: 'Médico', path: '/metaadmin', icon: Stethoscope },
@@ -24,7 +34,14 @@ const MENU_ITEMS = [
   { label: 'Personal', path: '/metapersonal', icon: Dumbbell },
 ];
 
-export default function LandingPageHeader({ user, onLogout, onAccessPath }: LandingPageHeaderProps) {
+export default function LandingPageHeader({
+  user,
+  onLogout,
+  onAccessPath,
+  logoSrc = DEFAULT_LOGO.src,
+  logoAlt = DEFAULT_LOGO.alt,
+  logoHref = DEFAULT_LOGO.href,
+}: LandingPageHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -42,10 +59,10 @@ export default function LandingPageHeader({ user, onLogout, onAccessPath }: Land
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#0A1F44]/95 backdrop-blur-md border-b border-white/10">
       <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
         <div className="flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3">
+          <Link href={logoHref} className="flex items-center gap-3">
             <img
-              src="/logo-site.jpg"
-              alt="Oftware - Método Emagrecer"
+              src={logoSrc}
+              alt={logoAlt}
               className="h-8 md:h-10 w-auto object-contain"
             />
           </Link>
@@ -79,11 +96,12 @@ export default function LandingPageHeader({ user, onLogout, onAccessPath }: Land
               </button>
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-56 py-2 bg-[#0A1F44] border border-white/10 rounded-xl shadow-xl overflow-hidden">
-                  {MENU_ITEMS.map(({ label, path, icon: Icon }) =>
-                    user ? (
+                  {MENU_ITEMS.map(({ label, path, icon: Icon }) => {
+                    const href = path === '/meta' ? withIndicacaoRef(path) : path;
+                    return user ? (
                       <Link
                         key={path}
-                        href={path}
+                        href={href}
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-3 text-left text-[#E8EDED] hover:bg-white/10 transition-colors w-full"
                       >
@@ -103,8 +121,8 @@ export default function LandingPageHeader({ user, onLogout, onAccessPath }: Land
                         <Icon size={18} className="text-[#4CCB7A]" />
                         {label}
                       </button>
-                    )
-                  )}
+                    );
+                  })}
                   {user && (
                     <>
                       <div className="border-t border-white/10 my-1" />

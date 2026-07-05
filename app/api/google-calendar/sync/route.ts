@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { calcularDoseTitulacaoMg, DOSE_INICIAL_PADRAO_MG } from '@/lib/tirzepatida/doseTitulacao';
 import { GoogleCalendarService } from '@/services/googleCalendarService';
 import { PacienteService } from '@/services/pacienteService';
 import { MedicoService } from '@/services/medicoService';
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
         }
 
         const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
-        const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
+        const doseInicial = planoTerapeutico.currentDoseMg || DOSE_INICIAL_PADRAO_MG;
 
         const diasSemana: { [key: string]: number } = {
           dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6
@@ -192,7 +193,7 @@ export async function POST(request: NextRequest) {
               }
             }
           }
-          const dosePlanejada = doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
+          const dosePlanejada = calcularDoseTitulacaoMg(doseInicial, semanasDesdeUltimoCiclo);
 
           // Rotação de local
           const dataSemanaAnterior = new Date(dataDose);
@@ -273,7 +274,7 @@ export async function POST(request: NextRequest) {
       }
 
       const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
-      const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
+      const doseInicial = planoTerapeutico.currentDoseMg || DOSE_INICIAL_PADRAO_MG;
 
       const diasSemana: { [key: string]: number } = {
         dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6
@@ -322,7 +323,7 @@ export async function POST(request: NextRequest) {
             }
           }
         }
-        const dosePlanejada = doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
+        const dosePlanejada = calcularDoseTitulacaoMg(doseInicial, semanasDesdeUltimoCiclo);
 
         const evento: EventoCalendario = {
           summary: `Tirzepatida - Semana ${semana + 1} - ${dosePlanejada}mg`,

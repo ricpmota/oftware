@@ -88,26 +88,38 @@ export function BioRangeBar({
   const fmt = (n: number) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
 
   return (
-    <div className="flex flex-col gap-1 min-w-0 w-full max-w-full overflow-hidden">
+    <div className="flex flex-col gap-1.5 min-w-0 w-full max-w-full overflow-hidden">
       {/* Valor + status acima da barra */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-800">
+      <div className="flex items-center justify-between gap-2 text-xs">
         {hasValue ? (
           <>
-            <span className="font-semibold">{fmt(value!)} {unit}</span>
-            {status && <span className="text-gray-500">• {statusLabel[status]}</span>}
+            <span className="font-semibold text-gray-900 tabular-nums">{fmt(value!)} {unit}</span>
+            {status && (
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  status === 'normal'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                    : status === 'abaixo'
+                      ? 'bg-blue-50 text-blue-700 border-blue-100'
+                      : 'bg-red-50 text-red-700 border-red-100'
+                }`}
+              >
+                {statusLabel[status]}
+              </span>
+            )}
           </>
         ) : (
           <span className="text-gray-500">Sem valor informado</span>
         )}
       </div>
-      {/* Limites em uma linha acima da barra */}
-      <div className="flex justify-between text-[10px] text-gray-500">
+      {/* Limites */}
+      <div className="flex justify-between text-[10px] text-gray-400">
         <span>&lt;{fmt(min)}</span>
-        <span className="text-green-600 font-medium">{fmt(min)}–{fmt(max)}</span>
+        <span className="text-emerald-600 font-medium">{fmt(min)}–{fmt(max)}</span>
         <span>&gt;{fmt(max)}</span>
       </div>
-      {/* Barra visual - 3 zonas */}
-      <div className="relative w-full max-w-full min-w-0" style={{ height: `${height}px` }}>
+      {/* Barra visual */}
+      <div className="relative w-full max-w-full min-w-0 rounded-full overflow-hidden" style={{ height: `${height}px` }}>
         {/* Zona Abaixo (azul - degradê) */}
         {zoneAbaixoWidth > 0 && (
           <div
@@ -147,8 +159,8 @@ export function BioRangeBar({
         {/* Marcador do valor - amarelo para destacar sobre as 3 cores */}
         {markerPosition !== null && (
           <div
-            className="absolute top-0 w-1.5 h-full rounded-full z-20 border border-gray-800 shadow-md"
-            style={{ left: `${markerPosition}%`, transform: 'translateX(-50%)', backgroundColor: '#eab308' }}
+            className="absolute top-0 w-1 h-full rounded-full z-20 bg-gray-900 shadow-md"
+            style={{ left: `${markerPosition}%`, transform: 'translateX(-50%)' }}
           />
         )}
       </div>

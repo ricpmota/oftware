@@ -1,0 +1,39 @@
+# Oftware — WPPConnect central em Compute Engine (Docker Compose)
+# Etapa 4.2 — piloto com disco persistente em /data/wppconnect
+
+services:
+  wppconnect:
+    build:
+      context: ../wppconnect
+      dockerfile: Dockerfile
+    image: oftware-whatsapp-wppconnect:vm
+    container_name: oftware-whatsapp-wppconnect
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "21465"
+    ports:
+      # Apenas localhost na VM — exponha HTTPS via Nginx/Caddy/Load Balancer na frente.
+      # Para teste temporário sem proxy, troque para "21465:21465" (não recomendado em produção).
+      - "127.0.0.1:21465:21465"
+    volumes:
+      - /data/wppconnect/userDataDir:/app/userDataDir
+      - /data/wppconnect/tokens:/app/tokens
+      - /data/wppconnect/logs:/app/logs
+    shm_size: "512mb"
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:21465/api-docs').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s

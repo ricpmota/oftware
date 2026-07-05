@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { requireMedicoPacienteMetaadmin } from '@/lib/server/metaadminExamesImagemGate';
+import {
+  contratoEasySignNotConfiguredMessage,
+  isContratoEasySignConfiguredServer,
+} from '@/lib/documentos/contrato-tratamento/contratoEasySignPocFlag';
+import { syncContratoEasySignPatientSignature } from '@/lib/signature/bryEasySign/syncContratoEasySignPatientSignature.server';
+
+export const runtime = 'nodejs';
+
+type Body = {
+  pacienteId?: string;
+  documentoId?: string;
+};
+
+export async function POST(request: NextRequest) {
+  if (!isContratoEasySignConfiguredServer()) {
+    return NextResponse.json(
+      { ok: false, error: contratoEasySignNotConfiguredMessage() },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const body = (await request.json()) as Body;
+    const pacienteId = typeof body.pacienteId === 'string' ? body.pacienteId.trim() : '';
+    const documentoId = typeof body.documentoId === 'string' ? body.documentoId.trim() : '';
+
+    if (!pacienteId || !documentoId) {
+      return NextResponse.json(
+        { ok: false, error: 'Informe pacienteId e documentoId.' },
+        { status: 400 }
+      );
+    }
+
+    const gate = await requireMedicoPacienteMetaadmin(request, pacienteId);
+    if (!gate.ok) return gate.res;
+
+    const result = await syncContratoEasySignPatientSignature({
+      pacienteId,
+      documentoId,
+      sendEmail: true,
+    });
+
+    return NextResponse.json(result);
+  } catch (error: unknown) {
+    console.error('[easysign/contrato-tratamento/sync]', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    const message =
+      error instanceof Error ? error.message : 'Erro ao sincronizar assinatura do paciente.';
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}

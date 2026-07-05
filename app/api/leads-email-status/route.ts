@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EmailConfigService } from '@/services/emailConfigService';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import {
+  fetchEnviosCampanhaPorLeadIds,
+  LEAD_ID_IN_BATCH_SIZE,
+} from '@/lib/leadsEmailStatus/fetchEnviosCampanhaPorLeadIds';
 
 // Declaração global para adminAuth
 declare global {
@@ -69,36 +72,7 @@ export async function GET(request: NextRequest) {
     // 2. Buscar solicitações de médico para filtrar usando Admin SDK
     // FLUXO: Se usuário tem solicitacao_medico → lead qualificado (NÃO aparece)
     //        Se não tem → lead não qualificado (APARECE na lista)
-    const existingApps = getApps();
-    let adminApp;
-    if (existingApps.length > 0) {
-      adminApp = existingApps[0];
-    } else {
-      const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "oftware-9201e";
-      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_ADMIN_PRIVATE_KEY;
-      
-      if (!privateKey || !clientEmail) {
-        throw new Error('Variáveis de ambiente do Firebase Admin não configuradas');
-      }
-      
-      let processedKey = privateKey.replace(/\\n/g, '\n');
-      if (!processedKey.includes('\n') && processedKey.includes('-----BEGIN')) {
-        processedKey = processedKey
-          .replace(/-----BEGIN PRIVATE KEY-----/, '-----BEGIN PRIVATE KEY-----\n')
-          .replace(/-----END PRIVATE KEY-----/, '\n-----END PRIVATE KEY-----')
-          .replace(/\n+/g, '\n');
-      }
-      
-      adminApp = initializeApp({
-        credential: cert({
-          projectId: projectId,
-          clientEmail: clientEmail,
-          privateKey: processedKey,
-        }),
-      });
-    }
-    const adminDb = getFirestore(adminApp);
+    const adminDb = getFirestore(auth.app);
     
     const solicitacoesSnapshot = await adminDb.collection('solicitacoes_medico').get();
     const todasSolicitacoes = solicitacoesSnapshot.docs.map(doc => ({
@@ -126,7 +100,10 @@ export async function GET(request: NextRequest) {
     });
 
     // 2.1. Buscar pacientes_completos para verificar medicoResponsavelId e mostrar médico na lista usando Admin SDK
-    const pacientesSnapshot = await adminDb.collection('pacientes_completos').get();
+    const pacientesSnapshot = await adminDb
+      .collection('pacientes_completos')
+      .where('medicoResponsavelId', '!=', null)
+      .get();
     const todosPacientes = pacientesSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
@@ -136,12 +113,17 @@ export async function GET(request: NextRequest) {
     
     const pacientesComMedico = new Map<string, { medicoId: string; medicoNome?: string }>();
     const medicosMap = new Map<string, { nome: string }>();
-    
-    // Buscar todos os médicos para ter os nomes usando Admin SDK
-    const medicosSnapshot = await adminDb.collection('medicos').get();
-    medicosSnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      medicosMap.set(doc.id, { nome: data.nome });
+    const medicoIds = new Set<string>();
+    todosPacientes.forEach((p: any) => {
+      if (p.medicoResponsavelId) medicoIds.add(String(p.medicoResponsavelId));
+    });
+    const medicoDocs = await Promise.all(
+      Array.from(medicoIds).map((medicoId) => adminDb.collection('medicos').doc(medicoId).get())
+    );
+    medicoDocs.forEach((docSnap) => {
+      if (!docSnap.exists) return;
+      const data = docSnap.data() || {};
+      medicosMap.set(docSnap.id, { nome: String(data.nome || '') });
     });
     
     todosPacientes.forEach((p: any) => {
@@ -234,42 +216,15 @@ export async function GET(request: NextRequest) {
     console.log(`✅ ${leadsFormatted.length} leads formatados (incluindo ${leadsFormatted.filter(l => l.temSolicitacao).length} com solicitação)`);
     console.log(`📊 Resumo: ${allFirebaseUsers.length} usuários totais → ${leadsFormatted.length} leads`);
     
-    // 5. Buscar envios usando Admin SDK
-    const enviosSnapshot = await adminDb.collection('email_envios').orderBy('enviadoEm', 'desc').get();
-    const todosEnvios = enviosSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        leadId: data.leadId,
-        leadEmail: data.leadEmail,
-        leadNome: data.leadNome,
-        emailTipo: data.emailTipo,
-        assunto: data.assunto,
-        enviadoEm: data.enviadoEm?.toDate() || new Date(),
-        status: data.status,
-        erro: data.erro,
-        tentativas: data.tentativas || 1,
-        respostaRecebida: data.respostaRecebida ? {
-          data: data.respostaRecebida.data?.toDate() || new Date(),
-          assunto: data.respostaRecebida.assunto,
-          remetente: data.respostaRecebida.remetente,
-          conteudo: data.respostaRecebida.conteudo,
-        } : undefined,
-        conversao: data.conversao ? {
-          data: data.conversao.data?.toDate() || new Date(),
-          medicoId: data.conversao.medicoId,
-        } : undefined,
-      };
-    });
-
-    // Criar mapa de envios por lead
-    const enviosPorLead = new Map<string, typeof todosEnvios>();
-    todosEnvios.forEach(envio => {
-      if (!enviosPorLead.has(envio.leadId)) {
-        enviosPorLead.set(envio.leadId, []);
-      }
-      enviosPorLead.get(envio.leadId)!.push(envio);
-    });
+    // 5. Envios de campanha apenas dos leads exibidos (sem varrer histórico global)
+    const leadIds = leadsFormatted.map((lead) => lead.id);
+    const { enviosPorLead, docsLidos: docsEmailEnviosLidos } = await fetchEnviosCampanhaPorLeadIds(
+      adminDb,
+      leadIds
+    );
+    console.log(
+      `✅ email_envios: ${leadIds.length === 0 ? 0 : Math.ceil(leadIds.length / LEAD_ID_IN_BATCH_SIZE)} batches, ${docsEmailEnviosLidos} docs lidos (${leadIds.length} leads)`
+    );
 
     // Criar status para cada lead
     const status = leadsFormatted.map(lead => {

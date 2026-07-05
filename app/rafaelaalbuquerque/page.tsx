@@ -7,7 +7,7 @@ import InitialLoadingSplash from '@/components/landing/InitialLoadingSplash';
 import ChatIA from '@/components/ChatIA';
 import RafaelaIndicadoresSection from '@/components/rafaela-albuquerque/RafaelaIndicadoresSection';
 import RafaelaAreasCalendarioSection from '@/components/rafaela-albuquerque/RafaelaAreasCalendarioSection';
-import { BRAND, mailtoHref, rafaelaInstagramPermalink, scheduleHref, whatsappHref } from '@/rafaela-albuquerque/siteConfig';
+import { BRAND, rafaelaInstagramPermalink, whatsappHref } from '@/rafaela-albuquerque/siteConfig';
 import RafaelaSobreMedia from '@/components/rafaela-albuquerque/RafaelaSobreMedia';
 import * as copy from '@/rafaela-albuquerque/landingCopy';
 import {
@@ -56,15 +56,7 @@ export default function RafaelaAlbuquerquePage() {
   }, []);
 
   const wa = whatsappHref();
-  const schedule = scheduleHref();
-  const mail = mailtoHref();
   const instagramPermalink = rafaelaInstagramPermalink();
-
-  const onAgendar = () => {
-    if (schedule) openExternal(schedule);
-    else if (mail) openExternal(mail);
-    else scrollToId('contato');
-  };
 
   const onWhatsApp = () => {
     openExternal(wa);
@@ -145,7 +137,7 @@ export default function RafaelaAlbuquerquePage() {
           <div className="flex items-center gap-2 shrink-0 min-w-0">
             <button
               type="button"
-              onClick={onAgendar}
+              onClick={onWhatsApp}
               className={`inline-flex items-center gap-2 rounded-xl bg-[#4099B3] px-3 py-2 sm:px-4 text-xs sm:text-sm font-semibold text-white shadow hover:bg-[#2F7F96] whitespace-normal text-center max-w-[min(100%,14rem)] sm:max-w-none ${BTN_HEADER}`}
             >
               {copy.hero.ctaPrimary}
@@ -239,7 +231,7 @@ export default function RafaelaAlbuquerquePage() {
                 >
                   <button
                     type="button"
-                    onClick={onAgendar}
+                    onClick={onWhatsApp}
                     className={`inline-flex items-center justify-center gap-2 rounded-xl bg-[#4099B3] px-8 py-4 text-base font-semibold text-white shadow-lg hover:bg-[#2F7F96] [&_svg]:text-white ${BTN_HERO_PRIMARY}`}
                   >
                     {copy.hero.ctaPrimary}
@@ -458,7 +450,7 @@ export default function RafaelaAlbuquerquePage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 type="button"
-                onClick={onAgendar}
+                onClick={onWhatsApp}
                 className={`inline-flex items-center justify-center gap-2 px-10 py-4 rounded-xl font-semibold text-[#245F70] bg-white hover:bg-[#EAF5F8] shadow-lg ${BTN_CTA_LIGHT}`}
               >
                 {copy.ctaFinal.primary}

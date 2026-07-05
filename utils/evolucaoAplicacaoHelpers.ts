@@ -1,26 +1,73 @@
 import type { PacienteCompleto } from '@/types/obesidade';
 import type { SeguimentoSemanal } from '@/types/obesidade';
 
-const isAdesaoPerdida = (r: { adherence?: string; adesao?: string } | null) =>
+export function toDateLocalEvolucao(v: unknown): Date | null {
+  if (v == null) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : new Date(v);
+  const td = (v as { toDate?: () => Date })?.toDate?.();
+  if (td && !isNaN(td.getTime())) return new Date(td);
+  const d = new Date(v as string | number);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+export function semanaIndexFromRegistro(e: SeguimentoSemanal): number {
+  return e.weekIndex ?? e.numeroSemana ?? 0;
+}
+
+export function registroEvolucaoPorSemana(
+  evolucao: SeguimentoSemanal[] | undefined,
+  semanaNum: number
+): SeguimentoSemanal | null {
+  if (!evolucao?.length || semanaNum < 1) return null;
+  return evolucao.find((e) => semanaIndexFromRegistro(e) === semanaNum) ?? null;
+}
+
+const isAdesaoPerdida = (r: { adherence?: string; adesao?: string } | null | undefined) =>
   !!(r?.adherence === 'MISSED' || r?.adesao === 'esquecida');
+
+/** Dose efetivamente aplicada (mesmo critério do metaadmingeral). */
+export function contaComoDoseAplicada(registro: SeguimentoSemanal | null | undefined): boolean {
+  if (!registro || isAdesaoPerdida(registro)) return false;
+  const q = registro.doseAplicada?.quantidade;
+  return q != null && !isNaN(Number(q)) && Number(q) > 0;
+}
+
+/** Data real da aplicação: doseAplicada.data, senão dataRegistro. */
+export function dataRealAplicacaoSeguimento(registro: SeguimentoSemanal | null | undefined): Date | null {
+  if (!registro) return null;
+  const fromDose = toDateLocalEvolucao(registro.doseAplicada?.data);
+  if (fromDose) return startOfDay(fromDose);
+  const fromReg = toDateLocalEvolucao(registro.dataRegistro);
+  return fromReg ? startOfDay(fromReg) : null;
+}
+
+export function doseMgAplicada(registro: SeguimentoSemanal | null | undefined): number | undefined {
+  if (!contaComoDoseAplicada(registro)) return undefined;
+  const q = registro!.doseAplicada!.quantidade;
+  return typeof q === 'number' && !isNaN(q) ? q : undefined;
+}
 
 export function obterRegistroSeguimentoDaAplicacao(
   paciente: PacienteCompleto,
-  aplicacaoData: Date
+  aplicacaoData: Date,
+  semana?: number
 ): SeguimentoSemanal | null {
   const evolucao = paciente.evolucaoSeguimento || [];
-  const dataPrevista = new Date(aplicacaoData);
-  dataPrevista.setHours(0, 0, 0, 0);
+  if (semana != null && semana >= 1) {
+    const byWeek = registroEvolucaoPorSemana(evolucao, semana);
+    if (byWeek) return byWeek;
+  }
+  const alvo = startOfDay(aplicacaoData);
   const registro = evolucao.find((e) => {
-    if (!e.dataRegistro) return false;
-    const dataReg =
-      e.dataRegistro instanceof Date
-        ? new Date(e.dataRegistro)
-        : new Date((e.dataRegistro as { toDate?: () => Date })?.toDate?.() || e.dataRegistro);
-    if (isNaN(dataReg.getTime())) return false;
-    dataReg.setHours(0, 0, 0, 0);
-    const diffDias = Math.abs((dataReg.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDias <= 3;
+    const dataReal = dataRealAplicacaoSeguimento(e);
+    if (!dataReal) return false;
+    return dataReal.getTime() === alvo.getTime();
   });
   return registro ?? null;
 }
@@ -37,17 +84,7 @@ export function obterVariacaoPesoAplicacao(paciente: PacienteCompleto, aplicacao
   const evolucao = (paciente.evolucaoSeguimento || [])
     .slice()
     .sort((a, b) => (a.weekIndex ?? a.numeroSemana ?? 0) - (b.weekIndex ?? b.numeroSemana ?? 0));
-  const idx = evolucao.findIndex((e) => {
-    if (!e.dataRegistro) return false;
-    const dataReg =
-      e.dataRegistro instanceof Date
-        ? new Date(e.dataRegistro)
-        : new Date((e.dataRegistro as { toDate?: () => Date })?.toDate?.() || e.dataRegistro);
-    const dataPrev = new Date(aplicacaoData);
-    dataReg.setHours(0, 0, 0, 0);
-    dataPrev.setHours(0, 0, 0, 0);
-    return Math.abs(dataReg.getTime() - dataPrev.getTime()) / (1000 * 60 * 60 * 24) <= 3;
-  });
+  const idx = evolucao.findIndex((e) => e === registro);
   const anterior = idx > 0 ? evolucao[idx - 1] : null;
   const pesoAnterior = anterior?.peso ?? paciente.dadosClinicos?.medidasIniciais?.peso;
   if (pesoAnterior == null || typeof pesoAnterior !== 'number') return null;
@@ -60,18 +97,8 @@ export function obterVariacaoCompAplicacao(paciente: PacienteCompleto, aplicacao
     return null;
   const evolucao = (paciente.evolucaoSeguimento || [])
     .slice()
-    .sort((a, b) => (a.weekIndex ?? a.numeroSemana ?? 0) - (b.weekIndex ?? b.numeroSemana ?? 0));
-  const idx = evolucao.findIndex((e) => {
-    if (!e.dataRegistro) return false;
-    const dataReg =
-      e.dataRegistro instanceof Date
-        ? new Date(e.dataRegistro)
-        : new Date((e.dataRegistro as { toDate?: () => Date })?.toDate?.() || e.dataRegistro);
-    const dataPrev = new Date(aplicacaoData);
-    dataReg.setHours(0, 0, 0, 0);
-    dataPrev.setHours(0, 0, 0, 0);
-    return Math.abs(dataReg.getTime() - dataPrev.getTime()) / (1000 * 60 * 60 * 24) <= 3;
-  });
+    .sort((a, b) => semanaIndexFromRegistro(a) - semanaIndexFromRegistro(b));
+  const idx = evolucao.findIndex((e) => e === registro);
   const anterior = idx > 0 ? evolucao[idx - 1] : null;
   const compAnterior =
     anterior?.circunferenciaAbdominal ?? paciente.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal;

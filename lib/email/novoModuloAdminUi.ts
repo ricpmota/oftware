@@ -17,16 +17,17 @@ export function novosModulosOrdenados(): NovoModuloKey[] {
 }
 
 export const NOVO_MODULO_LABEL: Record<NovoModuloKey, { titulo: string; subtitulo: string }> = {
-  leads_nutri: { titulo: 'Leads Nutri', subtitulo: 'Paciente — 5 e-mails automáticos' },
+  leads_nutri: { titulo: 'Leads Nutri', subtitulo: 'Aviso único para admin' },
   solicitado_nutri: { titulo: 'Solicitado Nutri', subtitulo: 'Boas-vindas ao aceitar' },
   em_tratamento_nutri: { titulo: 'Em tratamento Nutri', subtitulo: 'Plano editado' },
   consulta_nutri: { titulo: 'Consulta Nutri', subtitulo: 'Lembrete antes / dia' },
-  leads_personal: { titulo: 'Leads Personal', subtitulo: 'Paciente — 5 e-mails' },
+  leads_personal: { titulo: 'Leads Personal', subtitulo: 'Aviso único para admin' },
   solicitado_personal: { titulo: 'Solicitado Personal', subtitulo: 'Boas-vindas ao aceitar' },
   em_tratamento_personal: { titulo: 'Em tratamento Personal', subtitulo: 'Plano editado' },
   treino_personal: { titulo: 'Treino Personal', subtitulo: 'Lembrete antes / dia' },
   nutri_pediu_vinculo: { titulo: 'Nutri pediu vínculo', subtitulo: 'Aviso ao médico' },
   personal_pediu_vinculo: { titulo: 'Personal pediu vínculo', subtitulo: 'Aviso ao médico' },
+  novo_lead_para_medico: { titulo: 'Novo lead para médico', subtitulo: 'Paciente selecionou médico' },
   novo_lead_nutri: { titulo: 'Novo lead Nutri', subtitulo: 'Aviso à nutricionista' },
   check_recomendacoes_nutri: { titulo: 'Check rec. Nutri', subtitulo: 'Paciente leu recomendações' },
   agenda_nutri: { titulo: 'Agenda Nutri', subtitulo: 'Semanal / diário' },
@@ -59,6 +60,10 @@ export function getVariaveisNovoModulo(
   const di = v('{dataInicio}', 'Início do período');
   const df = v('{dataFim}', 'Fim do período');
   const dh = v('{dataHoje}', 'Data de hoje');
+  const fotoRegistro = v('{foto_registro}', 'URL da foto do registro profissional');
+  const selfie = v('{selfie}', 'URL da selfie enviada');
+  const cnh = v('{cnh}', 'URL da foto da CNH');
+  const leadEmail = v('{lead_email}', 'E-mail do lead');
 
   if (modulo === 'conclusao_tratamento' && templateKey === 'lembrete_conclusao') {
     return {
@@ -88,7 +93,7 @@ export function getVariaveisNovoModulo(
   switch (modulo) {
     case 'leads_nutri':
     case 'leads_personal':
-      return { variaveis: [nome] };
+      return { variaveis: [nome, leadEmail, fotoRegistro, selfie, cnh] };
     case 'solicitado_nutri':
       return { variaveis: [nome, nutri, inicio, semanas] };
     case 'solicitado_personal':
@@ -103,14 +108,20 @@ export function getVariaveisNovoModulo(
       return { variaveis: [medico, nutri, nome] };
     case 'personal_pediu_vinculo':
       return { variaveis: [medico, personal, nome] };
+    case 'novo_lead_para_medico':
+      return { variaveis: [medico, nome, leadEmail] };
     case 'novo_lead_nutri':
     case 'check_recomendacoes_nutri':
-      return { variaveis: [nutri, nome] };
+      return modulo === 'novo_lead_nutri'
+        ? { variaveis: [nutri, nome, fotoRegistro, selfie, cnh] }
+        : { variaveis: [nutri, nome] };
     case 'agenda_nutri':
       return { variaveis: [nutri, di, df, dh, agendaHtml] };
     case 'novo_lead_personal':
     case 'check_presenca_personal':
-      return { variaveis: [personal, nome] };
+      return modulo === 'novo_lead_personal'
+        ? { variaveis: [personal, nome, fotoRegistro, selfie, cnh] }
+        : { variaveis: [personal, nome] };
     case 'agenda_personal':
       return { variaveis: [personal, di, df, dh, agendaHtml] };
     case 'lead_avulso_nutri':

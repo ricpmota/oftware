@@ -7,6 +7,7 @@ import {
   cronEmailThrottle,
   getCronZeptoMaxSendsPerRun,
 } from '@/lib/email/cronZeptoBatch';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 import { dataConclusaoPrevisaoPaciente } from '@/lib/conclusao/dataConclusaoPrevisaoPlano';
 import { ensureConclusaoPublicUrl } from '@/lib/conclusao/ensureConclusaoPublicLink';
 
@@ -171,7 +172,12 @@ async function enviarLembreteConclusao(
   return { ok: envioSucesso, skip: false as const };
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
   try {
     const zeptoGate = assertCronZeptoConfigured();
     if (!zeptoGate.ok) {

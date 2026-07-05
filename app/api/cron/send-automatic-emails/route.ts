@@ -9,7 +9,82 @@ import {
   cronEmailThrottle,
   getCronZeptoMaxSendsPerRun,
 } from '@/lib/email/cronZeptoBatch';
+import { acquireCronLock, releaseCronLock } from '@/lib/email/cronExecutionLock';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 import { zeptoEnvioFields } from '@/lib/email/emailEnvioLog';
+
+const TIPOS_CAMPANHA_LEADS: EmailTipo[] = ['email1', 'email2', 'email3', 'email4', 'email5'];
+
+type EnvioCampanhaLead = {
+  id: string;
+  emailTipo: string;
+  status: string;
+  enviadoEm: Date;
+};
+
+/** Consulta segmentada por lead — exige índice composto leadId + emailTipo. */
+async function fetchEnviosCampanhaPorLead(
+  db: ReturnType<typeof getFirebaseAdmin>['db'],
+  leadId: string,
+  cache: Map<string, EnvioCampanhaLead[]>
+): Promise<EnvioCampanhaLead[]> {
+  const cached = cache.get(leadId);
+  if (cached) return cached;
+
+  const snapshot = await db
+    .collection('email_envios')
+    .where('leadId', '==', leadId)
+    .where('emailTipo', 'in', TIPOS_CAMPANHA_LEADS)
+    .get();
+
+  const envios = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      emailTipo: data.emailTipo,
+      status: data.status,
+      enviadoEm: data.enviadoEm?.toDate?.() ?? new Date(data.enviadoEm),
+    };
+  });
+  cache.set(leadId, envios);
+  return envios;
+}
+
+function calcularProximoEmailCampanha(
+  enviosDoLead: EnvioCampanhaLead[],
+  createdAt: Date,
+  agora: Date
+): { proximoEmail?: EmailTipo; proximoEnvio?: Date } {
+  const horasDesdeCriacao = (agora.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+
+  const email1Enviado = enviosDoLead.some((e) => e.emailTipo === 'email1' && e.status === 'enviado');
+  const email2Enviado = enviosDoLead.some((e) => e.emailTipo === 'email2' && e.status === 'enviado');
+  const email3Enviado = enviosDoLead.some((e) => e.emailTipo === 'email3' && e.status === 'enviado');
+  const email4Enviado = enviosDoLead.some((e) => e.emailTipo === 'email4' && e.status === 'enviado');
+  const email5Enviado = enviosDoLead.some((e) => e.emailTipo === 'email5' && e.status === 'enviado');
+
+  let proximoEmail: EmailTipo | undefined;
+  let proximoEnvio: Date | undefined;
+
+  if (!email1Enviado && horasDesdeCriacao >= 1) {
+    proximoEmail = 'email1';
+    proximoEnvio = new Date(createdAt.getTime() + 60 * 60 * 1000);
+  } else if (email1Enviado && !email2Enviado && horasDesdeCriacao >= 24) {
+    proximoEmail = 'email2';
+    proximoEnvio = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
+  } else if (email2Enviado && !email3Enviado && horasDesdeCriacao >= 72) {
+    proximoEmail = 'email3';
+    proximoEnvio = new Date(createdAt.getTime() + 72 * 60 * 60 * 1000);
+  } else if (email3Enviado && !email4Enviado && horasDesdeCriacao >= 168) {
+    proximoEmail = 'email4';
+    proximoEnvio = new Date(createdAt.getTime() + 168 * 60 * 60 * 1000);
+  } else if (email4Enviado && !email5Enviado && horasDesdeCriacao >= 336) {
+    proximoEmail = 'email5';
+    proximoEnvio = new Date(createdAt.getTime() + 336 * 60 * 60 * 1000);
+  }
+
+  return { proximoEmail, proximoEnvio };
+}
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -94,10 +169,38 @@ async function enviarEmail(leadEmail: string, leadNome: string, assunto: string,
 }
 
 export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
+  const zeptoGate = assertCronZeptoConfigured();
+  if (!zeptoGate.ok) {
+    return NextResponse.json(zeptoGate.body, { status: zeptoGate.status });
+  }
+
+  let db: ReturnType<typeof getFirebaseAdmin>['db'] | undefined;
+  let lockInstanceId: string | null = null;
+
   try {
+    const firebase = getFirebaseAdmin();
+    db = firebase.db;
+
+    const lock = await acquireCronLock(db, 'send-automatic-emails');
+    if (!lock.acquired) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        message: lock.reason,
+        enviados: 0,
+        falhas: 0,
+      });
+    }
+    lockInstanceId = lock.instanceId;
+
     console.log('🕐 Iniciando envio automático de e-mails...');
-    
-    const { auth, db } = getFirebaseAdmin();
+
+    const { auth } = firebase;
     const agora = new Date();
 
     // 1. Verificar se o envio automático está ativado
@@ -121,11 +224,6 @@ export async function GET(request: NextRequest) {
         enviados: 0,
         falhas: 0,
       });
-    }
-
-    const zeptoGate = assertCronZeptoConfigured();
-    if (!zeptoGate.ok) {
-      return NextResponse.json(zeptoGate.body, { status: zeptoGate.status });
     }
 
     const limitePorExecucao = getCronZeptoMaxSendsPerRun();
@@ -187,25 +285,11 @@ export async function GET(request: NextRequest) {
       if (email && p.medicoResponsavelId) pacientesComMedico.set(email, p);
     });
 
-    // 5. Buscar todos os envios já realizados
-    const enviosSnapshot = await db.collection('email_envios').get();
-    const envios: any[] = enviosSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      enviadoEm: doc.data().enviadoEm?.toDate(),
-    }));
-    const enviosPorLead = new Map<string, any[]>();
-    envios.forEach(envio => {
-      if (!enviosPorLead.has(envio.leadId)) {
-        enviosPorLead.set(envio.leadId, []);
-      }
-      enviosPorLead.get(envio.leadId)!.push(envio);
-    });
-
-    // 6. Filtrar leads aptos e calcular próximos envios
+    // 5. Filtrar leads aptos — consulta segmentada em email_envios (sem full-scan)
     const dataMinima = new Date('2025-11-20T00:00:00');
     dataMinima.setHours(0, 0, 0, 0);
 
+    const enviosPorLeadCache = new Map<string, EnvioCampanhaLead[]>();
     const leadsAptos: Array<{
       leadId: string;
       leadEmail: string;
@@ -214,6 +298,9 @@ export async function GET(request: NextRequest) {
       proximoEmail?: EmailTipo;
       proximoEnvio?: Date;
     }> = [];
+
+    let candidatosComTempoMinimo = 0;
+    let docsEmailEnviosLidos = 0;
 
     for (const user of allFirebaseUsers) {
       const userEmail = user.email?.toLowerCase().trim();
@@ -227,51 +314,19 @@ export async function GET(request: NextRequest) {
       userCreatedAt.setHours(0, 0, 0, 0);
       if (userCreatedAt < dataMinima) continue;
 
-      const enviosDoLead = enviosPorLead.get(user.uid) || [];
-      const minutosDesdeCriacao = (agora.getTime() - createdAt.getTime()) / (1000 * 60);
       const horasDesdeCriacao = (agora.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+      // Nenhum e-mail da sequência é elegível antes de 1h — evita query em email_envios
+      if (horasDesdeCriacao < 1) continue;
 
-      // Verificar qual e-mail deve ser enviado
-      // Lógica: Enviar e-mails em sequência baseado no tempo desde o login (criação da conta)
-      // 1º email: 1 hora após login sem escolher médico
-      // 2º email: 24 horas após login sem escolher médico
-      // 3º email: 72 horas após login
-      // 4º email: 7 dias (168 horas) após login
-      // 5º email: 14 dias (336 horas) após login
-      let proximoEmail: EmailTipo | undefined;
-      let proximoEnvio: Date | undefined;
+      candidatosComTempoMinimo++;
+      const enviosDoLead = await fetchEnviosCampanhaPorLead(db, user.uid, enviosPorLeadCache);
+      docsEmailEnviosLidos += enviosDoLead.length;
 
-      const email1Enviado = enviosDoLead.some(e => e.emailTipo === 'email1' && e.status === 'enviado');
-      const email2Enviado = enviosDoLead.some(e => e.emailTipo === 'email2' && e.status === 'enviado');
-      const email3Enviado = enviosDoLead.some(e => e.emailTipo === 'email3' && e.status === 'enviado');
-      const email4Enviado = enviosDoLead.some(e => e.emailTipo === 'email4' && e.status === 'enviado');
-      const email5Enviado = enviosDoLead.some(e => e.emailTipo === 'email5' && e.status === 'enviado');
-
-      // 1º email: 1 hora após login
-      if (!email1Enviado && horasDesdeCriacao >= 1) {
-        proximoEmail = 'email1';
-        proximoEnvio = new Date(createdAt.getTime() + 60 * 60 * 1000); // 1 hora
-      }
-      // 2º email: 24 horas após login (só se email1 já foi enviado)
-      else if (email1Enviado && !email2Enviado && horasDesdeCriacao >= 24) {
-        proximoEmail = 'email2';
-        proximoEnvio = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
-      }
-      // 3º email: 72 horas após login (só se email2 já foi enviado)
-      else if (email2Enviado && !email3Enviado && horasDesdeCriacao >= 72) {
-        proximoEmail = 'email3';
-        proximoEnvio = new Date(createdAt.getTime() + 72 * 60 * 60 * 1000);
-      }
-      // 4º email: 7 dias (168 horas) após login (só se email3 já foi enviado)
-      else if (email3Enviado && !email4Enviado && horasDesdeCriacao >= 168) {
-        proximoEmail = 'email4';
-        proximoEnvio = new Date(createdAt.getTime() + 168 * 60 * 60 * 1000);
-      }
-      // 5º email: 14 dias (336 horas) após login (só se email4 já foi enviado)
-      else if (email4Enviado && !email5Enviado && horasDesdeCriacao >= 336) {
-        proximoEmail = 'email5';
-        proximoEnvio = new Date(createdAt.getTime() + 336 * 60 * 60 * 1000);
-      }
+      const { proximoEmail, proximoEnvio } = calcularProximoEmailCampanha(
+        enviosDoLead,
+        createdAt,
+        agora
+      );
 
       if (proximoEmail && proximoEnvio && proximoEnvio <= agora) {
         leadsAptos.push({
@@ -285,6 +340,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (candidatosComTempoMinimo === 0) {
+      console.log('📧 Nenhum lead candidato (≥1h) — email_envios não consultado nesta execução');
+      return NextResponse.json({
+        success: true,
+        timestamp: agora.toISOString(),
+        enviados: 0,
+        falhas: 0,
+        totalAptos: 0,
+        processadosNestaExecucao: 0,
+        limitePorExecucao,
+        truncadoPorLimiteZepto: false,
+        provedor: 'ZeptoMail',
+        resultados: [],
+        emailEnviosQueries: 0,
+        emailEnviosDocsLidos: 0,
+      });
+    }
+
+    console.log(
+      `📧 email_envios: ${enviosPorLeadCache.size} consultas segmentadas, ${docsEmailEnviosLidos} docs lidos`
+    );
     console.log(`📧 ${leadsAptos.length} leads aptos para envio automático (máx. ${limitePorExecucao} nesta execução)`);
 
     const fila = leadsAptos.slice(0, limitePorExecucao);
@@ -368,6 +444,8 @@ export async function GET(request: NextRequest) {
       truncadoPorLimiteZepto: truncado,
       provedor: 'ZeptoMail',
       resultados,
+      emailEnviosQueries: enviosPorLeadCache.size,
+      emailEnviosDocsLidos: docsEmailEnviosLidos,
     });
   } catch (error) {
     console.error('❌ Erro no envio automático:', error);
@@ -380,6 +458,10 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     );
+  } finally {
+    if (db && lockInstanceId) {
+      await releaseCronLock(db, 'send-automatic-emails', lockInstanceId);
+    }
   }
 }
 

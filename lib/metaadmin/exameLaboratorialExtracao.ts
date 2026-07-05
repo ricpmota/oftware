@@ -6,6 +6,7 @@ import { filtrarCamposPorPlausibilidade } from '@/lib/metaadmin/exameLaboratoria
 
 /** Resposta normalizada do backend / modelo (somente leitura + merge no formulário). */
 export interface ExameLaboratorialExtracaoNormalizada {
+  nomePacienteDocumento: string | null;
   dataExame: string | null;
   camposMapeados: Record<string, number>;
   examesNaoMapeados: string[];
@@ -47,6 +48,7 @@ function parseNumberSafe(raw: unknown): number | null {
  */
 export function normalizarRespostaExameIA(raw: unknown): ExameLaboratorialExtracaoNormalizada {
   const out: ExameLaboratorialExtracaoNormalizada = {
+    nomePacienteDocumento: null,
     dataExame: null,
     camposMapeados: {},
     examesNaoMapeados: [],
@@ -54,6 +56,12 @@ export function normalizarRespostaExameIA(raw: unknown): ExameLaboratorialExtrac
   };
   if (!raw || typeof raw !== 'object') return out;
   const o = raw as Record<string, unknown>;
+
+  const np = o.nomePacienteDocumento;
+  if (typeof np === 'string') {
+    const nome = np.trim().replace(/\s+/g, ' ');
+    out.nomePacienteDocumento = nome || null;
+  }
 
   const de = o.dataExame;
   if (typeof de === 'string' && ISO_DATE.test(de.trim())) {
@@ -101,17 +109,26 @@ export type NovoExameFormState = {
  * - dataColeta: só atualiza se applyDate === true e dataExame for YYYY-MM-DD válida.
  * - Campos numéricos: só aplica valores > 0 finitos; chaves fora da allowlist são ignoradas.
  * - Campos já preenchidos: valores retornados pela IA sobrescrevem (médico pode corrigir depois).
+ * - replaceLaboratorialFieldsPrior: remove do estado todos os campos da allowlist antes de aplicar
+ *   a extração atual, para o laudo não ficar “misturado” com valores de um exame anterior no mesmo modal.
  */
 export function applyExameExtraidoToForm(
   prev: NovoExameFormState,
   extracted: ExameLaboratorialExtracaoNormalizada,
-  opts: { applyDate: boolean }
+  opts: { applyDate: boolean; replaceLaboratorialFieldsPrior?: boolean }
 ): NovoExameFormState {
-  const next: NovoExameFormState = { ...prev };
+  const allowed = new Set(EXAME_LABORATORIAL_ALLOWED_INTERNAL_FIELDS);
+  const base: NovoExameFormState =
+    opts.replaceLaboratorialFieldsPrior === true
+      ? (Object.fromEntries(
+          Object.entries(prev).filter(([k]) => k === 'dataColeta' || !allowed.has(k))
+        ) as NovoExameFormState)
+      : { ...prev };
+
+  const next: NovoExameFormState = { ...base };
   if (opts.applyDate && extracted.dataExame && ISO_DATE.test(extracted.dataExame)) {
     next.dataColeta = extracted.dataExame;
   }
-  const allowed = new Set(EXAME_LABORATORIAL_ALLOWED_INTERNAL_FIELDS);
   for (const [k, num] of Object.entries(extracted.camposMapeados)) {
     if (!allowed.has(k)) continue;
     if (!Number.isFinite(num) || num <= 0) continue;

@@ -45,6 +45,11 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const categoriaRaw = (formData.get('categoria') as string | null)?.trim().toLowerCase() || 'perfil';
+    const profissaoRaw = ((formData.get('profissao') as string | null)?.trim().toLowerCase() || 'medico') as
+      | 'medico'
+      | 'nutricionista'
+      | 'personal';
 
     if (!file) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
@@ -64,7 +69,31 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     const ext = file.type === 'image/png' ? 'png' : file.name.split('.').pop() || 'png';
-    const fileName = `medico-perfil-fotos/${timestamp}_${random}.${ext}`;
+    const folderByCat: Record<string, string> =
+      profissaoRaw === 'nutricionista'
+        ? {
+            perfil: 'nutricionista-perfil-fotos',
+            cnh: 'nutricionista-verificacao/cnh',
+            selfie: 'nutricionista-verificacao/selfie',
+            crm_doc: 'nutricionista-verificacao/registro',
+            registro_doc: 'nutricionista-verificacao/registro',
+          }
+        : profissaoRaw === 'personal'
+          ? {
+              perfil: 'personal-perfil-fotos',
+              cnh: 'personal-verificacao/cnh',
+              selfie: 'personal-verificacao/selfie',
+              crm_doc: 'personal-verificacao/registro',
+              registro_doc: 'personal-verificacao/registro',
+            }
+          : {
+              perfil: 'medico-perfil-fotos',
+              cnh: 'medico-verificacao/cnh',
+              selfie: 'medico-verificacao/selfie',
+              crm_doc: 'medico-verificacao/crm',
+            };
+    const folder = folderByCat[categoriaRaw] || folderByCat.perfil;
+    const fileName = `${folder}/${timestamp}_${random}.${ext}`;
 
     const adminApp = getFirebaseAdmin();
     const storage = getStorage(adminApp);

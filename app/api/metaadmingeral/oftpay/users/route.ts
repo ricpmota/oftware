@@ -70,9 +70,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'email é obrigatório.' }, { status: 400 });
     }
     const courseIds = Array.isArray(body.courseIds) ? body.courseIds.filter((c: unknown) => typeof c === 'string') : undefined;
+    const questoesEnabled =
+      body.questoesEnabled === undefined
+        ? undefined
+        : Boolean(body.questoesEnabled);
     const accessStartAt = body.accessStartAt === undefined ? undefined : (typeof body.accessStartAt === 'number' ? body.accessStartAt : null);
     const accessEndAt = body.accessEndAt === undefined ? undefined : (typeof body.accessEndAt === 'number' ? body.accessEndAt : null);
-    await updateOftPayUser({ email, courseIds, accessStartAt, accessEndAt });
+    await updateOftPayUser({ email, courseIds, questoesEnabled, accessStartAt, accessEndAt });
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

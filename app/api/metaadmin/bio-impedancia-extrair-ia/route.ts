@@ -22,19 +22,7 @@ export async function POST(req: NextRequest) {
 
     const data = await extrairBioImpedanciaComGemini({ buffer, mimeType });
 
-    return NextResponse.json({
-      ok: true,
-      data: {
-        dataRegistro: data.dataRegistro,
-        peso: data.peso,
-        composicaoCorporal: data.composicaoCorporal,
-        analiseMusculoGordura: data.analiseMusculoGordura,
-        analiseObesidade: data.analiseObesidade,
-        massaMagraSegmentar: data.massaMagraSegmentar,
-        gorduraSegmentar: data.gorduraSegmentar,
-        avisos: data.avisos,
-      },
-    });
+    return NextResponse.json({ ok: true, data });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Falha ao processar arquivo.';
     console.error('[bio-impedancia-extrair-ia]', e);

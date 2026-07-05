@@ -12,3 +12,8 @@ export function getExameCampoNumerico(exame: Record<string, unknown>, field: str
   const n = Number(v);
   return !isNaN(n) ? n : null;
 }
+
+/** Indica se o exame tem valor numérico preenchido para o campo (na data selecionada). */
+export function exameTemCampoPreenchido(exame: Record<string, unknown>, field: string): boolean {
+  return getExameCampoNumerico(exame, field) !== null;
+}

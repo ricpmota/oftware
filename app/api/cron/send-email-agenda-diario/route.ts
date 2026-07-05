@@ -7,6 +7,8 @@ import {
   cronEmailThrottle,
   getCronZeptoMaxSendsPerRun,
 } from '@/lib/email/cronZeptoBatch';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
+import { dataPrevistaSemanaComoEsquema } from '@/utils/datasAplicacaoSemanaPlano';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -43,109 +45,43 @@ function getFirebaseAdmin() {
   return getFirestore(adminApp);
 }
 
-// Função para criar calendário de doses (mesma lógica do calendário)
-function criarCalendarioDoses(planoTerapeutico: any, evolucaoSeguimento: any[]): Array<{
-  data: Date;
-  semana: number;
-  dose: number;
-  status: 'tomada' | 'perdida' | 'hoje' | 'futura';
-}> {
-  if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
-    return [];
+function obterRegistroAplicacao(paciente: any, dataAplicacao: Date, semana: number) {
+  const evolucao = paciente?.evolucaoSeguimento || [];
+  const dataPrevista = new Date(dataAplicacao);
+  dataPrevista.setHours(0, 0, 0, 0);
+  return evolucao.find((e: any) => {
+    const week = e.weekIndex ?? e.numeroSemana ?? 0;
+    if (week === semana) return true;
+    if (!e.dataRegistro) return false;
+    const d = e.dataRegistro?.toDate ? e.dataRegistro.toDate() : new Date(e.dataRegistro);
+    if (isNaN(d.getTime())) return false;
+    d.setHours(0, 0, 0, 0);
+    const diff = Math.abs(d.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
+    return diff <= 3;
+  });
+}
+
+function listarAplicacoesDoPaciente(paciente: any): Array<{ data: Date; semana: number; dose: number; localAplicacao: string }> {
+  const plano = paciente?.planoTerapeutico;
+  if (!plano?.startDate) return [];
+  const numeroSemanas = Number(plano.numeroSemanasTratamento) || 18;
+  const semanasCanceladas = new Set<number>(plano.semanasCanceladas || []);
+  const evolucao = paciente.evolucaoSeguimento || [];
+  const aplicacoes: Array<{ data: Date; semana: number; dose: number; localAplicacao: string }> = [];
+  for (let semana = 1; semana <= numeroSemanas; semana++) {
+    if (semanasCanceladas.has(semana)) continue;
+    const dataDose = dataPrevistaSemanaComoEsquema(plano, semana, evolucao);
+    dataDose.setHours(0, 0, 0, 0);
+    const registro = obterRegistroAplicacao(paciente, dataDose, semana);
+    const adesaoPerdida = registro?.adherence === 'MISSED' || registro?.adesao === 'esquecida';
+    const jaAplicada = !!(registro?.doseAplicada?.quantidade && registro.doseAplicada.quantidade > 0 && !adesaoPerdida);
+    if (jaAplicada) continue;
+    const doseCustom = plano.esquemaDosesCustomizado?.[semana];
+    const doseAplicada = registro?.doseAplicada?.quantidade;
+    const dose = Number(doseCustom ?? doseAplicada ?? (plano.currentDoseMg || 2.5));
+    aplicacoes.push({ data: dataDose, semana, dose, localAplicacao: 'abdome' });
   }
-
-  const diasSemana: { [key: string]: number } = {
-    dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6
-  };
-
-  const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
-  const startDateValue = planoTerapeutico.startDate;
-  const primeiraDose = startDateValue.toDate ? startDateValue.toDate() : new Date(startDateValue);
-  primeiraDose.setHours(0, 0, 0, 0);
-  while (primeiraDose.getDay() !== diaDesejado) {
-    primeiraDose.setDate(primeiraDose.getDate() + 1);
-  }
-
-  const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
-  const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
-  const semanasCanceladas = planoTerapeutico.semanasCanceladas || [];
-  const evolucao = (evolucaoSeguimento || []).map((e: any) => ({
-    ...e,
-    dataRegistro: e.dataRegistro?.toDate ? e.dataRegistro.toDate() : new Date(e.dataRegistro)
-  }));
-
-  const calcularDoseComAtrasos = (semanaIndex: number) => {
-    let semanasDesdeUltimoCiclo = semanaIndex;
-    for (let s = 0; s < semanaIndex; s++) {
-      const dataPrevista = new Date(primeiraDose);
-      dataPrevista.setDate(primeiraDose.getDate() + (s * 7));
-      const registro = evolucao.find((e: any) => {
-        if (!e.dataRegistro) return false;
-        const dataRegistro = e.dataRegistro instanceof Date ? new Date(e.dataRegistro) : new Date(e.dataRegistro);
-        if (isNaN(dataRegistro.getTime())) return false;
-        dataRegistro.setHours(0, 0, 0, 0);
-        const diffDias = Math.abs((dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
-        return diffDias <= 1;
-      });
-      if (registro && registro.dataRegistro) {
-        const dataRegistro = registro.dataRegistro instanceof Date ? new Date(registro.dataRegistro) : new Date(registro.dataRegistro);
-        dataRegistro.setHours(0, 0, 0, 0);
-        const diffDias = (dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
-        if (diffDias >= 4) {
-          semanasDesdeUltimoCiclo = semanaIndex - s - 1;
-          break;
-        }
-      }
-    }
-    return doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
-  };
-
-  const calendario = [];
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-
-  for (let semana = 0; semana < numeroSemanas; semana++) {
-    const semanaNum = semana + 1;
-    if (semanasCanceladas.includes(semanaNum)) continue;
-
-    const dataDose = new Date(primeiraDose);
-    dataDose.setDate(primeiraDose.getDate() + (semana * 7));
-    const dosePlanejada = calcularDoseComAtrasos(semana);
-    
-    const registroEvolucao = evolucao.find((e: any) => {
-      if (!e.dataRegistro) return false;
-      const dataRegistro = e.dataRegistro instanceof Date ? new Date(e.dataRegistro) : new Date(e.dataRegistro);
-      if (isNaN(dataRegistro.getTime())) return false;
-      dataRegistro.setHours(0, 0, 0, 0);
-      const diffDias = Math.abs((dataRegistro.getTime() - dataDose.getTime()) / (1000 * 60 * 60 * 24));
-      return diffDias <= 1;
-    });
-
-    let doseReal = dosePlanejada;
-    if (planoTerapeutico.esquemaDosesCustomizado && planoTerapeutico.esquemaDosesCustomizado[semanaNum]) {
-      doseReal = planoTerapeutico.esquemaDosesCustomizado[semanaNum];
-    } else if (registroEvolucao?.doseAplicada) {
-      doseReal = registroEvolucao.doseAplicada.quantidade || dosePlanejada;
-    }
-
-    let status: 'tomada' | 'perdida' | 'hoje' | 'futura';
-    if (dataDose.getTime() === hoje.getTime()) {
-      status = 'hoje';
-    } else if (dataDose < hoje) {
-      // Dose no passado
-      if (registroEvolucao && registroEvolucao.adherence && registroEvolucao.adherence !== 'MISSED') {
-        status = 'tomada';
-      } else {
-        status = 'perdida';
-      }
-    } else {
-      status = 'futura';
-    }
-
-    calendario.push({ data: dataDose, semana: semanaNum, dose: doseReal, status });
-  }
-
-  return calendario;
+  return aplicacoes;
 }
 
 // Função para formatar agenda diária
@@ -178,6 +114,11 @@ function formatarAgendaDiaria(
 }
 
 export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
   try {
     console.log('--- Iniciando Cron Job de E-mail de Agenda Diária ---');
     const db = getFirebaseAdmin();
@@ -261,19 +202,16 @@ export async function GET(request: NextRequest) {
       const pagamentos: Array<{ pacienteNome: string; parcela: number; valor: number; status?: string }> = [];
       
       pacientesDoMedico.forEach((paciente: any) => {
-        const plano = paciente.planoTerapeutico;
-        if (!plano?.startDate || !plano?.injectionDayOfWeek) return;
-        
-        const calendario = criarCalendarioDoses(plano, paciente.evolucaoSeguimento || []);
-        calendario.forEach(item => {
+        const aplicacoesPaciente = listarAplicacoesDoPaciente(paciente);
+        aplicacoesPaciente.forEach(item => {
           const dataItem = new Date(item.data);
           dataItem.setHours(0, 0, 0, 0);
-          if (dataItem.getTime() === hoje.getTime() && (item.status === 'hoje' || item.status === 'futura')) {
+          if (dataItem.getTime() === hoje.getTime()) {
             aplicacoes.push({
               pacienteNome: paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || 'Paciente',
               semana: item.semana,
               dose: item.dose,
-              localAplicacao: 'abdome' // Poderia calcular baseado na rotação
+              localAplicacao: item.localAplicacao
             });
           }
         });
@@ -308,9 +246,11 @@ export async function GET(request: NextRequest) {
       const medicoGenero = medico.genero || medico.gender;
       const medicoNomeCompleto = (medicoGenero === 'F' || medicoGenero === 'female' ? 'Dra. ' : 'Dr. ') + medicoNome;
       
-      let assunto = assuntoTemplate.replace(/\{medico\}/g, medicoNomeCompleto);
+      const assunto = assuntoTemplate.replace(/\{medico\}/g, medicoNomeCompleto);
       let html = corpoTemplate.replace(/\{medico\}/g, medicoNomeCompleto);
       html = html.replace(/\{agenda_diario\}/g, agendaFormatada);
+      html = html.replace(/\{aplicacoesHtml\}/g, formatarAgendaDiaria(aplicacoes, []));
+      html = html.replace(/\{pagamentosHtml\}/g, formatarAgendaDiaria([], pagamentos));
       
       // Garantir que o HTML está bem formatado
       if (!html.includes('<html') && !html.includes('<!DOCTYPE')) {

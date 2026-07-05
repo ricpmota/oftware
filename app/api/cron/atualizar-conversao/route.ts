@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -43,6 +44,11 @@ function getFirebaseAdmin() {
 }
 
 export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
   try {
     console.log('🔄 Iniciando atualização da coleção de conversão...');
     

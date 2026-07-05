@@ -7,6 +7,9 @@ import {
   mergeHistoricoConclusaoNoPlano,
   snapshotConclusaoParaHistorico,
 } from '@/utils/conclusaoTratamentoHistorico';
+import { calcularDeltaAcumuladoMedida } from '@/lib/aplicacao/formatarVariacaoMedida';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -67,10 +70,10 @@ export async function POST(
     const estrelasMedico = body.estrelasMedico != null ? Math.max(1, Math.min(5, Math.round(Number(body.estrelasMedico)))) : undefined;
     const depoimentoRaw = body.depoimento != null ? String(body.depoimento).trim() : '';
     const depoimento = depoimentoRaw.length > 0 ? depoimentoRaw.slice(0, 3000) : undefined;
-
-    if (pesoFinalKg == null || isNaN(pesoFinalKg) || pesoFinalKg <= 0) {
-      return NextResponse.json({ error: 'Peso final é obrigatório e deve ser um número positivo' }, { status: 400 });
-    }
+    const percepcaoResultadoFinalRaw = body.percepcaoResultadoFinal != null ? String(body.percepcaoResultadoFinal).trim() : '';
+    const percepcaoResultadoFinal = percepcaoResultadoFinalRaw.length > 0 ? percepcaoResultadoFinalRaw.slice(0, 200) : undefined;
+    const principalConquistaRaw = body.principalConquista != null ? String(body.principalConquista).trim() : '';
+    const principalConquista = principalConquistaRaw.length > 0 ? principalConquistaRaw.slice(0, 200) : undefined;
 
     const db = getFirebaseAdmin();
     const linkRef = await db.collection('conclusao_links').doc(token).get();
@@ -98,6 +101,28 @@ export async function POST(
       };
     };
 
+    const planoPre = paciente.planoTerapeutico || {};
+    const conclusaoExistente = planoPre.conclusaoTratamento as Record<string, unknown> | undefined;
+    const pesoExistente = conclusaoExistente?.pesoFinalKg != null ? parseFloat(String(conclusaoExistente.pesoFinalKg)) : undefined;
+    const jaPreenchidoParcial = pesoExistente != null && !isNaN(pesoExistente) && pesoExistente > 0;
+
+    let pesoFinalResolved = pesoFinalKg;
+    if ((pesoFinalResolved == null || isNaN(pesoFinalResolved) || pesoFinalResolved <= 0) && jaPreenchidoParcial && pesoExistente) {
+      pesoFinalResolved = pesoExistente;
+    }
+
+    if (pesoFinalResolved == null || isNaN(pesoFinalResolved) || pesoFinalResolved <= 0) {
+      return NextResponse.json({ error: 'Peso final é obrigatório e deve ser um número positivo' }, { status: 400 });
+    }
+
+    const circExistente = conclusaoExistente?.circunferenciaAbdominalFinalCm != null
+      ? parseFloat(String(conclusaoExistente.circunferenciaAbdominalFinalCm))
+      : undefined;
+    let circunferenciaFinalResolved = circunferenciaAbdominalFinalCm;
+    if ((circunferenciaFinalResolved == null || isNaN(circunferenciaFinalResolved)) && circExistente != null && !isNaN(circExistente)) {
+      circunferenciaFinalResolved = circExistente;
+    }
+
     const evolucaoBase = paciente.evolucaoSeguimento || [];
     const primeiroRegistro = evolucaoBase.find((e: any) => (e.weekIndex ?? e.numeroSemana) === 1);
     const medidasIniciais = paciente.dadosClinicos?.medidasIniciais as Record<string, unknown> | undefined;
@@ -115,9 +140,11 @@ export async function POST(
       : toNum((pac.medidasIniciais as Record<string, unknown>)?.circunferenciaAbdominal);
     const circunferenciaInicialCm = circDoRegistro ?? circMedidas;
 
-    const pesoPerdidoAcumulado = pesoInicialKg != null && pesoInicialKg > 0 ? pesoInicialKg - pesoFinalKg : null;
-    const circunferenciaAbdominalReduzidaCm = circunferenciaInicialCm != null && circunferenciaAbdominalFinalCm != null && !isNaN(circunferenciaAbdominalFinalCm)
-      ? circunferenciaInicialCm - circunferenciaAbdominalFinalCm : null;
+    const pesoPerdidoAcumulado = calcularDeltaAcumuladoMedida(pesoInicialKg, pesoFinalResolved);
+    const circunferenciaAbdominalReduzidaCm = calcularDeltaAcumuladoMedida(
+      circunferenciaInicialCm,
+      circunferenciaFinalResolved != null && !isNaN(circunferenciaFinalResolved) ? circunferenciaFinalResolved : null
+    );
 
     const dataConclusao = new Date(data);
     dataConclusao.setHours(12, 0, 0, 0);
@@ -142,9 +169,27 @@ export async function POST(
 
     const conclusaoTratamento: Record<string, unknown> = {
       dataConclusao,
-      pesoFinalKg,
-      ...(circunferenciaAbdominalFinalCm != null && !isNaN(circunferenciaAbdominalFinalCm) ? { circunferenciaAbdominalFinalCm } : {}),
-      ...(depoimento != null && depoimento.length > 0 ? { depoimento } : {}),
+      pesoFinalKg: pesoFinalResolved,
+      updatedAt: new Date(),
+      ...(circunferenciaFinalResolved != null && !isNaN(circunferenciaFinalResolved)
+        ? { circunferenciaAbdominalFinalCm: circunferenciaFinalResolved }
+        : {}),
+      ...(depoimento != null && depoimento.length > 0
+        ? { depoimento }
+        : conclusaoExistente?.depoimento
+          ? { depoimento: conclusaoExistente.depoimento }
+          : {}),
+      ...(percepcaoResultadoFinal
+        ? { percepcaoResultadoFinal }
+        : conclusaoExistente?.percepcaoResultadoFinal
+          ? { percepcaoResultadoFinal: conclusaoExistente.percepcaoResultadoFinal }
+          : {}),
+      ...(principalConquista
+        ? { principalConquista }
+        : conclusaoExistente?.principalConquista
+          ? { principalConquista: conclusaoExistente.principalConquista }
+          : {}),
+      ...(estrelasMedico != null ? { estrelasMedico } : conclusaoExistente?.estrelasMedico != null ? { estrelasMedico: conclusaoExistente.estrelasMedico } : {}),
     };
 
     const planoTerapeutico = {
@@ -165,8 +210,8 @@ export async function POST(
       weekIndex: numeroSemanas + 1,
       numeroSemana: numeroSemanas + 1,
       dataRegistro: dataConclusao,
-      peso: pesoFinalKg,
-      ...(circunferenciaAbdominalFinalCm != null && !isNaN(circunferenciaAbdominalFinalCm) ? { circunferenciaAbdominal: circunferenciaAbdominalFinalCm } : {}),
+      peso: pesoFinalResolved,
+      ...(circunferenciaFinalResolved != null && !isNaN(circunferenciaFinalResolved) ? { circunferenciaAbdominal: circunferenciaFinalResolved } : {}),
       comentarioMedico: 'Semana de Conclusão',
       doseAplicada: { quantidade: 0, data: dataConclusao, horario: dataConclusao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) },
       adherence: 'ON_TIME',
@@ -228,10 +273,13 @@ export async function POST(
       relatorioToken = relatorioSnap.docs[0].id;
     } else {
       relatorioToken = crypto.randomBytes(32).toString('hex');
-      await db.collection('relatorio_paciente_links').doc(relatorioToken).set({ pacienteId, createdAt: new Date() });
+      await db.collection('relatorio_paciente_links').doc(relatorioToken).set({
+        pacienteId,
+        createdAt: new Date(),
+        ...shadowOrganizationFields(),
+      });
     }
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://oftware.com.br';
-    linkRelatorio = `${baseUrl}/relatorio/${relatorioToken}`;
+    linkRelatorio = buildOrganizacaoPublicUrl(`/relatorio/${relatorioToken}`);
 
     let medicoNome: string | undefined;
     let medicoGenero: 'M' | 'F' = 'M';
@@ -261,13 +309,16 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: 'Conclusão registrada com sucesso!',
-      pesoPerdidoAcumulado: pesoPerdidoAcumulado != null ? Number(pesoPerdidoAcumulado.toFixed(1)) : null,
-      circunferenciaAbdominalReduzidaCm: circunferenciaAbdominalReduzidaCm != null ? Number(circunferenciaAbdominalReduzidaCm.toFixed(1)) : null,
+      pesoPerdidoAcumulado,
+      circunferenciaAbdominalReduzidaCm,
       linkRelatorio,
       linkIndicacao,
       medicoNome,
       medicoGenero,
-      depoimento: depoimento ?? null,
+      depoimento: depoimento ?? (conclusaoExistente?.depoimento as string | undefined) ?? null,
+      percepcaoResultadoFinal: percepcaoResultadoFinal ?? (conclusaoExistente?.percepcaoResultadoFinal as string | undefined) ?? null,
+      principalConquista: principalConquista ?? (conclusaoExistente?.principalConquista as string | undefined) ?? null,
+      estrelasMedico: estrelasMedico ?? (conclusaoExistente?.estrelasMedico as number | undefined) ?? null,
     });
   } catch (error) {
     console.error('Erro ao atualizar conclusão:', error);

@@ -1,20 +1,50 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { TrendingDown, Activity, Users, FileText } from 'lucide-react';
+import {
+  CheckCircle,
+  Users,
+  FileText,
+  Scale,
+  Syringe,
+  Flame,
+  UserCheck,
+  ClipboardList,
+  Activity,
+  Layers,
+  Route,
+} from 'lucide-react';
 
 export type IndicadoresData = {
   kgReducaoTotal: number;
-  mgAplicacoesTotal: number;
+  mgAplicadaTotal: number;
+  caloriasPerdidasTotal: number;
+  totalPacientes: number;
+  pacientesConcluidos: number;
   pacientesEmAcompanhamento: number;
   registrosEvolucao: number;
+  profissionaisConectados?: number;
+  registrosClinicos?: number;
+  checkInsRealizados?: number;
+  aplicacoesRegistradas?: number;
+  jornadasAtivas?: number;
+  protocolosAtivos?: number;
 };
 
 const PLACEHOLDERS: IndicadoresData = {
   kgReducaoTotal: 0,
-  mgAplicacoesTotal: 0,
+  mgAplicadaTotal: 0,
+  caloriasPerdidasTotal: 0,
+  totalPacientes: 0,
+  pacientesConcluidos: 0,
   pacientesEmAcompanhamento: 0,
   registrosEvolucao: 0,
+  profissionaisConectados: 0,
+  registrosClinicos: 0,
+  checkInsRealizados: 0,
+  aplicacoesRegistradas: 0,
+  jornadasAtivas: 0,
+  protocolosAtivos: 0,
 };
 
 function easeOutCubic(t: number): number {
@@ -64,6 +94,7 @@ type MetricCardProps = {
   suffix?: string;
   decimals?: number;
   startAnimation: boolean;
+  formatter?: (value: number) => string;
 };
 
 function MetricCard({
@@ -73,16 +104,23 @@ function MetricCard({
   suffix = '',
   decimals = 0,
   startAnimation,
+  formatter,
 }: MetricCardProps) {
   const displayValue = useCountUp(value, 1800, startAnimation, decimals);
+  const formattedValue = formatter
+    ? formatter(displayValue)
+    : decimals > 0
+      ? displayValue.toFixed(decimals)
+      : displayValue.toLocaleString('pt-BR');
+
   return (
-    <div className="group flex flex-col p-6 rounded-2xl bg-[#0A1F44]/80 backdrop-blur-sm border border-white/10 hover:border-[#2F8FA3]/40 transition-all duration-300">
+    <div className="group flex flex-col p-6 rounded-2xl bg-[#0A1F44]/80 backdrop-blur-sm border border-white/10 hover:border-[#22C55E]/40 transition-all duration-300">
       <Icon className="w-8 h-8 text-[#4CCB7A]/90 mb-4" aria-hidden />
       <span
         className="text-3xl md:text-4xl font-bold text-[#E8EDED] tabular-nums tracking-tight"
         aria-live="polite"
       >
-        {decimals > 0 ? displayValue.toFixed(decimals) : displayValue.toLocaleString('pt-BR')}
+        {formattedValue}
         {suffix && <span className="ml-1 text-base md:text-lg align-baseline">{suffix}</span>}
       </span>
       <span className="text-[#E8EDED]/60 text-sm mt-2 font-medium">{label}</span>
@@ -90,12 +128,22 @@ function MetricCard({
   );
 }
 
-export default function IndicadoresPlataforma() {
+type IndicadoresPlataformaProps = {
+  hideWeightLossMetrics?: boolean;
+  variant?: 'default' | 'institutional';
+};
+
+export default function IndicadoresPlataforma({
+  hideWeightLossMetrics = false,
+  variant = 'default',
+}: IndicadoresPlataformaProps) {
   const [data, setData] = useState<IndicadoresData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [inView, setInView] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+
+  const isInstitutional = variant === 'institutional';
 
   useEffect(() => {
     fetch('/api/indicadores-plataforma')
@@ -120,6 +168,8 @@ export default function IndicadoresPlataforma() {
 
   const metrics = data ?? PLACEHOLDERS;
 
+  const skeletonCount = isInstitutional ? 6 : hideWeightLossMetrics ? 4 : 7;
+
   return (
     <section
       ref={sectionRef}
@@ -128,15 +178,17 @@ export default function IndicadoresPlataforma() {
     >
       <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
         <h2 id="indicadores-titulo" className="text-3xl md:text-4xl font-bold text-[#E8EDED] text-center mb-4">
-          Resultados Conquistados
+          {isInstitutional ? 'Indicadores da plataforma' : 'Indicadores de acompanhamento'}
         </h2>
         <p className="text-[#E8EDED]/70 text-center max-w-2xl mx-auto mb-12">
-          Dados reais consolidados da plataforma. Baseados em pacientes em acompanhamento.
+          {isInstitutional
+            ? 'Dados consolidados de uso da infraestrutura Oftware em operação.'
+            : 'Dados consolidados da plataforma. Baseados em pacientes em acompanhamento estruturado.'}
         </p>
 
         {loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {Array.from({ length: skeletonCount }, (_, i) => i + 1).map((i) => (
               <div
                 key={i}
                 className="h-40 rounded-2xl bg-[#0A1F44]/60 border border-white/10 animate-pulse"
@@ -144,38 +196,113 @@ export default function IndicadoresPlataforma() {
               />
             ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        ) : isInstitutional ? (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <MetricCard
-              icon={TrendingDown}
-              label="Redução total (kg)"
-              value={metrics.kgReducaoTotal}
-              suffix=" kg"
-              decimals={1}
-              startAnimation={inView}
-            />
-            <MetricCard
-              icon={Activity}
-              label="Volume Aplicado (mg)"
-              value={metrics.mgAplicacoesTotal}
-              suffix=" mg"
-              decimals={1}
-              startAnimation={inView}
-            />
-            <MetricCard
-              icon={Users}
-              label="Pacientes ativos"
+              icon={UserCheck}
+              label="Pacientes acompanhados"
               value={metrics.pacientesEmAcompanhamento}
               startAnimation={inView}
             />
             <MetricCard
+              icon={Users}
+              label="Profissionais conectados"
+              value={metrics.profissionaisConectados ?? 0}
+              startAnimation={inView}
+            />
+            <MetricCard
               icon={FileText}
-              label="Ajustes clínicos"
-              value={metrics.registrosEvolucao}
+              label="Registros clínicos"
+              value={metrics.registrosClinicos ?? metrics.registrosEvolucao}
+              startAnimation={inView}
+              formatter={(v) => v.toLocaleString('pt-BR')}
+            />
+            <MetricCard
+              icon={ClipboardList}
+              label="Check-ins realizados"
+              value={metrics.checkInsRealizados ?? 0}
+              startAnimation={inView}
+              formatter={(v) => v.toLocaleString('pt-BR')}
+            />
+            <MetricCard
+              icon={Activity}
+              label="Aplicações registradas"
+              value={metrics.aplicacoesRegistradas ?? 0}
+              startAnimation={inView}
+              formatter={(v) => v.toLocaleString('pt-BR')}
+            />
+            <MetricCard
+              icon={Route}
+              label="Jornadas ativas"
+              value={metrics.jornadasAtivas ?? metrics.pacientesEmAcompanhamento}
               startAnimation={inView}
             />
           </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <MetricCard
+              icon={Users}
+              label="Pacientes em acompanhamento"
+              value={metrics.pacientesEmAcompanhamento}
+              startAnimation={inView}
+            />
+            <MetricCard
+              icon={Users}
+              label="Total de pacientes na plataforma"
+              value={metrics.totalPacientes}
+              startAnimation={inView}
+            />
+            {!hideWeightLossMetrics && (
+              <>
+                <MetricCard
+                  icon={Scale}
+                  label="Peso perdido pelos pacientes"
+                  value={metrics.kgReducaoTotal}
+                  suffix="kg"
+                  decimals={1}
+                  startAnimation={inView}
+                />
+                <MetricCard
+                  icon={Syringe}
+                  label="Mg aplicada (protocolos injetáveis)"
+                  value={metrics.mgAplicadaTotal}
+                  suffix="mg"
+                  startAnimation={inView}
+                  formatter={(v) => v.toLocaleString('pt-BR')}
+                />
+                <MetricCard
+                  icon={Flame}
+                  label="Calorias equivalentes ao peso perdido"
+                  value={metrics.caloriasPerdidasTotal}
+                  suffix="kcal"
+                  startAnimation={inView}
+                  formatter={(v) => v.toLocaleString('pt-BR')}
+                />
+              </>
+            )}
+            <MetricCard
+              icon={CheckCircle}
+              label="Acompanhamentos concluídos"
+              value={metrics.pacientesConcluidos}
+              startAnimation={inView}
+            />
+            <MetricCard
+              icon={Layers}
+              label="Registros de monitoramento"
+              value={metrics.registrosEvolucao}
+              startAnimation={inView}
+              formatter={(v) => v.toLocaleString('pt-BR')}
+            />
+          </div>
         )}
+
+        <p className="text-[#E8EDED]/45 text-center mt-5 text-xs max-w-xl mx-auto leading-relaxed">
+          {isInstitutional
+            ? 'Métricas agregadas de uso da plataforma. Não representam promessa de resposta clínica individual.'
+            : hideWeightLossMetrics
+              ? 'Métricas agregadas de uso da plataforma. Não representam promessa de resposta clínica individual.'
+              : 'Métricas agregadas de uso da plataforma. Calorias estimadas com base no peso perdido registrado (~7.700 kcal/kg). Não representam promessa de resposta clínica individual.'}
+        </p>
 
         {error && (
           <p className="text-[#E8EDED]/50 text-center mt-4 text-sm">

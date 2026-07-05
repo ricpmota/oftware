@@ -8,10 +8,13 @@ import {
   cronEmailThrottle,
   getCronZeptoMaxSendsPerRun,
 } from '@/lib/email/cronZeptoBatch';
+import { acquireCronLock, releaseCronLock } from '@/lib/email/cronExecutionLock';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 
 const COL_SOLICITACOES_NUTRICIONISTA = 'solicitacoes_nutricionista';
 const COL_SOLICITACOES_PERSONAL_TRAINER = 'solicitacoes_personal_trainer';
 const STATUS_ACEITA = 'aceita';
+const LEADS_ADMIN_EMAIL = process.env.LEADS_ADMIN_EMAIL || 'ricpmota.med@gmail.com';
 
 type EmailTipo = 'email1' | 'email2' | 'email3' | 'email4' | 'email5';
 
@@ -43,16 +46,29 @@ async function enviarEmail(
   toEmail: string,
   toNome: string,
   assunto: string,
-  html: string
+  html: string,
+  variaveisExtras?: Record<string, string>
 ): Promise<{ success: boolean; messageId?: string; erro?: string }> {
-  const htmlPersonalizado = html.replace(/\{nome\}/g, toNome || 'Cliente');
+  const applyVars = (txt: string) => {
+    let out = txt.replace(/\{nome\}/g, toNome || 'Cliente');
+    if (variaveisExtras) {
+      for (const [key, value] of Object.entries(variaveisExtras)) {
+        const safe = value || '';
+        const re = new RegExp(`\\{${key}\\}`, 'g');
+        out = out.replace(re, safe);
+      }
+    }
+    return out;
+  };
+  const htmlPersonalizado = applyVars(html);
+  const assuntoPersonalizado = applyVars(assunto);
   let htmlFinal = htmlPersonalizado;
   if (!htmlFinal.includes('<html') && !htmlFinal.includes('<!DOCTYPE')) {
     htmlFinal = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: Arial, sans-serif;">${htmlPersonalizado}</body></html>`;
   }
   const result = await sendEmail({
     to: toEmail,
-    subject: assunto,
+    subject: assuntoPersonalizado,
     html: htmlFinal,
     text: htmlPersonalizado.replace(/<[^>]*>/g, ''),
   });
@@ -60,52 +76,22 @@ async function enviarEmail(
   return { success: true, messageId: result.messageId };
 }
 
-function buildLeadsAptos(
+function buildLeadsAptosParaAdmin(
   users: { uid: string; email: string; displayName?: string; metadata: { creationTime?: string } }[],
   excludeUids: Set<string>,
-  enviosPorLead: Map<string, { emailTipo: string }[]>,
-  prefix: 'leads_nutri' | 'leads_personal',
-  agora: Date
-): Array<{ leadId: string; leadEmail: string; leadNome: string; proximoEmail: EmailTipo; proximoEnvio: Date }> {
-  const emailTypes: EmailTipo[] = ['email1', 'email2', 'email3', 'email4', 'email5'];
-  const thresholds = [1, 24, 72, 168, 336]; // horas
-  const aptos: Array<{ leadId: string; leadEmail: string; leadNome: string; proximoEmail: EmailTipo; proximoEnvio: Date }> = [];
+  leadIdsComEnvioEmail1: Set<string>
+): Array<{ leadId: string; leadEmail: string; leadNome: string }> {
+  const aptos: Array<{ leadId: string; leadEmail: string; leadNome: string }> = [];
 
   for (const user of users) {
     if (excludeUids.has(user.uid)) continue;
     const email = user.email?.toLowerCase().trim();
     if (!email || email === 'sem email' || email === '') continue;
-    const createdAt = user.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
-    if (!createdAt) continue;
-    const horasDesdeCriacao = (agora.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-    const enviosDoLead = enviosPorLead.get(user.uid) || [];
-    const emailTipoKey = (t: EmailTipo) => `${prefix}_${t}`;
-    const enviado = (t: EmailTipo) => enviosDoLead.some(e => e.emailTipo === emailTipoKey(t));
-    let proximoEmail: EmailTipo | undefined;
-    let proximoEnvio: Date | undefined;
-    if (!enviado('email1') && horasDesdeCriacao >= 1) {
-      proximoEmail = 'email1';
-      proximoEnvio = new Date(createdAt.getTime() + 60 * 60 * 1000);
-    } else if (enviado('email1') && !enviado('email2') && horasDesdeCriacao >= 24) {
-      proximoEmail = 'email2';
-      proximoEnvio = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
-    } else if (enviado('email2') && !enviado('email3') && horasDesdeCriacao >= 72) {
-      proximoEmail = 'email3';
-      proximoEnvio = new Date(createdAt.getTime() + 72 * 60 * 60 * 1000);
-    } else if (enviado('email3') && !enviado('email4') && horasDesdeCriacao >= 168) {
-      proximoEmail = 'email4';
-      proximoEnvio = new Date(createdAt.getTime() + 168 * 60 * 60 * 1000);
-    } else if (enviado('email4') && !enviado('email5') && horasDesdeCriacao >= 336) {
-      proximoEmail = 'email5';
-      proximoEnvio = new Date(createdAt.getTime() + 336 * 60 * 60 * 1000);
-    }
-    if (proximoEmail && proximoEnvio && proximoEnvio <= agora) {
+    if (!leadIdsComEnvioEmail1.has(user.uid)) {
       aptos.push({
         leadId: user.uid,
         leadEmail: user.email || '',
         leadNome: user.displayName || user.email || 'Usuário',
-        proximoEmail,
-        proximoEnvio,
       });
     }
   }
@@ -113,8 +99,36 @@ function buildLeadsAptos(
 }
 
 export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
+  const zeptoGate = assertCronZeptoConfigured();
+  if (!zeptoGate.ok) {
+    return NextResponse.json(zeptoGate.body, { status: zeptoGate.status });
+  }
+
+  let db: ReturnType<typeof getFirebaseAdmin>['db'] | undefined;
+  let lockInstanceId: string | null = null;
+
   try {
-    const { auth, db } = getFirebaseAdmin();
+    const firebase = getFirebaseAdmin();
+    db = firebase.db;
+
+    const lock = await acquireCronLock(db, 'send-automatic-emails-leads-nutri-personal');
+    if (!lock.acquired) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        message: lock.reason,
+        enviadosNutri: 0,
+        enviadosPersonal: 0,
+      });
+    }
+    lockInstanceId = lock.instanceId;
+
+    const { auth } = firebase;
     const agora = new Date();
     const emailsCollection = db.collection('emails');
     const configDoc = await emailsCollection.doc('config').get();
@@ -128,14 +142,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Envio automático Nutri/Personal desativado', enviadosNutri: 0, enviadosPersonal: 0 });
     }
 
-    const zeptoGate = assertCronZeptoConfigured();
-    if (!zeptoGate.ok) {
-      return NextResponse.json(zeptoGate.body, { status: zeptoGate.status });
-    }
-
     const limitePorExecucao = getCronZeptoMaxSendsPerRun();
+    const janelaEnviosDias = Number(process.env.CRON_LEADS_EMAIL_LOOKBACK_DAYS || 180);
+    const dataMinEnvio = new Date(Date.now() - janelaEnviosDias * 24 * 60 * 60 * 1000);
 
-    const emailTypes: EmailTipo[] = ['email1', 'email2', 'email3', 'email4', 'email5'];
+    const emailTypes: EmailTipo[] = ['email1'];
     const templatesNutri: Record<string, { assunto: string; corpoHtml: string }> = {};
     const templatesPersonal: Record<string, { assunto: string; corpoHtml: string }> = {};
     for (const t of emailTypes) {
@@ -151,21 +162,57 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let allUsers: any[] = [];
-    let nextPageToken: string | undefined;
-    do {
-      const list = await auth.listUsers(1000, nextPageToken);
-      allUsers = allUsers.concat(list.users);
-      nextPageToken = list.pageToken;
-    } while (nextPageToken);
+    type LeadRuntime = {
+      uid: string;
+      email: string;
+      displayName?: string;
+      metadata: { creationTime?: string };
+    };
+    let allUsers: LeadRuntime[] = [];
+    const leadsSnap = await db.collection('leads').get();
+    if (!leadsSnap.empty) {
+      allUsers = leadsSnap.docs.map((docSnap) => {
+        const d = docSnap.data() as Record<string, unknown>;
+        const createdAtValue =
+          (d.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() ||
+          (d.createdAtFirestore as { toDate?: () => Date } | undefined)?.toDate?.() ||
+          (d.updatedAt as { toDate?: () => Date } | undefined)?.toDate?.() ||
+          new Date();
+        return {
+          uid: String(d.uid || docSnap.id),
+          email: String(d.email || ''),
+          displayName: String(d.name || d.displayName || d.email || 'Usuário'),
+          metadata: {
+            creationTime:
+              createdAtValue instanceof Date
+                ? createdAtValue.toISOString()
+                : new Date(String(createdAtValue)).toISOString(),
+          },
+        };
+      });
+    } else {
+      let nextPageToken: string | undefined;
+      do {
+        const list = await auth.listUsers(1000, nextPageToken);
+        allUsers = allUsers.concat(
+          list.users.map((u) => ({
+            uid: u.uid,
+            email: u.email || '',
+            displayName: u.displayName || u.email || 'Usuário',
+            metadata: u.metadata || {},
+          }))
+        );
+        nextPageToken = list.pageToken;
+      } while (nextPageToken);
+    }
 
-    const solicitacoesMedico = await db.collection('solicitacoes_medico').get();
+    const solicitacoesMedico = await db.collection('solicitacoes_medico').where('pacienteEmail', '!=', null).get();
     const solicitacaoMedicoEmails = new Set<string>();
     solicitacoesMedico.docs.forEach(d => {
       const email = d.data().pacienteEmail?.toLowerCase().trim();
       if (email) solicitacaoMedicoEmails.add(email);
     });
-    const pacientesComMedico = await db.collection('pacientes_completos').get();
+    const pacientesComMedico = await db.collection('pacientes_completos').where('medicoResponsavelId', '!=', null).get();
     const pacientesComMedicoEmails = new Set<string>();
     pacientesComMedico.docs.forEach(d => {
       const p = d.data();
@@ -196,14 +243,27 @@ export async function GET(request: NextRequest) {
       if (solicitacaoMedicoEmails.has(email!) || pacientesComMedicoEmails.has(email!)) excludePersonal.add(u.uid);
     });
 
-    const enviosSnapshot = await db.collection('email_envios').get();
-    const enviosPorLead = new Map<string, { emailTipo: string }[]>();
-    enviosSnapshot.docs.forEach(doc => {
-      const d = doc.data();
-      const leadId = d.leadId;
-      if (!leadId) return;
-      if (!enviosPorLead.has(leadId)) enviosPorLead.set(leadId, []);
-      enviosPorLead.get(leadId)!.push({ emailTipo: d.emailTipo });
+    const [enviosNutriSnapshot, enviosPersonalSnapshot] = await Promise.all([
+      db
+        .collection('email_envios')
+        .where('emailTipo', '==', 'leads_nutri_email1')
+        .where('enviadoEm', '>=', dataMinEnvio)
+        .get(),
+      db
+        .collection('email_envios')
+        .where('emailTipo', '==', 'leads_personal_email1')
+        .where('enviadoEm', '>=', dataMinEnvio)
+        .get(),
+    ]);
+    const leadIdsComEnvioNutriEmail1 = new Set<string>();
+    const leadIdsComEnvioPersonalEmail1 = new Set<string>();
+    enviosNutriSnapshot.docs.forEach((docSnap) => {
+      const leadId = String(docSnap.data().leadId || '').trim();
+      if (leadId) leadIdsComEnvioNutriEmail1.add(leadId);
+    });
+    enviosPersonalSnapshot.docs.forEach((docSnap) => {
+      const leadId = String(docSnap.data().leadId || '').trim();
+      if (leadId) leadIdsComEnvioPersonalEmail1.add(leadId);
     });
 
     const usersList = allUsers.map(u => ({
@@ -212,6 +272,14 @@ export async function GET(request: NextRequest) {
       displayName: u.displayName,
       metadata: u.metadata || {},
     }));
+    const mapLeadByUid = new Map<string, Record<string, unknown>>();
+    leadsSnap.docs.forEach((docSnap) => {
+      const d = docSnap.data() as Record<string, unknown>;
+      mapLeadByUid.set(docSnap.id, d);
+      if (d.uid) mapLeadByUid.set(String(d.uid), d);
+    });
+    const mapNutriByUid = new Map<string, Record<string, unknown>>();
+    const mapPersonalByUid = new Map<string, Record<string, unknown>>();
 
     let enviadosNutri = 0;
     let enviadosPersonal = 0;
@@ -221,26 +289,52 @@ export async function GET(request: NextRequest) {
     let enviadosNestaExecucao = 0;
     let truncadoPorLimite = false;
 
-    const aptosNutri = ativoNutri ? buildLeadsAptos(usersList, excludeNutri, enviosPorLead, 'leads_nutri', agora) : [];
-    const aptosPersonal = ativoPersonal ? buildLeadsAptos(usersList, excludePersonal, enviosPorLead, 'leads_personal', agora) : [];
+    const aptosNutri = ativoNutri
+      ? buildLeadsAptosParaAdmin(usersList, excludeNutri, leadIdsComEnvioNutriEmail1)
+      : [];
+    const aptosPersonal = ativoPersonal
+      ? buildLeadsAptosParaAdmin(usersList, excludePersonal, leadIdsComEnvioPersonalEmail1)
+      : [];
 
     if (ativoNutri) {
+      const t = templatesNutri.email1;
+      if (t?.assunto && t?.corpoHtml) {
       for (const lead of aptosNutri) {
-        const t = templatesNutri[lead.proximoEmail];
-        if (!t?.assunto || !t?.corpoHtml) continue;
         if (orcamento <= 0) {
           truncadoPorLimite = true;
           break;
         }
         if (enviadosNestaExecucao > 0) await cronEmailThrottle();
-        const res = await enviarEmail(lead.leadEmail, lead.leadNome, t.assunto, t.corpoHtml);
+        const leadData = mapLeadByUid.get(lead.leadId) || {};
+        if (!mapNutriByUid.has(lead.leadId)) {
+          const nutriDoc = await db.collection('nutricionistas').doc(lead.leadId).get();
+          mapNutriByUid.set(lead.leadId, (nutriDoc.data() as Record<string, unknown>) || {});
+        }
+        const nutriDoc = mapNutriByUid.get(lead.leadId) || {};
+        const res = await enviarEmail(LEADS_ADMIN_EMAIL, lead.leadNome, t.assunto, t.corpoHtml, {
+          foto_registro: String(
+            leadData.docVerificacaoRegistroUrl ||
+              nutriDoc.docVerificacaoRegistroUrl ||
+              ''
+          ),
+          selfie: String(
+            leadData.docVerificacaoSelfieUrl ||
+              nutriDoc.docVerificacaoSelfieUrl ||
+              ''
+          ),
+          cnh: String(
+            leadData.docVerificacaoCnhUrl || nutriDoc.docVerificacaoCnhUrl || ''
+          ),
+          lead_email: lead.leadEmail || '',
+        });
         orcamento--;
         enviadosNestaExecucao++;
         await enviosRef.add({
           leadId: lead.leadId,
           leadEmail: lead.leadEmail,
           leadNome: lead.leadNome,
-          emailTipo: `leads_nutri_${lead.proximoEmail}`,
+          destinatarioEmail: LEADS_ADMIN_EMAIL,
+          emailTipo: 'leads_nutri_email1',
           assunto: t.assunto,
           enviadoEm: agora,
           status: res.success ? 'enviado' : 'falhou',
@@ -250,25 +344,48 @@ export async function GET(request: NextRequest) {
         });
         if (res.success) enviadosNutri++;
       }
+      }
     }
 
     if (ativoPersonal) {
+      const t = templatesPersonal.email1;
+      if (t?.assunto && t?.corpoHtml) {
       for (const lead of aptosPersonal) {
-        const t = templatesPersonal[lead.proximoEmail];
-        if (!t?.assunto || !t?.corpoHtml) continue;
         if (orcamento <= 0) {
           truncadoPorLimite = true;
           break;
         }
         if (enviadosNestaExecucao > 0) await cronEmailThrottle();
-        const res = await enviarEmail(lead.leadEmail, lead.leadNome, t.assunto, t.corpoHtml);
+        const leadData = mapLeadByUid.get(lead.leadId) || {};
+        if (!mapPersonalByUid.has(lead.leadId)) {
+          const personalDoc = await db.collection('personal_trainers').doc(lead.leadId).get();
+          mapPersonalByUid.set(lead.leadId, (personalDoc.data() as Record<string, unknown>) || {});
+        }
+        const personalDoc = mapPersonalByUid.get(lead.leadId) || {};
+        const res = await enviarEmail(LEADS_ADMIN_EMAIL, lead.leadNome, t.assunto, t.corpoHtml, {
+          foto_registro: String(
+            leadData.docVerificacaoRegistroUrl ||
+              personalDoc.docVerificacaoRegistroUrl ||
+              ''
+          ),
+          selfie: String(
+            leadData.docVerificacaoSelfieUrl ||
+              personalDoc.docVerificacaoSelfieUrl ||
+              ''
+          ),
+          cnh: String(
+            leadData.docVerificacaoCnhUrl || personalDoc.docVerificacaoCnhUrl || ''
+          ),
+          lead_email: lead.leadEmail || '',
+        });
         orcamento--;
         enviadosNestaExecucao++;
         await enviosRef.add({
           leadId: lead.leadId,
           leadEmail: lead.leadEmail,
           leadNome: lead.leadNome,
-          emailTipo: `leads_personal_${lead.proximoEmail}`,
+          destinatarioEmail: LEADS_ADMIN_EMAIL,
+          emailTipo: 'leads_personal_email1',
           assunto: t.assunto,
           enviadoEm: agora,
           status: res.success ? 'enviado' : 'falhou',
@@ -277,6 +394,7 @@ export async function GET(request: NextRequest) {
           tipo: 'automatico',
         });
         if (res.success) enviadosPersonal++;
+      }
       }
     }
 
@@ -292,6 +410,7 @@ export async function GET(request: NextRequest) {
       enviadosNestaExecucao,
       aptosNutriTotal,
       aptosPersonalTotal,
+      destinoAdmin: LEADS_ADMIN_EMAIL,
       truncadoPorLimiteZepto: truncadoPorLimite,
       provedor: 'ZeptoMail',
     });
@@ -301,6 +420,10 @@ export async function GET(request: NextRequest) {
       { success: false, error: (error as Error).message },
       { status: 500 }
     );
+  } finally {
+    if (db && lockInstanceId) {
+      await releaseCronLock(db, 'send-automatic-emails-leads-nutri-personal', lockInstanceId);
+    }
   }
 }
 

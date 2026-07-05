@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const bodyPart = searchParams.get('bodyPart');
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = 10;
+    const requestedLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Number.isNaN(requestedLimit) ? 50 : Math.min(Math.max(requestedLimit, 1), 300);
     const offset = (page - 1) * limit;
 
     if (!bodyPart) {

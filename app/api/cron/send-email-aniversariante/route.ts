@@ -7,6 +7,7 @@ import {
   cronEmailThrottle,
   getCronZeptoMaxSendsPerRun,
 } from '@/lib/email/cronZeptoBatch';
+import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -84,6 +85,11 @@ function getHojeBrasilia(requestDate?: string): { dia: number; mes: number; ano:
 }
 
 export async function GET(request: NextRequest) {
+  const envGate = assertCronProductionEnvironment(request);
+  if (!envGate.ok) {
+    return NextResponse.json(envGate.body, { status: envGate.status });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get('date') ?? undefined;

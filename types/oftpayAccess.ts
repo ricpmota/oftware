@@ -18,6 +18,8 @@ export interface OftPayUserDoc {
   lastAuthTime?: number | null;
   /** IDs dos cursos que o usuário tem permissão para acessar. Vazio = nenhum acesso. */
   courseIds: string[];
+  /** Acesso ao Banco de Questões (/oftpay/questoes). */
+  questoesEnabled?: boolean;
   /** Início da vigência do acesso (timestamp ms). Opcional = sem limite. */
   accessStartAt?: number | null;
   /** Fim da vigência do acesso (timestamp ms). Opcional = sem limite. */

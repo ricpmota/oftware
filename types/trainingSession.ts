@@ -35,6 +35,7 @@ export interface TrainingSession {
   patientNotes?: string;
   trainerNotes?: string;
   published: boolean;
+  recurrenceGroupId?: string;
   updatedAt: Date | string;
   createdAt: Date | string;
   revision?: number;

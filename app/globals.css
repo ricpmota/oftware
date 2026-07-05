@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * Dark mode: class-based (requer .dark no ancestor).
+ * Impede que dark: variants do Tailwind ativem via prefers-color-scheme do dispositivo.
+ * O modo escuro próprio da Oftware (admin) adiciona .dark quando necessário.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -37,6 +44,19 @@
   --chart-5: #7c3aed;
 }
 
+/*
+  iOS Safari: zoom automático ao focar input com fonte < 16px.
+  Força 16px em controles editáveis no mobile (sobrepõe utilitários como text-sm).
+  Exclui checkbox, radio, range e botões nativos.
+*/
+@media (max-width: 768px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']):not([type='image']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* Hide scrollbar for mobile menu */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */
@@ -44,6 +64,16 @@
 }
 .scrollbar-hide::-webkit-scrollbar { 
   display: none;  /* Safari and Chrome */
+}
+
+/* MetaAdminGeral — shell Oftware (Etapa 9) */
+.metaadmingeral-page {
+  --mag-bg: #0A1F44;
+  --mag-text: #E8EDED;
+  --mag-platform-accent: #22C55E;
+  --mag-platform-accent-hover: #16A34A;
+  --mag-org-accent: #4CCB7A;
+  --mag-gradient-secondary: #2F8FA3;
 }
 
 /* Scrollbar padrão Oftware - Deep Blue + Vital Green (para /metaadmingeral) */
@@ -59,18 +89,18 @@
 }
 .metaadmingeral-page::-webkit-scrollbar-thumb,
 .metaadmingeral-page *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #4CCB7A, #2F8FA3);
+  background: linear-gradient(180deg, var(--mag-platform-accent), var(--mag-gradient-secondary));
   border-radius: 5px;
 }
 .metaadmingeral-page::-webkit-scrollbar-thumb:hover,
 .metaadmingeral-page *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #45b86d, #287a8a);
+  background: linear-gradient(180deg, var(--mag-platform-accent-hover), #287a8a);
 }
 /* Firefox */
 .metaadmingeral-page,
 .metaadmingeral-page * {
   scrollbar-width: thin;
-  scrollbar-color: #4CCB7A #0A1F44;
+  scrollbar-color: var(--mag-platform-accent) var(--mag-bg);
 }
 
 /* Scrollbar para metaadmin Home tema escuro (mesmo estilo do metaadmingeral) */
@@ -144,17 +174,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Modo escuro desativado - sempre usar modo claro */
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-} */
-
 body {
-  background: #ffffff !important;
-  color: #111827 !important; /* gray-900 - texto sempre escuro */
+  background: var(--background);
+  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   overflow-x: hidden !important;
   position: relative;
@@ -162,9 +184,13 @@ body {
   max-width: 100vw;
 }
 
-/* FORÇAR SEMPRE MODO CLARO - ESQUECER COMPLETAMENTE O DARK */
-html {
-  color-scheme: light !important;
+/*
+ * Proteção contra browser dark mode no modo claro da Oftware:
+ * color-scheme: light impede que o UA aplique estilos escuros em form controls.
+ * Quando .dark estiver ativo, permite color-scheme: dark.
+ */
+html:not(.dark) {
+  color-scheme: light;
   overflow-x: hidden !important;
   width: 100%;
   max-width: 100vw;
@@ -172,7 +198,7 @@ html {
 }
 
 html.dark {
-  color-scheme: light !important;
+  color-scheme: dark;
 }
 
 /* Shell principal: fluido até 1200px (sem width fixo em px no layout) */
@@ -183,98 +209,61 @@ html.dark {
   margin-right: auto;
 }
 
-/* DESABILITAR COMPLETAMENTE TODAS AS VARIANTES DARK: DO TAILWIND */
-/* Forçar backgrounds sempre claros */
-[class*="dark:bg-"] {
-  background-color: #ffffff !important;
-}
-
-/* Forçar textos sempre escuros */
-[class*="dark:text-white"],
-[class*="dark:text-gray-300"],
-[class*="dark:text-gray-400"] {
-  color: #111827 !important; /* gray-900 */
-}
-
-/* Forçar bordas sempre claras */
-[class*="dark:border-"] {
-  border-color: #e5e7eb !important; /* gray-200 */
-}
-
-/* Garantir que backgrounds escuros sejam sempre claros */
-.bg-gray-800,
-.bg-gray-900,
-.bg-gray-700 {
-  background-color: #ffffff !important;
-}
-
-/* Garantir texto escuro em fundos brancos quando texto branco for usado */
-.bg-white .text-white,
-.bg-gray-50 .text-white,
-.bg-gray-100 .text-white {
-  color: #111827 !important;
-}
-
 /*
- * Metaadmin — calendário de aplicações: pills com barra verde/vermelha ficam dentro de
- * card (.bg-white). A regra acima forçaria o rótulo a cinza escuro; estas classes
- * restauram contraste sobre a barra colorida (texto + ícones Lucide via stroke).
+ * Proteção explícita de form controls no modo claro:
+ * Garante fundo branco, texto escuro e placeholder legível mesmo que o
+ * navegador tente interferir via prefers-color-scheme do dispositivo.
+ * Em @layer base para que utilitários do Tailwind possam sobrescrever.
  */
-.bg-white .calendar-pill-on-bar,
-.bg-gray-50 .calendar-pill-on-bar,
-.bg-gray-100 .calendar-pill-on-bar,
+@layer base {
+  html:not(.dark) input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):not([type='hidden']):not([type='image']):not([type='color']),
+  html:not(.dark) textarea,
+  html:not(.dark) select {
+    background-color: #ffffff;
+    color: #111827;
+    border-color: #d1d5db;
+  }
+
+  html:not(.dark) input::placeholder,
+  html:not(.dark) textarea::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+  }
+
+  html:not(.dark) select option {
+    background-color: #ffffff;
+    color: #111827;
+  }
+}
+
+/* Calendário de aplicações: pills sobre barras coloridas */
 .calendar-pill-on-bar {
   color: #ffffff !important;
   font-weight: 600;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.92);
 }
-.bg-white .calendar-pill-on-bar svg,
-.bg-gray-50 .calendar-pill-on-bar svg,
-.bg-gray-100 .calendar-pill-on-bar svg,
 .calendar-pill-on-bar svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
 }
-.bg-white .calendar-pill-neutral,
-.bg-gray-50 .calendar-pill-neutral,
-.bg-gray-100 .calendar-pill-neutral,
 .calendar-pill-neutral {
   color: #111827 !important;
   font-weight: 400;
   text-shadow: none;
 }
-.bg-white .calendar-pill-neutral svg,
-.bg-gray-50 .calendar-pill-neutral svg,
-.bg-gray-100 .calendar-pill-neutral svg,
 .calendar-pill-neutral svg {
   color: #111827 !important;
   stroke: #111827 !important;
 }
 
-/* Metaadmin calendário — badge de aniversário: texto e ícone Lucide brancos */
-.bg-white .calendar-aniversario-badge,
-.bg-gray-50 .calendar-aniversario-badge,
-.bg-gray-100 .calendar-aniversario-badge,
+/* Calendário — badge de aniversário */
 .calendar-aniversario-badge {
   color: #ffffff !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
 }
-.bg-white .calendar-aniversario-badge svg,
-.bg-gray-50 .calendar-aniversario-badge svg,
-.bg-gray-100 .calendar-aniversario-badge svg,
 .calendar-aniversario-badge svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
-}
-
-/* Manter texto branco em botões e elementos com fundo colorido */
-button.text-white,
-[class*="bg-green"].text-white,
-[class*="bg-blue"].text-white,
-[class*="bg-red"].text-white,
-[class*="bg-purple"].text-white,
-[class*="bg-orange"].text-white {
-  color: #ffffff !important;
 }
 
 .notranslate {
@@ -342,6 +331,58 @@ button.text-white,
 
 .animate-float {
   animation: float 20s ease-in-out infinite;
+}
+
+@keyframes hero-ecosystem-enter {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes hero-ecosystem-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.animate-hero-ecosystem-enter {
+  opacity: 0;
+  animation: hero-ecosystem-enter 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-hero-ecosystem-float {
+  animation: hero-ecosystem-float 7s ease-in-out infinite;
+}
+
+@keyframes hero-card-orbit {
+  0% {
+    transform: translate(-50%, -50%) translate(0, calc(-1 * var(--hero-orbit-r, 150px)));
+  }
+  25% {
+    transform: translate(-50%, -50%) translate(var(--hero-orbit-r, 150px), 0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translate(0, var(--hero-orbit-r, 150px));
+  }
+  75% {
+    transform: translate(-50%, -50%) translate(calc(-1 * var(--hero-orbit-r, 150px)), 0);
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(0, calc(-1 * var(--hero-orbit-r, 150px)));
+  }
+}
+
+.animate-hero-card-orbit {
+  animation: hero-card-orbit 20s linear infinite;
 }
 
 /* Flutuação suave para seção de depoimentos */
@@ -730,4 +771,56 @@ input[type='range'].metaadmin-metas-range--waist::-moz-range-thumb {
 }
 .dark .metaadmin-metas-switch-track[data-on='false'] {
   background-color: #475569 !important;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Plano terapêutico — seletor de modalidades */
+@keyframes plano-modalidade-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes plano-modalidade-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes plano-modalidade-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.plano-modalidade-panel-enter {
+  animation: plano-modalidade-panel-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.plano-modalidade-tab-glow {
+  animation: plano-modalidade-glow 2.8s ease-in-out infinite;
+}
+
+.plano-modalidade-badge-shimmer {
+  background-size: 200% auto;
+  animation: plano-modalidade-shimmer 3.5s linear infinite;
 }

@@ -31,6 +31,13 @@ export const OFTPAY_COURSES: OftPayCourse[] = [
     storagePath: 'PROPEDEUTICS', // Pasta no bucket: oftware/PROPEDEUTICS/
     theme: 'purple',
   },
+  {
+    id: 'laudo-exames',
+    name: 'Laudo Exames',
+    description:
+      'Laudo guiado: marque achados no mapa de retina e gere o texto do laudo de mapeamento (OD/OE).',
+    theme: 'blue',
+  },
 ];
 
 export function getCourseById(id: string): OftPayCourse | undefined {

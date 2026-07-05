@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import type { PacienteCompleto } from '@/types/obesidade';
 import type { SeguimentoSemanal } from '@/types/obesidade';
+import type { CheckInSemanalRespostas } from '@/lib/aplicacao/checkInSemanalQuestions';
+import type { MarcoZeroRespostas } from '@/lib/aplicacao/marcoZeroQuestions';
+import type { MarcoZero } from '@/types/obesidade';
+import {
+  calcularScoreCheckInSemanal,
+  type CheckInSemanalScoreResultado,
+} from '@/lib/aplicacao/calcularScoreCheckInSemanal';
+import { calcularVariacoesSemanaCliente } from '@/lib/aplicacao/checkInSemanalFormUtils';
+import { sincronizarDatasAplicacaoIndividuaisComEvolucao } from '@/utils/esquemaDosesSemana';
+import { normalizeMedicoInstagramUsuario } from '@/utils/instagramUsuario';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -48,18 +58,125 @@ function toDate(v: unknown): Date {
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
-/** YYYY-MM-DD como dia de calendário local (evita deslocamento UTC). */
+/** Data YYYY-MM-DD do link como dia de calendário local (meio-dia evita deslocamento de fuso). */
 function parseDataChaveLocal(dataStr: string): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dataStr).trim());
   if (!m) {
     const d = new Date(dataStr);
-    d.setHours(0, 0, 0, 0);
+    d.setHours(12, 0, 0, 0);
     return d;
   }
   const y = parseInt(m[1], 10);
   const mo = parseInt(m[2], 10) - 1;
   const day = parseInt(m[3], 10);
-  return new Date(y, mo, day, 0, 0, 0, 0);
+  return new Date(y, mo, day, 12, 0, 0, 0);
+}
+
+/** Firestore rejeita `undefined` — remove recursivamente antes do update. */
+function omitUndefinedDeep<T>(value: T): T {
+  if (value === undefined) return value;
+  if (value === null || value instanceof Date) return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => omitUndefinedDeep(item)) as T;
+  }
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === undefined) continue;
+      out[k] = omitUndefinedDeep(v);
+    }
+    return out as T;
+  }
+  return value;
+}
+
+function buildCheckInSemanal(raw: CheckInSemanalRespostas | undefined) {
+  if (!raw || typeof raw !== 'object') return undefined;
+
+  const checkIn: Record<string, string | Date> = { preenchidoEm: new Date() };
+  const fields: Array<keyof CheckInSemanalRespostas> = [
+    'fomeSemana',
+    'periodoMaisFome',
+    'saciedadeAoComer',
+    'consumoAgua',
+    'consumoProteinas',
+    'satisfacaoEvolucao',
+    'comentarioSemana',
+  ];
+
+  for (const key of fields) {
+    const val = raw[key];
+    if (typeof val === 'string' && val.trim()) {
+      checkIn[key] = val.trim();
+    }
+  }
+
+  return Object.keys(checkIn).length > 1 ? checkIn : undefined;
+}
+
+function buildMarcoZero(
+  raw: MarcoZeroRespostas | undefined,
+  peso: number,
+  circunferenciaAbdominal: number | undefined,
+  possuiFotosIniciais: boolean
+): MarcoZero | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+
+  const motivacao = raw.motivacaoPrincipal?.trim();
+  const satisfacao = raw.satisfacaoAtual?.trim();
+  const objetivo = raw.objetivoPaciente?.trim();
+  const confianca = raw.confiancaNoObjetivo?.trim();
+
+  if (!motivacao || !satisfacao || !objetivo || !confianca) return undefined;
+
+  const marco: MarcoZero = {
+    pesoInicial: peso,
+    motivacaoPrincipal: motivacao,
+    satisfacaoAtual: satisfacao,
+    objetivoPaciente: objetivo,
+    confiancaNoObjetivo: confianca,
+    possuiFotosIniciais,
+    createdAt: new Date(),
+  };
+
+  if (circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal)) {
+    marco.circunferenciaInicial = circunferenciaAbdominal;
+  }
+
+  return marco;
+}
+
+async function pacientePossuiFotosIniciais(
+  db: Firestore,
+  pacienteId: string
+): Promise<boolean> {
+  const snap = await db
+    .collection('pacientes_completos')
+    .doc(pacienteId)
+    .collection('progressPhotos')
+    .limit(1)
+    .get();
+  return !snap.empty;
+}
+
+function scoreParaFirestore(
+  resultado: CheckInSemanalScoreResultado,
+  weekIndex: number,
+  applicationId: string
+) {
+  return {
+    score: resultado.score,
+    categoria: resultado.categoria,
+    medalha: resultado.medalha,
+    titulo: resultado.titulo,
+    mensagemPaciente: resultado.mensagemPaciente,
+    fatoresPositivos: resultado.fatoresPositivos,
+    pontosDeAtencao: resultado.pontosDeAtencao,
+    pontos: resultado.pontos,
+    createdAt: new Date(),
+    semana: weekIndex,
+    applicationId,
+  };
 }
 
 /**
@@ -82,6 +199,9 @@ export async function POST(
     const peso = body.peso != null ? parseFloat(String(body.peso)) : undefined;
     const circunferenciaAbdominal = body.circunferenciaAbdominal != null ? parseFloat(String(body.circunferenciaAbdominal)) : undefined;
     const localAplicacao = ['abdome', 'coxa', 'braco'].includes(body.localAplicacao) ? body.localAplicacao : undefined;
+
+    const checkInSemanal = buildCheckInSemanal(body.checkInSemanal as CheckInSemanalRespostas | undefined);
+    const marcoZeroRespostas = body.marcoZero as MarcoZeroRespostas | undefined;
 
     if (peso == null || isNaN(peso) || peso <= 0) {
       return NextResponse.json({ error: 'Peso atual é obrigatório e deve ser um número positivo' }, { status: 400 });
@@ -107,68 +227,163 @@ export async function POST(
     const paciente = { id: pacienteSnap.id, ...pacienteSnap.data() } as PacienteCompleto;
     const evolucao = (paciente.evolucaoSeguimento || []).slice();
 
-    const dataPrevista = parseDataChaveLocal(data);
-    const dataRegistro = new Date();
+    const preenchidoEm = new Date();
+    const dataAplicacaoPlanejada = parseDataChaveLocal(data);
 
-    // Procurar registro existente (data ±3 dias)
-    const idx = evolucao.findIndex((e: SeguimentoSemanal & { dataRegistro?: unknown }) => {
-      if (!e.dataRegistro) return false;
-      const dataReg = toDate(e.dataRegistro);
-      dataReg.setHours(0, 0, 0, 0);
-      const diff = Math.abs((dataReg.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
-      return diff <= 3;
-    });
+    const weekIndex =
+      semana != null && Number.isFinite(semana) && semana >= 1
+        ? semana
+        : evolucao.length > 0
+          ? Math.max(...evolucao.map((e: any) => e.weekIndex ?? e.numeroSemana ?? 0)) + 1
+          : 1;
 
-    const weekIndex = semana ?? (evolucao.length > 0 ? Math.max(...evolucao.map((e: any) => e.weekIndex ?? e.numeroSemana ?? 0)) + 1 : 1);
+    const ehMarcoZero = weekIndex === 1;
+    const possuiFotosIniciais = ehMarcoZero
+      ? await pacientePossuiFotosIniciais(db, pacienteId)
+      : false;
+    const marcoZero = ehMarcoZero
+      ? buildMarcoZero(marcoZeroRespostas, peso, circunferenciaAbdominal, possuiFotosIniciais)
+      : undefined;
+
+    if (ehMarcoZero && !marcoZero) {
+      return NextResponse.json(
+        { error: 'Preencha todas as perguntas do Marco Zero do tratamento.' },
+        { status: 400 }
+      );
+    }
+
+    // Atualizar pelo índice da semana do link (sem janela ±N dias)
+    const idx = evolucao.findIndex(
+      (e: SeguimentoSemanal & { weekIndex?: number; numeroSemana?: number }) =>
+        (e.weekIndex ?? e.numeroSemana) === weekIndex
+    );
 
     if (idx >= 0) {
       const registro = evolucao[idx] as SeguimentoSemanal & { dataRegistro?: unknown; doseAplicada?: { quantidade: number; data: unknown; horario: string } };
+      registro.weekIndex = weekIndex;
+      registro.numeroSemana = weekIndex;
+      registro.dataRegistro = dataAplicacaoPlanejada;
       registro.peso = peso;
       if (circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal)) {
         registro.circunferenciaAbdominal = circunferenciaAbdominal;
       }
       if (localAplicacao) registro.localAplicacao = localAplicacao;
+      if (ehMarcoZero && marcoZero) {
+        registro.marcoZero = marcoZero;
+        delete (registro as { checkInSemanal?: unknown }).checkInSemanal;
+        delete (registro as { checkInSemanalScore?: unknown }).checkInSemanalScore;
+      } else if (checkInSemanal) {
+        registro.checkInSemanal = checkInSemanal as SeguimentoSemanal['checkInSemanal'];
+      }
       registro.doseAplicada = {
         quantidade: dose,
-        data: dataRegistro,
-        horario: dataRegistro.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        data: dataAplicacaoPlanejada,
+        horario: preenchidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       };
       registro.adherence = 'ON_TIME';
       evolucao[idx] = registro;
     } else {
-      const novoRegistro: SeguimentoSemanal & { id?: string } = {
+      const novoRegistro: SeguimentoSemanal & { id?: string; numeroSemana?: number } = {
         id: `seg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
         weekIndex,
         numeroSemana: weekIndex,
-        dataRegistro,
+        dataRegistro: dataAplicacaoPlanejada,
         peso,
-        circunferenciaAbdominal: circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal) ? circunferenciaAbdominal : undefined,
-        localAplicacao: localAplicacao as 'abdome' | 'coxa' | 'braco' | undefined,
         doseAplicada: {
           quantidade: dose,
-          data: dataRegistro,
-          horario: dataRegistro.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          data: dataAplicacaoPlanejada,
+          horario: preenchidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         },
         adherence: 'ON_TIME',
       };
+      if (circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal)) {
+        novoRegistro.circunferenciaAbdominal = circunferenciaAbdominal;
+      }
+      if (localAplicacao) novoRegistro.localAplicacao = localAplicacao;
+      if (ehMarcoZero && marcoZero) {
+        novoRegistro.marcoZero = marcoZero;
+      } else if (checkInSemanal) {
+        novoRegistro.checkInSemanal = checkInSemanal as SeguimentoSemanal['checkInSemanal'];
+      }
       evolucao.push(novoRegistro);
       evolucao.sort((a: any, b: any) => (a.weekIndex ?? a.numeroSemana ?? 0) - (b.weekIndex ?? b.numeroSemana ?? 0));
     }
 
-    const evolucaoFirestore = evolucao.map((s: any) => {
-      const seg = { ...s };
-      if (seg.dataRegistro && typeof seg.dataRegistro?.toDate === 'function') {
-        seg.dataRegistro = (seg.dataRegistro as any).toDate();
+    let variacaoPeso: number | null = null;
+    let variacaoCircunferencia: number | null = null;
+    let scoreResultado: CheckInSemanalScoreResultado | null = null;
+
+    if (!ehMarcoZero) {
+      const variacoes = calcularVariacoesSemanaCliente(
+        paciente,
+        evolucao,
+        weekIndex,
+        peso,
+        circunferenciaAbdominal
+      );
+      variacaoPeso = variacoes.variacaoPeso;
+      variacaoCircunferencia = variacoes.variacaoCircunferencia;
+
+      scoreResultado = calcularScoreCheckInSemanal({
+        variacaoPeso,
+        variacaoCircunferencia,
+        temCircunferenciaAtual:
+          circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal),
+        checkInSemanal: checkInSemanal as SeguimentoSemanal['checkInSemanal'],
+      });
+
+      const registroIdx = evolucao.findIndex(
+        (e: SeguimentoSemanal & { weekIndex?: number; numeroSemana?: number }) =>
+          (e.weekIndex ?? e.numeroSemana) === weekIndex
+      );
+      if (registroIdx >= 0 && scoreResultado) {
+        evolucao[registroIdx] = {
+          ...evolucao[registroIdx],
+          checkInSemanalScore: scoreParaFirestore(scoreResultado, weekIndex, token),
+        };
       }
-      if (seg.doseAplicada?.data && typeof seg.doseAplicada.data?.toDate === 'function') {
-        seg.doseAplicada = { ...seg.doseAplicada, data: (seg.doseAplicada.data as any).toDate() };
-      }
-      return seg;
-    });
+    }
+
+    const evolucaoFirestore = omitUndefinedDeep(
+      evolucao.map((s: any) => {
+        const seg = { ...s };
+        if (seg.dataRegistro && typeof seg.dataRegistro?.toDate === 'function') {
+          seg.dataRegistro = (seg.dataRegistro as any).toDate();
+        }
+        if (seg.doseAplicada?.data && typeof seg.doseAplicada.data?.toDate === 'function') {
+          seg.doseAplicada = { ...seg.doseAplicada, data: (seg.doseAplicada.data as any).toDate() };
+        }
+        if (seg.checkInSemanal?.preenchidoEm && typeof seg.checkInSemanal.preenchidoEm?.toDate === 'function') {
+          seg.checkInSemanal = {
+            ...seg.checkInSemanal,
+            preenchidoEm: (seg.checkInSemanal.preenchidoEm as any).toDate(),
+          };
+        }
+        if (seg.checkInSemanalScore?.createdAt && typeof seg.checkInSemanalScore.createdAt?.toDate === 'function') {
+          seg.checkInSemanalScore = {
+            ...seg.checkInSemanalScore,
+            createdAt: (seg.checkInSemanalScore.createdAt as any).toDate(),
+          };
+        }
+        return seg;
+      })
+    );
 
     const updatePayload: Record<string, unknown> = {
       evolucaoSeguimento: evolucaoFirestore,
     };
+
+    if (ehMarcoZero && marcoZero) {
+      updatePayload.marcoZero = marcoZero;
+    }
+
+    const plano = paciente.planoTerapeutico;
+    if (plano) {
+      const datasMap = sincronizarDatasAplicacaoIndividuaisComEvolucao(plano, evolucao);
+      if (datasMap) {
+        updatePayload['planoTerapeutico.datasAplicacaoIndividuais'] = datasMap;
+      }
+    }
 
     // Semana 1: medidas da aplicação viram medidas iniciais (baseline = 1ª aplicação → variação inicial 0)
     const ehSemanaUm = weekIndex === 1;
@@ -186,39 +401,42 @@ export async function POST(
 
     await db.collection('pacientes_completos').doc(pacienteId).update(updatePayload);
 
-    // Calcular variações para o feedback ao paciente (atual vs. anterior)
-    const evolucaoOrdenada = [...evolucao].sort((a: any, b: any) => (a.weekIndex ?? a.numeroSemana ?? 0) - (b.weekIndex ?? b.numeroSemana ?? 0));
-    const anteriores = evolucaoOrdenada.filter((r: any) => (r.weekIndex ?? r.numeroSemana ?? 0) < weekIndex);
-    const ultimoAnterior = anteriores.length > 0 ? anteriores[anteriores.length - 1] : null;
-    const circunfAtualNum = circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal) ? circunferenciaAbdominal : null;
-
-    let variacaoPeso: number | null = null;
-    let variacaoCircunferencia: number | null = null;
-
-    if (ehSemanaUm) {
-      variacaoPeso = 0;
-      if (circunfAtualNum != null) variacaoCircunferencia = 0;
-    } else {
-      const pesoAnterior = ultimoAnterior?.peso ?? (paciente.dadosClinicos as any)?.medidasIniciais?.peso;
-      const circunfAnterior =
-        ultimoAnterior?.circunferenciaAbdominal ?? (paciente.dadosClinicos as any)?.medidasIniciais?.circunferenciaAbdominal;
-
-      if (pesoAnterior != null && typeof pesoAnterior === 'number') {
-        variacaoPeso = peso - pesoAnterior;
-      }
-      if (circunfAtualNum != null && circunfAnterior != null && typeof circunfAnterior === 'number') {
-        variacaoCircunferencia = circunfAtualNum - circunfAnterior;
-      }
-    }
+    const circunfAtualNum =
+      circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal)
+        ? circunferenciaAbdominal
+        : null;
 
     const responseJson: Record<string, unknown> = {
       success: true,
-      message: 'Aplicação atualizada com sucesso!',
-      variacaoPeso: variacaoPeso != null ? Math.round(variacaoPeso * 10) / 10 : null,
-      variacaoCircunferencia: variacaoCircunferencia != null ? Math.round(variacaoCircunferencia * 10) / 10 : null,
+      message: ehMarcoZero
+        ? 'Marco Zero registrado com sucesso!'
+        : 'Aplicação atualizada com sucesso!',
       peso,
       circunferenciaAbdominal: circunfAtualNum ?? null,
+      ehMarcoZero,
     };
+
+    if (ehMarcoZero && marcoZero) {
+      responseJson.marcoZero = marcoZero;
+    } else {
+      responseJson.variacaoPeso =
+        variacaoPeso != null ? Math.round(variacaoPeso * 10) / 10 : null;
+      responseJson.variacaoCircunferencia =
+        variacaoCircunferencia != null ? Math.round(variacaoCircunferencia * 10) / 10 : null;
+    }
+
+    if (scoreResultado) {
+      responseJson.scoreCheckInSemanal = {
+        score: scoreResultado.score,
+        categoria: scoreResultado.categoria,
+        medalha: scoreResultado.medalha,
+        titulo: scoreResultado.titulo,
+        mensagemPaciente: scoreResultado.mensagemPaciente,
+        fatoresPositivos: scoreResultado.fatoresPositivos,
+        pontosDeAtencao: scoreResultado.pontosDeAtencao,
+        pontos: scoreResultado.pontos,
+      };
+    }
 
     // Só retorna link quando: paciente tem médico responsável E status válido para indicação
     const medicoId = paciente.medicoResponsavelId;
@@ -227,9 +445,16 @@ export async function POST(
     if (podeIndicar) {
       const medicoDoc = await db.collection('medicos').doc(medicoId).get();
       if (medicoDoc.exists) {
-        const medico = medicoDoc.data() as { nome?: string; genero?: string };
+        const medico = medicoDoc.data() as {
+          nome?: string;
+          genero?: string;
+          fotoPerfilUrl?: string | null;
+          instagramUsuario?: string | null;
+        };
         const medicoNome = (medico?.nome || '').trim();
         const medicoGenero = (medico?.genero || 'M').toString().toUpperCase() === 'F' ? 'F' : 'M';
+        const medicoFotoUrl = (medico?.fotoPerfilUrl || '').trim();
+        const medicoIg = normalizeMedicoInstagramUsuario(medico?.instagramUsuario);
         const pacienteNome = (paciente.nome || (paciente.dadosIdentificacao as any)?.nomeCompleto || 'Paciente').toString().trim();
         const normalizar = (str: string) =>
           (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -246,6 +471,12 @@ export async function POST(
           responseJson.linkIndicacao = `/dr/${slugMedico}/paciente/${slugPaciente}`;
           responseJson.medicoNome = medicoNome;
           responseJson.medicoGenero = medicoGenero;
+          if (medicoFotoUrl) {
+            responseJson.medicoFotoPerfilUrl = medicoFotoUrl;
+          }
+          if (medicoIg) {
+            responseJson.medicoInstagramUsuario = medicoIg;
+          }
         }
       }
     }

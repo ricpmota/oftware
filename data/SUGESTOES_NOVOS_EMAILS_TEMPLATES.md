@@ -1,4 +1,4 @@
-# Sugestões de novos e-mails – variáveis e descrição para HTML
+v# Sugestões de novos e-mails – variáveis e descrição para HTML
 
 Arquivo de referência para preparar os templates HTML dos novos módulos de e-mail. Cada item traz variáveis disponíveis, gatilho de envio e uma breve descrição do e-mail para guiar o conteúdo.
 

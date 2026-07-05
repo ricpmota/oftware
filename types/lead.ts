@@ -5,6 +5,9 @@ export interface Lead {
   uid: string; // Firebase Auth UID
   email: string;
   name: string;
+  /** Classificação manual do lead (0-5). 0/undefined = sem classificação. */
+  estrelas?: number;
+  telefone?: string;
   createdAt?: Date;
   lastSignInTime?: string;
   emailVerified?: boolean;

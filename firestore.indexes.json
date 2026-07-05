@@ -27,6 +27,88 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "email_envios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "leadId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "emailTipo",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timeline",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ativo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "criadoEm",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "progressPhotos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "compartilharComMedico",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "documentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "statusAssinatura",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipoDocumento",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orcamentosTerapeuticos",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "publicAccessToken",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

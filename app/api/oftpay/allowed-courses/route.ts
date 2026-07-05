@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
       }
     }
     const allCourseIds = OFTPAY_COURSES.map((c) => c.id);
-    const { allowedCourseIds, accessStartAt, accessEndAt } = await getOftPayUserAccessInfo(email, allCourseIds);
-    return NextResponse.json({ allowedCourseIds, accessStartAt, accessEndAt });
+    const { allowedCourseIds, accessStartAt, accessEndAt, questoesEnabled } =
+      await getOftPayUserAccessInfo(email, allCourseIds);
+    return NextResponse.json({ allowedCourseIds, accessStartAt, accessEndAt, questoesEnabled });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Erro ao obter cursos permitidos OftPay:', message);

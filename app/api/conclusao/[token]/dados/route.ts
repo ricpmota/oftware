@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'crypto';
+import { calcularDeltaAcumuladoMedida } from '@/lib/aplicacao/formatarVariacaoMedida';
+import { resolveMedicoWhiteLabelWithMetodo } from '@/lib/server/resolveMedicoWhiteLabelWithMetodo.server';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -78,7 +82,16 @@ export async function GET(
       dadosIdentificacao?: { nomeCompleto?: string };
       evolucaoSeguimento?: Array<{ weekIndex?: number; numeroSemana?: number; peso?: number; circunferenciaAbdominal?: number }>;
       dadosClinicos?: { medidasIniciais?: { peso?: number; circunferenciaAbdominal?: number } };
-      planoTerapeutico?: { conclusaoTratamento?: { pesoFinalKg?: number; circunferenciaAbdominalFinalCm?: number; depoimento?: string } };
+      planoTerapeutico?: {
+        conclusaoTratamento?: {
+          pesoFinalKg?: number;
+          circunferenciaAbdominalFinalCm?: number;
+          depoimento?: string;
+          percepcaoResultadoFinal?: string;
+          principalConquista?: string;
+          estrelasMedico?: number;
+        };
+      };
     };
     const nome = paciente?.nome || paciente?.dadosIdentificacao?.nomeCompleto || 'Paciente';
     const conclusao = paciente?.planoTerapeutico?.conclusaoTratamento;
@@ -86,6 +99,13 @@ export async function GET(
     const pesoFinalKg = conclusao?.pesoFinalKg ?? null;
     const circunferenciaAbdominalFinalCm = conclusao?.circunferenciaAbdominalFinalCm ?? null;
     const depoimento = conclusao?.depoimento ?? null;
+    const percepcaoResultadoFinal = conclusao?.percepcaoResultadoFinal ?? null;
+    const principalConquista = conclusao?.principalConquista ?? null;
+
+    const classificacaoRef = await db.collection('classificacao_profissionais').doc(docIdClassificacao(pacienteId, medicoId)).get();
+    const jaClassificouMedico = classificacaoRef.exists && typeof classificacaoRef.data()?.estrelas === 'number';
+    const estrelasClassificacao = jaClassificouMedico ? (classificacaoRef.data()?.estrelas as number) : null;
+    const estrelasMedico = estrelasClassificacao ?? conclusao?.estrelasMedico ?? null;
 
     const evolucaoBase = paciente?.evolucaoSeguimento || [];
     const primeiroRegistro = evolucaoBase.find((e: any) => (e.weekIndex ?? e.numeroSemana) === 1);
@@ -103,8 +123,11 @@ export async function GET(
       ? (toNum(medIni.circunferenciaAbdominal) ?? toNum(medIni.circAbdominal) ?? toNum(medIni.comprimentoAbdominal) ?? toNum((pac.medidasIniciais as Record<string, unknown>)?.circunferenciaAbdominal))
       : toNum((pac.medidasIniciais as Record<string, unknown>)?.circunferenciaAbdominal);
     const circunferenciaInicialCm = circDoRegistro ?? circMedidas ?? null;
-    const pesoPerdidoAcumulado = pesoInicialKg != null && pesoInicialKg > 0 && pesoFinalKg != null ? pesoInicialKg - pesoFinalKg : null;
-    const circunferenciaAbdominalReduzidaCm = circunferenciaInicialCm != null && circunferenciaAbdominalFinalCm != null ? circunferenciaInicialCm - circunferenciaAbdominalFinalCm : null;
+    const pesoPerdidoAcumulado = calcularDeltaAcumuladoMedida(pesoInicialKg, pesoFinalKg);
+    const circunferenciaAbdominalReduzidaCm = calcularDeltaAcumuladoMedida(
+      circunferenciaInicialCm,
+      circunferenciaAbdominalFinalCm
+    );
 
     let linkRelatorio: string | null = null;
     if (jaPreenchido) {
@@ -114,19 +137,41 @@ export async function GET(
         relatorioToken = relatorioSnap.docs[0].id;
       } else {
         relatorioToken = crypto.randomBytes(32).toString('hex');
-        await db.collection('relatorio_paciente_links').doc(relatorioToken).set({ pacienteId, createdAt: new Date() });
+        await db.collection('relatorio_paciente_links').doc(relatorioToken).set({
+          pacienteId,
+          createdAt: new Date(),
+          ...shadowOrganizationFields(),
+        });
       }
-      const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://oftware.com.br';
-      linkRelatorio = `${baseUrl}/relatorio/${relatorioToken}`;
+      linkRelatorio = buildOrganizacaoPublicUrl(`/relatorio/${relatorioToken}`);
     }
 
-    const classificacaoRef = await db.collection('classificacao_profissionais').doc(docIdClassificacao(pacienteId, medicoId)).get();
-    const jaClassificouMedico = classificacaoRef.exists && typeof classificacaoRef.data()?.estrelas === 'number';
-
     const medicoSnap = await db.collection('medicos').doc(medicoId).get();
-    const medicoData = medicoSnap.exists ? (medicoSnap.data() as { nome?: string; genero?: string }) : null;
+    const medicoData = medicoSnap.exists
+      ? (medicoSnap.data() as {
+          nome?: string;
+          genero?: string;
+          fotoPerfilUrl?: string | null;
+          whiteLabel?: {
+            brandName?: string;
+            description?: string;
+            ogImageUrl?: string;
+            primaryColor?: string;
+            showPoweredByOftware?: boolean;
+          };
+          metodoImagensAtivo?: boolean;
+        })
+      : null;
     const medicoNome = medicoData?.nome?.trim() || 'Médico';
     const medicoGenero = (medicoData?.genero || 'M').toString().toUpperCase() === 'F' ? 'F' : 'M';
+    const whiteLabel = await resolveMedicoWhiteLabelWithMetodo({
+      nome: medicoNome,
+      genero: medicoGenero,
+      fotoPerfilUrl: medicoData?.fotoPerfilUrl ?? null,
+      whiteLabel: medicoData?.whiteLabel,
+      metodoImagensAtivo: medicoData?.metodoImagensAtivo,
+      organizationId: (medicoData as { organizationId?: string } | null)?.organizationId ?? null,
+    });
 
     const normalizar = (str: string) =>
       (str || '')
@@ -151,14 +196,18 @@ export async function GET(
       medicoId,
       medicoNome,
       medicoGenero,
+      whiteLabel,
       linkIndicacao,
       jaPreenchido,
       jaClassificouMedico,
       pesoFinalKg,
       circunferenciaAbdominalFinalCm,
       depoimento,
-      pesoPerdidoAcumulado: pesoPerdidoAcumulado != null ? Number(pesoPerdidoAcumulado.toFixed(1)) : null,
-      circunferenciaAbdominalReduzidaCm: circunferenciaAbdominalReduzidaCm != null ? Number(circunferenciaAbdominalReduzidaCm.toFixed(1)) : null,
+      percepcaoResultadoFinal,
+      principalConquista,
+      estrelasMedico,
+      pesoPerdidoAcumulado,
+      circunferenciaAbdominalReduzidaCm,
       linkRelatorio,
     });
   } catch (error) {

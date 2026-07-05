@@ -1,6 +1,9 @@
 import { collection, collectionGroup, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 import { PacienteCompleto } from '@/types/obesidade';
+import { ensureImcOnMedidasIniciais } from '@/lib/meta/medidasIniciaisImc';
+import { parseDataNascimentoDiaMesLocal } from '@/utils/dataNascimentoLocal';
 
 /**
  * Remove valores undefined recursivamente de um objeto (Firestore não aceita undefined)
@@ -41,6 +44,40 @@ function toDateSafe(value: unknown): Date | undefined {
   }
   const d = new Date(value as string | number);
   return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** dataNascimento: dia civil correto (evita um dia a menos com ISO/UTC no calendário). */
+function toDateSafeDataNascimento(value: unknown): Date | undefined {
+  const d = parseDataNascimentoDiaMesLocal(value);
+  return d ?? undefined;
+}
+
+function mapEvolucaoSeguimentoSeg(seg: Record<string, unknown>): Record<string, unknown> {
+  const mapped: Record<string, unknown> = {
+    ...seg,
+    dataRegistro: toDateSafe(seg.dataRegistro),
+    doseAplicada: seg.doseAplicada
+      ? {
+          ...(seg.doseAplicada as Record<string, unknown>),
+          data: toDateSafe((seg.doseAplicada as { data?: unknown }).data),
+        }
+      : undefined,
+  };
+  if (seg.marcoZero && typeof seg.marcoZero === 'object') {
+    mapped.marcoZero = {
+      ...(seg.marcoZero as Record<string, unknown>),
+      createdAt: toDateSafe((seg.marcoZero as { createdAt?: unknown }).createdAt),
+    };
+  }
+  return mapped;
+}
+
+function normalizeMarcoZeroRoot(marco: unknown): Record<string, unknown> | undefined {
+  if (!marco || typeof marco !== 'object') return undefined;
+  return {
+    ...(marco as Record<string, unknown>),
+    createdAt: toDateSafe((marco as { createdAt?: unknown }).createdAt),
+  };
 }
 
 function isPlainObject(v: unknown): v is Record<string, any> {
@@ -91,17 +128,36 @@ function normalizePacienteFirestoreData(raw: Record<string, any>): Record<string
     dc.motivacaoOutro = data.motivacaoOutro;
   }
 
+  if (isPlainObject(dc.medidasIniciais)) {
+    dc.medidasIniciais = ensureImcOnMedidasIniciais(dc.medidasIniciais as Record<string, unknown>);
+  }
+
   data.dadosClinicos = dc;
   return data;
+}
+
+function applyImcBeforeSave<T extends PacienteCompleto | Omit<PacienteCompleto, 'id'>>(paciente: T): T {
+  const mi = paciente.dadosClinicos?.medidasIniciais;
+  if (!mi) return paciente;
+  const nextMi = ensureImcOnMedidasIniciais(mi);
+  if (nextMi.imc === mi.imc) return paciente;
+  return {
+    ...paciente,
+    dadosClinicos: {
+      ...paciente.dadosClinicos,
+      medidasIniciais: nextMi,
+    },
+  };
 }
 
 export class PacienteService {
   // Criar ou atualizar paciente completo
   static async createOrUpdatePaciente(paciente: PacienteCompleto | Omit<PacienteCompleto, 'id'>): Promise<string> {
     try {
+      const pacienteComImc = applyImcBeforeSave(paciente);
       // Se tem id, atualizar diretamente
-      if ('id' in paciente && paciente.id) {
-        const { id, ...pacienteData } = paciente;
+      if ('id' in pacienteComImc && pacienteComImc.id) {
+        const { id, ...pacienteData } = pacienteComImc;
         // Converter datas para Timestamp do Firestore
         const dataToSave: any = {
           ...pacienteData,
@@ -192,13 +248,13 @@ export class PacienteService {
       }
       
       // Se não tem id, buscar por userId ou criar novo
-      const existingQuery = query(collection(db, 'pacientes_completos'), where('userId', '==', paciente.userId));
+      const existingQuery = query(collection(db, 'pacientes_completos'), where('userId', '==', pacienteComImc.userId));
       const existingSnapshot = await getDocs(existingQuery);
       
       if (!existingSnapshot.empty) {
         // Atualizar paciente existente
         const existingDoc = existingSnapshot.docs[0];
-        const { id, ...pacienteData } = { ...paciente, id: existingDoc.id } as PacienteCompleto;
+        const { id, ...pacienteData } = { ...pacienteComImc, id: existingDoc.id } as PacienteCompleto;
         
         const dataToSave: any = {
           ...pacienteData,
@@ -212,7 +268,7 @@ export class PacienteService {
         return existingDoc.id;
       } else {
         // Criar novo paciente
-        const { id: _ignoredId, ...pacienteSemId } = paciente as Partial<PacienteCompleto> & { id?: string };
+        const { id: _ignoredId, ...pacienteSemId } = pacienteComImc as Partial<PacienteCompleto> & { id?: string };
         const dataToSave: any = {
           ...pacienteSemId,
           dataCadastro: new Date()
@@ -221,7 +277,10 @@ export class PacienteService {
         // Remover valores undefined antes de salvar no Firestore
         const cleanedData = removeUndefined(dataToSave);
         
-        const docRef = await addDoc(collection(db, 'pacientes_completos'), cleanedData);
+        const docRef = await addDoc(collection(db, 'pacientes_completos'), {
+          ...cleanedData,
+          ...shadowOrganizationFields(),
+        });
         const novoPacienteId = docRef.id;
         
         // Verificar se há indicação pendente com o mesmo telefone
@@ -264,14 +323,7 @@ export class PacienteService {
       // Converter datas em evolucaoSeguimento
       let evolucaoSeguimento = data.evolucaoSeguimento;
       if (evolucaoSeguimento && Array.isArray(evolucaoSeguimento)) {
-        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => ({
-          ...seg,
-          dataRegistro: toDateSafe(seg.dataRegistro),
-          doseAplicada: seg.doseAplicada ? {
-            ...seg.doseAplicada,
-            data: toDateSafe(seg.doseAplicada.data)
-          } : undefined
-        }));
+        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => mapEvolucaoSeguimentoSeg(seg));
       }
       
       // Converter datas em planoTerapeutico
@@ -291,11 +343,14 @@ export class PacienteService {
         dataCadastro: toDateSafe(data.dataCadastro),
         dadosIdentificacao: {
           ...data.dadosIdentificacao,
-          dataNascimento: toDateSafe(data.dadosIdentificacao?.dataNascimento),
+          dataNascimento: toDateSafeDataNascimento(data.dadosIdentificacao?.dataNascimento),
           dataCadastro: toDateSafe(data.dadosIdentificacao?.dataCadastro),
         },
         evolucaoSeguimento,
         planoTerapeutico,
+        ...(data.marcoZero
+          ? { marcoZero: normalizeMarcoZeroRoot(data.marcoZero) as PacienteCompleto['marcoZero'] }
+          : {}),
       } as PacienteCompleto;
     } catch (error) {
       console.error('Erro ao buscar paciente:', error);
@@ -318,14 +373,7 @@ export class PacienteService {
       // Converter datas em evolucaoSeguimento
       let evolucaoSeguimento = data.evolucaoSeguimento;
       if (evolucaoSeguimento && Array.isArray(evolucaoSeguimento)) {
-        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => ({
-          ...seg,
-          dataRegistro: toDateSafe(seg.dataRegistro),
-          doseAplicada: seg.doseAplicada ? {
-            ...seg.doseAplicada,
-            data: toDateSafe(seg.doseAplicada.data)
-          } : undefined
-        }));
+        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => mapEvolucaoSeguimentoSeg(seg));
       }
       
       // Converter datas em planoTerapeutico
@@ -345,11 +393,14 @@ export class PacienteService {
         dataCadastro: toDateSafe(data.dataCadastro),
         dadosIdentificacao: {
           ...data.dadosIdentificacao,
-          dataNascimento: toDateSafe(data.dadosIdentificacao?.dataNascimento),
+          dataNascimento: toDateSafeDataNascimento(data.dadosIdentificacao?.dataNascimento),
           dataCadastro: toDateSafe(data.dadosIdentificacao?.dataCadastro),
         },
         evolucaoSeguimento,
         planoTerapeutico,
+        ...(data.marcoZero
+          ? { marcoZero: normalizeMarcoZeroRoot(data.marcoZero) as PacienteCompleto['marcoZero'] }
+          : {}),
       } as PacienteCompleto;
     } catch (error) {
       console.error('Erro ao buscar paciente por userId:', error);
@@ -372,14 +423,7 @@ export class PacienteService {
       // Converter datas em evolucaoSeguimento
       let evolucaoSeguimento = data.evolucaoSeguimento;
       if (evolucaoSeguimento && Array.isArray(evolucaoSeguimento)) {
-        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => ({
-          ...seg,
-          dataRegistro: toDateSafe(seg.dataRegistro),
-          doseAplicada: seg.doseAplicada ? {
-            ...seg.doseAplicada,
-            data: toDateSafe(seg.doseAplicada.data)
-          } : undefined
-        }));
+        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => mapEvolucaoSeguimentoSeg(seg));
       }
       
       // Converter datas em planoTerapeutico
@@ -399,11 +443,14 @@ export class PacienteService {
         dataCadastro: toDateSafe(data.dataCadastro),
         dadosIdentificacao: {
           ...data.dadosIdentificacao,
-          dataNascimento: toDateSafe(data.dadosIdentificacao?.dataNascimento),
+          dataNascimento: toDateSafeDataNascimento(data.dadosIdentificacao?.dataNascimento),
           dataCadastro: toDateSafe(data.dadosIdentificacao?.dataCadastro),
         },
         evolucaoSeguimento,
         planoTerapeutico,
+        ...(data.marcoZero
+          ? { marcoZero: normalizeMarcoZeroRoot(data.marcoZero) as PacienteCompleto['marcoZero'] }
+          : {}),
       } as PacienteCompleto;
     } catch (error) {
       console.error('Erro ao buscar paciente por email:', error);
@@ -538,14 +585,7 @@ export class PacienteService {
         // Converter datas em evolucaoSeguimento
         let evolucaoSeguimento = data.evolucaoSeguimento;
         if (evolucaoSeguimento && Array.isArray(evolucaoSeguimento)) {
-          evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => ({
-            ...seg,
-            dataRegistro: toDateSafe(seg.dataRegistro),
-            doseAplicada: seg.doseAplicada ? {
-              ...seg.doseAplicada,
-              data: toDateSafe(seg.doseAplicada.data)
-            } : undefined
-          }));
+          evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => mapEvolucaoSeguimentoSeg(seg));
         }
         
         // Converter datas em planoTerapeutico
@@ -567,7 +607,7 @@ export class PacienteService {
           dataAbandono: toDateSafe(data.dataAbandono),
           dadosIdentificacao: {
             ...data.dadosIdentificacao,
-            dataNascimento: toDateSafe(data.dadosIdentificacao?.dataNascimento),
+            dataNascimento: toDateSafeDataNascimento(data.dadosIdentificacao?.dataNascimento),
             dataCadastro: toDateSafe(data.dadosIdentificacao?.dataCadastro),
           },
           evolucaoSeguimento,
@@ -592,7 +632,7 @@ export class PacienteService {
           dataCadastro: toDateSafe(data.dataCadastro),
           dadosIdentificacao: {
             ...data.dadosIdentificacao,
-            dataNascimento: toDateSafe(data.dadosIdentificacao?.dataNascimento),
+            dataNascimento: toDateSafeDataNascimento(data.dadosIdentificacao?.dataNascimento),
             dataCadastro: toDateSafe(data.dadosIdentificacao?.dataCadastro),
           },
         } as PacienteCompleto;
@@ -746,14 +786,7 @@ export class PacienteService {
       // Converter datas em evolucaoSeguimento
       let evolucaoSeguimento = data.evolucaoSeguimento;
       if (evolucaoSeguimento && Array.isArray(evolucaoSeguimento)) {
-        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => ({
-          ...seg,
-          dataRegistro: toDateSafe(seg.dataRegistro),
-          doseAplicada: seg.doseAplicada ? {
-            ...seg.doseAplicada,
-            data: toDateSafe(seg.doseAplicada.data)
-          } : undefined
-        }));
+        evolucaoSeguimento = evolucaoSeguimento.map((seg: any) => mapEvolucaoSeguimentoSeg(seg));
       }
       
       // Converter datas em planoTerapeutico
@@ -774,11 +807,14 @@ export class PacienteService {
         dataAbandono: toDateSafe(data.dataAbandono),
         dadosIdentificacao: {
           ...data.dadosIdentificacao,
-          dataNascimento: toDateSafe(data.dadosIdentificacao?.dataNascimento),
+          dataNascimento: toDateSafeDataNascimento(data.dadosIdentificacao?.dataNascimento),
           dataCadastro: toDateSafe(data.dadosIdentificacao?.dataCadastro),
         },
         evolucaoSeguimento,
         planoTerapeutico,
+        ...(data.marcoZero
+          ? { marcoZero: normalizeMarcoZeroRoot(data.marcoZero) as PacienteCompleto['marcoZero'] }
+          : {}),
       } as PacienteCompleto;
     } catch (error) {
       console.error('Erro ao buscar paciente de abandono:', error);

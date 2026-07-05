@@ -1,5 +1,7 @@
 // Tipos específicos para o sistema de obesidade com tirzepatida
 
+import type { TipoExameImagem } from '@/lib/metaadmin/exameImagemExtracao';
+
 export interface PacienteCompleto {
   id: string;
   userId: string; // Firebase Auth UID
@@ -18,12 +20,16 @@ export interface PacienteCompleto {
   
   // Pasta 4: Exames Laboratoriais
   examesLaboratoriais: ExamesLaboratoriais[];
-  
+  /** PDFs de exames de imagem (USG, TC, RM, etc.); ausente em pacientes antigos */
+  examesDeImagem?: ExameDeImagemPaciente[];
+
   // Pasta 5: Plano Terapêutico
   planoTerapeutico: PlanoTerapeutico;
   
   // Pasta 6: Evolução / Seguimento
   evolucaoSeguimento: SeguimentoSemanal[];
+  /** Marco Zero — primeiro registro do tratamento (semana 1). */
+  marcoZero?: MarcoZero;
   
   // Pasta 7: Alertas e Eventos
   alertas: Alerta[];
@@ -40,8 +46,12 @@ export interface PacienteCompleto {
   motivoAbandono?: string; // Preenchido quando statusTratamento = 'abandono'
   dataAbandono?: Date; // Data em que o paciente abandonou o tratamento
   medicoResponsavelAnteriorId?: string | null; // ID do médico que estava responsável antes do abandono (para estatísticas)
+  /** Médico indicado por link (/dr) ou referral — solicitação pendente, ainda não aceita */
+  medicoRecomendadoId?: string | null;
   recomendacoesLidas?: boolean; // Indica se o paciente leu e compreendeu as recomendações
   dataLeituraRecomendacoes?: Date; // Data em que o paciente leu as recomendações
+  /** Versão do termo aceito na leitura obrigatória (ex.: v1 com etapa Aplicação). */
+  recomendacoesTermoVersao?: string;
 }
 
 // Pasta 1: Dados de Identificação
@@ -61,19 +71,151 @@ export interface DadosIdentificacao {
   dataCadastro: Date;
 }
 
+/** Anamnese adaptativa V3 — blocos extras (modo completa), chat /meta */
+export interface PerfilMetabolicoV3 {
+  sono?: {
+    qualidadeSono?: 'muito_bom' | 'bom' | 'regular' | 'ruim' | 'muito_ruim';
+    horasSonoMedias?: 'menos_5' | '5_6' | '7_8' | 'mais_8';
+    acordaCansado?: 'sim' | 'nao' | 'as_vezes';
+    ronca?: 'sim' | 'nao' | 'nao_sei';
+    acordaDuranteNoite?: 'sim' | 'nao' | 'as_vezes';
+  };
+  atividadeFisica?: {
+    rotinaMovimento?: 'sedentario' | 'leve' | 'moderada' | 'intensa';
+    dificuldades?: {
+      faltaTempo?: boolean;
+      dor?: boolean;
+      desanimo?: boolean;
+      nenhuma?: boolean;
+    };
+  };
+  alimentacao?: {
+    momentoMaisDificil?: 'manha' | 'tarde' | 'noite' | 'fim_de_semana';
+    vontadeDoces?: 'sim' | 'nao' | 'as_vezes';
+    beliscaEntreRefeicoes?: 'sim' | 'nao' | 'as_vezes';
+    comeAnsiedadeEstresse?: 'sim' | 'nao' | 'as_vezes';
+    perdaControleAlimentar?: 'sim' | 'nao' | 'as_vezes';
+  };
+  energia?: {
+    nivelEnergiaDiaria?: 'alta' | 'media' | 'baixa' | 'muito_baixa';
+    barreirasRotina?: {
+      faltaTempo?: boolean;
+      faltaMotivacao?: boolean;
+      faltaPlanejamento?: boolean;
+      faltaApoio?: boolean;
+      nenhuma?: boolean;
+    };
+  };
+  historicoEmagrecimento?: {
+    jaTentouEmagrecer?: 'sim' | 'nao';
+    recuperouPesoDepois?: 'sim' | 'nao' | 'nao_sei';
+  };
+  medicamentosPrevios?: {
+    usouMedicacaoParaEmagrecer?: 'sim' | 'nao';
+    medicacoes?: {
+      semaglutida?: boolean;
+      tirzepatida?: boolean;
+      sibutramina?: boolean;
+      orlistate?: boolean;
+      outro?: boolean;
+      nenhuma?: boolean;
+      outroDescricao?: string;
+    };
+    teveEfeitosColaterais?: 'sim' | 'nao' | 'nao_aplicavel';
+  };
+  barreirasAdesao?: {
+    faltaTempo?: boolean;
+    faltaMotivacao?: boolean;
+    custo?: boolean;
+    efeitosColaterais?: boolean;
+    rotinaCorrida?: boolean;
+    faltaApoio?: boolean;
+    nenhuma?: boolean;
+    outro?: boolean;
+    outroDescricao?: string;
+  };
+  expectativa?: {
+    expectativaPerdaPeso?: 'ate_5kg' | '5_10kg' | '10_15kg' | 'mais_15kg' | 'nao_sei';
+  };
+}
+
+export type AnamneseHighlightTipoV3 =
+  | 'sono'
+  | 'alimentacao'
+  | 'atividade'
+  | 'energia'
+  | 'historico'
+  | 'medicamentos'
+  | 'barreiras'
+  | 'expectativa'
+  | 'risco';
+
+export type AnamneseHighlightSeveridadeV3 = 'baixa' | 'moderada' | 'alta';
+
+export type AnamneseNivelConfiancaV3 = 'baixo' | 'moderado' | 'alto';
+
+export interface AnamneseHighlightV3 {
+  tipo: AnamneseHighlightTipoV3;
+  titulo: string;
+  descricao: string;
+  severidade: AnamneseHighlightSeveridadeV3;
+}
+
+/** Saída da análise Gemini (Etapa 5) — somente leitura no Metaadmin */
+export interface AnamneseInteligenteV3 {
+  resumoMedico: string;
+  highlights: AnamneseHighlightV3[];
+  barreirasAdesao: string[];
+  pontosMedicoInvestigar: string[];
+  perfilComportamental: string;
+  nivelConfianca: AnamneseNivelConfiancaV3;
+  geradoEm?: Date;
+  modelo?: string;
+}
+
 // Pasta 2: Dados Clínicos da Anamnese
 export interface DadosClinicos {
+  /** Anamnese adaptativa V3: modo escolhido no início do chat /meta */
+  tipoAvaliacaoInicial?: 'essencial' | 'completa';
+
+  /** Blocos extras da anamnese completa (steps 19–26 do chat) */
+  perfilMetabolicoV3?: PerfilMetabolicoV3;
+
+  /** Resumo e highlights gerados por IA (botão manual no Metaadmin) */
+  anamneseInteligenteV3?: AnamneseInteligenteV3;
+
   // 2.1 Medidas iniciais
   medidasIniciais?: {
     peso: number; // kg (20-400)
     altura: number; // cm (120-230)
     imc: number; // calculado automaticamente
     circunferenciaAbdominal: number; // cm (40-200)
+    circunferenciaNaoInformada?: boolean;
   };
-  
-  // 2.2 Diagnóstico principal
+
+  // 2.2 Motivação em relação ao peso (entrevista V2)
+  motivacao?: {
+    estetica?: boolean;
+    cansaco_falta_energia?: boolean;
+    saude_exames_alterados?: boolean;
+    autoestima?: boolean;
+    dificuldade_emagrecer?: boolean;
+    outro?: boolean;
+  };
+  motivacaoOutro?: string;
+
+  // 2.3 Diagnóstico principal
   diagnosticoPrincipal?: {
-    tipo: 'dm2' | 'obesidade' | 'sobrepeso_comorbidade' | 'pre_diabetes' | 'resistencia_insulinica' | 'sop_ri' | 'ehna_sem_dm2' | 'outro';
+    tipo:
+      | 'dm1'
+      | 'dm2'
+      | 'obesidade'
+      | 'sobrepeso_comorbidade'
+      | 'pre_diabetes'
+      | 'resistencia_insulinica'
+      | 'sop_ri'
+      | 'ehna_sem_dm2'
+      | 'outro';
     outro?: string; // obrigatório se tipo='outro'
   };
   
@@ -145,6 +287,8 @@ export interface DadosClinicos {
     reducaoCircunferencia10cm?: boolean;
     remissaoPreDiabetes?: boolean;
     melhoraEHNA?: boolean;
+    mais_energia?: boolean;
+    melhora_autoestima?: boolean;
     outro?: boolean;
     outroDescricao?: string;
   };
@@ -244,6 +388,23 @@ export interface ExamesLaboratoriais {
   };
 }
 
+/** Metadados + ficheiro no Storage (privado via storagePath ou URL pública legada). */
+export interface ExameDeImagemPaciente {
+  id: string;
+  nomeArquivo: string;
+  /** MIME guardado no upload (ex.: image/jpeg) — usado na pré-visualização */
+  mimeArquivo?: string | null;
+  tipoExame: TipoExameImagem;
+  dataExame: string | null;
+  nomePacienteDocumento: string | null;
+  resumoEquipamentoOuRegiao?: string | null;
+  /** Caminho no bucket (objeto privado); visualização via URL assinada */
+  storagePath?: string;
+  /** Upload antigo com makePublic — ainda exibido direto no iframe */
+  pdfUrl?: string | null;
+  criadoEm?: string;
+}
+
 // Pasta 5: Plano Terapêutico
 export interface PlanoTerapeutico {
   // 5.1 Metadados do plano
@@ -254,7 +415,7 @@ export interface PlanoTerapeutico {
   numeroSemanasTratamento?: number; // Número de semanas do tratamento (padrão: 18, pode ser ampliado)
   
   // 5.2 Dose e titulação
-  currentDoseMg?: 2.5 | 5 | 7.5 | 10 | 12.5 | 15;
+  currentDoseMg?: 1.25 | 2.5 | 5 | 7.5 | 10 | 12.5 | 15;
   lastDoseChangeAt?: Date;
   nextReviewDate?: Date;
   titrationStatus?: 'INICIADO' | 'EM_TITULACAO' | 'MANUTENCAO' | 'PAUSADO' | 'ENCERRADO';
@@ -332,6 +493,48 @@ export interface HistoricoDose {
 }
 
 // Pasta 6: Evolução / Seguimento Semanal
+export interface MarcoZero {
+  pesoInicial: number;
+  circunferenciaInicial?: number;
+  motivacaoPrincipal: string;
+  satisfacaoAtual: string;
+  objetivoPaciente: string;
+  confiancaNoObjetivo: string;
+  possuiFotosIniciais: boolean;
+  createdAt?: Date;
+}
+
+export interface CheckInSemanal {
+  fomeSemana?: string;
+  periodoMaisFome?: string;
+  saciedadeAoComer?: string;
+  consumoAgua?: string;
+  consumoProteinas?: string;
+  satisfacaoEvolucao?: string;
+  comentarioSemana?: string;
+  preenchidoEm?: Date;
+}
+
+export interface CheckInSemanalScore {
+  score: number;
+  categoria: 'excelente' | 'boa' | 'moderada' | 'atencao' | 'necessita_acompanhamento';
+  medalha: 'ouro' | 'prata' | 'bronze' | 'sem_medalha';
+  titulo: string;
+  mensagemPaciente: string;
+  fatoresPositivos: string[];
+  pontosDeAtencao: string[];
+  pontos: {
+    peso?: number;
+    circunferencia?: number;
+    fomeSemana?: number;
+    saciedadeAoComer?: number;
+    satisfacaoEvolucao?: number;
+  };
+  createdAt?: Date;
+  semana?: number;
+  applicationId?: string;
+}
+
 export interface SeguimentoSemanal {
   id: string;
   weekIndex: number; // número da semana desde o início
@@ -356,6 +559,9 @@ export interface SeguimentoSemanal {
   /** Tipos alinhados ao `alertEngine` e `AlertaType` (Pasta 7). */
   alerts?: AlertaType[];
   localAplicacao?: 'abdome' | 'coxa' | 'braco';
+  marcoZero?: MarcoZero;
+  checkInSemanal?: CheckInSemanal;
+  checkInSemanalScore?: CheckInSemanalScore;
   observacoesPaciente?: string;
   comentarioMedico?: string;
 }

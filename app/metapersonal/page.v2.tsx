@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { PersonalTrainerService } from '@/services/personalTrainerService';
+import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
 import { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
 import { PacientePersonalTrainerService } from '@/services/pacientePersonalTrainerService';
 import { PagamentoService } from '@/services/pagamentoService';
@@ -101,6 +102,10 @@ import NutriContent from '@/components/NutriContent';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predictWaistCircumference, varianceStatus } from '@/utils/expectedCurve';
 import { LabRangeBar } from '@/components/LabRangeBar';
+import { LabOptimizationBadge } from '@/components/LabOptimizationBadge';
+import { LabSectionScoreBadge } from '@/components/LabSectionScoreBadge';
+import { LabMetabolicSummarySection } from '@/components/LabMetabolicSummarySection';
+import { calculateSectionMetabolicScore } from '@/lib/labExames/labSectionScore';
 import type { Sex } from '@/types/labRanges';
 import { getLabRange } from '@/utils/labRangesFromJson';
 import { useLabOrderBySection } from '@/hooks/useLabOrderBySection';
@@ -108,6 +113,9 @@ import { EXAME_LABORATORIAL_KEY_TO_FIELD } from '@/lib/metaadmin/exameLaboratori
 import { buildPatientLabSectionsFromOrder } from '@/lib/labExames/buildPatientLabSectionsFromOrder';
 import TrendLine from '@/components/TrendLine';
 import { PersonalPageContent } from '@/app/meta/personal/page';
+import MetaNutriPersonalWizard from '@/components/meta/MetaNutriPersonalWizard';
+import ProfissionalCadastroGateModal from '@/components/meta/ProfissionalCadastroGateModal';
+import PageLoadingScreen from '@/components/landing/PageLoadingScreen';
 
 type MenuPersonal = 'home' | 'medicos' | 'pacientes' | 'financeiro' | 'calendario' | 'meu-perfil';
 
@@ -132,6 +140,9 @@ function MetaPersonalPageV2() {
   const [showModalClassificacaoVisualizar, setShowModalClassificacaoVisualizar] = useState(false);
   const [detalhamentoVisualizar, setDetalhamentoVisualizar] = useState<DetalhamentoClassificacao | null>(null);
   const [loadingPersonalTrainer, setLoadingPersonalTrainer] = useState(false);
+  const [salvandoCadastroPersonal, setSalvandoCadastroPersonal] = useState(false);
+  const [criandoCadastroPersonal, setCriandoCadastroPersonal] = useState(false);
+  const [metaPersonalLoadTick, setMetaPersonalLoadTick] = useState(0);
   
   // Estados para perfil
   const [registroNumero, setRegistroNumero] = useState('');
@@ -673,6 +684,9 @@ function MetaPersonalPageV2() {
       if (!firebaseUser) {
         setUser(null);
         setPersonalTrainer(null);
+        setRegistroNumero('');
+        setTelefoneContato('');
+        setCidadesSelecionadas([]);
         setLoading(false);
         router.push('/');
         return;
@@ -682,12 +696,11 @@ function MetaPersonalPageV2() {
       setLoadingPersonalTrainer(true);
 
       try {
-        const personalDoc = await PersonalTrainerService.createOrUpdatePersonalTrainer(
-          firebaseUser.uid,
-          firebaseUser.email || '',
-          firebaseUser.displayName || ''
-        );
+        const personalDoc = await PersonalTrainerService.getPersonalTrainerByUserId(firebaseUser.uid);
         setPersonalTrainer(personalDoc);
+        setRegistroNumero(personalDoc?.registroNumero || '');
+        setTelefoneContato(personalDoc?.telefone || '');
+        setCidadesSelecionadas(personalDoc?.cidades || []);
       } catch (error) {
         console.error('Erro ao carregar personal trainer:', error);
       } finally {
@@ -696,6 +709,35 @@ function MetaPersonalPageV2() {
       }
     });
     return () => unsubscribe();
+  }, [router]);
+
+  const handleConfirmarCadastroPersonal = useCallback(async () => {
+    if (!user) return;
+    setCriandoCadastroPersonal(true);
+    try {
+      const personalDoc = await PersonalTrainerService.createOrUpdatePersonalTrainer(
+        user.uid,
+        user.email || '',
+        user.displayName || ''
+      );
+      setPersonalTrainer(personalDoc);
+      setRegistroNumero(personalDoc.registroNumero || '');
+      setTelefoneContato(personalDoc.telefone || '');
+      setCidadesSelecionadas(personalDoc.cidades || []);
+    } catch (error) {
+      console.error('Erro ao iniciar cadastro de personal trainer:', error);
+      alert('Nao foi possivel iniciar seu cadastro agora. Tente novamente.');
+    } finally {
+      setCriandoCadastroPersonal(false);
+    }
+  }, [user]);
+
+  const handleRecusarCadastroPersonal = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.href = 'https://www.oftware.com.br';
+      return;
+    }
+    router.push('/');
   }, [router]);
 
   // Carregar agregado de classificação do personal trainer
@@ -5771,20 +5813,73 @@ function MetaPersonalPageV2() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <Activity className="w-12 h-12 text-blue-600 animate-pulse mx-auto mb-4" />
-          <p className="text-gray-600">Carregando...</p>
-        </div>
-      </div>
-    );
+  if (loadingPersonalTrainer || (loading && !user)) {
+    return <PageLoadingScreen />;
   }
 
   if (!user) return null;
 
+  if (!personalTrainer) {
+    return (
+      <ProfissionalCadastroGateModal
+        tipo="personal"
+        loading={criandoCadastroPersonal}
+        onConfirm={handleConfirmarCadastroPersonal}
+        onDecline={handleRecusarCadastroPersonal}
+      />
+    );
+  }
+
+  const telaBloqueioVerificacaoPersonal =
+    !!user?.uid &&
+    !loading &&
+    !loadingPersonalTrainer &&
+    !!personalTrainer &&
+    personalTrainer.isVerificado !== true;
+
   return (
+    <>
+      {telaBloqueioVerificacaoPersonal && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col bg-black/50"
+          aria-modal="true"
+          role="dialog"
+          aria-labelledby="metapersonal-bloqueio-verificacao-titulo"
+        >
+          <span id="metapersonal-bloqueio-verificacao-titulo" className="sr-only">
+            Verificação obrigatória — cadastro de personal trainer
+          </span>
+          <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-white shadow-none dark:bg-gray-800">
+            <MetaNutriPersonalWizard
+              tipo="personal"
+              profissional={personalTrainer}
+              setProfissional={setPersonalTrainer}
+              userDisplayName={user.displayName}
+              userId={user.uid}
+              onSave={async (_closeAfter, m) => {
+                if (!m?.userId) return;
+                await PersonalTrainerService.updateCadastroVerificacao(m.userId, {
+                  nome: m.nome,
+                  telefone: m.telefone,
+                  registroNumero: m.registroNumero,
+                  cidades: m.cidades,
+                  docVerificacaoCnhUrl: m.docVerificacaoCnhUrl ?? null,
+                  docVerificacaoSelfieUrl: m.docVerificacaoSelfieUrl ?? null,
+                  docVerificacaoRegistroUrl: m.docVerificacaoRegistroUrl ?? null,
+                });
+                const fresh = await PersonalTrainerService.getPersonalTrainerByUserId(user.uid);
+                if (fresh) {
+                  setPersonalTrainer(fresh);
+                  setMetaPersonalLoadTick((t) => t + 1);
+                }
+              }}
+              saving={salvandoCadastroPersonal}
+              setSaving={setSalvandoCadastroPersonal}
+              resumeAfterLoadTick={metaPersonalLoadTick}
+            />
+          </div>
+        </div>
+      )}
     <div className="flex">
       {/* Sidebar Desktop - Idêntica ao metanutri */}
       <div className={`hidden lg:block fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
@@ -6946,8 +7041,7 @@ function MetaPersonalPageV2() {
                       const slugMedico = gerarSlug(medicoSelecionado.nome);
                       const slugPersonal = gerarSlug(personalTrainer.nome);
                       
-                      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                      const link = `${baseUrl}/dr/${slugMedico}/${slugPersonal}`;
+                      const link = buildOrganizacaoPublicUrl(`/dr/${slugMedico}/${slugPersonal}`);
                       setLinkReferralGerado(link);
                       setLinkCopiado(false);
                     }}
@@ -10562,6 +10656,16 @@ function MetaPersonalPageV2() {
                       return valor < min || valor > max;
                     });
 
+                    const sectionScorePersonal = calculateSectionMetabolicScore({
+                      sectionKey: secao.sectionId,
+                      examKeys: secao.fields.map((f) => f.key),
+                      labValues: exameSelecionado as Record<string, unknown>,
+                      sex: pacienteSex,
+                      dob: pacienteExamesSelecionado?.dadosIdentificacao?.dataNascimento,
+                      limitOverrides: labLimitOverrides,
+                      sectionLabel: secao.section,
+                    });
+
                     return (
                       <div key={secao.sectionId} className="border border-gray-200 rounded-lg overflow-hidden">
                         {/* Cabeçalho da seção */}
@@ -10569,7 +10673,7 @@ function MetaPersonalPageV2() {
                           onClick={() => toggleSecao(secaoKey)}
                           className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-gray-100 transition-colors"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span
                               className={`h-2.5 w-2.5 rounded-full shrink-0 ${secaoComExameForaDaFaixa ? 'bg-red-500' : 'bg-green-500'}`}
                               aria-hidden="true"
@@ -10578,11 +10682,14 @@ function MetaPersonalPageV2() {
                               {secao.section}
                             </h4>
                           </div>
-                          {isSecaoExpandida ? (
-                            <ChevronUp className="w-4 h-4 text-black" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-black" />
-                          )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <LabSectionScoreBadge score={sectionScorePersonal.score} color={sectionScorePersonal.color} />
+                            {isSecaoExpandida ? (
+                              <ChevronUp className="w-4 h-4 text-black" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-black" />
+                            )}
+                          </div>
                         </button>
                         
                         {/* Conteúdo da seção */}
@@ -10629,6 +10736,7 @@ function MetaPersonalPageV2() {
                                   {/* Barra de range */}
                                   <div className="p-2 bg-white border-t border-gray-200">
                                     <LabRangeBar range={range} value={value || null} />
+                                    <LabOptimizationBadge examKey={campo.key} value={value || null} range={range} />
                                   </div>
                                   
                                   {/* Gráfico de evolução */}
@@ -10671,6 +10779,22 @@ function MetaPersonalPageV2() {
                       </div>
                     );
                   })}
+
+                  {/* Resumo Metabólico */}
+                  {exameSelecionado && (() => {
+                    const allPersonalScores = todosOsCampos.map((secao) =>
+                      calculateSectionMetabolicScore({
+                        sectionKey: secao.sectionId,
+                        examKeys: secao.fields.map((f) => f.key),
+                        labValues: exameSelecionado as Record<string, unknown>,
+                        sex: pacienteSex,
+                        dob: pacienteExamesSelecionado?.dadosIdentificacao?.dataNascimento,
+                        limitOverrides: labLimitOverrides,
+                        sectionLabel: secao.section,
+                      })
+                    );
+                    return <LabMetabolicSummarySection scores={allPersonalScores} />;
+                  })()}
                 </div>
               )}
             </div>
@@ -10733,6 +10857,7 @@ function MetaPersonalPageV2() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

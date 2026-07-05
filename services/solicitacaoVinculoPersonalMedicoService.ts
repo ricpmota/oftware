@@ -3,6 +3,7 @@
  */
 
 import { db } from '@/lib/firebase';
+import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 import { 
   collection, 
   doc, 
@@ -99,7 +100,10 @@ export class SolicitacaoVinculoPersonalMedicoService {
         medicoNome: medicoNome || '',
       };
 
-      const docRef = await addDoc(collection(db, COL_SOLICITACOES_VINCULO_PERSONAL_MEDICO), novaSolicitacao);
+      const docRef = await addDoc(collection(db, COL_SOLICITACOES_VINCULO_PERSONAL_MEDICO), {
+        ...novaSolicitacao,
+        ...shadowOrganizationFields(),
+      });
       
       console.log('✅ [DEBUG] Solicitação de vínculo criada:', {
         id: docRef.id,

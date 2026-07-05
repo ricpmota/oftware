@@ -1,7 +1,7 @@
 {
-  "name": "Método",
-  "short_name": "Método",
-  "description": "Sistema completo de monitoramento",
+  "name": "Oftware",
+  "short_name": "Oftware",
+  "description": "Plataforma White Label para acompanhamento médico multidisciplinar",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -13,21 +13,21 @@
   "categories": ["medical", "productivity", "health"],
   "icons": [
     {
-      "src": "/icones/metodo-simbolo-pwa.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icones/metodo-simbolo-pwa.jpg",
+      "src": "/logo-icone.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icones/metodo-simbolo-pwa.jpg",
+      "src": "/logo-icone.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-icone.png",
       "sizes": "180x180",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "apple touch"
     }
   ],

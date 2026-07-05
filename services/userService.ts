@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, getDoc, updateDoc, addDoc, deleteDoc, query, where, setDoc, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, updateDoc, addDoc, deleteDoc, query, where, setDoc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { User, Residente, Local, Servico, Escala, ServicoDia } from '@/types/auth';
 import { InternalNotificationService } from './internalNotificationService';
@@ -6,6 +6,57 @@ import { Troca, NotificacaoTroca } from '@/types/troca';
 import { Ferias, NotificacaoFerias } from '@/types/ferias';
 
 export class UserService {
+  private static mapTrocaDoc(docSnap: any): Troca {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      solicitanteEmail: data.solicitanteEmail || '',
+      solicitadoEmail: data.solicitadoEmail || '',
+      escalaId: data.escalaId || '',
+      dia: data.dia || '',
+      turno: data.turno || 'manha',
+      servicoId: data.servicoId || '',
+      localId: data.localId || '',
+      status: data.status || 'pendente',
+      motivo: data.motivo || '',
+      aprovadoPor: data.aprovadoPor || undefined,
+      rejeitadoPor: data.rejeitadoPor || undefined,
+      canceladoPor: data.canceladoPor || undefined,
+      revertidoPor: data.revertidoPor || undefined,
+      dataAprovacao: data.dataAprovacao?.toDate() || undefined,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date()
+    } as Troca;
+  }
+
+  private static mapFeriasDoc(docSnap: any): Ferias {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      residenteEmail: data.residenteEmail || '',
+      dataInicio: data.dataInicio?.toDate() || new Date(),
+      dataFim: data.dataFim?.toDate() || new Date(),
+      motivo: data.motivo || undefined,
+      status: data.status || 'pendente',
+      aprovadoPor: data.aprovadoPor || undefined,
+      rejeitadoPor: data.rejeitadoPor || undefined,
+      observacoes: data.observacoes || undefined,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date()
+    } as Ferias;
+  }
+
+  private static async getLimitedCollection<T>(
+    collectionName: string,
+    rowMapper: (docSnap: any) => T,
+    options?: { limitCount?: number }
+  ): Promise<T[]> {
+    const limitCount = Math.max(1, Math.min(500, options?.limitCount ?? 200));
+    const q = query(collection(db, collectionName), orderBy('createdAt', 'desc'), limit(limitCount));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(rowMapper);
+  }
+
   // Usuários
   static async getAllUsers(): Promise<User[]> {
     try {
@@ -54,7 +105,20 @@ export class UserService {
 
   static async getUserByUid(uid: string): Promise<User | null> {
     try {
-      const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', uid)));
+      const userById = await getDoc(doc(db, 'users', uid));
+      if (userById.exists()) {
+        const userData = userById.data();
+        return {
+          uid: userById.id,
+          name: userData.name || '',
+          email: userData.email || '',
+          role: userData.role || 'user',
+          createdAt: userData.createdAt?.toDate(),
+          updatedAt: userData.updatedAt?.toDate()
+        } as User;
+      }
+
+      const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', uid), limit(1)));
       if (userDoc.empty) {
         return null;
       }
@@ -211,11 +275,10 @@ export class UserService {
   // Residentes
   static async getAllResidentes(): Promise<Residente[]> {
     try {
-      const residentesSnapshot = await getDocs(collection(db, 'residentes'));
-      return residentesSnapshot.docs.map(doc => {
-        const data = doc.data();
+      return this.getLimitedCollection('residentes', (docSnap) => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           nome: data.nome || '',
           nivel: data.nivel || 'R1',
           email: data.email || '',
@@ -274,11 +337,10 @@ export class UserService {
   // Locais
   static async getAllLocais(): Promise<Local[]> {
     try {
-      const locaisSnapshot = await getDocs(collection(db, 'locais'));
-      return locaisSnapshot.docs.map(doc => {
-        const data = doc.data();
+      return this.getLimitedCollection('locais', (docSnap) => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           nome: data.nome || '',
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
@@ -315,11 +377,10 @@ export class UserService {
   // Serviços
   static async getAllServicos(): Promise<Servico[]> {
     try {
-      const servicosSnapshot = await getDocs(collection(db, 'servicos'));
-      const servicos = servicosSnapshot.docs.map(doc => {
-        const data = doc.data();
+      const servicos = await this.getLimitedCollection('servicos', (docSnap) => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           nome: data.nome || '',
           localId: data.localId || '',
           createdAt: data.createdAt?.toDate() || new Date(),
@@ -364,11 +425,10 @@ export class UserService {
   // Escalas
   static async getAllEscalas(): Promise<Escala[]> {
     try {
-      const escalasSnapshot = await getDocs(collection(db, 'escalas'));
-      return escalasSnapshot.docs.map(doc => {
-        const data = doc.data();
+      return this.getLimitedCollection('escalas', (docSnap) => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           dataInicio: data.dataInicio?.toDate() || new Date(),
           dias: data.dias || {},
           createdAt: data.createdAt?.toDate() || new Date(),
@@ -528,31 +588,25 @@ export class UserService {
 
   static async getAllTrocas(): Promise<Troca[]> {
     try {
-      const trocasSnapshot = await getDocs(collection(db, 'trocas'));
-      return trocasSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          solicitanteEmail: data.solicitanteEmail || '',
-          solicitadoEmail: data.solicitadoEmail || '',
-          escalaId: data.escalaId || '',
-          dia: data.dia || '',
-          turno: data.turno || 'manha',
-          servicoId: data.servicoId || '',
-          localId: data.localId || '',
-          status: data.status || 'pendente',
-          motivo: data.motivo || '',
-          aprovadoPor: data.aprovadoPor || undefined,
-          rejeitadoPor: data.rejeitadoPor || undefined,
-          canceladoPor: data.canceladoPor || undefined,
-          revertidoPor: data.revertidoPor || undefined,
-          dataAprovacao: data.dataAprovacao?.toDate() || undefined,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date()
-        } as Troca;
-      });
+      return this.getLimitedCollection('trocas', this.mapTrocaDoc.bind(this));
     } catch (error) {
       console.error('Erro ao buscar trocas:', error);
+      throw error;
+    }
+  }
+
+  static async getTrocasPendentes(limitCount = 200): Promise<Troca[]> {
+    try {
+      const q = query(
+        collection(db, 'trocas'),
+        where('status', 'in', ['aceita', 'aprovada']),
+        orderBy('createdAt', 'desc'),
+        limit(Math.max(1, Math.min(500, limitCount)))
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(this.mapTrocaDoc.bind(this));
+    } catch (error) {
+      console.error('Erro ao buscar trocas pendentes:', error);
       throw error;
     }
   }
@@ -714,11 +768,10 @@ export class UserService {
         const local = locais.find(l => l.id === trocaData.localId);
         
         // Calcular data do serviço
-        const escalasSnapshot = await getDocs(collection(db, 'escalas'));
-        const escalaDoc = escalasSnapshot.docs.find(doc => doc.id === trocaData.escalaId);
+        const escalaDoc = await getDoc(doc(db, 'escalas', trocaData.escalaId));
         let dataServico = '';
         
-        if (escalaDoc) {
+        if (escalaDoc.exists()) {
           const escalaData = escalaDoc.data();
           const dataInicio = new Date(escalaData.dataInicio.seconds * 1000);
           const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
@@ -750,10 +803,9 @@ export class UserService {
       }
       
       // Executar a troca na escala
-      const escalasSnapshot = await getDocs(collection(db, 'escalas'));
-      const escala = escalasSnapshot.docs.find(doc => doc.id === trocaData.escalaId);
+      const escala = await getDoc(doc(db, 'escalas', trocaData.escalaId));
       
-      if (escala) {
+      if (escala.exists()) {
         const escalaData = escala.data();
         const dias = escalaData.dias;
         const dia = dias[trocaData.dia];
@@ -940,11 +992,10 @@ export class UserService {
         const local = locais.find(l => l.id === trocaData.localId);
         
         // Calcular data do serviço
-        const escalasSnapshot = await getDocs(collection(db, 'escalas'));
-        const escalaDoc = escalasSnapshot.docs.find(doc => doc.id === trocaData.escalaId);
+        const escalaDoc = await getDoc(doc(db, 'escalas', trocaData.escalaId));
         let dataServico = '';
         
-        if (escalaDoc) {
+        if (escalaDoc.exists()) {
           const escalaData = escalaDoc.data();
           const dataInicio = new Date(escalaData.dataInicio.seconds * 1000);
           const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
@@ -1053,10 +1104,9 @@ export class UserService {
   static async validarTrocaComResidente(escalaId: string, dia: string, turno: string, servicoId: string, localId: string, residenteEmail: string): Promise<{ valida: boolean; erro?: string }> {
     try {
       // Buscar a escala
-      const escalasSnapshot = await getDocs(collection(db, 'escalas'));
-      const escala = escalasSnapshot.docs.find(doc => doc.id === escalaId);
+      const escala = await getDoc(doc(db, 'escalas', escalaId));
       
-      if (!escala) {
+      if (!escala.exists()) {
         return { valida: false, erro: 'Escala não encontrada' };
       }
       
@@ -1141,10 +1191,9 @@ export class UserService {
       console.log('✅ Status da troca atualizado para revertida');
       
       // Reverter a troca na escala (voltar ao estado original)
-      const escalasSnapshot = await getDocs(collection(db, 'escalas'));
-      const escala = escalasSnapshot.docs.find(doc => doc.id === trocaData.escalaId);
+      const escala = await getDoc(doc(db, 'escalas', trocaData.escalaId));
       
-      if (escala) {
+      if (escala.exists()) {
         const escalaData = escala.data();
         const dias = escalaData.dias;
         const dia = dias[trocaData.dia];
@@ -1464,23 +1513,7 @@ export class UserService {
       console.log('Email do usuário:', userEmail);
       console.log('Firebase app configurado:', !!db);
       
-      // Primeiro, vamos buscar TODAS as férias para debug
-      console.log('🔍 Buscando TODAS as férias primeiro...');
-      const todasFeriasSnapshot = await getDocs(collection(db, 'ferias'));
-      console.log('📊 Total de férias no sistema:', todasFeriasSnapshot.docs.length);
-      
-      // Mostrar todas as férias para debug
-      todasFeriasSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        console.log('📋 Férias no sistema:', {
-          id: doc.id,
-          residenteEmail: data.residenteEmail,
-          status: data.status,
-          match: data.residenteEmail === userEmail ? '✅ MATCH' : '❌ NO MATCH'
-        });
-      });
-      
-      // Agora buscar apenas as do usuário
+      // Buscar apenas as férias do usuário.
       const feriasQuery = query(
         collection(db, 'ferias'),
         where('residenteEmail', '==', userEmail)
@@ -1534,29 +1567,7 @@ export class UserService {
     try {
       console.log('=== DEBUG: Buscando todas as férias ===');
       console.log('Firebase app configurado:', !!db);
-      
-      const feriasSnapshot = await getDocs(collection(db, 'ferias'));
-      console.log('Total de documentos encontrados:', feriasSnapshot.docs.length);
-      
-      const feriasData = feriasSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          residenteEmail: data.residenteEmail || '',
-          dataInicio: data.dataInicio?.toDate() || new Date(),
-          dataFim: data.dataFim?.toDate() || new Date(),
-          motivo: data.motivo || undefined,
-          status: data.status || 'pendente',
-          aprovadoPor: data.aprovadoPor || undefined,
-          rejeitadoPor: data.rejeitadoPor || undefined,
-          observacoes: data.observacoes || undefined,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date()
-        } as Ferias;
-      });
-      
-      // Ordenar manualmente por data de criação (mais recentes primeiro)
-      feriasData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      const feriasData = await this.getLimitedCollection('ferias', this.mapFeriasDoc.bind(this));
       
       console.log('✅ Todas as férias carregadas com sucesso:', feriasData.length);
       return feriasData;
@@ -1564,6 +1575,22 @@ export class UserService {
       console.error('❌ Erro ao buscar férias:', error);
       console.error('Código do erro:', (error as any)?.code);
       console.error('Mensagem do erro:', (error as any)?.message);
+      throw error;
+    }
+  }
+
+  static async getFeriasPendentes(limitCount = 200): Promise<Ferias[]> {
+    try {
+      const q = query(
+        collection(db, 'ferias'),
+        where('status', '==', 'pendente'),
+        orderBy('createdAt', 'desc'),
+        limit(Math.max(1, Math.min(500, limitCount)))
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(this.mapFeriasDoc.bind(this));
+    } catch (error) {
+      console.error('Erro ao buscar férias pendentes:', error);
       throw error;
     }
   }
@@ -1798,50 +1825,7 @@ export class UserService {
   // Função alternativa para buscar férias (sem query)
   static async getFeriasDoUsuarioAlternativo(userEmail: string): Promise<Ferias[]> {
     try {
-      console.log('🔄 === MÉTODO ALTERNATIVO: Buscando férias sem query ===');
-      console.log('Email do usuário:', userEmail);
-      
-      // Buscar TODAS as férias
-      const todasFeriasSnapshot = await getDocs(collection(db, 'ferias'));
-      console.log('📊 Total de férias no sistema:', todasFeriasSnapshot.docs.length);
-      
-      // Filtrar manualmente
-      const feriasDoUsuario = todasFeriasSnapshot.docs
-        .filter(doc => {
-          const data = doc.data();
-          const match = data.residenteEmail === userEmail;
-          console.log('🔍 Verificando:', {
-            id: doc.id,
-            residenteEmail: data.residenteEmail,
-            userEmail,
-            match: match ? '✅' : '❌'
-          });
-          return match;
-        })
-        .map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            residenteEmail: data.residenteEmail,
-            dataInicio: data.dataInicio?.toDate() || new Date(),
-            dataFim: data.dataFim?.toDate() || new Date(),
-            motivo: data.motivo || '',
-            status: data.status || 'pendente',
-            aprovadoPor: data.aprovadoPor,
-            rejeitadoPor: data.rejeitadoPor,
-            observacoes: data.observacoes,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date()
-          } as Ferias;
-        });
-      
-      // Ordenar manualmente
-      feriasDoUsuario.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      
-      console.log('✅ Férias encontradas (método alternativo):', feriasDoUsuario.length);
-      console.log('📋 Status das férias:', feriasDoUsuario.map(f => ({ id: f.id, status: f.status })));
-      
-      return feriasDoUsuario;
+      return this.getFeriasDoUsuario(userEmail);
     } catch (error) {
       console.error('❌ Erro no método alternativo:', error);
       return [];
@@ -1854,15 +1838,10 @@ export class UserService {
       console.log('🧪 === TESTE: Verificando férias aprovadas ===');
       console.log('Email do usuário:', userEmail);
       
-      // Buscar todas as férias
-      const todasFeriasSnapshot = await getDocs(collection(db, 'ferias'));
-      console.log('📊 Total de férias no sistema:', todasFeriasSnapshot.docs.length);
-      
-      // Filtrar por usuário e status
-      const feriasDoUsuario = todasFeriasSnapshot.docs.filter(doc => {
-        const data = doc.data();
-        return data.residenteEmail === userEmail;
-      });
+      const feriasSnapshot = await getDocs(
+        query(collection(db, 'ferias'), where('residenteEmail', '==', userEmail))
+      );
+      const feriasDoUsuario = feriasSnapshot.docs;
       
       console.log('👤 Férias do usuário:', feriasDoUsuario.length);
       

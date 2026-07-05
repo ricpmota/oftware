@@ -1,5 +1,6 @@
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { calcularDoseTitulacaoMg, DOSE_INICIAL_PADRAO_MG } from '@/lib/tirzepatida/doseTitulacao';
 import { PacienteCompleto } from '@/types/obesidade';
 import { AplicacaoAgendada, FiltroAplicacao, AplicacaoRealizada } from '@/types/calendario';
 
@@ -43,7 +44,7 @@ export class AplicacaoService {
     }
 
     // Obter dose inicial do plano
-    const doseInicial = planoTerapeutico.currentDoseMg || 2.5;
+    const doseInicial = planoTerapeutico.currentDoseMg || DOSE_INICIAL_PADRAO_MG;
 
     // Obter número de semanas do tratamento (padrão: 18)
     const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
@@ -98,7 +99,7 @@ export class AplicacaoService {
     }
 
       // Calcular dose: aumento de 2.5mg a cada 4 semanas desde o último ciclo
-      return doseInicial + (Math.floor(semanasDesdeUltimoCiclo / 4) * 2.5);
+      return calcularDoseTitulacaoMg(doseInicial, semanasDesdeUltimoCiclo);
     };
 
     // Obter semanas canceladas

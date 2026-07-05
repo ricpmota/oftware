@@ -93,6 +93,47 @@ export async function loadPlannersFromFirestore(libraryId: string): Promise<Plan
 }
 
 /**
+ * Obtém o planejamento favorito da biblioteca atual
+ */
+export async function getFavoritePlannerId(libraryId: string): Promise<string | null> {
+  try {
+    const userId = getUserId();
+    const libraryRef = doc(db, 'users', userId, 'libraries', libraryId);
+    const libraryDoc = await getDoc(libraryRef);
+
+    if (!libraryDoc.exists()) return null;
+    const favoritePlannerId = libraryDoc.data()?.favoritePlannerId;
+    return typeof favoritePlannerId === 'string' && favoritePlannerId.trim() !== ''
+      ? favoritePlannerId
+      : null;
+  } catch (error) {
+    console.error('Erro ao carregar planejamento favorito do Firestore:', error);
+    return null;
+  }
+}
+
+/**
+ * Define o planejamento favorito da biblioteca atual
+ */
+export async function setFavoritePlannerId(libraryId: string, plannerId: string | null): Promise<void> {
+  try {
+    const userId = getUserId();
+    const libraryRef = doc(db, 'users', userId, 'libraries', libraryId);
+    await setDoc(
+      libraryRef,
+      {
+        favoritePlannerId: plannerId ?? null,
+        updatedAt: Timestamp.now(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error('Erro ao salvar planejamento favorito no Firestore:', error);
+    throw error;
+  }
+}
+
+/**
  * Carrega um planejamento específico por ID do Firestore
  */
 export async function loadPlannerFromFirestore(libraryId: string, plannerId: string): Promise<PlannerSettings | null> {
