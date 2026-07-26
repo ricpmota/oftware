@@ -8,6 +8,10 @@ import { EmailAplicacaoService } from '@/services/emailAplicacaoService';
 import { Calendar, CheckCircle, XCircle, Clock, Filter, RefreshCw, Mail } from 'lucide-react';
 import { DoseMgTirzepatidaSelectOptions } from '@/components/tirzepatida/DoseMgTirzepatidaSelectOptions';
 import { PacienteCompleto } from '@/types/obesidade';
+import {
+  auditEmailEnviosClientTrigger,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 interface CalendarioAplicacoesProps {
   pacientes: PacienteCompleto[];
@@ -50,6 +54,14 @@ export default function CalendarioAplicacoes({ pacientes }: CalendarioAplicacoes
   }, []);
 
   const loadAplicacoes = async () => {
+    auditEmailEnviosClientTrigger({
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.CLIENT_CALENDARIO_APLICACOES.id,
+      component: 'CalendarioAplicacoes',
+      hook: 'loadAplicacoes',
+      page: '/metaadmingeral (Calendário Aplicações)',
+      note: `filtro dataInicio=${filtro.dataInicio?.toISOString()} dataFim=${filtro.dataFim?.toISOString()}`,
+    });
+
     setLoading(true);
     try {
       const aplicacoesData = await AplicacaoService.buscarAplicacoesAgendadas(filtro);

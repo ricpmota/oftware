@@ -1,8 +1,25 @@
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { calcularDoseTitulacaoMg, DOSE_INICIAL_PADRAO_MG } from '@/lib/tirzepatida/doseTitulacao';
 import { PacienteCompleto } from '@/types/obesidade';
 import { AplicacaoAgendada, FiltroAplicacao, AplicacaoRealizada } from '@/types/calendario';
+import {
+  auditEmailEnviosQuery,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
+import {
+  APLICACAO_EMAIL_LEAD_IN_BATCH_SIZE,
+  applyEmailStatusToAplicacoes,
+  deriveAplicacaoEmailTimeWindow,
+  emailsNeedingLegacyFallback,
+  filterEnviosAplicacaoInWindow,
+  isEmailTipoAplicacao,
+  planEnviosAplicacaoQueries,
+  uniquePacienteEmails,
+  uniquePacienteLeadIds,
+  type EnvioAplicacaoLedger,
+} from '@/lib/aplicacao/verificarStatusEmailsAplicacao';
+import { logEmailEnviosResidual } from '@/lib/email/emailEnviosResidualMetrics';
 
 export class AplicacaoService {
   /**
@@ -193,6 +210,7 @@ export class AplicacaoService {
       aplicacoes.push({
         id: `${paciente.id}_${item.semana}`,
         pacienteId: paciente.id,
+        pacienteUserId: paciente.userId || undefined,
         pacienteNome: paciente.nome,
         pacienteEmail: paciente.email,
         dataAplicacao: new Date(item.data),
@@ -286,100 +304,189 @@ export class AplicacaoService {
   }
 
   /**
-   * Verifica o status dos e-mails enviados para cada aplicação
+   * Verifica o status dos e-mails enviados para cada aplicação.
+   *
+   * É proibido utilizar email_envios como fonte global de elegibilidade
+   * ou carregar o ledger completo.
+   *
+   * Estratégia: leadId IN (candidatos) → fallback leadEmail só para legados sem match.
+   * Sem candidatos → status desconhecido (não faz full-scan).
    */
   static async verificarStatusEmails(
     aplicacoes: AplicacaoAgendada[]
   ): Promise<AplicacaoAgendada[]> {
+    const startedAt = Date.now();
     try {
-      // Buscar logs de e-mails enviados
-      const emailEnviosQuery = query(
-        collection(db, 'email_envios'),
-        where('emailTipo', 'in', ['aplicacao_aplicacao_antes', 'aplicacao_aplicacao_dia'])
-      );
-      
-      const emailEnviosSnapshot = await getDocs(emailEnviosQuery);
-      const emailsEnviados = emailEnviosSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        enviadoEm: doc.data().enviadoEm?.toDate(),
-      }));
+      if (aplicacoes.length === 0) return aplicacoes;
 
-      // Atualizar status de cada aplicação
-      return aplicacoes.map(aplicacao => {
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-        const amanha = new Date(hoje);
-        amanha.setDate(amanha.getDate() + 1);
-        const dataAplicacao = new Date(aplicacao.dataAplicacao);
-        dataAplicacao.setHours(0, 0, 0, 0);
+      const leadIds = uniquePacienteLeadIds(aplicacoes);
+      const emails = uniquePacienteEmails(aplicacoes);
+      const timeWindow = deriveAplicacaoEmailTimeWindow(aplicacoes);
 
-        // Verificar e-mail "dia anterior" (enviado 1 dia antes da aplicação)
-        const dataAplicacaoMenosUmDia = new Date(dataAplicacao);
-        dataAplicacaoMenosUmDia.setDate(dataAplicacaoMenosUmDia.getDate() - 1);
-        const emailAntes = emailsEnviados.find(
-          e => e.emailTipo === 'aplicacao_aplicacao_antes' &&
-               e.leadEmail === aplicacao.pacienteEmail &&
-               e.leadNome === aplicacao.pacienteNome &&
-               e.enviadoEm &&
-               Math.abs(new Date(e.enviadoEm).getTime() - dataAplicacaoMenosUmDia.getTime()) < 24 * 60 * 60 * 1000
-        );
+      if (leadIds.length === 0 && emails.length === 0) {
+        logEmailEnviosResidual({
+          origin: 'CalendarioAplicacoes.verificarStatusEmails',
+          route: '/metaadmingeral (Calendário Aplicações)',
+          queryPattern: 'none',
+          queryCount: 0,
+          candidateCount: 0,
+          docsReturned: 0,
+          docsReadEstimated: 0,
+          durationMs: Date.now() - startedAt,
+          batchCount: 0,
+          paginationUsed: false,
+          note: 'sem candidatos — sem query (proibido full-scan)',
+        });
+        return aplicacoes;
+      }
 
-        // Verificar e-mail "dia da aplicação"
-        const emailDia = emailsEnviados.find(
-          e => e.emailTipo === 'aplicacao_aplicacao_dia' &&
-               e.leadEmail === aplicacao.pacienteEmail &&
-               e.leadNome === aplicacao.pacienteNome &&
-               e.enviadoEm &&
-               Math.abs(new Date(e.enviadoEm).getTime() - dataAplicacao.getTime()) < 24 * 60 * 60 * 1000
-        );
+      const plan = planEnviosAplicacaoQueries({ leadIds, emails });
+      const enviosBrutos: EnvioAplicacaoLedger[] = [];
+      const seenDocIds = new Set<string>();
+      let docsRead = 0;
+      let queryCount = 0;
 
-        // Determinar status
-        let statusEmailAntes: 'enviado' | 'nao_enviado' | 'pendente' = 'nao_enviado';
-        let statusEmailDia: 'enviado' | 'nao_enviado' | 'pendente' = 'nao_enviado';
+      const runLeadIdBatches = async (batches: string[][]) => {
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i]!;
+          queryCount += 1;
+          auditEmailEnviosQuery({
+            siteId: EMAIL_ENVIOS_AUDIT_SITES.SERVICE_APLICACAO_STATUS.id,
+            surface: 'client',
+            queryPattern: 'leadId_in',
+            leadIdsCount: batch.length,
+            emailTipos: ['aplicacao_aplicacao_antes', 'aplicacao_aplicacao_dia'],
+            batchIndex: i,
+            batchCount: batches.length,
+            note: 'leadId IN candidatos — filtro emailTipo em memória',
+          });
 
-        if (emailAntes) {
-          statusEmailAntes = 'enviado';
-        } else {
-          // Verificar se a aplicação é amanhã ou se já passou o dia de enviar
-          const dataAplicacaoMenosUmDia = new Date(dataAplicacao);
-          dataAplicacaoMenosUmDia.setDate(dataAplicacaoMenosUmDia.getDate() - 1);
-          
-          if (dataAplicacao.getTime() === amanha.getTime()) {
-            // Aplicação é amanhã, e-mail "antes" deve ser enviado hoje
-            statusEmailAntes = 'pendente';
-          } else if (dataAplicacaoMenosUmDia.getTime() === hoje.getTime() && dataAplicacao.getTime() > hoje.getTime()) {
-            // Aplicação é depois de amanhã, mas o e-mail "antes" deveria ter sido enviado hoje
-            statusEmailAntes = 'pendente';
-          } else if (dataAplicacao.getTime() > hoje.getTime()) {
-            // Aplicação é futura, mas ainda não é hora de enviar
-            statusEmailAntes = 'nao_enviado';
+          const snap = await getDocs(
+            query(collection(db, 'email_envios'), where('leadId', 'in', batch)),
+          );
+          docsRead += snap.size;
+
+          auditEmailEnviosQuery({
+            siteId: EMAIL_ENVIOS_AUDIT_SITES.SERVICE_APLICACAO_STATUS.id,
+            surface: 'client',
+            queryPattern: 'leadId_in',
+            leadIdsCount: batch.length,
+            docsReturned: snap.size,
+            batchIndex: i,
+            batchCount: batches.length,
+          });
+
+          for (const docSnap of snap.docs) {
+            if (seenDocIds.has(docSnap.id)) continue;
+            seenDocIds.add(docSnap.id);
+            const data = docSnap.data();
+            const emailTipo = String(data.emailTipo || '');
+            if (!isEmailTipoAplicacao(emailTipo)) continue;
+            enviosBrutos.push({
+              id: docSnap.id,
+              emailTipo,
+              leadEmail: data.leadEmail,
+              leadNome: data.leadNome,
+              leadId: data.leadId,
+              enviadoEm:
+                data.enviadoEm?.toDate?.() ??
+                (data.enviadoEm ? new Date(data.enviadoEm) : undefined),
+            });
           }
         }
+      };
 
-        if (emailDia) {
-          statusEmailDia = 'enviado';
-        } else {
-          if (dataAplicacao.getTime() === hoje.getTime()) {
-            // Aplicação é hoje, e-mail "dia" deve ser enviado hoje
-            statusEmailDia = 'pendente';
-          } else if (dataAplicacao.getTime() < hoje.getTime()) {
-            // Aplicação já passou
-            statusEmailDia = 'nao_enviado';
-          } else {
-            // Aplicação é futura, ainda não é hora de enviar
-            statusEmailDia = 'nao_enviado';
+      const runLeadEmailBatches = async (batches: string[][]) => {
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i]!;
+          queryCount += 1;
+          auditEmailEnviosQuery({
+            siteId: EMAIL_ENVIOS_AUDIT_SITES.SERVICE_APLICACAO_STATUS.id,
+            surface: 'client',
+            queryPattern: 'other',
+            leadIdsCount: batch.length,
+            emailTipos: ['aplicacao_aplicacao_antes', 'aplicacao_aplicacao_dia'],
+            batchIndex: i,
+            batchCount: batches.length,
+            note: 'fallback legado leadEmail IN — só candidatos sem match por leadId',
+          });
+
+          const snap = await getDocs(
+            query(collection(db, 'email_envios'), where('leadEmail', 'in', batch)),
+          );
+          docsRead += snap.size;
+
+          for (const docSnap of snap.docs) {
+            if (seenDocIds.has(docSnap.id)) continue;
+            seenDocIds.add(docSnap.id);
+            const data = docSnap.data();
+            const emailTipo = String(data.emailTipo || '');
+            if (!isEmailTipoAplicacao(emailTipo)) continue;
+            enviosBrutos.push({
+              id: docSnap.id,
+              emailTipo,
+              leadEmail: data.leadEmail,
+              leadNome: data.leadNome,
+              leadId: data.leadId,
+              enviadoEm:
+                data.enviadoEm?.toDate?.() ??
+                (data.enviadoEm ? new Date(data.enviadoEm) : undefined),
+            });
           }
         }
+      };
 
-        return {
-          ...aplicacao,
-          statusEmailAntes,
-          statusEmailDia,
-        };
+      await runLeadIdBatches(plan.leadIdBatches);
+
+      let usedLeadEmailFallback = plan.leadEmailBatches.length > 0;
+      if (plan.leadIdBatches.length > 0) {
+        const legacyEmails = emailsNeedingLegacyFallback(aplicacoes, enviosBrutos);
+        if (legacyEmails.length > 0) {
+          usedLeadEmailFallback = true;
+          const legacyPlan = planEnviosAplicacaoQueries({
+            leadIds: [],
+            emails: legacyEmails,
+            batchSize: APLICACAO_EMAIL_LEAD_IN_BATCH_SIZE,
+          });
+          await runLeadEmailBatches(legacyPlan.leadEmailBatches);
+        }
+      } else {
+        await runLeadEmailBatches(plan.leadEmailBatches);
+      }
+
+      const emailsEnviados = filterEnviosAplicacaoInWindow(enviosBrutos, timeWindow);
+
+      logEmailEnviosResidual({
+        origin: 'CalendarioAplicacoes.verificarStatusEmails',
+        route: '/metaadmingeral (Calendário Aplicações)',
+        queryPattern: usedLeadEmailFallback ? 'leadId_in+leadEmail_in' : 'leadId_in',
+        queryCount,
+        candidateCount: leadIds.length || emails.length,
+        docsReturned: emailsEnviados.length,
+        docsReadEstimated: docsRead,
+        durationMs: Date.now() - startedAt,
+        batchCount: queryCount,
+        paginationUsed: true,
+        timeWindow: timeWindow
+          ? { start: timeWindow.start.toISOString(), end: timeWindow.end.toISOString() }
+          : null,
+        note: `leadIds=${leadIds.length} emails=${emails.length} legacyFallback=${usedLeadEmailFallback}`,
       });
+
+      return applyEmailStatusToAplicacoes(aplicacoes, emailsEnviados);
     } catch (error) {
       console.error('Erro ao verificar status de e-mails:', error);
+      logEmailEnviosResidual({
+        origin: 'CalendarioAplicacoes.verificarStatusEmails',
+        route: '/metaadmingeral (Calendário Aplicações)',
+        queryPattern: 'error',
+        queryCount: 0,
+        candidateCount: 0,
+        docsReturned: 0,
+        docsReadEstimated: 0,
+        durationMs: Date.now() - startedAt,
+        note: `error=${error instanceof Error ? error.message : 'unknown'}`,
+      });
       return aplicacoes;
     }
   }

@@ -2,6 +2,10 @@ import { collection, doc, getDoc, setDoc, updateDoc, getDocs, query, orderBy, wh
 import { db } from '@/lib/firebase';
 import { EmailConfig, EmailEnvio, EmailTipo, LeadEmailStatus } from '@/types/emailConfig';
 import { Lead } from '@/types/lead';
+import {
+  auditEmailEnviosQuery,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 /**
  * Remove valores undefined recursivamente de um objeto (Firestore não aceita undefined)
@@ -417,67 +421,55 @@ export class EmailConfigService {
   }
 
   /**
-   * Buscar histórico de envios para um lead
+   * Buscar histórico de envios para um lead.
+   * É proibido full-scan do ledger — consulta apenas por leadId.
    */
   static async getEnviosPorLead(leadId: string): Promise<EmailEnvio[]> {
     try {
-      const q = query(
-        collection(db, this.ENVIOS_COLLECTION),
-        orderBy('enviadoEm', 'desc')
-      );
-      
-      const snapshot = await getDocs(q);
-      return snapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          if (data.leadId === leadId) {
-            return {
-              id: doc.id,
-              leadId: data.leadId,
-              leadEmail: data.leadEmail,
-              leadNome: data.leadNome,
-              emailTipo: data.emailTipo,
-              assunto: data.assunto,
-              enviadoEm: data.enviadoEm?.toDate() || new Date(),
-              status: data.status,
-              erro: data.erro,
-              tentativas: data.tentativas || 1,
-              respostaRecebida: data.respostaRecebida ? {
-                data: data.respostaRecebida.data?.toDate() || new Date(),
-                assunto: data.respostaRecebida.assunto,
-                remetente: data.respostaRecebida.remetente,
-                conteudo: data.respostaRecebida.conteudo,
-              } : undefined,
-              conversao: data.conversao ? {
-                data: data.conversao.data?.toDate() || new Date(),
-                medicoId: data.conversao.medicoId,
-              } : undefined,
-            } as EmailEnvio;
-          }
-          return null;
-        })
-        .filter((envio): envio is EmailEnvio => envio !== null);
-    } catch (error) {
-      console.error('Erro ao buscar envios por lead:', error);
-      return [];
-    }
-  }
+      const lid = leadId?.trim();
+      if (!lid) {
+        console.warn(
+          '[email_envios_residual] getEnviosPorLead recusou query sem leadId (proibido full-scan)',
+        );
+        return [];
+      }
 
-  /**
-   * Buscar todos os envios
-   */
-  static async getAllEnvios(): Promise<EmailEnvio[]> {
-    try {
       const q = query(
         collection(db, this.ENVIOS_COLLECTION),
+        where('leadId', '==', lid),
         orderBy('enviadoEm', 'desc')
       );
-      
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => {
-        const data = doc.data();
+
+      auditEmailEnviosQuery({
+        siteId: EMAIL_ENVIOS_AUDIT_SITES.SERVICE_EMAIL_CONFIG_GET_ENVIOS_LEAD.id,
+        surface: 'client',
+        queryPattern: 'other',
+        leadId: lid,
+        note: 'leadId == — sem full-scan',
+      });
+
+      let snapshot;
+      try {
+        snapshot = await getDocs(q);
+      } catch {
+        // Índice composto pode faltar — fallback sem orderBy (ainda seletivo).
+        snapshot = await getDocs(
+          query(collection(db, this.ENVIOS_COLLECTION), where('leadId', '==', lid)),
+        );
+      }
+
+      auditEmailEnviosQuery({
+        siteId: EMAIL_ENVIOS_AUDIT_SITES.SERVICE_EMAIL_CONFIG_GET_ENVIOS_LEAD.id,
+        surface: 'client',
+        queryPattern: 'other',
+        leadId: lid,
+        docsReturned: snapshot.size,
+      });
+
+      return snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           leadId: data.leadId,
           leadEmail: data.leadEmail,
           leadNome: data.leadNome,
@@ -487,22 +479,45 @@ export class EmailConfigService {
           status: data.status,
           erro: data.erro,
           tentativas: data.tentativas || 1,
-          respostaRecebida: data.respostaRecebida ? {
-            data: data.respostaRecebida.data?.toDate() || new Date(),
-            assunto: data.respostaRecebida.assunto,
-            remetente: data.respostaRecebida.remetente,
-            conteudo: data.respostaRecebida.conteudo,
-          } : undefined,
-          conversao: data.conversao ? {
-            data: data.conversao.data?.toDate() || new Date(),
-            medicoId: data.conversao.medicoId,
-          } : undefined,
+          respostaRecebida: data.respostaRecebida
+            ? {
+                data: data.respostaRecebida.data?.toDate() || new Date(),
+                assunto: data.respostaRecebida.assunto,
+                remetente: data.respostaRecebida.remetente,
+                conteudo: data.respostaRecebida.conteudo,
+              }
+            : undefined,
+          conversao: data.conversao
+            ? {
+                data: data.conversao.data?.toDate() || new Date(),
+                medicoId: data.conversao.medicoId,
+              }
+            : undefined,
         } as EmailEnvio;
       });
     } catch (error) {
-      console.error('Erro ao buscar todos os envios:', error);
+      console.error('Erro ao buscar envios por lead:', error);
       return [];
     }
+  }
+
+  /**
+   * @deprecated Não carregar o ledger global.
+   * Use fetchEnviosCampanhaPorLeadIds / getEnviosPorLead(leadId).
+   * Retorna [] — full-scan removido (guardrail anti-regressão).
+   */
+  static async getAllEnvios(): Promise<EmailEnvio[]> {
+    console.warn(
+      '[email_envios_residual][large_read_warning] getAllEnvios bloqueado — é proibido carregar o ledger completo. Use consulta por leadId.',
+    );
+    auditEmailEnviosQuery({
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.SERVICE_EMAIL_CONFIG_GET_ALL.id,
+      surface: 'client',
+      queryPattern: 'orderBy_enviadoEm_desc_fullscan',
+      docsReturned: 0,
+      note: 'BLOCKED — full-scan removido; retorna []',
+    });
+    return [];
   }
 
   /**

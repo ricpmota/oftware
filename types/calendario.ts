@@ -3,6 +3,8 @@
 export interface AplicacaoAgendada {
   id: string; // ID único da aplicação
   pacienteId: string;
+  /** Firebase Auth UID quando diferente do doc id — usado no ledger email_envios.leadId */
+  pacienteUserId?: string;
   pacienteNome: string;
   pacienteEmail: string;
   dataAplicacao: Date;
