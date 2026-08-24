@@ -16,6 +16,8 @@ FROM ${WPPCONNECT_IMAGE}
 WORKDIR /usr/src/wpp-server
 
 COPY config.runtime.js ./dist/config.js
+COPY overlays/oftware-preload.js ./dist/util/oftware-preload.js
+COPY overlays/oftwareInboundHook.js ./dist/util/oftwareInboundHook.js
 
 EXPOSE 21465
 

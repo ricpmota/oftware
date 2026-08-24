@@ -14,11 +14,19 @@ services:
     environment:
       PORT: "21465"
       WPP_PUBLIC_HOST: "http://localhost"
+      # WEBHOOK_URL e WHATSAPP_INBOUND_WEBHOOK_SECRET vêm do env_file (.env).
+      # Não interpolar aqui com ${WEBHOOK_URL:-} — isso zera o valor se o host não tiver a var.
+      # Overlay inbound: NODE_OPTIONS + volumes. Recriar o container após alterar overlays
+      # (tokens em /data/wppconnect permanecem; não faz logout). Só start-session de
+      # system_canal_chat com forceFreshQr=false — não derrubar sessões de médicos via API.
+      NODE_OPTIONS: "--require /usr/src/wpp-server/dist/util/oftware-preload.js"
     ports:
       - "127.0.0.1:21465:21465"
     volumes:
       # Config Oftware em runtime (secretKey lê SECRET_KEY do .env)
       - ../wppconnect/config.runtime.js:/usr/src/wpp-server/dist/config.js:ro
+      - ../wppconnect/overlays/oftware-preload.js:/usr/src/wpp-server/dist/util/oftware-preload.js:ro
+      - ../wppconnect/overlays/oftwareInboundHook.js:/usr/src/wpp-server/dist/util/oftwareInboundHook.js:ro
       - /data/wppconnect/userDataDir:/usr/src/wpp-server/userDataDir
       - /data/wppconnect/tokens:/usr/src/wpp-server/tokens
       - /data/wppconnect/logs:/usr/src/wpp-server/log

@@ -16,7 +16,22 @@ export default {
   maxListeners: 50,
   customUserDataDir: './userDataDir/',
   webhook: {
-    url: null,
+    url: (() => {
+      const base = (process.env.WEBHOOK_URL || '').trim();
+      const secret = (process.env.WHATSAPP_INBOUND_WEBHOOK_SECRET || '').trim();
+      if (!base) return null;
+      if (!secret || /[?&](secret|token)=/.test(base)) return base;
+      try {
+        const url = new URL(base);
+        url.searchParams.set('secret', secret);
+        return url.toString();
+      } catch {
+        return `${base}${base.includes('?') ? '&' : '?'}secret=${encodeURIComponent(secret)}`;
+      }
+    })(),
+    extraHeaders: process.env.WHATSAPP_INBOUND_WEBHOOK_SECRET
+      ? { 'x-webhook-secret': process.env.WHATSAPP_INBOUND_WEBHOOK_SECRET }
+      : {},
     autoDownload: false,
     uploadS3: false,
     readMessage: false,
@@ -29,6 +44,8 @@ export default {
     onRevokedMessage: false,
     onLabelUpdated: false,
     onSelfMessage: false,
+    // onmessage NÃO tem flag no 2.10.0 — sempre registrado em listenMessages().
+    ignore: ['status@broadcast'],
   },
   archive: {
     enable: false,
@@ -39,6 +56,10 @@ export default {
     level: 'warn',
   },
   createOptions: {
+    whatsappVersion: null,
+    autoClose: 0,
+    deviceSyncTimeout: 0,
+    disableWelcome: true,
     browserArgs: [
       '--no-sandbox',
       '--disable-setuid-sandbox',

@@ -17,6 +17,21 @@
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
+function inboundWebhookUrl() {
+  const base = (process.env.WEBHOOK_URL || '').trim();
+  const secret = (process.env.WHATSAPP_INBOUND_WEBHOOK_SECRET || '').trim();
+  if (!base) return null;
+  if (!secret) return base;
+  if (/[?&](secret|token)=/.test(base)) return base;
+  try {
+    const url = new URL(base);
+    url.searchParams.set('secret', secret);
+    return url.toString();
+  } catch {
+    return `${base}${base.includes('?') ? '&' : '?'}secret=${encodeURIComponent(secret)}`;
+  }
+}
+
 exports.default = {
   secretKey: process.env.SECRET_KEY || 'CHANGE_ME_IN_PRODUCTION',
   host: process.env.WPP_PUBLIC_HOST || 'http://localhost',
@@ -28,7 +43,14 @@ exports.default = {
   maxListeners: 50,
   customUserDataDir: './userDataDir/',
   webhook: {
-    url: null,
+    // WPPConnect 2.10.0: onmessage NÃO tem flag. Sempre registrado em
+    // CreateSessionUtil.start() → listenMessages() → client.onMessage().
+    // Flags abaixo só ligam eventos OPCIONAIS (ack, presence, etc.).
+    // start-session em sessão CONNECTED NÃO re-registra onMessage.
+    url: inboundWebhookUrl(),
+    extraHeaders: process.env.WHATSAPP_INBOUND_WEBHOOK_SECRET
+      ? { 'x-webhook-secret': process.env.WHATSAPP_INBOUND_WEBHOOK_SECRET }
+      : {},
     autoDownload: false,
     uploadS3: false,
     readMessage: false,
@@ -41,6 +63,7 @@ exports.default = {
     onRevokedMessage: false,
     onLabelUpdated: false,
     onSelfMessage: false,
+    ignore: ['status@broadcast'],
   },
   websocket: {
     autoDownload: false,
@@ -60,6 +83,15 @@ exports.default = {
     logger: ['console'],
   },
   createOptions: {
+    // Evita pin quebrado (log: Version not available for 2.3000.10305x).
+    // null = deixa o WPP pegar a versão WEB disponível no momento.
+    whatsappVersion: null,
+    autoClose: 0,
+    // CRÍTICO: padrão do WPP é 180000ms (3 min). Se o histórico do celular
+    // demora mais que isso, o Chromium é fechado no meio do sync → sessão
+    // fantasma + isSendFailure. 0 = não matar enquanto sincroniza.
+    deviceSyncTimeout: 0,
+    disableWelcome: true,
     browserArgs: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -97,3 +129,12 @@ exports.default = {
     forcePathStyle: null,
   },
 };
+
+try {
+  require('./util/oftware-preload');
+} catch (error) {
+  console.warn(
+    '[WPPInboundDebug] preload_not_loaded',
+    error && error.message ? error.message : 'erro',
+  );
+}
