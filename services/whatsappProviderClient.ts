@@ -1475,22 +1475,6 @@ function extractChatIdFromSendPayload(
   return fallback;
 }
 
-function payloadAlreadyQueued(payload: Record<string, unknown>): boolean {
-  const status = normalizeStatusToken(String(payload.status ?? ''));
-  if (status !== 'success') return false;
-  const response = payload.response;
-  const results = Array.isArray(response) ? response : response ? [response] : [];
-  if (results.length === 0) return false;
-  const first = asRecord(results[0]);
-  if (first.erro === true || first.error === true || first.isSendFailure === true) return false;
-  const ack = typeof first.ack === 'number' ? first.ack : undefined;
-  if (ack === -1) return false;
-  const messageId =
-    pickString(first, ['id', 'messageId']) ||
-    pickString(asRecord(first.id), ['_serialized', 'id']);
-  return Boolean(messageId);
-}
-
 export interface WhatsappSendTestMessageResult {
   phone: string;
   chatId?: string;
@@ -1563,12 +1547,6 @@ export async function sendTestMessage(
     return { phone: normalizedPhone, mock: true, selfSend: isSelfDestination };
   }
 
-  if (id === 'system_canal_chat') {
-    void import('@/services/canalChatWebhookEnsureService')
-      .then((mod) => mod.ensureCanalChatInboundWebhook())
-      .catch(() => undefined);
-  }
-
   providerLog('sendTestMessage', {
     mode: 'wppconnect',
     sessionId: maskSessionId(id),
@@ -1617,51 +1595,6 @@ export async function sendTestMessage(
         selfSend: isSelfDestination,
       };
     } catch (firstError) {
-      // Se o 1º POST já gerou ID de mensagem, a msg provavelmente saiu.
-      // Retry no formato alternativo duplicaria o aviso no paciente.
-      const firstPayload = payload as Record<string, unknown>;
-      const firstResponse = firstPayload.response;
-      const firstResults = Array.isArray(firstResponse)
-        ? firstResponse
-        : firstResponse
-          ? [firstResponse]
-          : [];
-      const firstRow = firstResults[0] && typeof firstResults[0] === 'object'
-        ? (firstResults[0] as Record<string, unknown>)
-        : undefined;
-      const firstAck = typeof firstRow?.ack === 'number' ? firstRow.ack : undefined;
-      const firstMessageId = firstRow
-        ? pickString(firstRow, ['id', 'messageId']) ||
-          pickString(asRecord(firstRow.id), ['_serialized', 'id'])
-        : undefined;
-      const alreadyQueued =
-        normalizeStatusToken(String(firstPayload.status ?? '')) === 'success' &&
-        Boolean(firstMessageId) &&
-        firstAck !== -1 &&
-        firstRow?.erro !== true &&
-        firstRow?.error !== true &&
-        firstRow?.isSendFailure !== true;
-
-      if (alreadyQueued) {
-        providerLog('sendTestMessage', {
-          sessionId: maskSessionId(id),
-          phoneMasked: maskPhone(normalizedPhone),
-          result: 'ok_skip_retry_already_queued',
-          usedLid: isLid,
-          hasMessageId: true,
-          ack: firstAck,
-          errorMessage: firstError instanceof Error ? firstError.message : String(firstError),
-          selfDestination: isSelfDestination,
-        });
-        return {
-          phone: normalizedPhone,
-          chatId: extractChatIdFromSendPayload(firstPayload, chatId),
-          mock: false,
-          deliveryUncertain: firstAck === undefined || firstAck < 1,
-          selfSend: isSelfDestination,
-        };
-      }
-
       // Retry uma vez no formato alternativo (LID ↔ E.164) — comum no WA atual.
       const altIsLid = !isLid;
       const altPhone = altIsLid && chatId.includes('@lid')

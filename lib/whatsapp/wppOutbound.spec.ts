@@ -89,6 +89,10 @@ describe('caminho vivo do provider e VM sem overlays', () => {
     expect(provider).toContain('/send-message');
     expect(provider).toContain("result: 'ok_ambiguous'");
     expect(provider).toContain("msg.includes('cannot read properties')");
+    expect(provider).toContain("result: 'retry_alt_format'");
+    expect(provider).not.toContain('alreadyQueued');
+    expect(provider).not.toContain('ok_skip_retry_already_queued');
+    expect(provider).not.toContain('ensureCanalChatInboundWebhook');
     expect(provider).not.toContain("from '@/lib/whatsapp/wppOutbound'");
     expect(provider).not.toContain('chooseOutboundChatId');
     expect(provider).not.toContain('pn_lid_ignored');
