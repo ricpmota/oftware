@@ -1,42 +1,35 @@
 /**
- * Resolução de destino outbound do WPPConnect.
+ * Resolução de destino outbound conhecida como funcional (backup WPPConnect).
  *
- * O WhatsApp atual devolve LID (`…@lid`) em contact/pn-lid e às vezes em
- * check-number-status. O WPPConnect 2.10.0 quebra em sendText →
- * WAPI.getMessageById para @lid. Outbound usa sempre @c.us; @lid fica só
- * como identificador auxiliar (inbound / log).
+ * Fluxo:
+ *   telefone → contact/pn-lid → check-number-status → POST /send-message
+ *
+ * PN → LID é o comportamento funcional anterior. @lid NÃO é evitado no envio.
+ * Este módulo documenta a escolha de JID; o cliente vivo está em
+ * `services/whatsappProviderClient.ts` (`resolveWhatsappChatId`).
  */
 
 export type OutboundDestinationKind = 'c_us' | 'lid';
 
-export type OutboundResolvedFrom =
-  | 'phone_c_us'
-  | 'check_number_c_us'
-  | 'check_number_lid_ignored'
-  | 'pn_lid_ignored';
+export type OutboundResolvedFrom = 'phone_c_us' | 'check_number' | 'pn_lid';
 
 export type OutboundChatResolution = {
-  /** JID usado no envio — sempre @c.us. */
   chatId: string;
-  /** Dígitos enviados no body `phone` do send-message. */
   phoneForSend: string;
-  /** Sempre false no outbound atual (WPP 2.10.0). */
-  isLid: false;
+  isLid: boolean;
   destinationKind: OutboundDestinationKind;
   resolvedFrom: OutboundResolvedFrom;
-  /** LID visto na API, se houver — nunca usado como destino de sendText. */
-  lidHint?: string;
 };
 
 function asCus(phoneDigits: string): string {
   return `${phoneDigits}@c.us`;
 }
 
-function asLidHint(value: string | null | undefined): string | undefined {
+function asLid(value: string | null | undefined): string | undefined {
   const raw = value?.trim();
   if (!raw) return undefined;
-  if (/@lid$/i.test(raw)) return raw.toLowerCase();
-  if (/^\d{10,20}$/.test(raw) && raw.length > 15) return `${raw}@lid`;
+  if (/@lid$/i.test(raw)) return raw;
+  if (!raw.includes('@') && /^\d{10,20}$/.test(raw)) return `${raw}@lid`;
   return undefined;
 }
 
@@ -45,8 +38,8 @@ export function destinationKindOf(chatId: string): OutboundDestinationKind {
 }
 
 /**
- * Escolhe o JID de envio a partir do telefone e dos ids opcionais do WPP.
- * @lid nunca vira destino de send-message.
+ * Escolhe o JID de envio a partir do telefone e dos ids do WPPConnect.
+ * Prefere LID do contact/pn-lid; senão o id de check-number-status; senão `{phone}@c.us`.
  */
 export function chooseOutboundChatId(params: {
   phoneDigits: string;
@@ -55,40 +48,29 @@ export function chooseOutboundChatId(params: {
 }): OutboundChatResolution {
   const phoneDigits = params.phoneDigits.replace(/\D/g, '');
   const fallback = asCus(phoneDigits);
-  const lidHint = asLidHint(params.pnLidChatId) || asLidHint(params.checkNumberChatId);
+
+  const pnLid = asLid(params.pnLidChatId);
+  if (pnLid) {
+    const user = pnLid.split('@')[0] || phoneDigits;
+    return {
+      chatId: pnLid,
+      phoneForSend: user.replace(/\D/g, '') || phoneDigits,
+      isLid: true,
+      destinationKind: 'lid',
+      resolvedFrom: 'pn_lid',
+    };
+  }
 
   const checked = params.checkNumberChatId?.trim();
-  if (checked && /@c\.us$/i.test(checked)) {
+  if (checked && checked.includes('@')) {
     const user = checked.split('@')[0] || phoneDigits;
+    const isLid = /@lid$/i.test(checked);
     return {
-      chatId: checked.toLowerCase(),
+      chatId: checked,
       phoneForSend: user.replace(/\D/g, '') || phoneDigits,
-      isLid: false,
-      destinationKind: 'c_us',
-      resolvedFrom: 'check_number_c_us',
-      lidHint,
-    };
-  }
-
-  if (checked && /@lid$/i.test(checked)) {
-    return {
-      chatId: fallback,
-      phoneForSend: phoneDigits,
-      isLid: false,
-      destinationKind: 'c_us',
-      resolvedFrom: 'check_number_lid_ignored',
-      lidHint: checked.toLowerCase(),
-    };
-  }
-
-  if (params.pnLidChatId && /@lid$/i.test(params.pnLidChatId)) {
-    return {
-      chatId: fallback,
-      phoneForSend: phoneDigits,
-      isLid: false,
-      destinationKind: 'c_us',
-      resolvedFrom: 'pn_lid_ignored',
-      lidHint: params.pnLidChatId.toLowerCase(),
+      isLid,
+      destinationKind: isLid ? 'lid' : 'c_us',
+      resolvedFrom: 'check_number',
     };
   }
 
@@ -98,7 +80,6 @@ export function chooseOutboundChatId(params: {
     isLid: false,
     destinationKind: 'c_us',
     resolvedFrom: 'phone_c_us',
-    lidHint,
   };
 }
 
@@ -106,7 +87,6 @@ export function chooseOutboundChatId(params: {
 export function isGetMessageByIdFailure(message: string): boolean {
   const raw = message.toLowerCase();
   if (raw.includes('getmessagebyid')) return true;
-  if (raw.includes('oftware_send_unconfirmed')) return true;
   if (raw.includes('cannot read properties of undefined') && raw.includes('get')) return true;
   if (raw.includes('cannot read properties') && (raw.includes("reading 'get'") || raw.includes('reading "get"'))) {
     return true;
@@ -114,23 +94,24 @@ export function isGetMessageByIdFailure(message: string): boolean {
   return false;
 }
 
-/** Sucesso real do provider — não inclui ok_ambiguous / deliveryUncertain. */
-export function isConfirmedWhatsappSend(result: { deliveryUncertain?: boolean }): boolean {
-  return result.deliveryUncertain !== true;
-}
-
 /**
- * TIMEOUT após o POST às vezes significa confirmação lenta.
- * SERVER_ERROR / getMessageById / ok_ambiguous NÃO entram — a aplicação
- * não pode dizer “enviada”.
+ * Comportamento funcional anterior: TIMEOUT / SERVER_ERROR / getMessageById
+ * depois do POST não viram falha dura — o provider devolve ok_ambiguous.
  */
 export function shouldTreatPostSendErrorAsDelivered(error: {
   message: string;
   code: string;
 }): boolean {
-  if (error.code === 'SEND_UNCONFIRMED' || error.code === 'SERVER_ERROR') return false;
-  if (isGetMessageByIdFailure(error.message)) return false;
-  if (error.code === 'TIMEOUT') return true;
+  if (error.code === 'TIMEOUT' || error.code === 'SERVER_ERROR') return true;
   const msg = error.message.toLowerCase();
-  return msg.includes('tempo esgotado');
+  return (
+    isGetMessageByIdFailure(error.message) ||
+    msg.includes('error sending') ||
+    msg.includes('msgchunks') ||
+    msg.includes('evaluation failed') ||
+    msg.includes('protocol error') ||
+    msg.includes('cannot read properties') ||
+    msg.includes('failed to send') ||
+    msg.includes('tempo esgotado')
+  );
 }

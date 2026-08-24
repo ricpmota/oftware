@@ -15,8 +15,7 @@ import {
   type SendFinanceiroCobrancaInput,
 } from '@/services/financeiroCobrancaWhatsappService';
 import { registrarWhatsappMessageLog } from '@/services/whatsappMessageLogService';
-import { sendTestMessage, WhatsappProviderError } from '@/services/whatsappProviderClient';
-import { isConfirmedWhatsappSend } from '@/lib/whatsapp/wppOutbound';
+import { sendTestMessage } from '@/services/whatsappProviderClient';
 
 const PACIENTES_COLLECTION = 'pacientes_completos';
 
@@ -69,12 +68,6 @@ export async function requestCanalChatConfirmationForPaymentCharge(
         connectedPhone: prepared.connectedPhone ?? undefined,
       }),
     );
-    if (!isConfirmedWhatsappSend(sent)) {
-      throw new WhatsappProviderError(
-        'O WhatsApp não confirmou o envio. A confirmação não foi registrada.',
-        'SEND_UNCONFIRMED',
-      );
-    }
     sentChatId = sent.chatId;
   } catch (error) {
     try {
