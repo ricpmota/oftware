@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { requireMetaAdminGeral } from '@/lib/metaadmin/requireMetaAdminGeral';
 import { getAdminStorageBucket } from '@/lib/server/firebaseAdminOftware';
-import { getOrganizationById } from '@/lib/organization/organizationRegistry';
+import { resolveOrganizationDefinition } from '@/lib/organization/resolveOrganizationDefinition.server';
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
 const FAVICON_TYPES = new Set([
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { organizationId } = await params;
     const id = (organizationId || '').trim();
-    if (!id || !getOrganizationById(id)) {
+    if (!id || !(await resolveOrganizationDefinition(id))) {
       return NextResponse.json({ error: 'Organização não registrada.' }, { status: 404 });
     }
 

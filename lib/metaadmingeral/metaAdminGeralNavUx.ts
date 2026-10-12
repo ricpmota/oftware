@@ -29,11 +29,8 @@ import {
   UtensilsCrossed,
   Wrench,
 } from 'lucide-react';
-import {
-  listOrganizations,
-  METODO_ORGANIZATION,
-  type OrganizationDefinition,
-} from '@/lib/organization/organizationRegistry';
+import { listOrganizations, METODO_ORGANIZATION } from '@/lib/organization/organizationRegistry';
+import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
 
 /** Contexto de navegação — Plataforma vs Organização ativa. */
 export type MetaAdminGeralNavContext = 'platform' | 'organization';

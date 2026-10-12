@@ -5,7 +5,7 @@ import {
   saveOrganizationBrandingForAdmin,
 } from '@/lib/organization/getOrganizationBranding.server';
 import { parseOrganizationBrandingStored } from '@/lib/organization/organizationBrandingFirestore.server';
-import { getOrganizationById } from '@/lib/organization/organizationRegistry';
+import { resolveOrganizationDefinition } from '@/lib/organization/resolveOrganizationDefinition.server';
 
 type RouteParams = { params: Promise<{ organizationId: string }> };
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'organizationId obrigatório.' }, { status: 400 });
     }
 
-    if (!getOrganizationById(id)) {
+    if (!(await resolveOrganizationDefinition(id))) {
       return NextResponse.json({ error: `Organização não registrada: ${id}` }, { status: 404 });
     }
 
@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'organizationId obrigatório.' }, { status: 400 });
     }
 
-    if (!getOrganizationById(id)) {
+    if (!(await resolveOrganizationDefinition(id))) {
       return NextResponse.json({ error: `Organização não registrada: ${id}` }, { status: 404 });
     }
 

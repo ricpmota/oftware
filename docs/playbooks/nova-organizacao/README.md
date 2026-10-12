@@ -116,7 +116,7 @@ O que já foi implementado na plataforma (fundação):
 | Resolução de org por host | ✅ `resolveOrganizationFromHost` |
 | Auditoria de cobertura `organizationId` | ✅ Saúde da Plataforma |
 | Organização Método Emagrecer | ✅ Ativa em produção |
-| Criação de nova organização (fluxo MAG) | ⏳ Planejado |
+| Criação de nova organização (fluxo MAG) | ✅ Formulário + API (Firestore + branding seed) |
 | Domínio / Vercel / Firebase por org | ⏳ Planejado |
 | Filtro global por `organizationId` | ⏳ Parcial / em evolução |
 

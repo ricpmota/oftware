@@ -90,6 +90,7 @@ import {
   resolveMetaAdminGeralMenuId,
   type MetaAdminGeralNavContext,
 } from '@/lib/metaadmingeral/metaAdminGeralNavUx';
+import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
 import MetaAdminGeralBrandMark, {
   MetaAdminGeralLoadingScreen,
 } from '@/components/metaadmingeral/MetaAdminGeralBrandMark';
@@ -127,6 +128,11 @@ function MetaAdminGeralContent() {
   const [activeMenu, setActiveMenu] = useState('dashboard-oftware');
   const [navContext, setNavContext] = useState<MetaAdminGeralNavContext>('platform');
   const [activeOrganizationId, setActiveOrganizationId] = useState(defaultActiveOrganizationId);
+  const [navOrganizations, setNavOrganizations] = useState<OrganizationDefinition[]>(() =>
+    listNavOrganizations(),
+  );
+  const [creatingOrganization, setCreatingOrganization] = useState(false);
+  const [requestOpenCreateOrganization, setRequestOpenCreateOrganization] = useState(false);
   const [filtroPeriodo, setFiltroPeriodo] = useState<'semana' | 'mes' | 'ano'>('semana');
   const [users, setUsers] = useState<UserType[]>([]);
   const [firebaseUsers, setFirebaseUsers] = useState<{
@@ -422,6 +428,74 @@ function MetaAdminGeralContent() {
     setActiveOrganizationId(organizationId);
     setNavContext('organization');
     setActiveMenu('org-dashboard');
+  }, []);
+
+  const refreshNavOrganizations = useCallback(async () => {
+    if (!user) return listNavOrganizations();
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/metaadmingeral/organizations', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json()) as {
+        organizations?: OrganizationDefinition[];
+        error?: string;
+      };
+      if (!res.ok) {
+        console.warn('[metaadmingeral] falha ao listar organizações', data.error);
+        return listNavOrganizations();
+      }
+      const orgs = Array.isArray(data.organizations) ? data.organizations : listNavOrganizations();
+      setNavOrganizations(orgs);
+      return orgs;
+    } catch (error) {
+      console.warn('[metaadmingeral] erro ao listar organizações', error);
+      return listNavOrganizations();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    void refreshNavOrganizations();
+  }, [user, refreshNavOrganizations]);
+
+  const createOrganization = useCallback(
+    async (input: { name: string; organizationId: string; domain: string }) => {
+      if (!user) {
+        throw new Error('Faça login para criar uma organização.');
+      }
+      setCreatingOrganization(true);
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/metaadmingeral/organizations', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(input),
+        });
+        const data = (await res.json()) as {
+          organization?: OrganizationDefinition;
+          error?: string;
+        };
+        if (!res.ok || !data.organization) {
+          throw new Error(data.error || 'Erro ao criar organização');
+        }
+        await refreshNavOrganizations();
+        setMessage(`Organização "${data.organization.name}" criada com sucesso.`);
+        return data.organization;
+      } finally {
+        setCreatingOrganization(false);
+      }
+    },
+    [user, refreshNavOrganizations],
+  );
+
+  const requestCreateOrganization = useCallback(() => {
+    setNavContext('platform');
+    setActiveMenu('organizacoes');
+    setRequestOpenCreateOrganization(true);
   }, []);
 
   // Deep links ?menu= — preserva IDs legados
@@ -2794,7 +2868,7 @@ function MetaAdminGeralContent() {
       case 'dashboard-oftware':
         return (
           <OftwareDashboardPanel
-            organizations={listNavOrganizations()}
+            organizations={navOrganizations}
             metrics={platformDashboardMetrics}
             clinicalOutcomes={platformClinicalOutcomes}
             loading={{
@@ -2812,10 +2886,16 @@ function MetaAdminGeralContent() {
         return (
           <OrganizationsHubPanel
             activeView={activeMenu === 'leads-whitelabel' ? 'leads-whitelabel' : 'list'}
-            organizations={listNavOrganizations()}
+            organizations={navOrganizations}
             activeOrganizationId={activeOrganizationId}
             onSelectOrganization={enterOrganization}
             onNavigate={selectMenu}
+            onCreateOrganization={createOrganization}
+            creatingOrganization={creatingOrganization}
+            requestOpenCreate={requestOpenCreateOrganization}
+            onCreateModalOpenChange={(open) => {
+              if (!open) setRequestOpenCreateOrganization(false);
+            }}
           />
         );
       case 'org-dashboard':
@@ -2823,8 +2903,8 @@ function MetaAdminGeralContent() {
           <OrganizationDashboardPanel
             user={user}
             organization={
-              listNavOrganizations().find((o) => o.id === activeOrganizationId) ??
-              listNavOrganizations()[0]
+              navOrganizations.find((o) => o.id === activeOrganizationId) ??
+              navOrganizations[0]
             }
             metrics={organizationDashboardMetrics}
             clinicalOutcomes={organizationClinicalOutcomes}
@@ -2836,8 +2916,8 @@ function MetaAdminGeralContent() {
         return (
           <OrganizationFinanceiroPanel
             organization={
-              listNavOrganizations().find((o) => o.id === activeOrganizationId) ??
-              listNavOrganizations()[0]
+              navOrganizations.find((o) => o.id === activeOrganizationId) ??
+              navOrganizations[0]
             }
             metrics={organizationFinanceMetrics}
             loading={loadingMedicos || loadingPacientes || loadingPagamentos}
@@ -9203,10 +9283,12 @@ function MetaAdminGeralContent() {
               navContext={navContext}
               activeMenu={activeMenu}
               activeOrganizationId={activeOrganizationId}
+              organizations={navOrganizations}
               sidebarCollapsed={sidebarCollapsed}
               onNavContextChange={setNavContext}
               onOrganizationChange={setActiveOrganizationId}
               onSelectMenu={selectMenu}
+              onRequestCreateOrganization={requestCreateOrganization}
             />
 
             {/* Logout button */}
@@ -10502,11 +10584,16 @@ function MetaAdminGeralContent() {
               navContext={navContext}
               activeMenu={activeMenu}
               activeOrganizationId={activeOrganizationId}
+              organizations={navOrganizations}
               onNavContextChange={setNavContext}
               onOrganizationChange={setActiveOrganizationId}
               onSelectMenu={(id) => {
                 selectMenu(id);
                 setMobileMenuOpen(false);
+              }}
+              onRequestCreateOrganization={() => {
+                setMobileMenuOpen(false);
+                requestCreateOrganization();
               }}
             />
             <div className="px-3 py-4 border-t border-white/10">

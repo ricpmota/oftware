@@ -21,21 +21,24 @@ import {
   writeOrganizationBrandingUpdate,
   METODO_IMAGENS_SOURCE_EMAIL,
 } from './organizationBrandingFirestore.server';
-import { getOrganizationById } from './organizationRegistry';
+import { METODO_ORGANIZATION_ID } from './organizationRegistry';
+import { resolveOrganizationDefinition } from './resolveOrganizationDefinition.server';
 import { getMetodoImagensTemplateFromFirestore } from '@/lib/metodo/metodoImagensService.server';
 
 export async function getOrganizationBranding(
   organizationId: OrganizationId,
 ): Promise<OrganizationBrandingResolved> {
-  const organization = getOrganizationById(organizationId);
+  const organization = await resolveOrganizationDefinition(organizationId);
   if (!organization) {
     throw new Error(`Organização não encontrada: ${organizationId}`);
   }
 
+  const isMetodo = organizationId === METODO_ORGANIZATION_ID;
+
   const [firestoreBranding, metodoImagens, sourceWhiteLabel] = await Promise.all([
     readOrganizationBrandingFromFirestore(organizationId),
-    getMetodoImagensTemplateFromFirestore(),
-    readSourceMedicoWhiteLabel(),
+    isMetodo ? getMetodoImagensTemplateFromFirestore() : Promise.resolve(null),
+    isMetodo ? readSourceMedicoWhiteLabel() : Promise.resolve(null),
   ]);
 
   const branding = resolveOrganizationBrandingFromSources({
@@ -65,7 +68,7 @@ export async function getOrganizationBranding(
 export async function getOrganizationBrandingForAdmin(
   organizationId: OrganizationId,
 ): Promise<OrganizationBrandingApiResponse> {
-  const organization = getOrganizationById(organizationId);
+  const organization = await resolveOrganizationDefinition(organizationId);
   if (!organization) {
     throw new Error(`Organização não encontrada: ${organizationId}`);
   }
@@ -84,9 +87,10 @@ export async function getOrganizationBrandingForAdmin(
 
   const firestoreDocExists = await readOrganizationDocumentExists(organizationId);
 
+  const isMetodo = organizationId === METODO_ORGANIZATION_ID;
   const [metodoImagens, sourceWhiteLabel] = await Promise.all([
-    getMetodoImagensTemplateFromFirestore(),
-    readSourceMedicoWhiteLabel(),
+    isMetodo ? getMetodoImagensTemplateFromFirestore() : Promise.resolve(null),
+    isMetodo ? readSourceMedicoWhiteLabel() : Promise.resolve(null),
   ]);
 
   const branding = await getOrganizationBranding(organizationId);
@@ -109,7 +113,7 @@ export async function saveOrganizationBrandingForAdmin(
   organizationId: OrganizationId,
   branding: OrganizationBrandingStored,
 ): Promise<OrganizationBrandingResolved> {
-  const organization = getOrganizationById(organizationId);
+  const organization = await resolveOrganizationDefinition(organizationId);
   if (!organization) {
     throw new Error(`Organização não registrada: ${organizationId}`);
   }

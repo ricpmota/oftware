@@ -62,13 +62,13 @@ Contexto: Plataforma
         ↓
 Menu: Organizações
         ↓
-Botão: Nova Organização  ← (planejado)
+Botão: Nova Organização  ← (ativo no MAG)
 ```
 
 ### Estado atual
 - Existe listagem de organizações
 - Método Emagrecer é selecionável
-- **Nova Organização** ainda não tem fluxo de criação no MAG
+- **Nova Organização** cria org no Firestore + seed de branding isolado (sem Clínica Exemplo WL)
 
 ---
 
