@@ -1,5 +1,9 @@
 export const META_NUTRI_CHAT_INTRO_SESSION_KEY = 'meta-nutri-chat-intro-v1';
 export const META_PERSONAL_CHAT_INTRO_SESSION_KEY = 'meta-personal-chat-intro-v1';
+export const META_PSI_CHAT_INTRO_SESSION_KEY = 'meta-psi-chat-intro-v1';
+
+/** UI do wizard compartilhado. Domínio persistido: nutricionista | personal_trainer | psiquiatra. */
+export type NutriPersonalWizardTipo = 'nutri' | 'personal' | 'psi';
 
 export const META_NUTRI_PERSONAL_STEP_INTRO = 0;
 export const META_NUTRI_PERSONAL_STEP_NOME = 1;
@@ -13,12 +17,30 @@ export const META_NUTRI_PERSONAL_STEP_COMPLETO = 9;
 
 export const META_NUTRI_PERSONAL_WIZARD_PROGRESS_STEPS = 7;
 
-export function getNutriPersonalIntroKey(tipo: 'nutri' | 'personal'): string {
-  return tipo === 'nutri' ? META_NUTRI_CHAT_INTRO_SESSION_KEY : META_PERSONAL_CHAT_INTRO_SESSION_KEY;
+export function nutriPersonalRegistroLabel(tipo: NutriPersonalWizardTipo): string {
+  if (tipo === 'nutri') return 'CRN';
+  if (tipo === 'personal') return 'CREF';
+  return 'CRM';
 }
 
-export function nutriPersonalStepTexts(tipo: 'nutri' | 'personal'): Record<number, { title: string; hint?: string }> {
-  const regLabel = tipo === 'nutri' ? 'CRN' : 'CREF';
+export function wizardTipoToUploadProfissao(
+  tipo: NutriPersonalWizardTipo
+): 'nutricionista' | 'personal' | 'psiquiatra' {
+  if (tipo === 'nutri') return 'nutricionista';
+  if (tipo === 'personal') return 'personal';
+  return 'psiquiatra';
+}
+
+export function getNutriPersonalIntroKey(tipo: NutriPersonalWizardTipo): string {
+  if (tipo === 'nutri') return META_NUTRI_CHAT_INTRO_SESSION_KEY;
+  if (tipo === 'personal') return META_PERSONAL_CHAT_INTRO_SESSION_KEY;
+  return META_PSI_CHAT_INTRO_SESSION_KEY;
+}
+
+export function nutriPersonalStepTexts(
+  tipo: NutriPersonalWizardTipo
+): Record<number, { title: string; hint?: string }> {
+  const regLabel = nutriPersonalRegistroLabel(tipo);
   return {
     [META_NUTRI_PERSONAL_STEP_NOME]: {
       title: 'Como devemos te chamar no cadastro?',
@@ -28,8 +50,11 @@ export function nutriPersonalStepTexts(tipo: 'nutri' | 'personal'): Record<numbe
       title: 'Qual seu telefone para contato profissional?',
     },
     [META_NUTRI_PERSONAL_STEP_REGISTRO]: {
-      title: `Informe o número do seu registro profissional (${regLabel})`,
-      hint: 'Apenas números.',
+      title:
+        tipo === 'psi'
+          ? 'Informe o número do CRM e o estado (UF) de registro.'
+          : `Informe o número do seu registro profissional (${regLabel})`,
+      hint: tipo === 'psi' ? 'CRM apenas com números. UF obrigatória.' : 'Apenas números.',
     },
     [META_NUTRI_PERSONAL_STEP_CIDADES]: {
       title: 'Em quais cidades você atende?',
@@ -44,8 +69,8 @@ export function nutriPersonalStepTexts(tipo: 'nutri' | 'personal'): Record<numbe
       hint: 'Para verificação de identidade.',
     },
     [META_NUTRI_PERSONAL_STEP_REGISTRO_DOC]: {
-      title: tipo === 'nutri' ? 'Envie uma foto nítida do seu CRN' : 'Envie uma foto nítida do seu CREF',
-      hint: 'Cartão ou documento oficial.',
+      title: `Envie uma foto nítida do seu ${regLabel}`,
+      hint: tipo === 'psi' ? 'Cartão ou documento oficial do CRM.' : 'Cartão ou documento oficial.',
     },
   };
 }

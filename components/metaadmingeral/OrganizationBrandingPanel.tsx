@@ -16,7 +16,6 @@ import type {
   OrganizationBrandingApiResponse,
   OrganizationBrandingStored,
 } from '@/lib/organization/organizationBrandingTypes';
-import { ORGANIZATION_METODO_OG_FALLBACK_SRC } from '@/lib/organization/organizationBrandingDefaults';
 import { META_ADMIN_GERAL_ACTIVE_ORG } from '@/components/metaadmingeral/metaAdminGeralNavConfig';
 
 type OrganizationBrandingPanelProps = {
@@ -207,6 +206,36 @@ export default function OrganizationBrandingPanel({
     setSaveOk(false);
   }, []);
 
+  const saveBranding = useCallback(
+    async (brandingToSave: OrganizationBrandingStored) => {
+      setSaving(true);
+      setError('');
+      setSaveOk(false);
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`/api/metaadmingeral/organizations/${organizationId}/branding`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ branding: brandingToSave }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || 'Falha ao salvar');
+        }
+        await load();
+        setSaveOk(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao salvar');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [load, organizationId, user],
+  );
+
   const uploadBrandingImage = useCallback(
     async (tipo: string, file: File, applyUrl: (url: string) => void) => {
       setUploadingField(tipo);
@@ -239,34 +268,50 @@ export default function OrganizationBrandingPanel({
     [organizationId, user],
   );
 
+  /** Upload da Logo principal: atualiza form, sincroniza OG e salva na hora. */
+  const uploadLogoPrincipal = useCallback(
+    async (file: File) => {
+      if (!form) return;
+      setUploadingField('logo-main');
+      setError('');
+      try {
+        const token = await user.getIdToken();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('tipo', 'logo-main');
+        const res = await fetch(
+          `/api/metaadmingeral/organizations/${organizationId}/branding/upload`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          },
+        );
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || 'Falha ao enviar imagem');
+        }
+        const url = String(json.url);
+        const next: OrganizationBrandingStored = {
+          ...form,
+          logoMainUrl: url,
+          ogImageUrl: url,
+        };
+        setForm(next);
+        await saveBranding(next);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao enviar imagem');
+      } finally {
+        setUploadingField(null);
+      }
+    },
+    [form, organizationId, saveBranding, user],
+  );
+
   const save = useCallback(async () => {
     if (!form) return;
-    setSaving(true);
-    setError('');
-    setSaveOk(false);
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/metaadmingeral/organizations/${organizationId}/branding`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ branding: form }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || 'Falha ao salvar');
-      }
-      await load();
-      setSaveOk(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar');
-    } finally {
-      setSaving(false);
-    }
-  }, [form, load, organizationId, user]);
-
+    await saveBranding(form);
+  }, [form, saveBranding]);
   const branding = data?.branding;
 
   return (
@@ -279,8 +324,12 @@ export default function OrganizationBrandingPanel({
           </div>
           <p className="mt-1 text-sm text-[#E8EDED]/60">
             Proprietária oficial: <span className="font-mono">organizations/{organizationId}.branding</span>
-            {' · '}
-            {META_ADMIN_GERAL_ACTIVE_ORG.name}
+            {branding?.publicName ? (
+              <>
+                {' · '}
+                {branding.publicName}
+              </>
+            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -306,8 +355,9 @@ export default function OrganizationBrandingPanel({
       </div>
 
       <div className="rounded-xl border border-[#4CCB7A]/25 bg-[#4CCB7A]/10 px-4 py-3 text-sm text-[#E8EDED]/90">
-        Edição salva em <strong>organizations/metodo.branding</strong>. Use <strong>Enviar arquivo</strong> ou
-        cole a URL, depois clique em <strong>Salvar Marca</strong>. Imagens sobem para o Storage da plataforma.
+        Edição salva em <strong>organizations/{organizationId}.branding</strong>. A <strong>Logo principal</strong> é a
+        imagem dos links compartilhados (/meta, /metaadmin, /metanutri, /metapersonal). Ao enviar a Logo
+        principal, a Marca é salva automaticamente.
       </div>
 
       {error ? (
@@ -413,11 +463,10 @@ export default function OrganizationBrandingPanel({
               <ImageField
                 label="Logo principal"
                 value={form.logoMainUrl}
-                onChange={(v) => patchForm({ logoMainUrl: v })}
+                onChange={(v) => patchForm({ logoMainUrl: v, ogImageUrl: v || form.ogImageUrl })}
                 uploading={uploadingField === 'logo-main'}
-                onUpload={(file) =>
-                  uploadBrandingImage('logo-main', file, (url) => patchForm({ logoMainUrl: url }))
-                }
+                onUpload={(file) => void uploadLogoPrincipal(file)}
+                hint="Usada no preview ao compartilhar links da organização. Upload salva automaticamente."
               />
               <ImageField
                 label="Logo clara"
@@ -465,7 +514,7 @@ export default function OrganizationBrandingPanel({
                 onUpload={(file) =>
                   uploadBrandingImage('og', file, (url) => patchForm({ ogImageUrl: url }))
                 }
-                hint={`Preview ao compartilhar ${form.siteUrl || 'www.ometodoemagrecer.com.br'}. Padrão: ${ORGANIZATION_METODO_OG_FALLBACK_SRC}`}
+                hint="Fallback se a Logo principal estiver vazia. Ao salvar a Logo principal, este campo é sincronizado."
               />
               <ImageField
                 label="Logo PDF"

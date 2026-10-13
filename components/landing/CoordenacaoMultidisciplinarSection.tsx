@@ -22,25 +22,25 @@ const ACESSOS = [
   {
     icon: Stethoscope,
     label: 'Médico',
-    desc: 'Seu consultório digital — leads, prontuário, calendário, financeiro e equipe reunidos, com a sua marca em cada detalhe.',
-    descShort: 'Consultório digital completo, com a sua marca.',
+    desc: 'Sua estrutura digital — leads, prontuário, calendário, financeiro e equipe reunidos, com a sua marca em cada detalhe.',
+    descShort: 'Estrutura digital completa, com a sua marca.',
   },
   {
     icon: UserCheck,
     label: 'Paciente',
-    desc: 'Um app pensado para o dia a dia do tratamento: aplicações, exames, nutrição, treino e evolução — tudo onde o paciente já está.',
-    descShort: 'Tratamento no bolso: app, exames, nutri e treino.',
+    desc: 'Um app pensado para o dia a dia do acompanhamento: aplicações, exames, nutrição, treino e evolução — tudo onde o paciente já está.',
+    descShort: 'Acompanhamento no bolso: app, exames, nutri e treino.',
   },
   {
     icon: UtensilsCrossed,
     label: 'Nutricionista',
-    desc: 'Check-ins diários, cardápios alinhados à meta e visibilidade real da jornada nutricional — conectado ao que o médico conduz.',
+    desc: 'Check-ins diários, cardápios alinhados à meta e visibilidade real da jornada nutricional — integrado à equipe da organização.',
     descShort: 'Check-ins, cardápio e evolução nutricional integrados.',
   },
   {
     icon: Dumbbell,
     label: 'Personal',
-    desc: 'Treinos prescritos e acompanhados de perto, com adesão visível para médico, nutricionista e paciente — ninguém treina no escuro.',
+    desc: 'Treinos prescritos e acompanhados de perto, com adesão visível para a equipe multiprofissional e o paciente — ninguém treina no escuro.',
     descShort: 'Treinos acompanhados, adesão visível para a equipe.',
   },
 ] as const;
@@ -64,7 +64,7 @@ const MOCKUPS_MEDICO = [
     image: '/Mockups/3.png',
     title: 'Calendário que organiza a operação inteira',
     titleShort: 'Agenda que organiza tudo',
-    desc: 'Sua operação deixa de depender de memória. Aplicações, pagamentos, lembretes, aniversários — tudo num calendário que organiza a rotina da clínica.',
+    desc: 'Sua operação deixa de depender de memória. Aplicações, pagamentos, lembretes, aniversários — tudo num calendário que organiza a rotina da operação de saúde.',
     descShort: 'Aplicações, pagamentos, lembretes e aniversários numa agenda só.',
   },
   {
@@ -99,15 +99,15 @@ const MOCKUPS_MEDICO = [
     image: '/Mockups/8.png',
     title: 'Página de aplicações com a sua marca',
     titleShort: 'Aplicações com sua identidade',
-    desc: 'O paciente preenche a aplicação num ambiente com a sua cara: logo, cores e identidade White Label. Continuidade com a marca que ele já confia.',
+    desc: 'O paciente preenche a aplicação num ambiente com a sua cara: logo, cores e identidade da marca. Continuidade com a organização que ele já confia.',
     descShort: 'Paciente registra aplicações num link personalizado com a sua marca.',
   },
   {
     image: '/Mockups/16.png',
-    title: 'Identidade visual da sua página White Label',
+    title: 'Identidade visual da sua página com marca própria',
     titleShort: 'Sua marca, do jeito que você quer',
-    desc: 'Edite logo, cores e identidade visual da página pública do médico. O paciente entra num ambiente que parece seu — não genérico.',
-    descShort: 'Personalize logo e cores da sua página White Label.',
+    desc: 'Edite logo, cores e identidade visual da página pública da sua organização. O paciente entra num ambiente que parece seu — não genérico.',
+    descShort: 'Personalize logo e cores da sua página com marca própria.',
   },
   {
     image: '/Mockups/17.png',
@@ -165,14 +165,14 @@ const MOCKUPS_PACIENTE = [
     image: '/Mockups/12.png',
     title: 'Nutricionista ao lado, todos os dias',
     titleShort: 'Nutri presente no dia a dia',
-    desc: 'Nutrição deixa de ser só a consulta quinzenal. Check-ins, orientações e acompanhamento contínuo conectados à jornada que o médico conduz.',
-    descShort: 'Check-in diário e orientação nutricional integrados ao tratamento.',
+    desc: 'Nutrição deixa de ser só a consulta quinzenal. Check-ins, orientações e acompanhamento contínuo conectados à jornada da organização.',
+    descShort: 'Check-in diário e orientação nutricional integrados ao acompanhamento.',
   },
   {
     image: '/Mockups/13.png',
     title: 'Cardápio na medida da meta',
     titleShort: 'Cardápio alinhado à meta',
-    desc: 'Sozinho ou junto com o nutricionista, o paciente monta um cardápio na medida: peso atual, meta de perda e protocolo médico alinhados.',
+    desc: 'Sozinho ou junto com o nutricionista, o paciente monta um cardápio na medida: peso atual, meta de perda e protocolo da equipe alinhados.',
     descShort: 'Plano alimentar calibrado pelo peso e pela meta — com ou sem o nutri.',
   },
   {
@@ -186,7 +186,7 @@ const MOCKUPS_PACIENTE = [
     image: '/Mockups/15.png',
     title: 'Treino montado e acompanhado',
     titleShort: 'Treino com acompanhamento real',
-    desc: 'Rotinas montadas com o personal ou de forma autônoma, com acompanhamento diário. Exercício integrado ao tratamento — médico, nutri e paciente enxergam a adesão.',
+    desc: 'Rotinas montadas com o personal ou de forma autônoma, com acompanhamento diário. Exercício integrado à jornada — a equipe e o paciente enxergam a adesão.',
     descShort: 'Treino com o personal ou sozinho — adesão visível para toda a equipe.',
   },
 ] as const;
@@ -253,21 +253,17 @@ export default function CoordenacaoMultidisciplinarSection() {
       <div className="relative w-full max-w-[1280px] mx-auto px-6 sm:px-8 lg:px-12">
         <div className="max-w-3xl mb-12 md:mb-16">
           <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.22em] text-[#16A34A] mb-5">
-            Coordenação multidisciplinar
+            Coordenação multiprofissional
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#1D1D1D] leading-[1.1] tracking-tight mb-6">
-            O tratamento não acontece sozinho.
+            Cada profissional mantém sua atuação. A organização conecta toda a jornada.
           </h2>
+          <p className="text-base sm:text-lg md:text-xl text-[#5A5A5A] leading-relaxed mb-4">
+            Médicos, nutricionistas e personal trainers podem acompanhar o mesmo paciente de forma integrada,
+            respeitando as responsabilidades, permissões e informações de cada profissional.
+          </p>
           <p className="text-base sm:text-lg md:text-xl text-[#5A5A5A] leading-relaxed">
-            <span className="md:hidden">
-              Médico, nutricionista, personal e paciente — mesma jornada, mesma timeline, continuidade de verdade
-              entre consultas.
-            </span>
-            <span className="hidden md:inline">
-              Em programas de obesidade e medicina metabólica, ninguém caminha sozinho. A Oftware reúne médico,
-              nutricionista, personal e paciente num único ecossistema — com prontuário compartilhado, timeline única
-              e continuidade real entre uma consulta e outra.
-            </span>
+            Quem cria a organização define sua equipe e seus parceiros.
           </p>
         </div>
 
@@ -341,18 +337,17 @@ export default function CoordenacaoMultidisciplinarSection() {
             Diferencial
           </span>
           <p className="text-lg sm:text-xl md:text-2xl font-semibold text-[#1D1D1D] leading-snug mb-4">
-            Enquanto outras plataformas conectam apenas médico e paciente, a Oftware conecta toda a equipe
-            responsável pela evolução do paciente.
+            Enquanto outras plataformas conectam apenas um profissional e o paciente, a Oftware conecta toda a equipe
+            responsável pela evolução do acompanhamento.
           </p>
           <p className="text-sm sm:text-base md:text-lg text-[#5A5A5A] leading-relaxed mb-8">
             <span className="md:hidden">
-              Prescrever é só o começo. O resultado vem quando nutrição, exercício, aplicações e adesão caminham
-              juntos — mês após mês.
+              Orientar é só o começo. O resultado vem quando nutrição, exercício, aplicações e adesão caminham juntos —
+              mês após mês.
             </span>
             <span className="hidden md:inline">
-              Porque prescrever é só o começo. O resultado de verdade vem quando nutrição, exercício, aplicações e
-              adesão caminham juntos — mês após mês, consulta após consulta. A Oftware existe para sustentar essa
-              jornada inteira.
+              Porque orientar é só o começo. O resultado de verdade vem quando nutrição, exercício, aplicações e adesão
+              caminham juntos — mês após mês. A Oftware existe para sustentar essa jornada inteira.
             </span>
           </p>
 
@@ -370,7 +365,7 @@ export default function CoordenacaoMultidisciplinarSection() {
                 </span>
                 <span className="hidden md:inline">
                   Médico, paciente, nutricionista e personal entram por portas diferentes, com ferramentas feitas para
-                  cada um — mas todos olham para o mesmo lugar: a evolução de quem está no centro do tratamento.
+                  cada um — mas todos olham para o mesmo lugar: a evolução de quem está no centro do acompanhamento.
                 </span>
               </p>
             </div>
@@ -419,7 +414,7 @@ export default function CoordenacaoMultidisciplinarSection() {
                 }`}
               >
                 <Stethoscope className="w-4 h-4" />
-                Portal do médico
+                Painel profissional
               </button>
               <button
                 type="button"

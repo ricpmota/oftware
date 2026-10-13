@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { resolveProfessionalPublicPhoto } from '@/lib/server/resolveProfessionalPublicPhoto.server';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -83,6 +84,10 @@ export async function GET(request: NextRequest) {
     
     // Retornar o primeiro nutricionista encontrado
     const nutricionista = nutricionistas[0];
+    const fotoPerfilUrl = await resolveProfessionalPublicPhoto({
+      fotoPerfilUrl: (nutricionista as { fotoPerfilUrl?: string | null }).fotoPerfilUrl,
+      userId: (nutricionista as { userId?: string }).userId || nutricionista.id,
+    });
     
     // Formatar resposta
     return NextResponse.json({
@@ -96,6 +101,7 @@ export async function GET(request: NextRequest) {
       status: nutricionista.status || 'inativo',
       isVerificado: nutricionista.isVerificado || false,
       medicoVinculadoIds: nutricionista.medicoVinculadoIds || [],
+      fotoPerfilUrl,
     });
   } catch (error) {
     console.error('Erro ao buscar nutricionista por nome:', error);

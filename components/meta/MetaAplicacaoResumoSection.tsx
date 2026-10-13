@@ -21,6 +21,8 @@ function obterMarcoZero(
 }
 
 export function MetaAplicacaoResumoSection({ paciente, registro, semana }: Props) {
+  if (!registro) return null;
+
   if (semana === 1) {
     const marco = obterMarcoZero(paciente, registro);
     if (marco) {

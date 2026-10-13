@@ -37,6 +37,10 @@ export class LeadService {
       if (lead.telefone) {
         leadData.telefone = lead.telefone;
       }
+      if (lead.telefoneDdi) {
+        leadData.telefoneDdi = lead.telefoneDdi;
+        if (lead.telefonePais) leadData.telefonePais = lead.telefonePais;
+      }
 
       if (lead.atualizadoPor) {
         leadData.atualizadoPor = lead.atualizadoPor;
@@ -119,6 +123,8 @@ export class LeadService {
           name: data.name || '',
           estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
           telefone: data.telefone,
+          telefoneDdi: typeof data.telefoneDdi === 'string' ? data.telefoneDdi : undefined,
+          telefonePais: typeof data.telefonePais === 'string' ? data.telefonePais : undefined,
           createdAt: data.createdAt?.toDate(),
           lastSignInTime: data.lastSignInTime,
           emailVerified: data.emailVerified,
@@ -155,6 +161,8 @@ export class LeadService {
         name: data.name || '',
         estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
         telefone: data.telefone,
+        telefoneDdi: typeof data.telefoneDdi === 'string' ? data.telefoneDdi : undefined,
+        telefonePais: typeof data.telefonePais === 'string' ? data.telefonePais : undefined,
         createdAt: data.createdAt?.toDate(),
         lastSignInTime: data.lastSignInTime,
         emailVerified: data.emailVerified,
@@ -193,6 +201,8 @@ export class LeadService {
           name: data.name || '',
           estrelas: typeof data.estrelas === 'number' ? data.estrelas : 0,
           telefone: data.telefone,
+          telefoneDdi: typeof data.telefoneDdi === 'string' ? data.telefoneDdi : undefined,
+          telefonePais: typeof data.telefonePais === 'string' ? data.telefonePais : undefined,
           createdAt: data.createdAt?.toDate(),
           lastSignInTime: data.lastSignInTime,
           emailVerified: data.emailVerified,

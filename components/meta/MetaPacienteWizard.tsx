@@ -19,30 +19,39 @@ import MetaPacienteWizardStepMedico, {
   isMetaPacienteWizardMedicoStep,
   isMetaPacienteWizardTerminalStep,
 } from '@/components/meta/MetaPacienteWizardStepMedico';
+import MetaPacienteConsultaBookingPanel, {
+  type MedicoConsultaBookingPhase,
+} from '@/components/meta/MetaPacienteConsultaBookingPanel';
+import DiagnosticoCondicoesPicker from '@/components/meta/DiagnosticoCondicoesPicker';
+import ComorbidadesChecklist from '@/components/meta/ComorbidadesChecklist';
+import CirurgiasChecklist from '@/components/meta/CirurgiasChecklist';
+import MedicamentosDiabetesPicker from '@/components/meta/MedicamentosDiabetesPicker';
+import { textoMedicamentosDiabetes } from '@/lib/meta/metaChatInicial/medicamentosDiabetes';
+import { comRespostaTriagemHumor, respostaDepressao, respostaIdeacao, TRIAGEM_SIM_NAO } from '@/lib/meta/metaChatInicial/triagemHumor';
 import PerfilMetabolicoV3ChatUI from '@/components/meta/PerfilMetabolicoV3ChatUI';
 import {
   applyExpectativaFromMetas,
-  countPerfilMetabolicoV3WizardSteps,
   getPerfilMetabolicoBotText,
   isPerfilMetabolicoChatStep,
   STEP_PERFIL_METABOLICO_BARREIRAS,
 } from '@/lib/meta/perfilMetabolicoV3Chat';
 import {
-  COMORBIDADES_OPTIONS,
-  DIAGNOSTICO_LABELS,
-  DIAGNOSTICO_TIPOS,
   filterRiskQuestionsForSexo,
   formatCpf,
-  formatTelefone,
   getFirstUnansweredRiskIndex,
-  getNextStepAfter,
-  getPreviousStep,
+  getNextMetaPacienteWizardStep,
+  getPreviousMetaPacienteWizardStep,
   getStepTitleAndHint,
   MESES,
   META_CHAT_INTRO_SANDBOX_SESSION_KEY,
   META_CHAT_INTRO_SESSION_KEY,
+  META_CHAT_STEP_CIRURGIAS,
   META_CHAT_STEP_COMORBIDADES,
+  META_CHAT_STEP_DEPRESSAO,
+  META_CHAT_STEP_IDEACAO_SUICIDA,
   META_CHAT_STEP_INTRO,
+  META_CHAT_STEP_LOCALIZACAO,
+  META_CHAT_STEP_MEDICAMENTOS_DIABETES,
   META_CHAT_STEP_METAS,
   META_CHAT_STEP_MEDICO_UF,
   META_CHAT_STEP_MEDICO_LISTA,
@@ -66,11 +75,77 @@ import {
   TEXTO_PESQUISA_MEDICO,
   TEXTO_CHAT_PERFIL_COMPLETO_SEM_BUSCA,
   isMetaChatInicialCompleto,
+  getMetaChatWizardProgressIndex,
   type MetaChatMedicoUiState,
 } from '@/lib/meta/metaChatInicial';
 import PublicPageTopLogo from '@/components/public/PublicPageTopLogo';
+import RulerPicker from '@/components/meta/RulerPicker';
+import { PatientLocationFields } from '@/components/localizacao/PatientLocationFields';
+import { aplicarLocalizacaoResidencial } from '@/lib/meta/metaChatInicial/localizacaoResidencial';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import { persistedPhoneForIdentificacao } from '@/lib/phone/internationalPhoneValue';
 import type { MedicoWhiteLabelResolved } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import { ensureImcOnPaciente } from '@/lib/meta/medidasIniciaisImc';
+import { listAnosNascimentoDesc } from '@/utils/dataNascimentoLocal';
+
+const BIRTH_YEARS = listAnosNascimentoDesc();
+
+const PESO_PADRAO_KG = 70;
+const ALTURA_PADRAO_CM = 160;
+const CINTURA_PADRAO_CM = 80;
+
+function formatMedidaPt(value: number, digits: number): string {
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function MedidaComRegua({
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit,
+  digits,
+  ariaLabel,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  digits: number;
+  ariaLabel: string;
+  onChange: (value: number) => void;
+  children?: React.ReactNode;
+}) {
+  const shown = digits === 0 ? String(Math.round(value)) : formatMedidaPt(value, digits);
+  return (
+    <div className="space-y-3">
+      <FieldLabel>{label}</FieldLabel>
+      <p className="text-xs text-slate-500">Arraste a régua ou digite o valor</p>
+      <p className="text-center leading-none">
+        <span className="text-4xl font-bold tabular-nums tracking-tight text-emerald-600">{shown}</span>
+        <span className="ml-1 text-base font-semibold text-emerald-700">{unit}</span>
+      </p>
+      <RulerPicker
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        unit={unit}
+        ariaLabel={ariaLabel}
+        onChange={onChange}
+      />
+      {children}
+    </div>
+  );
+}
 
 /** Wizard: fluxo completo até solicitação médico (18) ou perfil completo (17). */
 export function getMetaPacienteWizardMaxStep(p: PacienteCompleto): number {
@@ -83,39 +158,19 @@ function normalizeWizardStep(raw: number): number {
   return raw;
 }
 
-function getWizardProgressIndex(step: number, p: PacienteCompleto): { current: number; total: number } {
-  const v3Count = countPerfilMetabolicoV3WizardSteps(p);
-  const total = 15 + v3Count + 1;
-
-  const normalizedStep = normalizeWizardStep(step);
-  let current = normalizedStep;
-  if (normalizedStep <= 14) {
-    current = normalizedStep;
-  } else if (isPerfilMetabolicoChatStep(normalizedStep)) {
-    current = 15 + (normalizedStep - 19);
-  } else if (normalizedStep === META_CHAT_STEP_MEDICO_UF) {
-    current = 15 + v3Count;
-  } else if (
-    normalizedStep === META_CHAT_STEP_PERFIL_COMPLETO ||
-    normalizedStep === META_CHAT_STEP_SOLICITACAO_ENVIADA
-  ) {
-    current = total - 1;
-  }
-
-  return { current: Math.min(Math.max(current, 0), total - 1), total };
-}
-
-const BIRTH_YEARS = Array.from({ length: new Date().getFullYear() - 1970 + 1 }, (_, i) => new Date().getFullYear() - i);
-
 function clampWizardStep(raw: number, p: PacienteCompleto): number {
   const normalized = normalizeWizardStep(raw);
   const max = getMetaPacienteWizardMaxStep(p);
+  if (normalized === META_CHAT_STEP_LOCALIZACAO) return normalized;
+  if (normalized === META_CHAT_STEP_CIRURGIAS) return normalized;
+  if (normalized === META_CHAT_STEP_MEDICAMENTOS_DIABETES) return normalized;
+  if (normalized === META_CHAT_STEP_DEPRESSAO) return normalized;
+  if (normalized === META_CHAT_STEP_IDEACAO_SUICIDA) return normalized;
   if (isPerfilMetabolicoChatStep(normalized)) return normalized;
   if (normalized >= 15 && normalized <= 18) return normalized;
   return Math.min(Math.max(normalized, META_CHAT_STEP_INTRO), max);
 }
 
-type DiagnosticoTipo = NonNullable<PacienteCompleto['dadosClinicos']['diagnosticoPrincipal']>['tipo'];
 type HistoriaTireoide = NonNullable<PacienteCompleto['dadosClinicos']['historiaTireoidiana']>;
 type Riscos = NonNullable<PacienteCompleto['dadosClinicos']['riscos']>;
 
@@ -201,6 +256,7 @@ export default function MetaPacienteWizard({
   const [circInputStr, setCircInputStr] = useState('');
   const [error, setError] = useState('');
   const [medicoUi, setMedicoUi] = useState<MetaChatMedicoUiState>({});
+  const [bookingPhase, setBookingPhase] = useState<MedicoConsultaBookingPhase>('off');
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatCompletoMarcadoRef = useRef(false);
 
@@ -209,12 +265,35 @@ export default function MetaPacienteWizard({
       ? { medicoNome: solicitacaoMedicoPendente.medicoNome }
       : null;
 
+  const bookingMedicoId = (
+    paciente.medicoResponsavelId ||
+    paciente.medicoRecomendadoId ||
+    solicitacaoMedicoPendente?.medicoId ||
+    ''
+  ).trim();
+
+  const canShowPublicBooking =
+    !embedded &&
+    !sandboxBanner &&
+    Boolean(paciente.id && bookingMedicoId) &&
+    (devePularSelecaoMedicoNoChat(paciente) || Boolean(solicitacaoMedicoPendente));
+
+  const showBookingPanel =
+    step === META_CHAT_STEP_PERFIL_COMPLETO &&
+    canShowPublicBooking &&
+    bookingPhase !== 'off';
+
   /** Link do médico ou solicitação já criada: não exibir busca por UF/cidade. */
   useEffect(() => {
     if (step !== META_CHAT_STEP_MEDICO_UF && step !== META_CHAT_STEP_MEDICO_LISTA) return;
     if (!devePularSelecaoMedicoNoChat(paciente) && !aguardandoAceiteMedico) return;
     setStep(META_CHAT_STEP_PERFIL_COMPLETO);
   }, [step, paciente, aguardandoAceiteMedico]);
+
+  useEffect(() => {
+    if (step !== META_CHAT_STEP_PERFIL_COMPLETO || !canShowPublicBooking) return;
+    setBookingPhase((prev) => (prev === 'off' ? 'loading' : prev));
+  }, [canShowPublicBooking, step]);
 
   useEffect(() => {
     if (step !== META_CHAT_STEP_PERFIL_COMPLETO) return;
@@ -241,9 +320,33 @@ export default function MetaPacienteWizard({
   }, [resumeAfterLoadTick, introSessionKey]);
 
   useEffect(() => {
-    if (step === 6) setAlturaInputStr('');
-    if (step === 7) setCircInputStr('');
-  }, [step]);
+    if (step === 5) {
+      const peso = pacienteRef.current.dadosClinicos?.medidasIniciais?.peso;
+      if (peso && peso > 0) return;
+      setPacienteSynced((p) => ({
+        ...p,
+        dadosClinicos: {
+          ...p.dadosClinicos,
+          medidasIniciais: patchMedidasIniciais(p.dadosClinicos?.medidasIniciais, { peso: PESO_PADRAO_KG }),
+        },
+      }));
+      return;
+    }
+    if (step === 6) {
+      const saved = pacienteRef.current.dadosClinicos?.medidasIniciais?.altura;
+      setAlturaInputStr(saved && saved > 0 ? String(Math.round(saved)) : String(ALTURA_PADRAO_CM));
+      return;
+    }
+    if (step === 7) {
+      const mi = pacienteRef.current.dadosClinicos?.medidasIniciais;
+      if (mi?.circunferenciaNaoInformada) {
+        setCircInputStr('');
+        return;
+      }
+      const saved = mi?.circunferenciaAbdominal;
+      setCircInputStr(saved && saved > 0 ? String(Math.round(saved)) : String(CINTURA_PADRAO_CM));
+    }
+  }, [step, setPacienteSynced]);
 
   useEffect(() => {
     if (step === META_CHAT_STEP_RISCOS) {
@@ -251,7 +354,7 @@ export default function MetaPacienteWizard({
     }
   }, [step, paciente.dadosIdentificacao?.sexoBiologico]);
 
-  const { current: progressCurrent, total: progressTotal } = getWizardProgressIndex(step, paciente);
+  const { current: progressCurrent, total: progressTotal } = getMetaChatWizardProgressIndex(step, paciente);
   const progress = ((progressCurrent + 1) / progressTotal) * 100;
   const stepLabel = `${progressCurrent + 1} de ${progressTotal}`;
 
@@ -268,13 +371,27 @@ export default function MetaPacienteWizard({
         : step === META_CHAT_STEP_SOLICITACAO_ENVIADA
           ? { title: 'Solicitação enviada', hint: undefined }
           : step === META_CHAT_STEP_PERFIL_COMPLETO
-            ? aguardandoAceiteMedico
+            ? showBookingPanel
+              ? bookingPhase === 'done'
+                ? { title: 'Consulta agendada', hint: undefined }
+                : bookingPhase === 'review'
+                  ? {
+                      title: 'Revise seu agendamento',
+                      hint: 'Confira seus dados e o horário antes de concluir.',
+                    }
+                  : {
+                      title: 'Agende sua consulta',
+                      hint: 'Toque no dia disponível no calendário e escolha um horário com o seu médico.',
+                    }
+              : aguardandoAceiteMedico
               ? { title: 'Aguardando aceite do médico', hint: undefined }
               : splitStepText(TEXTO_CHAT_PERFIL_COMPLETO_SEM_BUSCA)
             : step === META_CHAT_STEP_MEDICO_UF
               ? aguardandoAceiteMedico || devePularSelecaoMedicoNoChat(paciente)
                 ? null
                 : splitStepText(TEXTO_PESQUISA_MEDICO)
+              : step === META_CHAT_STEP_MEDICAMENTOS_DIABETES
+                ? splitStepText(textoMedicamentosDiabetes(paciente))
               : step > META_CHAT_STEP_INTRO
                 ? getStepTitleAndHint(step)
                 : null;
@@ -285,7 +402,14 @@ export default function MetaPacienteWizard({
     !isTerminalStep &&
     step !== META_CHAT_STEP_MEDICO_UF &&
     step !== META_CHAT_STEP_MEDICO_LISTA &&
-    (step === META_CHAT_STEP_INTRO || step <= META_CHAT_STEP_METAS || isV3Step);
+    (step === META_CHAT_STEP_INTRO ||
+      step === META_CHAT_STEP_LOCALIZACAO ||
+      step === META_CHAT_STEP_CIRURGIAS ||
+      step === META_CHAT_STEP_MEDICAMENTOS_DIABETES ||
+      step === META_CHAT_STEP_DEPRESSAO ||
+      step === META_CHAT_STEP_IDEACAO_SUICIDA ||
+      step <= META_CHAT_STEP_METAS ||
+      isV3Step);
 
   const persist = useCallback(
     async (payload: PacienteCompleto) => {
@@ -399,7 +523,7 @@ export default function MetaPacienteWizard({
       }
     }
 
-    const nextStep = getNextStepAfter(step, payload);
+    const nextStep = getNextMetaPacienteWizardStep(step, payload);
     setStep(clampWizardStep(nextStep, payload));
     if (nextStep === META_CHAT_STEP_RISCOS) {
       setRiskQuestionIndex(getFirstUnansweredRiskIndex(payload));
@@ -413,7 +537,7 @@ export default function MetaPacienteWizard({
       return;
     }
 
-    const prev = getPreviousStep(step, pacienteRef.current, riskQuestionIndex);
+    const prev = getPreviousMetaPacienteWizardStep(step, pacienteRef.current, riskQuestionIndex);
     if (prev == null) return;
 
     setStep(clampWizardStep(prev, pacienteRef.current));
@@ -467,24 +591,49 @@ export default function MetaPacienteWizard({
     if (step === 1) {
       return (
         <FieldGrid>
-          <div>
-            <FieldLabel>Telefone</FieldLabel>
-            <input
-              type="tel"
-              inputMode="numeric"
-              className={inputClassName}
-              value={paciente.dadosIdentificacao?.telefone || ''}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/\D/g, '').slice(0, 11);
+          <div className="min-w-0">
+            <FieldLabel htmlFor="meta-anamnese-telefone">Telefone</FieldLabel>
+            <InternationalPhoneInput
+              id="meta-anamnese-telefone"
+              value={{
+                telefone: paciente.dadosIdentificacao?.telefone,
+                telefoneDdi: paciente.dadosIdentificacao?.telefoneDdi,
+                telefonePais: paciente.dadosIdentificacao?.telefonePais,
+              }}
+              onChange={(next) => {
+                const phone = persistedPhoneForIdentificacao(next);
                 setPacienteSynced((p) => ({
                   ...p,
-                  dadosIdentificacao: { ...p.dadosIdentificacao, telefone: formatTelefone(raw) || undefined },
+                  dadosIdentificacao: {
+                    ...p.dadosIdentificacao,
+                    ...phone,
+                  },
                 }));
                 setError('');
               }}
-              placeholder="(11) 99999-9999"
             />
           </div>
+        </FieldGrid>
+      );
+    }
+
+    if (step === META_CHAT_STEP_LOCALIZACAO) {
+      const endereco = paciente.dadosIdentificacao?.endereco;
+      return (
+        <FieldGrid>
+          <PatientLocationFields
+            id="meta-anamnese-localizacao"
+            required
+            value={{
+              estado: endereco?.estado,
+              cidade: endereco?.cidade,
+              codigoIbge: endereco?.codigoIbge,
+            }}
+            onChange={(next) => {
+              setPacienteSynced((p) => aplicarLocalizacaoResidencial(p, next));
+              setError('');
+            }}
+          />
         </FieldGrid>
       );
     }
@@ -647,63 +796,113 @@ export default function MetaPacienteWizard({
     }
 
     if (step === 5) {
+      const pesoSalvo = paciente.dadosClinicos?.medidasIniciais?.peso;
+      const pesoRegua = pesoSalvo && pesoSalvo > 0 ? pesoSalvo : PESO_PADRAO_KG;
+      const gravarPeso = (kg: number) => {
+        const peso = Math.round(kg * 10) / 10;
+        setPacienteSynced((p) => ({
+          ...p,
+          dadosClinicos: {
+            ...p.dadosClinicos,
+            medidasIniciais: patchMedidasIniciais(p.dadosClinicos?.medidasIniciais, { peso }),
+          },
+        }));
+        setError('');
+      };
       return (
-        <FieldGrid>
-          <div>
-            <FieldLabel>Peso (kg)</FieldLabel>
-            <input
-              type="number"
-              min={20}
-              max={400}
-              step={0.1}
-              className={inputClassName}
-              value={paciente.dadosClinicos?.medidasIniciais?.peso ?? ''}
-              onChange={(e) => {
-                const v = e.target.value ? parseFloat(e.target.value) : undefined;
-                setPacienteSynced((p) => ({
-                  ...p,
-                  dadosClinicos: {
-                    ...p.dadosClinicos,
-                    medidasIniciais: patchMedidasIniciais(p.dadosClinicos?.medidasIniciais, {
-                      peso: v ?? 0,
-                    }),
-                  },
-                }));
-                setError('');
-              }}
-              placeholder="Ex: 85,5"
-            />
-          </div>
-        </FieldGrid>
+        <MedidaComRegua
+          label="Peso (kg)"
+          value={pesoRegua}
+          min={20}
+          max={400}
+          step={0.1}
+          unit="kg"
+          digits={1}
+          ariaLabel={`Peso atual: ${formatMedidaPt(pesoRegua, 1)} quilogramas`}
+          onChange={gravarPeso}
+        >
+          <input
+            type="number"
+            min={20}
+            max={400}
+            step={0.1}
+            className={inputClassName}
+            value={pesoSalvo && pesoSalvo > 0 ? pesoSalvo : PESO_PADRAO_KG}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (v > 0) gravarPeso(v);
+            }}
+            placeholder="Ex: 85,5"
+          />
+        </MedidaComRegua>
       );
     }
 
     if (step === 6) {
+      const alturaCm = parseAlturaToCm(alturaInputStr);
+      const alturaRegua = alturaCm && alturaCm > 0 ? alturaCm : ALTURA_PADRAO_CM;
       return (
-        <FieldGrid>
-          <div>
-            <FieldLabel>Altura</FieldLabel>
-            <input
-              type="text"
-              inputMode="decimal"
-              className={inputClassName}
-              value={alturaInputStr}
-              onChange={(e) => {
-                setAlturaInputStr(e.target.value);
-                setError('');
-              }}
-              placeholder="170 ou 1,70 m"
-            />
-          </div>
-        </FieldGrid>
+        <MedidaComRegua
+          label="Altura"
+          value={alturaRegua}
+          min={130}
+          max={210}
+          step={1}
+          unit="cm"
+          digits={0}
+          ariaLabel={`Altura: ${Math.round(alturaRegua)} centímetros`}
+          onChange={(cm) => {
+            setAlturaInputStr(String(Math.round(cm)));
+            setError('');
+          }}
+        >
+          <input
+            type="text"
+            inputMode="decimal"
+            className={inputClassName}
+            value={alturaInputStr}
+            onChange={(e) => {
+              setAlturaInputStr(e.target.value);
+              setError('');
+            }}
+            placeholder="170 ou 1,70 m"
+          />
+        </MedidaComRegua>
       );
     }
 
     if (step === 7) {
+      const naoSei = !!paciente.dadosClinicos?.medidasIniciais?.circunferenciaNaoInformada;
+      const circCm = parseCircToCm(circInputStr);
+      const circRegua = circCm && circCm > 0 ? circCm : CINTURA_PADRAO_CM;
+      const gravarCirc = (cm: number) => {
+        const circunferenciaAbdominal = Math.round(cm);
+        setCircInputStr(String(circunferenciaAbdominal));
+        setPacienteSynced((p) => ({
+          ...p,
+          dadosClinicos: {
+            ...p.dadosClinicos,
+            medidasIniciais: patchMedidasIniciais(p.dadosClinicos?.medidasIniciais, {
+              circunferenciaAbdominal,
+              circunferenciaNaoInformada: false,
+            }),
+          },
+        }));
+        setError('');
+      };
       return (
-        <FieldGrid>
-          <div>
-            <FieldLabel>Circunferência abdominal (cm)</FieldLabel>
+        <div className="space-y-4">
+          <MedidaComRegua
+            label="Circunferência abdominal (cm)"
+            value={circRegua}
+            min={50}
+            max={170}
+            step={1}
+            unit="cm"
+            digits={0}
+            ariaLabel={`Circunferência abdominal: ${Math.round(circRegua)} centímetros`}
+            onChange={gravarCirc}
+          >
             <input
               type="text"
               inputMode="decimal"
@@ -712,19 +911,35 @@ export default function MetaPacienteWizard({
               onChange={(e) => {
                 setCircInputStr(e.target.value);
                 setError('');
+                const cm = parseCircToCm(e.target.value);
+                if (!cm || cm <= 0) return;
+                setPacienteSynced((p) => ({
+                  ...p,
+                  dadosClinicos: {
+                    ...p.dadosClinicos,
+                    medidasIniciais: patchMedidasIniciais(p.dadosClinicos?.medidasIniciais, {
+                      circunferenciaAbdominal: Math.round(cm),
+                      circunferenciaNaoInformada: false,
+                    }),
+                  },
+                }));
               }}
               placeholder="102 ou 1,02 m"
             />
-          </div>
+          </MedidaComRegua>
           <button
             type="button"
             onClick={() => void handleCircNaoSei()}
             disabled={saving}
-            className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50"
+            className={`w-full px-4 py-3.5 rounded-xl border text-sm font-medium ${
+              naoSei
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
           >
             Não sei
           </button>
-        </FieldGrid>
+        </div>
       );
     }
 
@@ -773,110 +988,21 @@ export default function MetaPacienteWizard({
     }
 
     if (step === 9) {
-      const dc = paciente.dadosClinicos as unknown as { diagnosticoPrincipalTipos?: string[] };
-      const selected = (dc.diagnosticoPrincipalTipos ||
-        (paciente.dadosClinicos?.diagnosticoPrincipal?.tipo
-          ? [paciente.dadosClinicos.diagnosticoPrincipal.tipo]
-          : [])) as string[];
-
-      const toggle = (value: string) => {
-        setPacienteSynced((p) => {
-          const dc2 = p.dadosClinicos as unknown as { diagnosticoPrincipalTipos?: string[] };
-          const arr = (dc2.diagnosticoPrincipalTipos ||
-            (p.dadosClinicos?.diagnosticoPrincipal?.tipo ? [p.dadosClinicos.diagnosticoPrincipal.tipo] : [])) as string[];
-          const next = arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
-          return {
-            ...p,
-            dadosClinicos: {
-              ...p.dadosClinicos,
-              diagnosticoPrincipal: {
-                tipo: ((next[0] as DiagnosticoTipo) || 'outro') as DiagnosticoTipo,
-                outro: p.dadosClinicos?.diagnosticoPrincipal?.outro,
-              },
-              diagnosticoPrincipalTipos: next,
-            } as unknown as PacienteCompleto['dadosClinicos'],
-          };
-        });
-      };
-
       return (
-        <div className="space-y-3">
-          <div className="space-y-2.5">
-            {DIAGNOSTICO_TIPOS.map((value) => (
-              <ChoiceButton key={value} selected={selected.includes(value)} onClick={() => toggle(value)}>
-                {DIAGNOSTICO_LABELS[value]}
-              </ChoiceButton>
-            ))}
-          </div>
-          {selected.includes('outro') && (
-            <input
-              type="text"
-              className={inputClassName}
-              value={paciente.dadosClinicos?.diagnosticoPrincipal?.outro || ''}
-              onChange={(e) =>
-                setPacienteSynced((p) => ({
-                  ...p,
-                  dadosClinicos: {
-                    ...p.dadosClinicos,
-                    diagnosticoPrincipal: { tipo: 'outro', outro: e.target.value },
-                  },
-                }))
-              }
-              placeholder="Especificar outro"
-            />
-          )}
-        </div>
+        <DiagnosticoCondicoesPicker paciente={paciente} setPaciente={setPacienteSynced} />
       );
     }
 
+    if (step === META_CHAT_STEP_MEDICAMENTOS_DIABETES) {
+      return <MedicamentosDiabetesPicker paciente={paciente} setPaciente={setPacienteSynced} />;
+    }
+
     if (step === META_CHAT_STEP_COMORBIDADES) {
-      const c = (paciente.dadosClinicos?.comorbidades || {}) as Record<string, unknown>;
-      return (
-        <div className="space-y-3">
-          <div className="space-y-2.5">
-            {COMORBIDADES_OPTIONS.map(({ key, label }) => (
-              <ChoiceButton
-                key={key}
-                selected={!!c[key]}
-                onClick={() =>
-                  setPacienteSynced((p) => {
-                    const cur = (p.dadosClinicos?.comorbidades || {}) as Record<string, unknown>;
-                    return {
-                      ...p,
-                      dadosClinicos: {
-                        ...p.dadosClinicos,
-                        comorbidades: { ...cur, [key]: !Boolean(cur[key]) },
-                      },
-                    };
-                  })
-                }
-              >
-                {label}
-              </ChoiceButton>
-            ))}
-          </div>
-          {Boolean(c.outra) && (
-            <input
-              type="text"
-              className={inputClassName}
-              value={String(c.outraDescricao || '')}
-              onChange={(e) =>
-                setPacienteSynced((p) => {
-                  const cur = (p.dadosClinicos?.comorbidades || {}) as Record<string, unknown>;
-                  return {
-                    ...p,
-                    dadosClinicos: {
-                      ...p.dadosClinicos,
-                      comorbidades: { ...cur, outraDescricao: e.target.value },
-                    },
-                  };
-                })
-              }
-              placeholder="Qual?"
-            />
-          )}
-        </div>
-      );
+      return <ComorbidadesChecklist paciente={paciente} setPaciente={setPacienteSynced} />;
+    }
+
+    if (step === META_CHAT_STEP_CIRURGIAS) {
+      return <CirurgiasChecklist paciente={paciente} setPaciente={setPacienteSynced} />;
     }
 
     if (step === META_CHAT_STEP_RISCOS && currentRisk) {
@@ -976,6 +1102,28 @@ export default function MetaPacienteWizard({
       );
     }
 
+    if (step === META_CHAT_STEP_DEPRESSAO || step === META_CHAT_STEP_IDEACAO_SUICIDA) {
+      const campo =
+        step === META_CHAT_STEP_DEPRESSAO ? 'depressaoOuAnedonia30Dias' : 'ideacaoSuicida12Meses';
+      const selected =
+        step === META_CHAT_STEP_DEPRESSAO
+          ? respostaDepressao(paciente.dadosClinicos)
+          : respostaIdeacao(paciente.dadosClinicos);
+      return (
+        <div className="space-y-2.5">
+          {TRIAGEM_SIM_NAO.map(({ value, label }) => (
+            <ChoiceButton
+              key={value}
+              selected={selected === value}
+              onClick={() => setPacienteSynced((p) => comRespostaTriagemHumor(p, campo, value))}
+            >
+              {label}
+            </ChoiceButton>
+          ))}
+        </div>
+      );
+    }
+
     if (step === META_CHAT_STEP_METAS) {
       return <MetaPacienteWizardStepMetas paciente={paciente} setPaciente={setPacienteSynced} />;
     }
@@ -992,6 +1140,15 @@ export default function MetaPacienteWizard({
     }
 
     if (isMetaPacienteWizardMedicoStep(step)) {
+      if (showBookingPanel && paciente.id && bookingMedicoId) {
+        return (
+          <MetaPacienteConsultaBookingPanel
+            pacienteId={paciente.id}
+            medicoId={bookingMedicoId}
+            onPhaseChange={setBookingPhase}
+          />
+        );
+      }
       return (
         <MetaPacienteWizardStepMedico
           step={step}
@@ -1063,7 +1220,7 @@ export default function MetaPacienteWizard({
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 min-h-0 flex flex-col px-4 py-5 overflow-y-auto">
+      <div ref={scrollRef} className="meta-wizard-scroll flex-1 min-h-0 flex flex-col px-4 py-5 overflow-y-auto bg-white">
         <AnimatePresence mode="wait">
           <motion.div
             key={step === META_CHAT_STEP_RISCOS ? `risk-${riskQuestionIndex}` : step}
@@ -1082,7 +1239,9 @@ export default function MetaPacienteWizard({
                 <label className="block text-lg sm:text-xl font-semibold text-slate-900 mb-2 leading-snug">
                   {stepTexts.title}
                 </label>
-                {stepTexts.hint ? <StepHint>{stepTexts.hint}</StepHint> : null}
+                {stepTexts.hint && step !== META_CHAT_STEP_METAS ? (
+                  <StepHint>{stepTexts.hint}</StepHint>
+                ) : null}
               </>
             ) : null}
 
@@ -1133,9 +1292,15 @@ export default function MetaPacienteWizard({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+              className={
+                showBookingPanel && (bookingPhase === 'agenda' || bookingPhase === 'review')
+                  ? 'flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium text-sm hover:bg-slate-50'
+                  : 'flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700'
+              }
             >
-              Fechar
+              {showBookingPanel && (bookingPhase === 'agenda' || bookingPhase === 'review')
+                ? 'Agendar depois'
+                : 'Fechar'}
             </button>
           )}
         </div>

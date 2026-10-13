@@ -1,4 +1,5 @@
 import type { MedicoWhiteLabelStored } from '@/types/medico';
+import { isMetodoBrandAsset } from '@/lib/whiteLabel/metodoBrandAssets';
 
 export const DEFAULT_DR_PAGE_BACKGROUND = '#0A1F44';
 /** Fundo padrão original das páginas de aplicação e conclusão (Tailwind gray-50). */
@@ -135,11 +136,20 @@ export function resolvePublicPageLogoSrc(theme: PublicPageThemeResolved | null |
   return publicPageCustomLogoUrl(theme);
 }
 
-/** Prévia no admin quando ainda não há logo enviada. */
+/**
+ * Prévia no admin quando ainda não há logo enviada.
+ * Sem `organizationId` ou com `metodo`, mantém o logotipo do Método. Outra organização não recebe imagem padrão.
+ */
 export function resolvePublicPageLogoPreviewSrc(
-  theme: PublicPageThemeResolved | null | undefined
-): string {
-  return publicPageCustomLogoUrl(theme) || DEFAULT_PUBLIC_PAGE_LOGO_SRC;
+  theme: PublicPageThemeResolved | null | undefined,
+  options?: { organizationId?: string | null }
+): string | null {
+  const custom = publicPageCustomLogoUrl(theme);
+  const organizationId = options?.organizationId?.trim();
+  if (organizationId && organizationId !== 'metodo') {
+    return custom && !isMetodoBrandAsset(custom) ? custom : null;
+  }
+  return custom || DEFAULT_PUBLIC_PAGE_LOGO_SRC;
 }
 
 export const PUBLIC_PAGE_DEFAULT_BACKGROUNDS: Record<PublicPageKind, string> = {

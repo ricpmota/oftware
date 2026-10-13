@@ -1,3 +1,5 @@
+import { buildWhatsappUrl } from '@/lib/phone/buildWhatsappUrl';
+import { formatInternationalPhoneDisplay } from '@/lib/phone/internationalPhoneValue';
 import { normalizeMedicoInstagramUsuario } from '@/utils/instagramUsuario';
 
 export function normalizeLeadWhiteLabelWhatsApp(input: string): string {
@@ -31,10 +33,34 @@ export function formatLeadWhiteLabelWhatsAppDisplay(digits: string): string {
   return `+${d.slice(0, 2)} (${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7, 11)}`;
 }
 
-export function getLeadWhiteLabelWhatsAppUrl(whatsapp: string): string | null {
-  const digits = normalizeLeadWhiteLabelWhatsApp(whatsapp);
-  if (!digits) return null;
-  return `https://wa.me/${digits}`;
+/**
+ * Máscara BR de display para cadastro/legado sem DDI estruturado.
+ * Lead com `whatsappDdi` deve usar `formatLeadWhiteLabelContactDisplay`.
+ */
+export function formatLeadWhiteLabelContactDisplay(lead: {
+  whatsapp?: string | null;
+  whatsappDdi?: string | null;
+  whatsappPais?: string | null;
+}): string {
+  const whatsapp = lead.whatsapp || '';
+  if (lead.whatsappDdi) {
+    return formatInternationalPhoneDisplay({
+      telefone: whatsapp,
+      telefoneDdi: lead.whatsappDdi,
+      telefonePais: lead.whatsappPais,
+    });
+  }
+  return formatLeadWhiteLabelWhatsAppDisplay(whatsapp);
+}
+
+export function getLeadWhiteLabelWhatsAppUrl(
+  whatsapp: string,
+  whatsappDdi?: string | null,
+): string | null {
+  return buildWhatsappUrl({
+    telefone: whatsapp,
+    telefoneDdi: whatsappDdi || undefined,
+  });
 }
 
 export function getLeadWhiteLabelInstagramUrl(instagram: string): string | null {

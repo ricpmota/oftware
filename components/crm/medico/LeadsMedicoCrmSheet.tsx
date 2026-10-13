@@ -45,6 +45,7 @@ type Props = {
   onCreateReminder?: () => void;
   stageConfigs?: ResolvedCrmPipelineStage[];
   onStageChange?: (leadId: string, stageKey: string) => Promise<void>;
+  organizationPublicName?: string | null;
 };
 
 function formatDate(d?: Date | null): string {
@@ -74,6 +75,7 @@ export default function LeadsMedicoCrmSheet({
   onCreateReminder,
   stageConfigs = [],
   onStageChange,
+  organizationPublicName,
 }: Props) {
   const t = useMedicoLeadsCrmTheme();
   const [saving, setSaving] = useState(false);
@@ -300,6 +302,7 @@ export default function LeadsMedicoCrmSheet({
             summary={paciente360Summary}
             lead={lead}
             paciente={paciente}
+            organizationPublicName={organizationPublicName}
             onOpenProntuario={
               pacienteId && onOpenProntuario ? () => onOpenProntuario(pacienteId) : undefined
             }

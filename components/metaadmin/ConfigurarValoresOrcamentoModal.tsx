@@ -149,7 +149,7 @@ export default function ConfigurarValoresOrcamentoModal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex flex-col overflow-hidden md:items-center md:justify-center md:bg-black/55 md:backdrop-blur-sm md:p-4"
+      className="fixed inset-0 z-[90] flex flex-col overflow-hidden md:items-center md:justify-center md:bg-black/55 md:backdrop-blur-sm md:p-4"
       onClick={salvando ? undefined : onClose}
       role="presentation"
     >

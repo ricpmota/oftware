@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import {
+  auditEmailEnviosQuery,
+  beginEmailEnviosAuditScope,
+  endEmailEnviosAuditScope,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 // Função para obter Firestore Admin
 function getAdminFirestore() {
@@ -39,15 +45,37 @@ function getAdminFirestore() {
 }
 
 export async function GET(request: NextRequest) {
+  const auditScopeId = beginEmailEnviosAuditScope({
+    siteId: EMAIL_ENVIOS_AUDIT_SITES.API_EMAIL_ENVIOS.id,
+    surface: 'api',
+  });
+
   try {
     const db = getAdminFirestore();
     const enviosCollection = db.collection('email_envios');
     
     // Buscar envios mais recentes (caixa de saída = log da aplicação; envios via ZeptoMail SMTP)
+    auditEmailEnviosQuery({
+      scopeId: auditScopeId,
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.API_EMAIL_ENVIOS.id,
+      surface: 'api',
+      queryPattern: 'orderBy_enviadoEm_desc_limit',
+      limit: 250,
+    });
+
     const enviosSnapshot = await enviosCollection
       .orderBy('enviadoEm', 'desc')
       .limit(250)
       .get();
+
+    auditEmailEnviosQuery({
+      scopeId: auditScopeId,
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.API_EMAIL_ENVIOS.id,
+      surface: 'api',
+      queryPattern: 'orderBy_enviadoEm_desc_limit',
+      docsReturned: enviosSnapshot.size,
+      limit: 250,
+    });
     
     const envios = enviosSnapshot.docs.map(doc => {
       const data = doc.data();
@@ -77,6 +105,7 @@ export async function GET(request: NextRequest) {
       };
     });
     
+    endEmailEnviosAuditScope(auditScopeId, { count: envios.length });
     return NextResponse.json({
       envios,
       count: envios.length,
@@ -84,6 +113,7 @@ export async function GET(request: NextRequest) {
       provedorPadraoEnvios: 'ZeptoMail',
     });
   } catch (error) {
+    endEmailEnviosAuditScope(auditScopeId, { error: true });
     console.error('Erro ao buscar envios:', error);
     return NextResponse.json(
       { error: 'Erro ao buscar envios', details: (error as Error).message },

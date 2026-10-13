@@ -6,11 +6,11 @@ import { Menu, X } from 'lucide-react';
 
 const NAV_LINKS = [
   { label: 'Início', id: 'inicio' },
-  { label: 'Ecossistema', id: 'ecossistema' },
-  { label: 'White Label', id: 'white-label' },
-  { label: 'Multidisciplinar', id: 'multidisciplinar' },
-  { label: 'Para Médicos', id: 'medicos' },
-  { label: 'Programas clínicos', id: 'programas' },
+  { label: 'Soluções', id: 'demonstracao' },
+  { label: 'Para profissionais', id: 'medicos' },
+  { label: 'Marca própria', id: 'white-label' },
+  { label: 'Como funciona', id: 'multidisciplinar' },
+  { label: 'Programas', id: 'programas' },
   { label: 'Clientes', id: 'clientes' },
   { label: 'Demonstração', id: 'demonstracao' },
 ] as const;
@@ -42,7 +42,7 @@ export default function OftwareHomeHeader({ onCtaClick }: OftwareHomeHeaderProps
           <nav className="hidden xl:flex items-center justify-center flex-1 gap-1" aria-label="Navegação principal">
             {NAV_LINKS.map(({ label, id }) => (
               <button
-                key={id}
+                key={`${label}-${id}`}
                 type="button"
                 onClick={() => handleNav(id)}
                 className="px-3 py-2 text-sm font-medium text-white hover:text-[#22C55E] transition-colors rounded-lg"
@@ -58,7 +58,7 @@ export default function OftwareHomeHeader({ onCtaClick }: OftwareHomeHeaderProps
               onClick={onCtaClick}
               className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold text-white bg-[#22C55E] hover:bg-[#16A34A] transition-colors"
             >
-              Quero minha plataforma
+              Quero criar minha estrutura
             </button>
             <button
               type="button"
@@ -78,7 +78,7 @@ export default function OftwareHomeHeader({ onCtaClick }: OftwareHomeHeaderProps
           <nav className="flex flex-col px-4 py-4 gap-1" aria-label="Navegação mobile">
             {NAV_LINKS.map(({ label, id }) => (
               <button
-                key={id}
+                key={`mobile-${label}-${id}`}
                 type="button"
                 onClick={() => handleNav(id)}
                 className="text-left px-4 py-3 text-sm font-medium text-white hover:text-[#22C55E] hover:bg-white/5 rounded-lg transition-colors"
@@ -94,7 +94,7 @@ export default function OftwareHomeHeader({ onCtaClick }: OftwareHomeHeaderProps
               }}
               className="mt-2 mx-4 py-3 rounded-full text-sm font-semibold text-white bg-[#22C55E] hover:bg-[#16A34A] transition-colors"
             >
-              Quero minha plataforma
+              Quero criar minha estrutura
             </button>
           </nav>
         </div>

@@ -9,9 +9,14 @@ import type { InstagramDepoimentoItem } from '@/components/instagram/instagramDe
 type Props = {
   depoimento: InstagramDepoimentoItem | null;
   onClose: () => void;
+  hidePatientName?: boolean;
 };
 
-export default function InstagramDepoimentoResultadoSheet({ depoimento, onClose }: Props) {
+export default function InstagramDepoimentoResultadoSheet({
+  depoimento,
+  onClose,
+  hidePatientName = false,
+}: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -79,10 +84,12 @@ export default function InstagramDepoimentoResultadoSheet({ depoimento, onClose 
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-                <p className="mb-4 text-sm text-slate-300/90">
-                  {d.nome}
-                  {metaLinha ? ` · ${metaLinha}` : ''}
-                </p>
+                {hidePatientName || d.nome || metaLinha ? (
+                  <p className="mb-4 text-sm text-slate-300/90">
+                    {hidePatientName ? 'Paciente' : d.nome}
+                    {metaLinha ? ` · ${metaLinha}` : ''}
+                  </p>
+                ) : null}
 
                 <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
                   <MetricCard label="Peso inicial" value={formatKg(d.pesoInicialKg)} />

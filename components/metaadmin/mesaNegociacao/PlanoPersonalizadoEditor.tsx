@@ -7,18 +7,21 @@ import type { ParametrosPlanoPersonalizadoEditavel } from '@/lib/treatment-negot
 type Props = {
   parametros: ParametrosPlanoPersonalizadoEditavel;
   configuracaoComercial: OrcamentoTerapeuticoConfig;
+  medicoId?: string;
   onChange: (parametros: ParametrosPlanoPersonalizadoEditavel) => void;
 };
 
 export default function PlanoPersonalizadoEditor({
   parametros,
   configuracaoComercial,
+  medicoId,
   onChange,
 }: Props) {
   return (
     <PlanoPersonalizadoEditorCompleto
       parametros={parametros}
       configuracaoComercial={configuracaoComercial}
+      medicoId={medicoId}
       onChange={onChange}
     />
   );

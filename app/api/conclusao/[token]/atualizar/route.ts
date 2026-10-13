@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import crypto from 'crypto';
 import {
   deveArquivarConclusao,
   mergeHistoricoConclusaoNoPlano,
   snapshotConclusaoParaHistorico,
 } from '@/utils/conclusaoTratamentoHistorico';
 import { calcularDeltaAcumuladoMedida } from '@/lib/aplicacao/formatarVariacaoMedida';
-import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
-import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import { ensureRelatorioPacientePublicLink } from '@/lib/relatorio/ensureRelatorioPacientePublicLink';
+import {
+  isValidPublicLinkToken,
+  normalizePublicLinkToken,
+} from '@/lib/publicLinks/publicLinkToken';
+import { semanaIndexConclusao } from '@/utils/datasAplicacaoSemanaPlano';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -59,8 +62,8 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizePublicLinkToken((await params).token);
+    if (!isValidPublicLinkToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 
@@ -152,8 +155,15 @@ export async function POST(
     const planoTerapeuticoRaw = paciente.planoTerapeutico || {};
     const anterior = planoTerapeuticoRaw.conclusaoTratamento as Record<string, unknown> | undefined;
     let planoBase: Record<string, unknown> = { ...planoTerapeuticoRaw };
+    const historicoProto = Array.isArray(planoTerapeuticoRaw.historicoProtocolosTirzepatida)
+      ? planoTerapeuticoRaw.historicoProtocolosTirzepatida
+      : [];
+    const protocoloIndiceAtivo = historicoProto.length + 1;
+    const anteriorIndice = Number(anterior?.protocoloIndice);
+    const mesmoCicloAtivo =
+      !Number.isFinite(anteriorIndice) || anteriorIndice === protocoloIndiceAtivo;
 
-    if (anterior && deveArquivarConclusao(anterior)) {
+    if (anterior && deveArquivarConclusao(anterior) && !mesmoCicloAtivo) {
       let estrelasArq: number | null = null;
       if (medicoId) {
         const classSnap = await db.collection('classificacao_profissionais').doc(docIdClassificacao(pacienteId, medicoId)).get();
@@ -171,6 +181,7 @@ export async function POST(
       dataConclusao,
       pesoFinalKg: pesoFinalResolved,
       updatedAt: new Date(),
+      protocoloIndice: protocoloIndiceAtivo,
       ...(circunferenciaFinalResolved != null && !isNaN(circunferenciaFinalResolved)
         ? { circunferenciaAbdominalFinalCm: circunferenciaFinalResolved }
         : {}),
@@ -197,18 +208,22 @@ export async function POST(
       conclusaoTratamento,
     };
 
-    const numeroSemanas = Number(paciente.planoTerapeutico?.numeroSemanasTratamento) || 18;
+    const semanaConclusao = semanaIndexConclusao(paciente.planoTerapeutico || {});
     const evolucao = (paciente.evolucaoSeguimento || []).slice();
 
     const ehConclusao = (r: Record<string, unknown>) =>
       (typeof r.id === 'string' && r.id.startsWith('seguimento-conclusao-')) ||
       (typeof r.comentarioMedico === 'string' && r.comentarioMedico.toLowerCase().includes('conclusão'));
 
-    const idxConclusao = evolucao.findIndex((r: Record<string, unknown>) => ehConclusao(r as any));
+    const idxConclusao = evolucao.findIndex(
+      (r: Record<string, unknown>) =>
+        ehConclusao(r as any) &&
+        ((r.weekIndex as number) ?? (r.numeroSemana as number) ?? 0) === semanaConclusao
+    );
     const seguimentoConclusao = {
       id: `seguimento-conclusao-${Date.now()}`,
-      weekIndex: numeroSemanas + 1,
-      numeroSemana: numeroSemanas + 1,
+      weekIndex: semanaConclusao,
+      numeroSemana: semanaConclusao,
       dataRegistro: dataConclusao,
       peso: pesoFinalResolved,
       ...(circunferenciaFinalResolved != null && !isNaN(circunferenciaFinalResolved) ? { circunferenciaAbdominal: circunferenciaFinalResolved } : {}),
@@ -266,20 +281,7 @@ export async function POST(
     }
 
     // Obter ou criar link do relatório (mesmo enviado por e-mail na Conclusão do Tratamento)
-    let linkRelatorio: string | null = null;
-    const relatorioSnap = await db.collection('relatorio_paciente_links').where('pacienteId', '==', pacienteId).limit(1).get();
-    let relatorioToken: string;
-    if (!relatorioSnap.empty) {
-      relatorioToken = relatorioSnap.docs[0].id;
-    } else {
-      relatorioToken = crypto.randomBytes(32).toString('hex');
-      await db.collection('relatorio_paciente_links').doc(relatorioToken).set({
-        pacienteId,
-        createdAt: new Date(),
-        ...shadowOrganizationFields(),
-      });
-    }
-    linkRelatorio = buildOrganizacaoPublicUrl(`/relatorio/${relatorioToken}`);
+    const { url: linkRelatorio } = await ensureRelatorioPacientePublicLink(db, pacienteId);
 
     let medicoNome: string | undefined;
     let medicoGenero: 'M' | 'F' = 'M';

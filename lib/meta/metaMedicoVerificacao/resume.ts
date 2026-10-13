@@ -1,4 +1,5 @@
 import type { Medico } from '@/types/medico';
+import { isValidIdentificacaoPhone } from '@/lib/phone/internationalPhoneValue';
 import { META_MEDICO_CHAT_INTRO_SESSION_KEY, META_MEDICO_STEP_COMPLETO } from './constants';
 import { isIntroMedicoSessionDone } from './helpers';
 
@@ -9,8 +10,11 @@ export function getFirstIncompleteMedicoStep(
   if (!m) return 0;
   if (!isIntroMedicoSessionDone(introSessionKey)) return 0;
   if (!(m.nome || '').trim()) return 1;
-  const tel = (m.telefone || '').replace(/\D/g, '');
-  if (tel.length < 10) return 2;
+  if (!isValidIdentificacaoPhone({
+    telefone: m.telefone,
+    telefoneDdi: m.telefoneDdi,
+    telefonePais: m.telefonePais,
+  })) return 2;
   if (m.genero !== 'M' && m.genero !== 'F') return 3;
   const cpf = (m.cpfPessoal || '').replace(/\D/g, '');
   if (cpf.length !== 11) return 4;

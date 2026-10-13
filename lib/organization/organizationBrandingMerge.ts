@@ -157,5 +157,13 @@ export function resolveOrganizationBrandingFromSources(input: {
   }
   if (input.firestoreBranding) layers.push(input.firestoreBranding);
 
-  return mergeOrganizationBrandingLayers(layers);
+  return mergeOrganizationBrandingLayers(
+    layers,
+    isMetodo
+      ? undefined
+      : {
+          primaryColorFallback: base.primaryColor,
+          secondaryColorFallback: base.secondaryColor,
+        },
+  );
 }

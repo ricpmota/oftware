@@ -271,7 +271,8 @@ export async function createContratoEasySignPatientLink(args: {
 
     const envelope = await createBryEasySignEnvelope(
       {
-        name: `Contrato de Tratamento - ${nomePaciente}`,
+        // BRy name/clientName: máx. 50 chars (sanitize no client)
+        name: `Contrato - ${nomePaciente}`,
         clientName: medicoNome,
         pdfBuffer,
         signer: {

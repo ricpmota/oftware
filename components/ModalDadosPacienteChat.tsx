@@ -16,7 +16,25 @@ import { META_STEP_CM, META_STEP_KG, roundMetaHalfStep } from '@/utils/metaadmin
 import {
   ensureImcOnPaciente,
 } from '@/lib/meta/medidasIniciaisImc';
+import { listAnosNascimentoDesc } from '@/utils/dataNascimentoLocal';
+import { PatientLocationFields } from '@/components/localizacao/PatientLocationFields';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import { aplicarLocalizacaoResidencial } from '@/lib/meta/metaChatInicial/localizacaoResidencial';
+import {
+  formatInternationalPhoneDisplay,
+  isValidIdentificacaoPhone,
+  persistedPhoneForIdentificacao,
+} from '@/lib/phone/internationalPhoneValue';
 import PerfilMetabolicoV3ChatUI from '@/components/meta/PerfilMetabolicoV3ChatUI';
+import DiagnosticoCondicoesPicker from '@/components/meta/DiagnosticoCondicoesPicker';
+import ComorbidadesChecklist from '@/components/meta/ComorbidadesChecklist';
+import CirurgiasChecklist from '@/components/meta/CirurgiasChecklist';
+import MedicamentosDiabetesPicker from '@/components/meta/MedicamentosDiabetesPicker';
+import { rotulosMedicamentosDiabetes } from '@/lib/meta/metaChatInicial/medicamentosDiabetes';
+import { rotulosComorbidades } from '@/lib/meta/metaChatInicial/comorbidades';
+import { rotulosCirurgias } from '@/lib/meta/metaChatInicial/cirurgias';
+import { comRespostaTriagemHumor, TRIAGEM_SIM_NAO } from '@/lib/meta/metaChatInicial/triagemHumor';
+import { lerDiagnosticoTipos } from '@/lib/meta/metaChatInicial/diagnosticoCondicoes';
 import {
   deveExibirPerfilMetabolicoV3,
   deveRedirecionarParaPerfilMetabolicoV3,
@@ -29,19 +47,24 @@ import {
 } from '@/lib/meta/perfilMetabolicoV3Chat';
 import {
   CHAT_BOT_TEXTS,
-  COMORBIDADES_OPTIONS,
   DIAGNOSTICO_LABELS,
-  DIAGNOSTICO_TIPOS,
   ESTADOS_BR,
   formatCpf,
-  formatTelefone,
   getFirstIncompleteStep,
   getFirstUnansweredRiskIndex,
   getInitialBotTextForStep,
+  getNextMetaPacienteWizardStep,
+  validateMetaChatStep,
   getMedicoChatDisplayName,
   medicoElegivelListaPaciente,
   META_CHAT_INTRO_SANDBOX_SESSION_KEY,
   META_CHAT_INTRO_SESSION_KEY,
+  META_CHAT_STEP_CIRURGIAS,
+  META_CHAT_STEP_DEPRESSAO,
+  META_CHAT_STEP_IDEACAO_SUICIDA,
+  META_CHAT_STEP_LOCALIZACAO,
+  META_CHAT_STEP_MEDICAMENTOS_DIABETES,
+  META_CHAT_STEP_TELEFONE,
   MESES,
   MOTIVACAO_OPTIONS,
   parseAlturaToCm,
@@ -101,13 +124,14 @@ function MedicoChatListAvatar({ medico }: { medico: Medico }) {
   );
 }
 
-type DiagnosticoTipo = NonNullable<PacienteCompleto['dadosClinicos']['diagnosticoPrincipal']>['tipo'];
 type Riscos = NonNullable<PacienteCompleto['dadosClinicos']['riscos']>;
 type HistoriaTireoide = NonNullable<PacienteCompleto['dadosClinicos']['historiaTireoidiana']>;
 type SolicitacaoResumo = {
   medicoNome: string;
   status: 'pendente_confirmacao';
 };
+
+const BIRTH_YEARS = listAnosNascimentoDesc();
 
 export default function ModalDadosPacienteChat({
   paciente,
@@ -151,6 +175,7 @@ export default function ModalDadosPacienteChat({
   const initialStep = resolveInitialChatStep(paciente, introSessionKey);
   const [messages, setMessages] = useState<Array<{ type: 'bot' | 'user'; text: string }>>([]);
   const [step, setStep] = useState(initialStep);
+  const [localizacaoPreviewErro, setLocalizacaoPreviewErro] = useState('');
   const [riskQuestionIndex, setRiskQuestionIndex] = useState(() =>
     initialStep === 11 ? getFirstUnansweredRiskIndex(paciente) : 0
   );
@@ -447,16 +472,14 @@ export default function ModalDadosPacienteChat({
       return;
     }
 
-    const nextStep = currentStep + 1;
-    if (nextStep <= 14) {
-      setNextBotText(CHAT_BOT_TEXTS[nextStep - 1]);
+    const nextStep = getNextMetaPacienteWizardStep(currentStep, payload);
+    const bot = getInitialBotTextForStep(nextStep, payload);
+    if (bot) {
+      setNextBotText(bot);
       setShowTyping(true);
     }
-    setStep((s) => {
-      const next = s + 1;
-      if (next === 11) setShowOptionsAfterQuestion(false);
-      return next;
-    });
+    if (nextStep === 11) setShowOptionsAfterQuestion(false);
+    setStep(nextStep);
   };
 
   const handleClose = () => {
@@ -621,7 +644,7 @@ export default function ModalDadosPacienteChat({
         )}
 
         {/* Opções só depois que a pergunta apareceu (e após um pequeno delay). Card sem fundo branco em gênero, diagnóstico, comorbidades, riscos, tireoide, sintomas, metas. */}
-        {((step >= 2 && step < 15) || isPerfilMetabolicoChatStep(step)) &&
+        {((step >= 2 && step < 15) || step === META_CHAT_STEP_LOCALIZACAO || step === META_CHAT_STEP_CIRURGIAS || step === META_CHAT_STEP_MEDICAMENTOS_DIABETES || step === META_CHAT_STEP_DEPRESSAO || step === META_CHAT_STEP_IDEACAO_SUICIDA || isPerfilMetabolicoChatStep(step)) &&
           !(step === 5 || step === 6) &&
           !showTyping &&
           showOptionsAfterQuestion &&
@@ -632,6 +655,58 @@ export default function ModalDadosPacienteChat({
                 step === 14 ? 'w-full max-w-full' : 'max-w-[95%]'
               } ${[2, 4].includes(step) ? 'border border-white/10 bg-white/5 shadow-sm' : 'border-0 bg-transparent shadow-none'}`}
             >
+              {step === META_CHAT_STEP_LOCALIZACAO && (
+                <div className="dark w-full max-w-md">
+                  <PatientLocationFields
+                    id="chat-preview-localizacao"
+                    required
+                    value={{
+                      estado: paciente.dadosIdentificacao?.endereco?.estado,
+                      cidade: paciente.dadosIdentificacao?.endereco?.cidade,
+                      codigoIbge: paciente.dadosIdentificacao?.endereco?.codigoIbge,
+                    }}
+                    onChange={(next) => {
+                      setLocalizacaoPreviewErro('');
+                      setPaciente((p) => aplicarLocalizacaoResidencial(p, next));
+                    }}
+                  />
+                  {localizacaoPreviewErro ? (
+                    <p className="mt-2 text-sm text-red-300">{localizacaoPreviewErro}</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="mt-3 w-full rounded-xl bg-[#4CCB7A] py-2.5 text-sm font-semibold text-[#0A1F44] hover:bg-[#45b86d]"
+                    onClick={async () => {
+                      const atual = pacienteRef.current;
+                      const erro = validateMetaChatStep(META_CHAT_STEP_LOCALIZACAO, atual);
+                      if (erro) {
+                        setLocalizacaoPreviewErro(erro);
+                        return;
+                      }
+                      if (!beginReplyPersist()) return;
+                      const resposta = [atual.dadosIdentificacao?.endereco?.cidade, atual.dadosIdentificacao?.endereco?.estado]
+                        .filter(Boolean)
+                        .join(' — ');
+                      setMessages((m) => [...m, { type: 'user', text: resposta }]);
+                      try {
+                        await onSave(false, atual);
+                      } catch {
+                        removeOptimisticReply(resposta);
+                        setShowOptionsAfterQuestion(true);
+                        return;
+                      } finally {
+                        endReplyPersist();
+                      }
+                      const next = getNextMetaPacienteWizardStep(META_CHAT_STEP_LOCALIZACAO, atual);
+                      setStep(next);
+                      setNextBotText(getInitialBotTextForStep(next));
+                      setShowTyping(true);
+                    }}
+                  >
+                    Continuar
+                  </button>
+                </div>
+              )}
               {step === 2 && (() => {
                 const d = paciente.dadosIdentificacao?.dataNascimento ? new Date(paciente.dadosIdentificacao.dataNascimento) : null;
                 const day = d ? d.getDate() : '';
@@ -694,7 +769,7 @@ export default function ModalDadosPacienteChat({
                       className="min-w-[80px] rounded-lg border border-white/20 bg-[#0d2a5a]/80 px-2 py-2 text-sm text-[#E8EDED]"
                     >
                       <option value="">Ano</option>
-                      {Array.from({ length: 120 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      {BIRTH_YEARS.map((y) => (
                         <option key={y} value={y}>{y}</option>
                       ))}
                     </select>
@@ -848,60 +923,22 @@ export default function ModalDadosPacienteChat({
                 );
               })()}
               {step === 9 && (() => {
-                const tipos = ['dm1', 'dm2', 'pre_diabetes', 'sobrepeso_comorbidade', 'sop_ri', 'ehna_sem_dm2', 'obesidade', 'resistencia_insulinica', 'outro'];
-                const dc = paciente.dadosClinicos as unknown as { diagnosticoPrincipalTipos?: string[] };
-                const selected = (dc.diagnosticoPrincipalTipos || (paciente.dadosClinicos?.diagnosticoPrincipal?.tipo ? [paciente.dadosClinicos.diagnosticoPrincipal.tipo] : [])) as string[];
-                const toggle = (value: string) => {
-                  setPaciente((p) => {
-                    const dc2 = p.dadosClinicos as unknown as { diagnosticoPrincipalTipos?: string[] };
-                    const arr = (dc2.diagnosticoPrincipalTipos || (p.dadosClinicos?.diagnosticoPrincipal?.tipo ? [p.dadosClinicos.diagnosticoPrincipal.tipo] : [])) as string[];
-                    const next = arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
-                    return {
-                      ...p,
-                      dadosClinicos: {
-                        ...p.dadosClinicos,
-                        diagnosticoPrincipal: {
-                          tipo: ((next[0] as DiagnosticoTipo) || 'outro') as DiagnosticoTipo,
-                          outro: p.dadosClinicos?.diagnosticoPrincipal?.outro,
-                        },
-                        diagnosticoPrincipalTipos: next,
-                      } as unknown as PacienteCompleto['dadosClinicos'],
-                    };
-                  });
-                };
                 return (
                   <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {tipos.map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => toggle(value)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            selected.includes(value) ? 'bg-[#4CCB7A] text-[#0A1F44] font-semibold' : 'border border-white/10 bg-white/10 text-[#E8EDED]/90 hover:bg-white/15'
-                          }`}
-                        >
-                          {DIAGNOSTICO_LABELS[value]}
-                        </button>
-                      ))}
-                    </div>
-                    {selected.includes('outro') && (
-                      <div className="flex flex-wrap gap-2 items-center mt-2">
-                        <input
-                          type="text"
-                          value={paciente.dadosClinicos?.diagnosticoPrincipal?.outro || ''}
-                          onChange={(e) => setPaciente((p) => ({ ...p, dadosClinicos: { ...p.dadosClinicos, diagnosticoPrincipal: { tipo: 'outro', outro: e.target.value } } }))}
-                          placeholder="Especificar outro"
-                          className="min-w-[120px] flex-1 rounded-lg border border-white/20 bg-[#0d2a5a]/80 px-3 py-2 text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    )}
+                    <DiagnosticoCondicoesPicker
+                      paciente={paciente}
+                      setPaciente={setPaciente}
+                      tone="dark"
+                    />
                     <button
                       type="button"
                       onClick={() => {
-                        const arr = (paciente.dadosClinicos as unknown as { diagnosticoPrincipalTipos?: string[] }).diagnosticoPrincipalTipos;
-                        const labels = (arr?.length ? arr : paciente.dadosClinicos?.diagnosticoPrincipal?.tipo ? [paciente.dadosClinicos.diagnosticoPrincipal!.tipo] : []).map((t) => DIAGNOSTICO_LABELS[t] || t);
+                        const tipos = lerDiagnosticoTipos(paciente.dadosClinicos);
+                        const labels = tipos.map((t) =>
+                          t === 'outro' && paciente.dadosClinicos?.diagnosticoPrincipal?.outro?.trim()
+                            ? paciente.dadosClinicos.diagnosticoPrincipal.outro.trim()
+                            : DIAGNOSTICO_LABELS[t] || t
+                        );
                         pushReplyAndNext(labels.length ? labels.join(', ') : '—');
                       }}
                       className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#4CCB7A] text-[#0A1F44] font-semibold text-sm font-medium hover:bg-[#45b86d]"
@@ -911,76 +948,32 @@ export default function ModalDadosPacienteChat({
                   </div>
                 );
               })()}
-              {step === 10 && (
+              {step === META_CHAT_STEP_MEDICAMENTOS_DIABETES && (
                 <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: 'hipertensaoArterial', label: 'Pressão alta (hipertensão)' },
-                      { key: 'dislipidemia', label: 'Colesterol ou triglicerídeos altos' },
-                      { key: 'apneiaObstrutivaSono', label: 'Apneia do sono' },
-                      { key: 'esteatoseEHNA', label: 'Gordura no fígado / esteatose' },
-                      { key: 'doencaCardiovascular', label: 'Doença cardiovascular' },
-                      { key: 'doencaRenalCronica', label: 'Doença renal crônica' },
-                      { key: 'sop', label: 'Ovário policístico (SOP)' },
-                      { key: 'hipotireoidismo', label: 'Hipotireoidismo' },
-                      { key: 'asmaDPOC', label: 'Asma / DPOC' },
-                      { key: 'transtornoAnsiedadeDepressao', label: 'Ansiedade / depressão' },
-                      { key: 'nenhuma', label: 'Nenhuma' },
-                      { key: 'outra', label: 'Outra' },
-                    ].map(({ key, label }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() =>
-                          setPaciente((p) => {
-                            const cur = (p.dadosClinicos?.comorbidades || {}) as Record<string, unknown>;
-                            const nextVal = !Boolean(cur[key]);
-                            return {
-                              ...p,
-                              dadosClinicos: { ...p.dadosClinicos, comorbidades: { ...cur, [key]: nextVal } },
-                            };
-                          })
-                        }
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          ((paciente.dadosClinicos?.comorbidades || {}) as Record<string, unknown>)[key] ? 'bg-[#4CCB7A] text-[#0A1F44] font-semibold' : 'border border-white/10 bg-white/10 text-[#E8EDED]/90 hover:bg-white/15'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {Boolean(((paciente.dadosClinicos?.comorbidades || {}) as Record<string, unknown>).outra) && (
-                    <input
-                      type="text"
-                      value={String((((paciente.dadosClinicos?.comorbidades || {}) as Record<string, unknown>).outraDescricao as string) || '')}
-                      onChange={(e) =>
-                        setPaciente((p) => {
-                          const cur = (p.dadosClinicos?.comorbidades || {}) as Record<string, unknown>;
-                          return { ...p, dadosClinicos: { ...p.dadosClinicos, comorbidades: { ...cur, outraDescricao: e.target.value } } };
-                        })
-                      }
-                      placeholder="Qual?"
-                      className="mt-2 w-full rounded-lg border border-white/20 bg-[#0d2a5a]/80 px-3 py-2 text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40"
-                    />
-                  )}
+                  <MedicamentosDiabetesPicker paciente={paciente} setPaciente={setPaciente} tone="dark" />
                   <button
                     type="button"
                     onClick={() => {
-                      const c = paciente.dadosClinicos?.comorbidades as Record<string, unknown> | undefined;
-                      const labels = [
-                        c?.hipertensaoArterial && 'Pressão alta',
-                        c?.dislipidemia && 'Dislipidemia',
-                        c?.apneiaObstrutivaSono && 'Apneia do sono',
-                        c?.esteatoseEHNA && 'Esteatose',
-                        c?.doencaCardiovascular && 'Doença cardiovascular',
-                        c?.doencaRenalCronica && 'DRC',
-                        c?.sop && 'SOP',
-                        c?.hipotireoidismo && 'Hipotireoidismo',
-                        c?.asmaDPOC && 'Asma/DPOC',
-                        c?.transtornoAnsiedadeDepressao && 'Ansiedade/depressão',
-                        c?.nenhuma && 'Nenhuma',
-                        c?.outra && (c?.outraDescricao ? String(c.outraDescricao) : 'Outra'),
-                      ].filter(Boolean) as string[];
+                      const labels = rotulosMedicamentosDiabetes(
+                        paciente.dadosClinicos?.medicamentosDiabetes as Record<string, unknown> | undefined
+                      );
+                      pushReplyAndNext(labels.length ? labels.join(', ') : '—');
+                    }}
+                    className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#4CCB7A] text-[#0A1F44] font-semibold text-sm font-medium hover:bg-[#45b86d]"
+                  >
+                    <Send size={14} /> Enviar
+                  </button>
+                </div>
+              )}
+              {step === 10 && (
+                <div className="space-y-3">
+                  <ComorbidadesChecklist paciente={paciente} setPaciente={setPaciente} tone="dark" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const labels = rotulosComorbidades(
+                        paciente.dadosClinicos?.comorbidades as Record<string, unknown> | undefined
+                      );
                       const next: PacienteCompleto = {
                         ...paciente,
                         dadosClinicos: {
@@ -990,6 +983,23 @@ export default function ModalDadosPacienteChat({
                       };
                       setPaciente(next);
                       pushReplyAndNext(labels.length ? labels.join(', ') : '—', next);
+                    }}
+                    className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#4CCB7A] text-[#0A1F44] font-semibold text-sm font-medium hover:bg-[#45b86d]"
+                  >
+                    <Send size={14} /> Enviar
+                  </button>
+                </div>
+              )}
+              {step === META_CHAT_STEP_CIRURGIAS && (
+                <div className="space-y-3">
+                  <CirurgiasChecklist paciente={paciente} setPaciente={setPaciente} tone="dark" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const labels = rotulosCirurgias(
+                        paciente.dadosClinicos?.cirurgiasRealizadas as Record<string, unknown> | undefined
+                      );
+                      pushReplyAndNext(labels.length ? labels.join(', ') : '—');
                     }}
                     className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#4CCB7A] text-[#0A1F44] font-semibold text-sm font-medium hover:bg-[#45b86d]"
                   >
@@ -1147,6 +1157,28 @@ export default function ModalDadosPacienteChat({
                   </div>
                 );
               })()}
+              {(step === META_CHAT_STEP_DEPRESSAO || step === META_CHAT_STEP_IDEACAO_SUICIDA) && (
+                <div className="flex flex-wrap gap-2">
+                  {TRIAGEM_SIM_NAO.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        const campo =
+                          step === META_CHAT_STEP_DEPRESSAO
+                            ? 'depressaoOuAnedonia30Dias'
+                            : 'ideacaoSuicida12Meses';
+                        const next = comRespostaTriagemHumor(pacienteRef.current, campo, value);
+                        setPaciente(next);
+                        void pushReplyAndNext(label, next);
+                      }}
+                      className="px-3 py-2 rounded-lg text-sm font-medium border border-white/10 bg-white/10 text-[#E8EDED]/90 hover:bg-white/15"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {step === 14 && (() => {
                 const p = paciente;
                 const mi = p.dadosClinicos?.medidasIniciais;
@@ -1624,25 +1656,40 @@ export default function ModalDadosPacienteChat({
           )}
 
           {step === 1 && (
-            <div className="flex w-full items-center gap-2 py-1">
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={paciente.dadosIdentificacao?.telefone || ''}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, '').slice(0, 11);
-                  const formatted = formatTelefone(raw);
-                  setPaciente((p) => ({ ...p, dadosIdentificacao: { ...p.dadosIdentificacao, telefone: formatted || undefined } }));
-                }}
-                placeholder="(11) 99999-9999"
-                className="min-w-0 flex-1 rounded-2xl border border-white/20 bg-[#0d2a5a]/80 px-4 py-2.5 text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40"
-              />
+            <div className="flex w-full min-w-0 items-end gap-2 py-1">
+              <div className="min-w-0 flex-1">
+                <label htmlFor="chat-anamnese-telefone" className="sr-only">
+                  Telefone
+                </label>
+                <InternationalPhoneInput
+                  id="chat-anamnese-telefone"
+                  variant="dark"
+                  value={{
+                    telefone: paciente.dadosIdentificacao?.telefone,
+                    telefoneDdi: paciente.dadosIdentificacao?.telefoneDdi,
+                    telefonePais: paciente.dadosIdentificacao?.telefonePais,
+                  }}
+                  onChange={(next) => {
+                    const phone = persistedPhoneForIdentificacao(next);
+                    setPaciente((p) => ({
+                      ...p,
+                      dadosIdentificacao: {
+                        ...p.dadosIdentificacao,
+                        ...phone,
+                      },
+                    }));
+                  }}
+                />
+              </div>
               <button
                 type="button"
                 onClick={async () => {
-                  const tel = (paciente.dadosIdentificacao?.telefone || '').replace(/\D/g, '');
-                  if (tel.length < 10) return;
-                  const replyText = paciente.dadosIdentificacao?.telefone || '';
+                  if (!isValidIdentificacaoPhone(paciente.dadosIdentificacao)) return;
+                  const replyText = formatInternationalPhoneDisplay({
+                    telefone: paciente.dadosIdentificacao?.telefone,
+                    telefoneDdi: paciente.dadosIdentificacao?.telefoneDdi,
+                    telefonePais: paciente.dadosIdentificacao?.telefonePais,
+                  });
                   if (!beginReplyPersist()) return;
                   setMessages((m) => [...m, { type: 'user', text: replyText }]);
                   try {
@@ -1654,12 +1701,13 @@ export default function ModalDadosPacienteChat({
                   } finally {
                     endReplyPersist();
                   }
-                  setStep(2);
-                  setNextBotText(CHAT_BOT_TEXTS[1]);
+                  const next = getNextMetaPacienteWizardStep(META_CHAT_STEP_TELEFONE, paciente);
+                  setStep(next);
+                  setNextBotText(getInitialBotTextForStep(next));
                   setShowTyping(true);
                 }}
-                disabled={((paciente.dadosIdentificacao?.telefone || '').replace(/\D/g, '').length < 10)}
-                className="shrink-0 rounded-full bg-[#4CCB7A] p-2.5 text-[#0A1F44] hover:bg-[#45b86d] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!isValidIdentificacaoPhone(paciente.dadosIdentificacao)}
+                className="mb-0.5 shrink-0 rounded-full bg-[#4CCB7A] p-2.5 text-[#0A1F44] hover:bg-[#45b86d] disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Enviar"
               >
                 <Send size={20} />

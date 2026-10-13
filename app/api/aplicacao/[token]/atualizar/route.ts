@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import type { PacienteCompleto } from '@/types/obesidade';
@@ -12,7 +12,22 @@ import {
 } from '@/lib/aplicacao/calcularScoreCheckInSemanal';
 import { calcularVariacoesSemanaCliente } from '@/lib/aplicacao/checkInSemanalFormUtils';
 import { sincronizarDatasAplicacaoIndividuaisComEvolucao } from '@/utils/esquemaDosesSemana';
+import { semanaIndexFromRegistro } from '@/utils/evolucaoAplicacaoHelpers';
+import { resolverDoseMgAplicacaoPublica } from '@/lib/aplicacao/resolverDoseMgAplicacaoPublica';
+import {
+  ehPrimeiraSemanaDoProtocolo,
+  resolverWeekIndexAplicacaoPublica,
+} from '@/lib/aplicacao/resolverWeekIndexAplicacaoPublica';
 import { normalizeMedicoInstagramUsuario } from '@/utils/instagramUsuario';
+import { onAplicacaoRegistradaMaintainQueue } from '@/services/whatsappRemindersService';
+import { pacienteTemContratoAssinaturaPendenteAdmin } from '@/lib/documentos/contrato-tratamento/pacienteTemContratoAssinaturaPendente.server';
+import { medidasIniciaisSemana1FirestorePatch, pacienteComMedidasIniciaisAtualizadasPelaSemana1 } from '@/lib/aplicacao/pacienteComMedidasIniciaisAtualizadasPelaSemana1';
+import { buildPacienteResultadoPublico } from '@/lib/aplicacao/pacienteResultadoPublico';
+import { scheduleBodyScanGeneration } from '@/lib/bodyscan/tryGenerateBodyScan';
+import {
+  isValidAplicacaoPublicToken,
+  normalizeAplicacaoPublicToken,
+} from '@/lib/aplicacao/aplicacaoPublicToken';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -190,8 +205,8 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizeAplicacaoPublicToken((await params).token);
+    if (!isValidAplicacaoPublicToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 
@@ -214,7 +229,7 @@ export async function POST(
     }
 
     const linkData = linkRef.data() as { pacienteId: string; data: string; semana: number; dose: number };
-    const { pacienteId, data, semana, dose } = linkData;
+    const { pacienteId, data, semana } = linkData;
     if (!pacienteId) {
       return NextResponse.json({ error: 'Dados do link inválidos' }, { status: 400 });
     }
@@ -226,18 +241,22 @@ export async function POST(
 
     const paciente = { id: pacienteSnap.id, ...pacienteSnap.data() } as PacienteCompleto;
     const evolucao = (paciente.evolucaoSeguimento || []).slice();
-
     const preenchidoEm = new Date();
     const dataAplicacaoPlanejada = parseDataChaveLocal(data);
 
-    const weekIndex =
-      semana != null && Number.isFinite(semana) && semana >= 1
-        ? semana
-        : evolucao.length > 0
-          ? Math.max(...evolucao.map((e: any) => e.weekIndex ?? e.numeroSemana ?? 0)) + 1
-          : 1;
+    const weekIndex = resolverWeekIndexAplicacaoPublica({
+      paciente,
+      semanaLink: semana,
+      dataLink: data,
+    });
 
-    const ehMarcoZero = weekIndex === 1;
+    const dose = resolverDoseMgAplicacaoPublica({
+      paciente,
+      semana: weekIndex,
+      fallbackDose: linkData.dose,
+    });
+
+    const ehMarcoZero = ehPrimeiraSemanaDoProtocolo(paciente, weekIndex);
     const possuiFotosIniciais = ehMarcoZero
       ? await pacientePossuiFotosIniciais(db, pacienteId)
       : false;
@@ -255,7 +274,7 @@ export async function POST(
     // Atualizar pelo índice da semana do link (sem janela ±N dias)
     const idx = evolucao.findIndex(
       (e: SeguimentoSemanal & { weekIndex?: number; numeroSemana?: number }) =>
-        (e.weekIndex ?? e.numeroSemana) === weekIndex
+        semanaIndexFromRegistro(e) === weekIndex
     );
 
     if (idx >= 0) {
@@ -334,7 +353,7 @@ export async function POST(
 
       const registroIdx = evolucao.findIndex(
         (e: SeguimentoSemanal & { weekIndex?: number; numeroSemana?: number }) =>
-          (e.weekIndex ?? e.numeroSemana) === weekIndex
+          semanaIndexFromRegistro(e) === weekIndex
       );
       if (registroIdx >= 0 && scoreResultado) {
         evolucao[registroIdx] = {
@@ -373,7 +392,7 @@ export async function POST(
       evolucaoSeguimento: evolucaoFirestore,
     };
 
-    if (ehMarcoZero && marcoZero) {
+    if (ehMarcoZero && marcoZero && weekIndex === 1) {
       updatePayload.marcoZero = marcoZero;
     }
 
@@ -385,21 +404,17 @@ export async function POST(
       }
     }
 
-    // Semana 1: medidas da aplicação viram medidas iniciais (baseline = 1ª aplicação → variação inicial 0)
-    const ehSemanaUm = weekIndex === 1;
-    if (ehSemanaUm) {
-      updatePayload['dadosClinicos.medidasIniciais.peso'] = peso;
-      if (circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal)) {
-        updatePayload['dadosClinicos.medidasIniciais.circunferenciaAbdominal'] = circunferenciaAbdominal;
-      }
-      const alturaCm = (paciente.dadosClinicos as any)?.medidasIniciais?.altura;
-      if (typeof alturaCm === 'number' && alturaCm > 0) {
-        const altM = alturaCm / 100;
-        updatePayload['dadosClinicos.medidasIniciais.imc'] = Math.round((peso / (altM * altM)) * 10) / 10;
-      }
-    }
+    // Semana 1 / Marco Zero: peso (e circunferência) da aplicação viram baseline da anamnese
+    Object.assign(
+      updatePayload,
+      medidasIniciaisSemana1FirestorePatch(paciente, weekIndex, peso, circunferenciaAbdominal)
+    );
 
     await db.collection('pacientes_completos').doc(pacienteId).update(updatePayload);
+
+    // Gatilho leve: paciente registrou a aplicação → pula lembretes pendentes
+    // desta semana e reconstrói a fila só deste paciente. Nunca lança (guardado).
+    await onAplicacaoRegistradaMaintainQueue(pacienteId, weekIndex);
 
     const circunfAtualNum =
       circunferenciaAbdominal != null && !isNaN(circunferenciaAbdominal)
@@ -480,6 +495,29 @@ export async function POST(
         }
       }
     }
+
+    responseJson.contratoAssinaturaPendente = await pacienteTemContratoAssinaturaPendenteAdmin(
+      db,
+      pacienteId
+    );
+
+    responseJson.pacienteResultado = buildPacienteResultadoPublico(
+      pacienteComMedidasIniciaisAtualizadasPelaSemana1(
+        { ...paciente, evolucaoSeguimento: evolucao },
+        weekIndex,
+        peso,
+        circunferenciaAbdominal
+      )
+    );
+
+    // BodyScan: só agenda se requisitos mínimos puderem existir (não bloqueia resposta)
+    after(() => {
+      scheduleBodyScanGeneration({
+        patientId: pacienteId,
+        week: weekIndex,
+        date: typeof linkData.data === 'string' ? linkData.data : undefined,
+      });
+    });
 
     return NextResponse.json(responseJson);
   } catch (error) {

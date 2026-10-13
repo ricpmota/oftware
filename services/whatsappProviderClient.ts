@@ -30,6 +30,15 @@
  * - POST `/api/:session/send-message` (envio de teste / automações)
  */
 
+import {
+  applyBrazilMobileNinthDigit,
+  InternationalPhoneError,
+  resolveInternationalPhone,
+  resolvePhoneForWhatsappSend,
+} from '@/lib/whatsapp/resolveInternationalPhone';
+
+export { applyBrazilMobileNinthDigit };
+
 export type WhatsappProviderSessionStatus = 'qr_pending' | 'connected' | 'disconnected' | 'error';
 
 /** Retorno padronizado interno do provider. */
@@ -45,6 +54,8 @@ export interface WhatsappProviderResult {
 
 export interface WhatsappProviderStartResult extends WhatsappProviderResult {
   sessionId: string;
+  /** Sessão já estava em QR/inicialização — nenhum reset/start extra foi feito. */
+  alreadyStarting?: boolean;
 }
 
 export type WhatsappProviderStatusResult = WhatsappProviderResult;
@@ -114,6 +125,87 @@ function providerLog(
   console.info(`[whatsapp.provider] ${event}`, meta);
 }
 
+function newSendTraceId(): string {
+  const uuid =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+  return uuid.replace(/-/g, '').slice(0, 12);
+}
+
+/** Logs de rastreio do envio — nunca podem alterar o fluxo. */
+function sendTestMessageTrace(meta: Record<string, unknown>): void {
+  try {
+    console.info('[whatsapp.provider] sendTestMessage', meta);
+  } catch {
+    /* ignore */
+  }
+}
+
+function compactTraceScalar(value: unknown): string | number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.length > 80 ? `${trimmed.slice(0, 80)}…` : trimmed;
+}
+
+function compactWidShape(value: unknown): unknown {
+  const scalar = compactTraceScalar(value);
+  if (scalar !== undefined) return scalar;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const rec = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of ['_serialized', 'id', 'user', 'server'] as const) {
+    const compact = compactTraceScalar(rec[key]);
+    if (compact !== undefined) out[key] = compact;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Recorte mínimo do pn-lid — sem contact/nome/foto/payload completo. */
+function summarizePnLidShape(payload: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const serialized = compactTraceScalar(payload._serialized);
+  if (serialized !== undefined) out._serialized = serialized;
+  const lid = compactWidShape(payload.lid);
+  if (lid !== undefined) out.lid = lid;
+  const id = compactWidShape(payload.id);
+  if (id !== undefined) out.id = id;
+  const user = compactTraceScalar(payload.user);
+  if (user !== undefined) out.user = user;
+  return out;
+}
+
+function resolvedChatTypeOf(chatId: string): 'lid' | 'c.us' | 'other' {
+  if (/@lid$/i.test(chatId)) return 'lid';
+  if (/@c\.us$/i.test(chatId)) return 'c.us';
+  return 'other';
+}
+
+function peekSendResponseForLog(payload: Record<string, unknown>): {
+  providerStatus?: string;
+  ack?: number;
+  isSendFailure?: boolean;
+  error?: string;
+} {
+  const providerStatus =
+    typeof payload.status === 'string' && payload.status.trim()
+      ? payload.status.trim()
+      : undefined;
+  const response = payload.response;
+  const first = Array.isArray(response) ? asRecord(response[0]) : asRecord(response);
+  const error =
+    pickString(first, ['message', 'error', 'errorMessage']) ||
+    pickString(payload, ['message', 'error', 'errorMessage']);
+  return {
+    providerStatus,
+    ack: typeof first.ack === 'number' ? first.ack : undefined,
+    isSendFailure: first.isSendFailure === true,
+    error,
+  };
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
@@ -161,7 +253,7 @@ function userFacingSendError(serverMessage: string | undefined): string {
   const raw = (serverMessage ?? '').toLowerCase();
 
   if (raw.includes('não existe') || raw.includes('not exist') || raw.includes('invalid wid')) {
-    return 'Número não encontrado no WhatsApp. Use DDI + DDD + número com o 9º dígito (ex.: 5583999999999).';
+    return 'O número informado não está disponível no WhatsApp. Confira o país e o número informado.';
   }
   if (
     raw.includes('msgchunks') ||
@@ -193,23 +285,6 @@ export function phonesLikelyMatch(a: string, b: string): boolean {
   if (da.length >= 8 && db.length >= 8 && da.slice(-8) === db.slice(-8)) return true;
   const tailLen = Math.min(11, da.length, db.length);
   return tailLen >= 8 && da.slice(-tailLen) === db.slice(-tailLen);
-}
-
-/** Insere o 9º dígito em celulares BR quando informado no formato antigo (10 dígitos nacionais). */
-export function applyBrazilMobileNinthDigit(digits: string): string {
-  if (!digits.startsWith('55')) return digits;
-
-  const national = digits.slice(2);
-  if (national.length === 10) {
-    const ddd = national.slice(0, 2);
-    const local = national.slice(2);
-    // Celular BR: local começa com 6–9 (após DDD).
-    if (/^[6-9]/.test(local)) {
-      return `55${ddd}9${local}`;
-    }
-  }
-
-  return digits;
 }
 
 function pickBoolean(obj: Record<string, unknown>, keys: string[]): boolean | undefined {
@@ -330,6 +405,33 @@ const QR_PENDING_STATUS_TOKENS = new Set([
   'success',
   'browser',
 ]);
+
+/**
+ * Estados WPP 2.10.4 (e equivalentes já mapeados neste cliente) em que um
+ * Chromium já está subindo ou esperando pareamento. Não inventar tokens.
+ * status-session devolve client.status: INITIALIZING | QRCODE | PHONECODE | CONNECTED | CLOSED.
+ */
+const SESSION_START_IN_PROGRESS_TOKENS = new Set([
+  'qrcode',
+  'qr',
+  'initializing',
+  'pairing',
+  'opening',
+  'phonecode',
+]);
+
+const startSessionInFlight = new Map<string, Promise<WhatsappProviderStartResult>>();
+
+/** True quando status-session indica start/QR já em andamento nesta sessionId. */
+export function isSessionStartInProgress(input: {
+  status?: WhatsappProviderSessionStatus | string;
+  rawStatus?: string;
+}): boolean {
+  const raw = normalizeStatusToken(input.rawStatus);
+  if (raw && SESSION_START_IN_PROGRESS_TOKENS.has(raw)) return true;
+  const statusToken = normalizeStatusToken(input.status);
+  return Boolean(statusToken) && SESSION_START_IN_PROGRESS_TOKENS.has(statusToken);
+}
 
 const DISCONNECTED_STATUS_TOKENS = new Set([
   'disconnected',
@@ -516,7 +618,12 @@ async function wppRequest(
   path: string,
   accessToken: string,
   init?: RequestInit,
-  options?: { timeoutMs?: number; flatten?: boolean },
+  options?: {
+    timeoutMs?: number;
+    flatten?: boolean;
+    /** Observabilidade apenas — não altera o retorno nem o throw. */
+    onHttp?: (httpStatus: number, ok: boolean) => void;
+  },
 ): Promise<Record<string, unknown>> {
   const { baseUrl } = getWppServerConfig();
   const controller = new AbortController();
@@ -536,6 +643,14 @@ async function wppRequest(
     });
 
     const { json, text } = await readResponseBody(res);
+
+    if (options?.onHttp) {
+      try {
+        options.onHttp(res.status, res.ok);
+      } catch {
+        /* ignore */
+      }
+    }
 
     if (!res.ok) {
       throw mapHttpError(res.status, text, json);
@@ -587,6 +702,26 @@ async function fetchSessionStatusPayload(
     { method: 'GET' },
   );
   return parseProviderPayload(payload);
+}
+
+async function peekWppSessionForStart(
+  sessionId: string,
+  accessToken: string,
+): Promise<{ mapped: WhatsappProviderResult; rawStatus: string } | null> {
+  try {
+    const payload = await wppRequest(
+      sessionId,
+      `/api/${encodeURIComponent(sessionId)}/status-session`,
+      accessToken,
+      { method: 'GET' },
+    );
+    const rawStatus = pickString(payload, ['status', 'state', 'sessionState', 'connectionState']) ?? '';
+    return { mapped: parseProviderPayload(payload), rawStatus };
+  } catch (error) {
+    const mapped = mapFetchError(error);
+    if (mapped.code === 'AUTH_ERROR') throw mapped;
+    return null;
+  }
 }
 
 /** GET /qrcode-session — retorna PNG quando o Chromium já gerou o urlcode. */
@@ -724,18 +859,11 @@ export async function generateWppSessionToken(sessionId: string): Promise<string
   }
 }
 
-export async function startSession(
-  sessionId: string,
-  accessToken: string,
-  options?: { forceFreshQr?: boolean; webhookUrl?: string },
+async function runStartSession(
+  id: string,
+  token: string,
+  options?: { forceFreshQr?: boolean },
 ): Promise<WhatsappProviderStartResult> {
-  const id = sessionId?.trim();
-  if (!id) throw new WhatsappProviderError('sessionId é obrigatório.', 'INVALID_SESSION');
-  const token = accessToken?.trim();
-  if (!token && !isMockMode()) {
-    throw new WhatsappProviderError('accessToken é obrigatório.', 'INVALID_TOKEN');
-  }
-
   if (isMockMode()) {
     providerLog('startSession', { mode: 'mock', sessionId: maskSessionId(id), hasQrCode: true });
     return {
@@ -754,6 +882,47 @@ export async function startSession(
   });
 
   try {
+    const peeked = await peekWppSessionForStart(id, token);
+
+    if (peeked?.mapped.status === 'connected') {
+      let phone = peeked.mapped.phone;
+      let profileName = peeked.mapped.profileName;
+      if (!phone) {
+        const host = await fetchConnectedPhone(id, token);
+        phone = host.phone;
+        profileName = profileName ?? host.profileName;
+      }
+      providerLog('startSession', {
+        sessionId: maskSessionId(id),
+        result: 'already_connected',
+        forceFreshQr,
+        hasPhone: Boolean(phone),
+        phoneMasked: phone ? maskPhone(phone) : undefined,
+      });
+      return { sessionId: id, status: 'connected', phone, profileName };
+    }
+
+    if (
+      peeked &&
+      isSessionStartInProgress({ status: peeked.rawStatus, rawStatus: peeked.rawStatus })
+    ) {
+      const qr = await resolveQrImage(id, token, peeked.mapped);
+      providerLog('startSession', {
+        sessionId: maskSessionId(id),
+        result: 'already_starting',
+        forceFreshQr,
+        rawStatus: peeked.rawStatus || undefined,
+        hasQrCode: Boolean(qr),
+      });
+      return {
+        sessionId: id,
+        status: 'qr_pending',
+        qrCode: qr ?? peeked.mapped.qrCode,
+        urlcode: peeked.mapped.urlcode,
+        alreadyStarting: true,
+      };
+    }
+
     if (forceFreshQr) {
       await resetSessionForFreshQr(id, token);
     }
@@ -765,10 +934,7 @@ export async function startSession(
       token,
       {
         method: 'POST',
-        body: JSON.stringify({
-          waitQrCode: false,
-          ...(options?.webhookUrl ? { webhook: options.webhookUrl } : {}),
-        }),
+        body: JSON.stringify({ waitQrCode: false }),
       },
       { timeoutMs: Math.min(getTimeoutMs(), 12_000) },
     );
@@ -866,33 +1032,28 @@ export async function startSession(
   }
 }
 
-/** Reaplica o webhook na sessão já conectada, sem gerar QR novo. */
-export async function ensureSessionWebhook(
+export async function startSession(
   sessionId: string,
   accessToken: string,
-  webhookUrl: string,
-): Promise<void> {
-  const url = webhookUrl.trim();
-  if (!url) return;
-  await startSession(sessionId, accessToken, { forceFreshQr: false, webhookUrl: url });
-}
+  options?: { forceFreshQr?: boolean },
+): Promise<WhatsappProviderStartResult> {
+  const id = sessionId?.trim();
+  if (!id) throw new WhatsappProviderError('sessionId é obrigatório.', 'INVALID_SESSION');
+  const token = accessToken?.trim();
+  if (!token && !isMockMode()) {
+    throw new WhatsappProviderError('accessToken é obrigatório.', 'INVALID_TOKEN');
+  }
 
-/**
- * Fecha e reabre UMA sessão sem logout/QR. Tokens e userDataDir permanecem.
- * start-session em sessão CONNECTED é no-op e NÃO re-registra onMessage.
- * Usar só em `system_canal_chat` após o overlay inbound estar no processo Node.
- */
-export async function rebindSessionKeepAuth(
-  sessionId: string,
-  accessToken: string,
-  webhookUrl?: string,
-): Promise<void> {
-  await closeSession(sessionId, accessToken);
-  await sleep(1_500);
-  await startSession(sessionId, accessToken, {
-    forceFreshQr: false,
-    webhookUrl: webhookUrl?.trim() || undefined,
+  const inFlight = startSessionInFlight.get(id);
+  if (inFlight) return inFlight;
+
+  const run = runStartSession(id, token, options).finally(() => {
+    if (startSessionInFlight.get(id) === run) {
+      startSessionInFlight.delete(id);
+    }
   });
+  startSessionInFlight.set(id, run);
+  return run;
 }
 
 export async function closeSession(sessionId: string, accessToken: string): Promise<void> {
@@ -1225,28 +1386,23 @@ export function getMockConnectedProfile(sessionId: string): { phone: string; pro
   };
 }
 
-/** Normaliza telefone para o formato WPPConnect (apenas dígitos, com DDI). */
+function wrapPhoneResolution<T>(fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    if (error instanceof InternationalPhoneError) {
+      throw new WhatsappProviderError(error.message, 'INVALID_PHONE');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Normaliza telefone cru/legado para o formato WPPConnect (apenas dígitos, com DDI).
+ * 10/11 dígitos sem 55 → Brasil. Número já resolvido: `sendTestMessage(..., { phoneIsResolved: true })`.
+ */
 export function normalizeWhatsappPhone(raw: string): string {
-  const digits = digitsOnly(raw);
-  if (!digits) {
-    throw new WhatsappProviderError('Informe um número de telefone válido.', 'INVALID_PHONE');
-  }
-
-  let normalized = digits;
-  if ((normalized.length === 10 || normalized.length === 11) && !normalized.startsWith('55')) {
-    normalized = `55${normalized}`;
-  }
-
-  normalized = applyBrazilMobileNinthDigit(normalized);
-
-  if (normalized.length < 10 || normalized.length > 15) {
-    throw new WhatsappProviderError(
-      'Número inválido. Use DDI + DDD + número (ex.: 5583999999999).',
-      'INVALID_PHONE',
-    );
-  }
-
-  return normalized;
+  return wrapPhoneResolution(() => resolveInternationalPhone({ telefone: raw }));
 }
 
 async function assertWhatsappSessionReady(sessionId: string, accessToken: string): Promise<void> {
@@ -1267,11 +1423,20 @@ async function assertWhatsappSessionReady(sessionId: string, accessToken: string
   }
 }
 
-/** check-connection-session: true só quando o WA Web está de fato ativo (não só “isLogged”). */
-async function isProviderSessionFullyConnected(
+export type WhatsappSessionRecheckResult = {
+  healthy: boolean;
+  rawStatus?: string;
+  errorCode?: string;
+};
+
+/**
+ * GET /check-connection-session — uma leitura, sem gravar Firestore.
+ * 404/500/WAPI contam como unhealthy (o caller decide strikes).
+ */
+export async function recheckProviderSessionHealth(
   sessionId: string,
   accessToken: string,
-): Promise<boolean> {
+): Promise<WhatsappSessionRecheckResult> {
   try {
     const payload = await wppRequest(
       sessionId,
@@ -1281,10 +1446,30 @@ async function isProviderSessionFullyConnected(
       { timeoutMs: 8_000 },
     );
     const status = payload.status;
-    return status === true || status === 'true' || normalizeStatusToken(status) === 'true';
-  } catch {
-    return false;
+    const healthy =
+      status === true || status === 'true' || normalizeStatusToken(status) === 'true';
+    const message = pickString(payload, ['message']) ?? '';
+    const rawStatus = healthy
+      ? 'CONNECTED'
+      : String(message || status || 'not_connected').slice(0, 64);
+    return { healthy, rawStatus };
+  } catch (error) {
+    const mapped = mapFetchError(error);
+    return {
+      healthy: false,
+      errorCode: mapped.code,
+      rawStatus: mapped.code,
+    };
   }
+}
+
+/** check-connection-session: true só quando o WA Web está de fato ativo (não só “isLogged”). */
+async function isProviderSessionFullyConnected(
+  sessionId: string,
+  accessToken: string,
+): Promise<boolean> {
+  const recheck = await recheckProviderSessionHealth(sessionId, accessToken);
+  return recheck.healthy;
 }
 
 /**
@@ -1294,36 +1479,89 @@ async function resolveWhatsappChatId(
   sessionId: string,
   accessToken: string,
   phoneDigits: string,
+  sendTraceId?: string,
+  sendWhenNumberCheckUnconfirmed?: boolean,
 ): Promise<string> {
   const candidate = `${phoneDigits}@c.us`;
 
+  const logResolved = (resolvedChatId: string) => {
+    if (!sendTraceId) return;
+    sendTestMessageTrace({
+      event: 'chat_resolved',
+      sendTraceId,
+      normalizedPhone: phoneDigits,
+      resolvedChatId,
+      resolvedType: resolvedChatTypeOf(resolvedChatId),
+    });
+  };
+
   // Preferir mapeamento PN↔LID (WPP 2.x) — check-number sozinho às vezes devolve LID “frio”.
+  let pnHttpStatus: number | undefined;
   try {
     const pnLidPayload = await wppRequest(
       sessionId,
       `/api/${encodeURIComponent(sessionId)}/contact/pn-lid/${encodeURIComponent(candidate)}`,
       accessToken,
       { method: 'GET' },
-      { timeoutMs: 20_000 },
+      {
+        timeoutMs: 20_000,
+        onHttp: (httpStatus) => {
+          pnHttpStatus = httpStatus;
+        },
+      },
     );
     const flat = flattenWppPayload(pnLidPayload);
     const lid =
       pickString(flat, ['_serialized', 'lid', 'id']) ||
       pickString(asRecord(flat.lid), ['_serialized', 'id', 'user']) ||
       pickString(asRecord(flat.id), ['_serialized']);
-    if (lid?.includes('@lid')) return lid;
-    if (lid && !lid.includes('@')) return `${lid}@lid`;
+    if (sendTraceId) {
+      sendTestMessageTrace({
+        event: 'pn_lid_result',
+        sendTraceId,
+        candidate,
+        httpStatus: pnHttpStatus,
+        rawShape: summarizePnLidShape(flat),
+        extractedLid: lid,
+      });
+    }
+    if (lid?.includes('@lid')) {
+      logResolved(lid);
+      return lid;
+    }
+    if (lid && !lid.includes('@')) {
+      const asLid = `${lid}@lid`;
+      logResolved(asLid);
+      return asLid;
+    }
   } catch (error) {
+    if (sendTraceId) {
+      sendTestMessageTrace({
+        event: 'pn_lid_result',
+        sendTraceId,
+        candidate,
+        httpStatus: pnHttpStatus,
+        rawShape: {},
+        extractedLid: undefined,
+        errorCode: error instanceof WhatsappProviderError ? error.code : undefined,
+      });
+    }
     console.warn('[whatsapp.provider] contact/pn-lid:', error);
   }
 
+  let statusHttpStatus: number | undefined;
   try {
     const payload = await wppRequest(
       sessionId,
       `/api/${encodeURIComponent(sessionId)}/check-number-status/${encodeURIComponent(candidate)}`,
       accessToken,
       { method: 'GET' },
-      { timeoutMs: 20_000 },
+      {
+        timeoutMs: 20_000,
+        onHttp: (httpStatus) => {
+          statusHttpStatus = httpStatus;
+        },
+      },
     );
 
     const flat = flattenWppPayload(payload);
@@ -1332,8 +1570,21 @@ async function resolveWhatsappChatId(
     const profileId = asRecord(profile.id);
 
     if (profile.numberExists === false) {
+      if (sendTraceId) {
+        sendTestMessageTrace({
+          event: 'number_status_result',
+          sendTraceId,
+          candidate,
+          httpStatus: statusHttpStatus,
+          chatId: sendWhenNumberCheckUnconfirmed ? candidate : undefined,
+        });
+      }
+      if (sendWhenNumberCheckUnconfirmed) {
+        logResolved(candidate);
+        return candidate;
+      }
       throw new WhatsappProviderError(
-        `O número ${phoneDigits} não está no WhatsApp. Confira DDI+DDD+número (com o 9º dígito).`,
+        `O número informado não está disponível no WhatsApp. Confira o país e o número informado.`,
         'INVALID_PHONE',
       );
     }
@@ -1343,10 +1594,44 @@ async function resolveWhatsappChatId(
       pickString(profile, ['_serialized', 'id', 'wid']) ||
       (typeof profile.id === 'string' ? profile.id : undefined);
 
+    const resolved = chatId?.includes('@') ? chatId : candidate;
+    if (sendTraceId) {
+      sendTestMessageTrace({
+        event: 'number_status_result',
+        sendTraceId,
+        candidate,
+        httpStatus: statusHttpStatus,
+        chatId: resolved,
+      });
+    }
+    logResolved(resolved);
     if (chatId?.includes('@')) return chatId;
     return candidate;
   } catch (error) {
-    if (error instanceof WhatsappProviderError) throw error;
+    if (error instanceof WhatsappProviderError) {
+      if (sendTraceId && error.code !== 'INVALID_PHONE') {
+        sendTestMessageTrace({
+          event: 'number_status_result',
+          sendTraceId,
+          candidate,
+          httpStatus: statusHttpStatus,
+          chatId: undefined,
+          errorCode: error.code,
+        });
+      }
+      throw error;
+    }
+    if (sendTraceId) {
+      sendTestMessageTrace({
+        event: 'number_status_result',
+        sendTraceId,
+        candidate,
+        httpStatus: statusHttpStatus,
+        chatId: candidate,
+        errorCode: error instanceof Error ? error.name : undefined,
+      });
+      logResolved(candidate);
+    }
     console.warn('[whatsapp.provider] check-number-status:', error);
     return candidate;
   }
@@ -1356,6 +1641,7 @@ async function postSendMessage(
   sessionId: string,
   accessToken: string,
   body: Record<string, unknown>,
+  onHttp?: (httpStatus: number, ok: boolean) => void,
 ): Promise<Record<string, unknown>> {
   return wppRequest(
     sessionId,
@@ -1368,7 +1654,7 @@ async function postSendMessage(
       },
       body: JSON.stringify(body),
     },
-    { timeoutMs: Math.max(getTimeoutMs(), 45_000), flatten: false },
+    { timeoutMs: Math.max(getTimeoutMs(), 45_000), flatten: false, onHttp },
   );
 }
 
@@ -1450,31 +1736,6 @@ function assertSendMessageSuccess(payload: Record<string, unknown>): {
   return { ack, messageId };
 }
 
-function extractChatIdFromSendPayload(
-  payload: Record<string, unknown>,
-  fallback?: string,
-): string | undefined {
-  const response = payload.response;
-  const results = Array.isArray(response) ? response : response ? [response] : [];
-  const first = asRecord(results[0]);
-  const candidates = [
-    pickString(first, ['to', 'chatId', 'from', 'remoteJid']),
-    pickString(asRecord(first.to), ['_serialized', 'id']),
-    pickString(asRecord(first.chatId), ['_serialized', 'id']),
-    pickString(asRecord(first.id), ['remote', 'remoteJid']),
-  ];
-  for (const candidate of candidates) {
-    if (
-      candidate &&
-      /@(lid|c\.us|s\.whatsapp\.net)\b/i.test(candidate) &&
-      !/@(g\.us|broadcast)\b/i.test(candidate)
-    ) {
-      return candidate.toLowerCase();
-    }
-  }
-  return fallback;
-}
-
 export interface WhatsappSendTestMessageResult {
   phone: string;
   chatId?: string;
@@ -1487,17 +1748,81 @@ export interface WhatsappSendTestMessageResult {
   selfSend?: boolean;
 }
 
-function isAmbiguousPostSendError(error: WhatsappProviderError): boolean {
-  if (error.code === 'TIMEOUT' || error.code === 'SERVER_ERROR') return true;
-  const msg = error.message.toLowerCase();
+/**
+ * Falhas anteriores à entrega — nunca mascarar como "enviada".
+ * Checar antes das regras ambíguas (ex.: "Error sending" + findChat).
+ */
+function isHardPostSendFailureMessage(message: string): boolean {
+  const raw = message.toLowerCase();
   return (
-    msg.includes('error sending') ||
+    raw.includes('findchat') ||
+    raw.includes('new chat not found') ||
+    raw.includes('invalid wid') ||
+    raw.includes('invalid contact') ||
+    raw.includes('contact not found') ||
+    raw.includes('failed to resolve') ||
+    raw.includes('not found') ||
+    raw.includes('disconnected') ||
+    raw.includes('not connected') ||
+    raw.includes('session is not active')
+  );
+}
+
+/**
+ * Erro pós-POST que pode significar "já enfileirou / ack lento", não falha de destino.
+ * SERVER_ERROR genérico NÃO entra — HTTP 500 de findChat/sendText é falha dura.
+ */
+export function isAmbiguousPostSendError(error: WhatsappProviderError): boolean {
+  const msg = error.message.toLowerCase();
+  if (isHardPostSendFailureMessage(msg)) return false;
+
+  if (error.code === 'TIMEOUT') return true;
+
+  return (
+    msg.includes('getmessagebyid') ||
+    msg.includes('oftware_send_unconfirmed') ||
     msg.includes('msgchunks') ||
     msg.includes('evaluation failed') ||
     msg.includes('protocol error') ||
     msg.includes('cannot read properties') ||
-    msg.includes('failed to send')
+    msg.includes('error sending') ||
+    msg.includes('failed to send') ||
+    msg.includes('tempo esgotado')
   );
+}
+
+export type WhatsappSendMessageOptions = {
+  connectedPhone?: string;
+  allowSelfSend?: boolean;
+  /**
+   * true = `phone` já é E.164 canônico (fila / resolveInternationalPhone).
+   * Não reaplica a heurística 10/11 = Brasil.
+   * omitido/false = telefone cru/legado (strings BR sem DDI).
+   * A tela TESTE DE ENVIO resolve no servidor e envia `true`.
+   */
+  phoneIsResolved?: boolean;
+  /**
+   * A consulta check-number-status às vezes responde numberExists=false para número que existe.
+   * Com true, o envio segue para o WhatsApp em vez de abortar nessa consulta.
+   */
+  sendWhenNumberCheckUnconfirmed?: boolean;
+  /** Não consulta pn-lid nem check-number-status. O envio sai direto; a recusa vem do próprio disparo. */
+  skipNumberLookup?: boolean;
+  /**
+   * LID do destinatário obtido por outra sessão (o LID é o mesmo para todas as contas).
+   * Usado quando esta sessão só resolve `@c.us` para um contato “frio” e o envio por PN falha.
+   */
+  lidHint?: string;
+};
+
+/** Só consulta: devolve `<id>@lid` se a sessão conhece o LID do número, senão null. */
+export async function lookupWhatsappLid(
+  sessionId: string,
+  accessToken: string,
+  phoneDigits: string,
+): Promise<string | null> {
+  const chatId = await resolveWhatsappChatId(sessionId, accessToken, phoneDigits, undefined, true);
+  return /@lid$/i.test(chatId) ? chatId : null;
 }
 
 export async function sendTestMessage(
@@ -1505,7 +1830,7 @@ export async function sendTestMessage(
   accessToken: string,
   phone: string,
   message: string,
-  options?: { connectedPhone?: string; allowSelfSend?: boolean },
+  options?: WhatsappSendMessageOptions,
 ): Promise<WhatsappSendTestMessageResult> {
   const id = sessionId?.trim();
   if (!id) throw new WhatsappProviderError('sessionId é obrigatório.', 'INVALID_SESSION');
@@ -1515,7 +1840,16 @@ export async function sendTestMessage(
     throw new WhatsappProviderError('accessToken é obrigatório.', 'INVALID_TOKEN');
   }
 
-  const normalizedPhone = normalizeWhatsappPhone(phone);
+  const sendTraceId = newSendTraceId();
+  const normalizedPhone = wrapPhoneResolution(() =>
+    resolvePhoneForWhatsappSend(phone, options?.phoneIsResolved === true),
+  );
+  sendTestMessageTrace({
+    event: 'normalized_phone',
+    sendTraceId,
+    sessionId: id,
+    normalizedPhone,
+  });
   const text = message?.trim();
   if (!text) {
     throw new WhatsappProviderError('A mensagem não pode estar vazia.', 'INVALID_MESSAGE');
@@ -1557,23 +1891,58 @@ export async function sendTestMessage(
 
   /** true depois do 1º POST send-message — timeout daí em diante NÃO derruba a sessão. */
   let sendAttempted = false;
+  let sendHttpStatus: number | undefined;
 
   try {
     await assertWhatsappSessionReady(id, token);
-    const chatId = await resolveWhatsappChatId(id, token, normalizedPhone);
+    const lookedUpChatId = options?.skipNumberLookup
+      ? `${normalizedPhone}@c.us`
+      : await resolveWhatsappChatId(
+          id,
+          token,
+          normalizedPhone,
+          sendTraceId,
+          options?.sendWhenNumberCheckUnconfirmed === true,
+        );
+    const lidHintDigits = options?.lidHint?.trim().replace(/@lid$/i, '');
+    const chatId =
+      lidHintDigits && !/@lid$/i.test(lookedUpChatId) ? `${lidHintDigits}@lid` : lookedUpChatId;
     const isLid = /@lid$/i.test(chatId);
     const phoneForSend = chatId.includes('@') ? chatId.split('@')[0]! : normalizedPhone;
 
     // 1ª tentativa: id resolvido (LID ou PN) + createChat.
     // Contatos “frios” no WhatsApp atual falham sem isso (isSendFailure + ack 0).
-    sendAttempted = true;
-    let payload = await postSendMessage(id, token, {
-      phone: phoneForSend,
-      isGroup: false,
-      isNewsletter: false,
+    sendTestMessageTrace({
+      event: 'send_request',
+      sendTraceId,
+      sessionId: id,
+      resolvedChatId: chatId,
+      phoneForSend,
       isLid,
-      message: text,
-      options: { createChat: true, waitForAck: true },
+      createChat: true,
+      waitForAck: true,
+    });
+    sendAttempted = true;
+    let payload = await postSendMessage(
+      id,
+      token,
+      {
+        phone: phoneForSend,
+        isGroup: false,
+        isNewsletter: false,
+        isLid,
+        message: text,
+        options: { createChat: true, waitForAck: true },
+      },
+      (httpStatus) => {
+        sendHttpStatus = httpStatus;
+      },
+    );
+    sendTestMessageTrace({
+      event: 'send_response',
+      sendTraceId,
+      httpStatus: sendHttpStatus,
+      ...peekSendResponseForLog(payload),
     });
 
     try {
@@ -1590,7 +1959,7 @@ export async function sendTestMessage(
       });
       return {
         phone: normalizedPhone,
-        chatId: extractChatIdFromSendPayload(payload, chatId),
+        chatId,
         mock: false,
         selfSend: isSelfDestination,
       };
@@ -1608,13 +1977,36 @@ export async function sendTestMessage(
         errorMessage: firstError instanceof Error ? firstError.message : String(firstError),
       });
 
-      payload = await postSendMessage(id, token, {
-        phone: altPhone,
-        isGroup: false,
-        isNewsletter: false,
+      sendTestMessageTrace({
+        event: 'send_request',
+        sendTraceId,
+        sessionId: id,
+        resolvedChatId: chatId,
+        phoneForSend: altPhone,
         isLid: altIsLid,
-        message: text,
-        options: { createChat: true, waitForAck: true },
+        createChat: true,
+        waitForAck: true,
+      });
+      payload = await postSendMessage(
+        id,
+        token,
+        {
+          phone: altPhone,
+          isGroup: false,
+          isNewsletter: false,
+          isLid: altIsLid,
+          message: text,
+          options: { createChat: true, waitForAck: true },
+        },
+        (httpStatus) => {
+          sendHttpStatus = httpStatus;
+        },
+      );
+      sendTestMessageTrace({
+        event: 'send_response',
+        sendTraceId,
+        httpStatus: sendHttpStatus,
+        ...peekSendResponseForLog(payload),
       });
 
       const confirmation = assertSendMessageSuccess(payload);
@@ -1630,20 +2022,34 @@ export async function sendTestMessage(
       });
       return {
         phone: normalizedPhone,
-        chatId: extractChatIdFromSendPayload(payload, chatId),
+        chatId,
         mock: false,
         selfSend: isSelfDestination,
       };
     }
   } catch (error) {
     const mapped = mapFetchError(error);
-    // Depois do POST send-message, TIMEOUT/SERVER_ERROR ambíguos quase sempre =
-    // msg já enfileirada e WPP lento para confirmar. Não throw — senão a Oftware
-    // marca sessão error + e-mail indevido enquanto a mensagem já chegou.
+    if (sendAttempted && sendHttpStatus !== undefined && sendHttpStatus >= 400) {
+      sendTestMessageTrace({
+        event: 'send_http_error',
+        sendTraceId,
+        httpStatus: sendHttpStatus,
+        errorCode: mapped.code,
+        providerMessage: mapped.message,
+      });
+    }
+    // Depois do POST send-message, só TIMEOUT / crash de serialização (getMessageById)
+    // são ambíguos. HTTP 500 genérico e findChat são falha dura.
     const treatAsDelivered =
       sendAttempted && isAmbiguousPostSendError(mapped);
 
     if (treatAsDelivered) {
+      sendTestMessageTrace({
+        event: 'delivery_marked_uncertain',
+        sendTraceId,
+        originalErrorCode: mapped.code,
+        originalMessage: mapped.message,
+      });
       providerLog('sendTestMessage', {
         sessionId: maskSessionId(id),
         phoneMasked: maskPhone(normalizedPhone),

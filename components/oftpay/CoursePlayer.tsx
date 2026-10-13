@@ -3,10 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
-  Calendar,
-  BarChart3,
   Video,
-  BookOpen,
   CalendarDays,
   PanelLeftClose,
   PanelLeft,
@@ -25,13 +22,22 @@ import { loadOftPayProgressFromFirestore, saveOftPayProgressToFirestore } from '
 import VideoPlayerUrl from './VideoPlayerUrl';
 import OftPayPlanner from './OftPayPlanner';
 import OftPayDashboard from './OftPayDashboard';
-import ApostilaLibrary, { type ApostilaItem } from './ApostilaLibrary';
+import ApostilaLibrary, { ApostilaReader, type ApostilaItem } from './ApostilaLibrary';
+import ChatSourcesPanel from './ChatSourcesPanel';
+import type { ChatConversationSource } from '@/types/chatConversation';
+import { resolveApostilaForSource } from '@/lib/oftpay/chatSourceNavigation';
 import ScheduleCalendar from '@/components/oftreview/ScheduleCalendar';
-import type { Schedule, ProgressMap } from '@/types/videoLibrary';
+import { CoursePlayerDesktopNav, CoursePlayerMobileNav, COURSE_PLAYER_MOBILE_NAV_CLEARANCE } from './CoursePlayerNavigation';
+import type { Schedule, ProgressMap, PlannerSettings } from '@/types/videoLibrary';
 import type { OftPayCourse } from '@/app/oftpay/coursesConfig';
 import { formatDuration as formatDurationUtil } from '@/utils/formatDuration';
 
 const PROGRESS_STORAGE_KEY_PREFIX = 'oftpay_progress_';
+
+function chatSourceLabel(sources: ChatConversationSource[], activeId: number | null, fallback: string): string {
+  const source = activeId != null ? sources.find((item) => item.id === activeId) : undefined;
+  return (source?.title || fallback).replace(/\.(pdf|cdr)$/i, '');
+}
 
 /** Exibe duração para a lista de vídeos: "—" se desconhecida, senão MM:SS ou HH:MM:SS. */
 function formatVideoDuration(seconds: number | null | undefined): string {
@@ -52,6 +58,12 @@ export interface CourseVideoItem {
 
 interface CoursePlayerProps {
   course: OftPayCourse;
+  /** Destino do botão voltar. Padrão: /oftpay */
+  homeHref?: string;
+  /** Aba inicial. Padrão: planejador */
+  initialTab?: 'planner' | 'dashboard' | 'videos' | 'apostila' | 'schedule';
+  /** Carrega planejamento, cronograma e progresso da conta do código CarPlay. */
+  useCarplaySession?: boolean;
   /** Lista de vídeos do curso (do Storage). Vazio até configurar o path. */
   videos?: CourseVideoItem[];
   /** Indica se a lista de vídeos ainda está carregando (API GCS). */
@@ -69,6 +81,9 @@ interface CoursePlayerProps {
 
 export default function CoursePlayer({
   course,
+  homeHref = '/oftpay',
+  initialTab = 'planner',
+  useCarplaySession = false,
   videos = [],
   videosLoading = false,
   videosError = null,
@@ -78,18 +93,72 @@ export default function CoursePlayer({
   apostilasError = null,
   apostilasDebug = null,
 }: CoursePlayerProps) {
-  const [activeTab, setActiveTab] = useState<'planner' | 'dashboard' | 'videos' | 'apostila' | 'schedule'>('planner');
+  const [activeTab, setActiveTab] = useState<'planner' | 'dashboard' | 'videos' | 'apostila' | 'schedule'>(initialTab);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<CourseVideoItem | null>(null);
+  const [selectedApostila, setSelectedApostila] = useState<ApostilaItem | null>(null);
+  const [apostilaSubTab, setApostilaSubTab] = useState<'apostilas' | 'chat'>('apostilas');
+  const [chatPanel, setChatPanel] = useState<'idle' | 'sources' | 'pdf'>('idle');
+  const [chatSources, setChatSources] = useState<ChatConversationSource[]>([]);
+  const [chatSourceContent, setChatSourceContent] = useState('');
+  const [activeSourceId, setActiveSourceId] = useState<number | null>(null);
+  const [sourceApostila, setSourceApostila] = useState<ApostilaItem | null>(null);
+  const [sourcePage, setSourcePage] = useState<number | null>(null);
+  const [sourceLocateError, setSourceLocateError] = useState<string | null>(null);
+
+  const showChatSources = useCallback((sources: ChatConversationSource[], content: string, activeId: number | null) => {
+    setChatSources(sources);
+    setChatSourceContent(content);
+    setActiveSourceId(activeId);
+    setSourceLocateError(null);
+    setChatPanel('sources');
+  }, []);
+
+  const showNewChatSources = useCallback((sources: ChatConversationSource[], content: string) => {
+    if (sources.length === 0) return;
+    setChatSources(sources);
+    setChatSourceContent(content);
+    setActiveSourceId(null);
+    setSourceLocateError(null);
+    setChatPanel('sources');
+  }, []);
+
+  const openChatSource = useCallback((source: ChatConversationSource) => {
+    const found = resolveApostilaForSource(source, apostilas);
+    if (!found) {
+      setSourceLocateError('Não foi possível localizar esta apostila.');
+      setChatPanel('sources');
+      return;
+    }
+    setSourceLocateError(null);
+    setSourceApostila(found);
+    setSourcePage(source.page != null && source.page > 0 ? source.page : null);
+    setActiveSourceId(source.id ?? null);
+    setChatPanel('pdf');
+  }, [apostilas]);
   const [selectedStartTime, setSelectedStartTime] = useState<number | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [videosFilter, setVideosFilter] = useState<'todos' | 'favoritos'>('todos');
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [progressMap, setProgressMap] = useState<ProgressMap>({});
+  const [carplayBundle, setCarplayBundle] = useState<{
+    planners: PlannerSettings[];
+    favoritePlannerId: string | null;
+    schedules: Record<string, Schedule>;
+  } | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [accessEndAt, setAccessEndAt] = useState<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [chatPanelDesktop, setChatPanelDesktop] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)');
+    const update = () => setChatPanelDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u ?? null));
@@ -142,8 +211,6 @@ export default function CoursePlayer({
 
   /** Tema do curso: azul (Oftreview) ou roxo (Propedeutics) */
   const isPurple = course.theme === 'purple';
-  const tabActive = isPurple ? 'border-purple-600 text-purple-600 bg-purple-50' : 'border-blue-600 text-blue-600 bg-blue-50';
-  const navActive = isPurple ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600';
   const videoSelected = isPurple ? 'bg-purple-100 text-purple-900 font-medium' : 'bg-blue-100 text-blue-900 font-medium';
   const spinnerBorder = isPurple ? 'border-purple-500' : 'border-blue-500';
 
@@ -257,8 +324,74 @@ export default function CoursePlayer({
     }
   }, [videosByFolder]);
 
+  useEffect(() => {
+    if (!useCarplaySession || !course?.id) return;
+    let cancelled = false;
+    fetch(`/api/oftpay/carplay/library?courseId=${encodeURIComponent(course.id)}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : res.statusText);
+        return data as {
+          progressMap?: ProgressMap;
+          planners?: PlannerSettings[];
+          favoritePlannerId?: string | null;
+          schedules?: Record<string, Schedule>;
+        };
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const serverMap = data.progressMap && typeof data.progressMap === 'object' ? data.progressMap : {};
+        let localMap: ProgressMap = {};
+        try {
+          const stored = localStorage.getItem(PROGRESS_STORAGE_KEY_PREFIX + course.id);
+          if (stored) {
+            const parsed = JSON.parse(stored) as ProgressMap;
+            if (parsed && typeof parsed === 'object') localMap = parsed;
+          }
+        } catch (_) {}
+        const merged: ProgressMap = { ...serverMap };
+        for (const [videoId, local] of Object.entries(localMap)) {
+          const remote = merged[videoId];
+          if (!remote || (local.watchedSeconds || 0) > (remote.watchedSeconds || 0) || (local.updatedAt || 0) > (remote.updatedAt || 0)) {
+            merged[videoId] = local;
+          }
+        }
+        setProgressMap(merged);
+        try {
+          localStorage.setItem(PROGRESS_STORAGE_KEY_PREFIX + course.id, JSON.stringify(merged));
+        } catch (_) {}
+        const changed = JSON.stringify(merged) !== JSON.stringify(serverMap);
+        if (changed && Object.keys(merged).length > 0) {
+          fetch('/api/oftpay/carplay/library', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind: 'progress', courseId: course.id, progressMap: merged }),
+          }).catch(() => {});
+        }
+        const bundle = {
+          planners: Array.isArray(data.planners) ? data.planners : [],
+          favoritePlannerId: data.favoritePlannerId ?? null,
+          schedules: data.schedules && typeof data.schedules === 'object' ? data.schedules : {},
+        };
+        setCarplayBundle(bundle);
+        const schedule = bundle.favoritePlannerId ? bundle.schedules[bundle.favoritePlannerId] : null;
+        if (schedule) setSchedule(schedule);
+        else {
+          const firstId = bundle.planners[0]?.id;
+          if (firstId && bundle.schedules[firstId]) setSchedule(bundle.schedules[firstId]);
+        }
+      })
+      .catch((e) => {
+        console.error('Erro ao carregar dados CarPlay:', e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [useCarplaySession, course?.id]);
+
   /** Carrega progresso: se logado, do Firestore (perfil); senão do localStorage (cache do browser). */
   useEffect(() => {
+    if (useCarplaySession) return;
     if (!course?.id) return;
     let cancelled = false;
     const key = PROGRESS_STORAGE_KEY_PREFIX + course.id;
@@ -292,30 +425,37 @@ export default function CoursePlayer({
       }
     }
     return () => { cancelled = true; };
-  }, [course?.id, user]);
+  }, [course?.id, user, useCarplaySession]);
 
   const persistProgress = useCallback(
     (map: ProgressMap) => {
       if (!course?.id) return;
+      if (useCarplaySession && Object.keys(map).length === 0) return;
       try {
         localStorage.setItem(PROGRESS_STORAGE_KEY_PREFIX + course.id, JSON.stringify(map));
       } catch (e) {
         console.error('Erro ao salvar progresso oftpay:', e);
       }
     },
-    [course?.id]
+    [course?.id, useCarplaySession]
   );
 
   useEffect(() => {
     if (!course?.id) return;
     const t = setTimeout(() => {
       persistProgress(progressMap);
-      if (user && Object.keys(progressMap).length > 0) {
+      if (useCarplaySession && Object.keys(progressMap).length > 0) {
+        fetch('/api/oftpay/carplay/library', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'progress', courseId: course.id, progressMap }),
+        }).catch(() => {});
+      } else if (user && Object.keys(progressMap).length > 0) {
         saveOftPayProgressToFirestore(course.id, progressMap).catch(() => {});
       }
     }, 1500);
     return () => clearTimeout(t);
-  }, [progressMap, course?.id, user, persistProgress]);
+  }, [progressMap, course?.id, user, persistProgress, useCarplaySession]);
 
   const handleProgressChange = useCallback((map: ProgressMap) => {
     setProgressMap(map);
@@ -454,229 +594,193 @@ export default function CoursePlayer({
     });
   };
 
+  const scheduleWithoutVideo = activeTab === 'schedule' && selectedVideo === null;
+  const scheduleWithVideo = activeTab === 'schedule' && selectedVideo !== null;
+  const plannerFullBleed = activeTab === 'planner';
+  const dashboardFullBleed = activeTab === 'dashboard';
+  const hideRightPanel = scheduleWithoutVideo || plannerFullBleed || dashboardFullBleed;
+  const contentCollapsed = isLeftPanelCollapsed && !hideRightPanel;
+  const closeSelectedVideo = () => {
+    setSelectedVideo(null);
+    setSelectedStartTime(null);
+  };
+
   return (
-    <div className="fixed inset-0 flex flex-col md:flex-row overflow-hidden bg-gray-50">
-      {/* Painel esquerdo - full width no mobile, metade no desktop */}
-      <div
-        className={`flex flex-col overflow-hidden bg-white border-r border-gray-200 transition-[width] duration-200 ease-out w-full md:min-w-0 ${
-          isLeftPanelCollapsed ? 'md:w-12 md:flex-shrink-0' : 'md:flex-1'
-        }`}
-      >
-        {/* Barra superior: voltar + título (mobile = nome da aba, desktop = nome do curso) + botão recolher */}
-        <div className="flex-shrink-0 flex items-center border-b border-gray-200 bg-gray-50">
-          {!isLeftPanelCollapsed && (
-            <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 md:py-2">
-              <Link
-                href="/oftpay"
-                className="p-2 md:p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors touch-manipulation shrink-0"
-                title="Voltar aos cursos"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <h1 className="text-base font-semibold text-gray-900 truncate min-w-0">
-                <span className="md:hidden">{tabTitles[activeTab]}</span>
-                <span className="hidden md:inline">{course.name}</span>
-              </h1>
-              <div className="ml-auto flex items-center gap-2 shrink-0">
-                <img
-                  src="/logo.png"
-                  alt="Oftware"
-                  className="block h-7 w-auto object-contain md:h-8"
-                />
-                <div className="relative flex items-center" ref={userMenuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowUserMenu((v) => !v)}
-                    className="flex items-center gap-1.5 p-1.5 rounded-full hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                    title="Menu do usuário"
-                  >
-                    {user?.photoURL ? (
-                      <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                        <UserIcon className="w-4 h-4 text-gray-600" />
-                      </div>
-                    )}
-                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-                  </button>
-                  {showUserMenu && (
-                    <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50">
-                      <div className="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
-                        <div className="flex items-center gap-2">
-                          {user?.photoURL ? (
-                            <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <UserIcon className="w-5 h-5 text-gray-600" />
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{user?.displayName || 'Usuário'}</p>
-                            <p className="text-xs text-gray-500 truncate">{user?.email ?? ''}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/50">
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tempo de acesso</p>
-                        {(() => {
-                          const vig = formatVigencia();
-                          return (
-                            <>
-                              <p className="text-sm text-gray-800 mt-0.5">{vig.texto}</p>
-                              {vig.dias !== undefined && (
-                                <p className={`text-xs mt-1 ${vig.dias < 0 ? 'text-red-600' : vig.dias <= 7 ? 'text-amber-600' : 'text-gray-500'}`}>
-                                  {vig.dias > 0 ? `${vig.dias} ${vig.dias === 1 ? 'dia' : 'dias'} para expirar` : vig.dias === 0 ? 'Expira hoje' : 'Expirado'}
-                                </p>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                      <div className="border-t border-gray-100">
-                        <Link
-                          href="/oftpay"
-                          onClick={() => setShowUserMenu(false)}
-                          className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <ArrowLeft className="w-4 h-4" />
-                          Voltar aos cursos
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => { setShowUserMenu(false); signOut(auth).catch(() => {}); }}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                          Sair
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsLeftPanelCollapsed((c) => !c)}
-            className={`hidden md:flex flex-shrink-0 p-2 text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors ${
-              isLeftPanelCollapsed ? 'w-full justify-center' : 'border-l border-gray-200'
-            }`}
-            title={isLeftPanelCollapsed ? 'Expandir painel' : 'Recolher painel'}
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-gray-50">
+      <header className="relative z-30 flex h-14 shrink-0 items-center border-b border-slate-200/80 bg-white px-3 md:h-[72px] md:px-4 lg:px-6">
+        <div className="relative z-20 flex min-w-0 max-w-[46%] items-center gap-1.5 md:max-w-[9.25rem] lg:max-w-[16rem]">
+          <Link
+            href={homeHref}
+            className="shrink-0 rounded-lg p-2 text-[#0A1F44] transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 md:p-1.5"
+            aria-label="Voltar aos cursos"
           >
-            {isLeftPanelCollapsed ? (
-              <PanelLeft className="w-5 h-5" />
-            ) : (
-              <PanelLeftClose className="w-5 h-5" />
-            )}
-          </button>
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="truncate text-[15px] font-semibold text-[#0A1F44] md:text-base">
+            <span className="md:hidden">{tabTitles[activeTab]}</span>
+            <span className="hidden md:inline">{course.name}</span>
+          </h1>
         </div>
 
-        {!isLeftPanelCollapsed && (
-          <>
-            {/* Tabs - só no desktop; no mobile o menu fica embaixo */}
-            <div className="hidden md:block flex-shrink-0 border-b border-gray-200 bg-white">
-              <div className="flex">
-                <button
-                  onClick={() => setActiveTab('planner')}
-                  className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-                    activeTab === 'planner'
-                      ? tabActive
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>Planejador</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-                    activeTab === 'dashboard'
-                      ? tabActive
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    <span>Dashboard</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('videos')}
-                  className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-                    activeTab === 'videos'
-                      ? tabActive
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Video className="w-4 h-4" />
-                    <span>Vídeos</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('apostila')}
-                  className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-                    activeTab === 'apostila'
-                      ? tabActive
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <BookOpen className="w-4 h-4" />
-                    <span>Apostila</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('schedule')}
-                  className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-                    activeTab === 'schedule'
-                      ? tabActive
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <CalendarDays className="w-4 h-4" />
-                    <span>Cronograma</span>
-                  </div>
-                </button>
-              </div>
-            </div>
+        <CoursePlayerDesktopNav activeTab={activeTab} onSelect={setActiveTab} isPurple={isPurple} />
 
-            {/* Conteúdo das tabs - no mobile padding-bottom para não ficar atrás do menu fixo */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 overscroll-behavior-contain pb-20 md:pb-0">
+        <div className="relative z-20 ml-auto flex shrink-0 items-center gap-2">
+          <img
+            src="/oftware1.jpg"
+            alt="Oftware"
+            className="hidden h-7 w-auto object-contain md:block lg:h-8"
+          />
+          <div className="relative flex items-center" ref={userMenuRef}>
+            <button
+              type="button"
+              onClick={() => setShowUserMenu((v) => !v)}
+              className="flex items-center gap-1.5 rounded-full p-1.5 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              title="Menu do usuário"
+              aria-expanded={showUserMenu}
+              aria-haspopup="menu"
+            >
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200">
+                  <UserIcon className="h-4 w-4 text-gray-600" />
+                </div>
+              )}
+              <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                <div className="border-b border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    {user?.photoURL ? (
+                      <img src={user.photoURL} alt="" className="h-10 w-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
+                        <UserIcon className="h-5 w-5 text-gray-600" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-gray-900">{user?.displayName || 'Usuário'}</p>
+                      <p className="truncate text-xs text-gray-500">{user?.email ?? ''}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-b border-gray-100 bg-gray-50/50 px-3 py-2">
+                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Tempo de acesso</p>
+                  {(() => {
+                    const vig = formatVigencia();
+                    return (
+                      <>
+                        <p className="mt-0.5 text-sm text-gray-800">{vig.texto}</p>
+                        {vig.dias !== undefined && (
+                          <p className={`mt-1 text-xs ${vig.dias < 0 ? 'text-red-600' : vig.dias <= 7 ? 'text-amber-600' : 'text-gray-500'}`}>
+                            {vig.dias > 0 ? `${vig.dias} ${vig.dias === 1 ? 'dia' : 'dias'} para expirar` : vig.dias === 0 ? 'Expira hoje' : 'Expirado'}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+                <div className="border-t border-gray-100">
+                  <Link
+                    href={homeHref}
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar aos cursos
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => { setShowUserMenu(false); signOut(auth).catch(() => {}); }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+      {/* Painel esquerdo - full width no mobile; cronograma sem vídeo, planejador e dashboard ocupam a tela */}
+      <div
+        className={`flex min-h-0 w-full max-md:flex-1 flex-col overflow-hidden bg-white transition-[width] duration-200 ease-out md:min-w-0 ${
+          hideRightPanel ? '' : 'border-r border-gray-200'
+        } ${
+          contentCollapsed
+            ? 'md:w-12 md:flex-none'
+            : scheduleWithVideo
+              ? 'md:w-[38%] md:max-w-[40%] md:flex-none'
+              : 'md:flex-1'
+        }`}
+      >
+        {!hideRightPanel && (
+          <div className={`hidden shrink-0 md:flex ${contentCollapsed ? 'h-12 w-full items-center justify-center' : 'h-9 items-center justify-end border-b border-slate-100 px-1.5'}`}>
+            <button
+              type="button"
+              onClick={() => setIsLeftPanelCollapsed((c) => !c)}
+              className="flex items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+              title={contentCollapsed ? 'Expandir painel' : 'Recolher painel'}
+              aria-label={contentCollapsed ? 'Expandir painel' : 'Recolher painel'}
+            >
+              {contentCollapsed ? (
+                <PanelLeft className="h-5 w-5" />
+              ) : (
+                <PanelLeftClose className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        )}
+
+        {!contentCollapsed && (
+          <>
+            {/* Conteúdo das abas. No mobile, a folga inferior acompanha a altura da tab bar (4.5rem) mais a safe area. */}
+            <div className={`flex-1 overflow-y-auto overflow-x-hidden min-h-0 overscroll-behavior-contain md:pb-0 ${COURSE_PLAYER_MOBILE_NAV_CLEARANCE}`}>
               {activeTab === 'planner' && (
-                <div className="p-4">
+                <div className="min-h-full bg-gray-50 p-4 md:p-6 lg:p-8">
                   <OftPayPlanner
                     courseId={course.id}
                     videos={videosWithDuration}
                     onScheduleChange={setSchedule}
+                    carplayBundle={carplayBundle}
                   />
                 </div>
               )}
 
               {activeTab === 'dashboard' && (
-                <OftPayDashboard
-                  courseId={course.id}
-                  videos={videosWithDuration}
-                  schedule={schedule}
-                  progressMap={progressMap}
-                  onProgressChange={handleProgressChange}
-                />
+                <div className="min-h-full bg-gray-50 p-4 md:p-6 lg:p-8">
+                  <OftPayDashboard
+                    courseId={course.id}
+                    videos={videosWithDuration}
+                    schedule={schedule}
+                    schedulesByPlanner={carplayBundle?.schedules}
+                    progressMap={progressMap}
+                    onProgressChange={handleProgressChange}
+                    preloadedPlanners={carplayBundle?.planners}
+                    preloadedFavoriteId={carplayBundle?.favoritePlannerId}
+                  />
+                </div>
               )}
 
               {activeTab === 'apostila' && (
-                <div className="p-4">
+                <div className={apostilaSubTab === 'chat' ? 'flex h-full min-h-0 flex-col overflow-hidden p-3 md:p-4' : 'p-4'}>
                   <ApostilaLibrary
                     apostilas={apostilas}
                     loading={apostilasLoading}
                     error={apostilasError}
                     debug={apostilasDebug ?? undefined}
                     courseId={course.id}
+                    onSelectApostila={setSelectedApostila}
+                    selectedApostilaId={selectedApostila?.id ?? null}
+                    onSubTabChange={setApostilaSubTab}
+                    onNavigateSources={showChatSources}
+                    onAssistantSources={showNewChatSources}
                   />
                 </div>
               )}
@@ -812,9 +916,12 @@ export default function CoursePlayer({
               )}
 
               {activeTab === 'schedule' && (
-                <div className="p-4">
+                <div className={`min-h-full bg-gray-50 ${selectedVideo ? 'p-3 md:p-4' : 'p-4 md:p-6'}`}>
                   {schedule ? (
                     <ScheduleCalendar
+                      variant="course"
+                      presentation={selectedVideo ? 'compact' : 'expanded'}
+                      selectedVideoId={selectedVideo?.videoId ?? null}
                       schedule={schedule}
                       progressMap={progressMap}
                       videos={videos.map((v) => ({ videoId: v.videoId, name: getDisplayName(v) }))}
@@ -844,74 +951,101 @@ export default function CoursePlayer({
           </>
         )}
 
-        {/* Menu inferior fixo - só mobile, só ícones */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around py-2 px-2 bg-white border-t border-gray-200">
-          <button
-            type="button"
-            onClick={() => setActiveTab('planner')}
-            className={`p-3 rounded-xl transition-colors touch-manipulation ${activeTab === 'planner' ? navActive : 'text-gray-500 hover:bg-gray-100'}`}
-            title="Planejador"
-            aria-label="Planejador"
-          >
-            <Calendar className="w-6 h-6" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className={`p-3 rounded-xl transition-colors touch-manipulation ${activeTab === 'dashboard' ? navActive : 'text-gray-500 hover:bg-gray-100'}`}
-            title="Dashboard"
-            aria-label="Dashboard"
-          >
-            <BarChart3 className="w-6 h-6" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('videos')}
-            className={`p-3 rounded-xl transition-colors touch-manipulation ${activeTab === 'videos' ? navActive : 'text-gray-500 hover:bg-gray-100'}`}
-            title="Vídeos"
-            aria-label="Vídeos"
-          >
-            <Video className="w-6 h-6" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('apostila')}
-            className={`p-3 rounded-xl transition-colors touch-manipulation ${activeTab === 'apostila' ? navActive : 'text-gray-500 hover:bg-gray-100'}`}
-            title="Apostila"
-            aria-label="Apostila"
-          >
-            <BookOpen className="w-6 h-6" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('schedule')}
-            className={`p-3 rounded-xl transition-colors touch-manipulation ${activeTab === 'schedule' ? navActive : 'text-gray-500 hover:bg-gray-100'}`}
-            title="Cronograma"
-            aria-label="Cronograma"
-          >
-            <CalendarDays className="w-6 h-6" />
-          </button>
-        </nav>
       </div>
 
-      {/* Painel direito - vídeo (só desktop; no mobile o vídeo abre em overlay) */}
+      {/* Painel direito - vídeo. Some no cronograma sem aula, no Planejador e no Dashboard. */}
+      {!hideRightPanel && (
       <div
         className={`hidden md:flex border-l border-gray-200 flex-col min-h-0 h-full overflow-hidden ${
-          isLeftPanelCollapsed ? 'flex-1 min-w-0' : 'w-1/2 flex-shrink-0'
+          isLeftPanelCollapsed
+            ? 'flex-1 min-w-0'
+            : scheduleWithVideo
+              ? 'w-[62%] min-w-0 flex-shrink-0'
+              : 'w-1/2 flex-shrink-0'
         }`}
       >
-        <VideoPlayerUrl
-          videoUrl={selectedVideo?.url ?? null}
-          title={selectedVideo ? getDisplayName(selectedVideo) : null}
-          startTime={selectedStartTime ?? null}
-          videoId={selectedVideo?.videoId}
-          onDurationKnown={handleDurationKnown}
-          onProgressUpdate={handleProgressUpdate}
-        />
+        {activeTab === 'apostila' ? (
+          apostilaSubTab === 'chat' ? (
+            chatPanel === 'pdf' && sourceApostila && chatPanelDesktop ? (
+              <ApostilaReader
+                apostila={sourceApostila}
+                page={sourcePage}
+                sourceLabel={chatSourceLabel(chatSources, activeSourceId, sourceApostila.name)}
+                onBackToSources={() => setChatPanel('sources')}
+              />
+            ) : chatPanel === 'sources' && chatSources.length > 0 ? (
+              <ChatSourcesPanel
+                sources={chatSources}
+                answerContent={chatSourceContent}
+                activeSourceId={activeSourceId}
+                locateError={sourceLocateError}
+                onOpenSource={openChatSource}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center bg-gray-50 p-6 text-center text-sm text-gray-500">
+                As fontes da resposta aparecem aqui.
+              </div>
+            )
+          ) : (
+            <ApostilaReader apostila={selectedApostila} onClose={() => setSelectedApostila(null)} />
+          )
+        ) : (
+        <>
+        {scheduleWithVideo && (
+          <div className="flex-shrink-0 flex items-center justify-end border-b border-gray-200 bg-white px-3 py-1.5">
+            <button
+              type="button"
+              onClick={closeSelectedVideo}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+              title="Fechar vídeo"
+            >
+              <X className="h-3.5 w-3.5" />
+              Fechar vídeo
+            </button>
+          </div>
+        )}
+        <div className="min-h-0 min-w-0 flex-1">
+          <VideoPlayerUrl
+            videoUrl={selectedVideo?.url ?? null}
+            title={selectedVideo ? getDisplayName(selectedVideo) : null}
+            startTime={selectedStartTime ?? null}
+            videoId={selectedVideo?.videoId}
+            onDurationKnown={handleDurationKnown}
+            onProgressUpdate={handleProgressUpdate}
+          />
+        </div>
+        </>
+        )}
+      </div>
+      )}
       </div>
 
+      <CoursePlayerMobileNav activeTab={activeTab} onSelect={setActiveTab} isPurple={isPurple} />
+
+      {activeTab === 'apostila' && apostilaSubTab === 'chat' && chatPanel !== 'idle' && (
+        <div className="fixed inset-0 z-50 flex min-w-0 flex-col bg-white md:hidden">
+          {chatPanel === 'pdf' && sourceApostila && !chatPanelDesktop ? (
+            <ApostilaReader
+              apostila={sourceApostila}
+              page={sourcePage}
+              sourceLabel={chatSourceLabel(chatSources, activeSourceId, sourceApostila.name)}
+              onBackToSources={() => setChatPanel('sources')}
+            />
+          ) : (
+            <ChatSourcesPanel
+              sources={chatSources}
+              answerContent={chatSourceContent}
+              activeSourceId={activeSourceId}
+              locateError={sourceLocateError}
+              onOpenSource={openChatSource}
+              onBack={() => setChatPanel('idle')}
+            />
+          )}
+        </div>
+      )}
+
       {/* Mobile: overlay com vídeo ao clicar para assistir */}
-      {selectedVideo && (
+      {selectedVideo && activeTab !== 'apostila' && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black md:hidden">
           <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-3 bg-black border-b border-white/10">
             <span className="truncate flex-1 min-w-0 font-semibold" style={{ color: '#ffffff', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
@@ -919,7 +1053,7 @@ export default function CoursePlayer({
             </span>
             <button
               type="button"
-              onClick={() => { setSelectedVideo(null); setSelectedStartTime(null); }}
+              onClick={closeSelectedVideo}
               className="flex-shrink-0 p-2 -mr-1 rounded-full touch-manipulation hover:bg-white/20"
               style={{ color: '#ffffff' }}
               aria-label="Fechar vídeo"

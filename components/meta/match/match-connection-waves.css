@@ -1,0 +1,87 @@
+.match-connection-shift {
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.match-connection-shift-1 {
+  animation-name: match-connection-shift-1;
+  animation-duration: 12s;
+}
+
+.match-connection-shift-2 {
+  animation-name: match-connection-shift-2;
+  animation-duration: 15.5s;
+}
+
+.match-connection-shift-3 {
+  animation-name: match-connection-shift-3;
+  animation-duration: 19s;
+}
+
+.match-connection-shift-4 {
+  animation-name: match-connection-shift-2;
+  animation-duration: 13s;
+}
+
+.match-connection-shift-5 {
+  animation-name: match-connection-shift-1;
+  animation-duration: 17s;
+}
+
+.match-connection-pulse {
+  animation: match-connection-pulse 7.5s ease-in-out infinite;
+}
+
+@keyframes match-connection-shift-1 {
+  from {
+    transform: translate3d(-12px, 2px, 0);
+  }
+  to {
+    transform: translate3d(14px, -3px, 0);
+  }
+}
+
+@keyframes match-connection-shift-2 {
+  from {
+    transform: translate3d(10px, -2px, 0);
+  }
+  to {
+    transform: translate3d(-16px, 4px, 0);
+  }
+}
+
+@keyframes match-connection-shift-3 {
+  from {
+    transform: translate3d(-8px, 1px, 0);
+  }
+  to {
+    transform: translate3d(12px, -2px, 0);
+  }
+}
+
+@keyframes match-connection-pulse {
+  0%,
+  72%,
+  100% {
+    opacity: 0.12;
+  }
+  84% {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-connection-shift-1,
+  .match-connection-shift-2,
+  .match-connection-shift-3,
+  .match-connection-shift-4,
+  .match-connection-shift-5,
+  .match-connection-pulse {
+    animation: none;
+  }
+
+  .match-connection-pulse {
+    opacity: 0.2;
+  }
+}

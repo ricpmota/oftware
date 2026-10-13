@@ -16,6 +16,8 @@ type Props = {
   brandName: string;
   primaryColor?: string;
   showPoweredBy?: boolean;
+  /** Organização dona da marca. Fora do Método a prévia não recebe o logotipo padrão. */
+  organizationId?: string | null;
 };
 
 export default function PublicPageThemePreview({
@@ -24,22 +26,23 @@ export default function PublicPageThemePreview({
   brandName,
   primaryColor = DEFAULT_WHITE_LABEL_PRIMARY_COLOR,
   showPoweredBy = true,
+  organizationId,
 }: Props) {
   const bg = theme.backgroundColor.trim() || PUBLIC_PAGE_DEFAULT_BACKGROUNDS[kind];
   const textColor = theme.textColor.trim() || PUBLIC_PAGE_DEFAULT_TEXT_COLORS[kind];
   const accent = primaryColor.trim() || DEFAULT_WHITE_LABEL_PRIMARY_COLOR;
   const customLogo = publicPageCustomLogoUrl(theme);
-  const logoSrc = resolvePublicPageLogoPreviewSrc(theme);
+  const logoSrc = resolvePublicPageLogoPreviewSrc(theme, { organizationId });
   const isDr = kind === 'dr';
-  const logoAtTop = !isDr && !!customLogo;
-  const logoAtBottom = isDr && !!customLogo;
+  const logoAtTop = !isDr && !!customLogo && !!logoSrc;
+  const logoAtBottom = isDr && !!customLogo && !!logoSrc;
 
   return (
     <div
       className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm min-h-[168px] flex flex-col"
       style={{ backgroundColor: bg, color: textColor }}
     >
-      {logoAtTop ? (
+      {logoAtTop && logoSrc ? (
         <div className="px-4 pt-4 pb-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={logoSrc} alt="" className="h-7 w-auto max-w-[160px] object-contain object-left opacity-95" />
@@ -79,7 +82,7 @@ export default function PublicPageThemePreview({
       </div>
 
       <div className="px-4 pb-4 pt-2 flex flex-col items-center gap-2">
-        {logoAtBottom ? (
+        {logoAtBottom && logoSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoSrc} alt="" className="h-6 w-auto max-w-[140px] object-contain opacity-85" />
         ) : null}

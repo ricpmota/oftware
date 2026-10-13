@@ -54,14 +54,24 @@ export async function requireMedicoPacienteMetaadmin(
     return { ok: false, res: NextResponse.json({ ok: false, error: 'Paciente não encontrado.' }, { status: 404 }) };
   }
   const pac = pacSnap.data() as { medicoResponsavelId?: string | null };
-  if (!pac.medicoResponsavelId || pac.medicoResponsavelId !== medicoDocId) {
-    return {
-      ok: false,
-      res: NextResponse.json({ ok: false, error: 'Você não tem permissão para este paciente.' }, { status: 403 }),
-    };
+  if (pac.medicoResponsavelId && pac.medicoResponsavelId === medicoDocId) {
+    return { ok: true, medicoDocId };
   }
 
-  return { ok: true, medicoDocId };
+  // Acesso via compartilhamento médico ↔ médico (Comunicação)
+  const shareId = `${pacienteId}_${medicoDocId}`;
+  const shareSnap = await db.collection('paciente_medico_compartilhado').doc(shareId).get();
+  if (shareSnap.exists) {
+    const share = shareSnap.data() as { status?: string; permissions?: string };
+    if (share.status === 'ativo' && (share.permissions === 'edit' || !share.permissions)) {
+      return { ok: true, medicoDocId };
+    }
+  }
+
+  return {
+    ok: false,
+    res: NextResponse.json({ ok: false, error: 'Você não tem permissão para este paciente.' }, { status: 403 }),
+  };
 }
 
 /** Médico autenticado em /metaadmin (sem vínculo com paciente). */

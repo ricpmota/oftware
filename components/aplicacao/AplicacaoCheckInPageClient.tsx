@@ -21,7 +21,6 @@ import {
 import type { MedicoWhiteLabelResolved } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import { resolveMedicoWhiteLabel } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import PublicPageTopLogo from '@/components/public/PublicPageTopLogo';
-import PublicPageBrandFooter from '@/components/public/PublicPageBrandFooter';
 import WhiteLabelFaviconEffect from '@/components/public/WhiteLabelFaviconEffect';
 import {
   fetchPublicPatientApi,
@@ -32,7 +31,11 @@ import { CHECK_IN_SEMANAL_QUESTIONS, LOCAL_APLICACAO_LABEL_TO_VALUE } from '@/li
 import type { CheckInSemanalScoreResultado } from '@/lib/aplicacao/calcularScoreCheckInSemanal';
 import { CheckInSemanalScoreCard } from '@/components/aplicacao/CheckInSemanalScoreCard';
 import AplicacaoFotosEvolucaoSection from '@/components/aplicacao/AplicacaoFotosEvolucaoSection';
+import AplicacaoCompartilharResultadoCard, {
+  AplicacaoPerguntaCompartilharResultadoModal,
+} from '@/components/aplicacao/AplicacaoCompartilharResultadoCard';
 import { DigitalMeasurePicker } from '@/components/aplicacao/DigitalMeasurePicker';
+import type { PacienteCompleto } from '@/types/obesidade';
 
 const INTRO_STEP = 0;
 const QUESTION_COUNT = CHECK_IN_SEMANAL_QUESTIONS.length;
@@ -70,6 +73,8 @@ function InstagramGradientLink({
 
 type DadosAplicacao = {
   semana: number;
+  semanaNoProtocolo?: number;
+  protocoloIndice?: number;
   dose: number;
   data: string;
   nomePaciente: string;
@@ -89,6 +94,7 @@ type DadosAplicacao = {
   medicoInstagramUsuario?: string | null;
   pacienteFotoPerfilUrl?: string | null;
   whiteLabel?: MedicoWhiteLabelResolved;
+  pacienteResultado?: PacienteCompleto | null;
 };
 
 type FormState = Record<string, string>;
@@ -165,6 +171,7 @@ export default function AplicacaoCheckInPageClient() {
   const [dados, setDados] = useState<DadosAplicacao | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const [redirecionandoContrato, setRedirecionandoContrato] = useState(false);
   const [showFireworks, setShowFireworks] = useState(false);
   const [resultado, setResultado] = useState<{
     variacaoPeso: number | null;
@@ -174,6 +181,7 @@ export default function AplicacaoCheckInPageClient() {
     scoreCheckInSemanal?: CheckInSemanalScoreResultado | null;
   } | null>(null);
   const [linkIndicacao, setLinkIndicacao] = useState<string | null>(null);
+  const [pacienteResultado, setPacienteResultado] = useState<PacienteCompleto | null>(null);
   const [medicoNome, setMedicoNome] = useState<string | null>(null);
   const [medicoGenero, setMedicoGenero] = useState<'M' | 'F'>('M');
   const [medicoFotoPerfilUrl, setMedicoFotoPerfilUrl] = useState<string | null>(null);
@@ -187,6 +195,8 @@ export default function AplicacaoCheckInPageClient() {
   const [showModalEvolucao, setShowModalEvolucao] = useState(false);
   const [pendingAcaoEvolucao, setPendingAcaoEvolucao] = useState<'copiar' | 'whatsapp' | null>(null);
   const [showModalIndicarMedico, setShowModalIndicarMedico] = useState(false);
+  const [showModalPerguntaResultado, setShowModalPerguntaResultado] = useState(false);
+  const [showResultadoModal, setShowResultadoModal] = useState(false);
   const [evolucaoFromIndicar, setEvolucaoFromIndicar] = useState(false);
   const [evolucaoEscolhida, setEvolucaoEscolhida] = useState<boolean | null>(null);
   const [showModalVideo, setShowModalVideo] = useState(false);
@@ -221,6 +231,7 @@ export default function AplicacaoCheckInPageClient() {
         setMedicoFotoPerfilUrl(data.medicoFotoPerfilUrl?.trim() || null);
         setMedicoInstagramUsuario(data.medicoInstagramUsuario?.trim() || null);
         if (data.whiteLabel) setWhiteLabel(data.whiteLabel);
+        if (data.pacienteResultado) setPacienteResultado(data.pacienteResultado);
 
         setMedidasReferencia({
           peso:
@@ -401,6 +412,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erro ao atualizar');
+
+      // Contrato pendente: força retorno ao /meta para assinar (modal obrigatório).
+      if (json.contratoAssinaturaPendente) {
+        setRedirecionandoContrato(true);
+        goToMetodoPacienteMeta({ fromAplicacao: true });
+        return;
+      }
+
       setResultado({
         variacaoPeso: json.variacaoPeso ?? null,
         variacaoCircunferencia: json.variacaoCircunferencia ?? null,
@@ -409,6 +428,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         scoreCheckInSemanal: json.scoreCheckInSemanal ?? null,
       });
       if (json.linkIndicacao) setLinkIndicacao(json.linkIndicacao);
+      if (json.pacienteResultado) setPacienteResultado(json.pacienteResultado);
       if (json.medicoNome) setMedicoNome(json.medicoNome);
       if (json.medicoGenero === 'F' || json.medicoGenero === 'M') setMedicoGenero(json.medicoGenero);
       setSucesso(true);
@@ -463,6 +483,18 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
           <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
           <p className="text-slate-600">Carregando...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (redirecionandoContrato) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-slate-50 p-6 text-center gap-3">
+        <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+        <p className="text-slate-800 font-semibold">Você tem um contrato pendente</p>
+        <p className="text-sm text-slate-600 max-w-sm">
+          Redirecionando para sua página para concluir a assinatura…
+        </p>
       </div>
     );
   }
@@ -669,6 +701,12 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             </div>
           )}
 
+          <AplicacaoCompartilharResultadoCard
+            paciente={pacienteResultado}
+            open={showResultadoModal}
+            onOpenChange={setShowResultadoModal}
+          />
+
           {showModalIndicarMedico && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
               <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
@@ -693,7 +731,11 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                     type="button"
                     onClick={() => {
                       setShowModalIndicarMedico(false);
-                      goToMetodoPacienteMeta();
+                      if (pacienteResultado?.id) {
+                        setShowModalPerguntaResultado(true);
+                      } else {
+                        goToMetodoPacienteMeta();
+                      }
                     }}
                     className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-medium"
                   >
@@ -703,6 +745,18 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
               </div>
             </div>
           )}
+
+          <AplicacaoPerguntaCompartilharResultadoModal
+            open={showModalPerguntaResultado}
+            onMeuResultado={() => {
+              setShowModalPerguntaResultado(false);
+              setShowResultadoModal(true);
+            }}
+            onNao={() => {
+              setShowModalPerguntaResultado(false);
+              goToMetodoPacienteMeta();
+            }}
+          />
 
           {showModalEvolucao && (pendingAcaoEvolucao || evolucaoFromIndicar) && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -774,6 +828,62 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
   const pesoPerdidoLabel = formatarPerda(dados?.pesoPerdidoAcumulado, 'kg');
   const circPerdidaLabel = formatarPerda(dados?.circunferenciaPerdidaAcumulada, 'cm');
 
+  const botoesAcao = isIntro ? (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => void abrirVideoAplicacao()}
+        disabled={videoUrlLoading}
+        className="flex shrink-0 flex-col items-center gap-1 disabled:opacity-70"
+        aria-label="Assistir vídeo de como fazer a aplicação"
+      >
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ff0000] text-white shadow-lg">
+          {videoUrlLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Play className="h-6 w-6 fill-white translate-x-0.5" />
+          )}
+        </span>
+        <span className="text-[11px] font-semibold text-slate-900">Aplicação</span>
+      </button>
+      <button
+        type="button"
+        onClick={handleNext}
+        disabled={enviando}
+        className="flex h-12 flex-1 items-center justify-center rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md shadow-emerald-500/20 disabled:opacity-70"
+      >
+        Responder
+      </button>
+    </div>
+  ) : (
+    <div className="flex gap-3">
+      <button
+        type="button"
+        onClick={handleBack}
+        disabled={enviando}
+        className="flex items-center justify-center gap-1 px-5 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium text-sm hover:bg-slate-50 disabled:opacity-50"
+      >
+        <ChevronLeft className="w-4 h-4" /> Voltar
+      </button>
+      <button
+        type="button"
+        onClick={handleNext}
+        disabled={enviando}
+        className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm sm:text-base text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md shadow-emerald-500/20 disabled:opacity-70"
+      >
+        {enviando ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" /> Enviando...
+          </>
+        ) : isLastStep ? (
+          'Enviar check-in'
+        ) : (
+          'Responder'
+        )}
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-dvh bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col" style={{ color: aplicacaoPage?.textColor }}>
       <WhiteLabelFaviconEffect faviconUrl={headerWhiteLabel?.faviconUrl} cacheKey={headerWhiteLabel?.faviconUrl ?? undefined} />
@@ -795,7 +905,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col max-w-lg mx-auto w-full px-4 py-6">
+      <div className="flex-1 flex flex-col max-w-lg mx-auto w-full px-4 pt-6 pb-28">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -855,7 +965,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                         <Hash className="h-4 w-4" />
                         <span className="text-[10px] font-semibold uppercase">Semana</span>
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{dados?.semana ?? '—'}</p>
+                      <p className="text-xl font-bold text-slate-900">
+                        {dados?.semanaNoProtocolo ?? dados?.semana ?? '—'}
+                      </p>
+                      {dados?.protocoloIndice != null && dados.protocoloIndice > 1 ? (
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mt-0.5">
+                          Protocolo {dados.protocoloIndice}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
                       <div className="flex items-center gap-2 text-slate-500 mb-1">
@@ -894,6 +1011,12 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                   )}
                 </div>
               </>
+            ) : currentQuestion?.type === 'fotos' ? (
+              <AplicacaoFotosEvolucaoSection
+                token={token}
+                context="checkin"
+                sexoBiologico={pacienteResultado?.dadosIdentificacao?.sexoBiologico ?? null}
+              />
             ) : currentQuestion ? (
               <>
                 <label className="block text-lg sm:text-xl font-semibold text-slate-900 mb-4 leading-snug">
@@ -931,13 +1054,6 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                     rows={4}
                     className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 resize-y min-h-[120px]"
                   />
-                ) : currentQuestion.type === 'fotos' ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-sm text-slate-600 mb-3">
-                      Opcional — registre fotos frontal e de perfil para acompanhar sua evolução visual.
-                    </p>
-                    <AplicacaoFotosEvolucaoSection token={token} defaultAberto />
-                  </div>
                 ) : currentQuestion.key === 'peso' ? (
                   <DigitalMeasurePicker
                     value={form.peso || ''}
@@ -977,52 +1093,11 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
           </motion.div>
         </AnimatePresence>
 
-        <div className="sticky bottom-0 pt-6 pb-4 mt-auto bg-gradient-to-t from-white via-white to-transparent">
-          <div className="flex gap-3">
-            {step > INTRO_STEP && (
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={enviando}
-                className="flex items-center justify-center gap-1 px-5 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium text-sm hover:bg-slate-50 disabled:opacity-50"
-              >
-                <ChevronLeft className="w-4 h-4" /> Voltar
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={enviando}
-              className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm sm:text-base text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md shadow-emerald-500/20 disabled:opacity-70"
-            >
-              {enviando ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Enviando...
-                </>
-              ) : isIntro ? (
-                'Responder Check-In Semanal'
-              ) : isLastStep ? (
-                'Enviar check-in'
-              ) : (
-                'Responder'
-              )}
-            </button>
-          </div>
-        </div>
       </div>
 
-      <button
-        type="button"
-        onClick={abrirVideoAplicacao}
-        disabled={videoUrlLoading}
-        className="fixed bottom-5 right-4 z-40 flex flex-col items-center gap-1.5"
-        aria-label="Assistir vídeo de como fazer a aplicação"
-      >
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff0000] text-white shadow-lg">
-          {videoUrlLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Play className="h-7 w-7 fill-white translate-x-0.5" />}
-        </span>
-        <span className="rounded-md bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-slate-900 shadow-sm">Aplicação</span>
-      </button>
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/95 px-4 pb-4 pt-3 backdrop-blur-md">
+        <div className="max-w-lg mx-auto">{botoesAcao}</div>
+      </div>
 
       {showModalVideo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -1065,12 +1140,6 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         </div>
       )}
 
-      <PublicPageBrandFooter
-        theme={aplicacaoPage}
-        brandName={headerWhiteLabel?.brandName}
-        showPoweredBy={headerWhiteLabel?.showPoweredByOftware !== false}
-        className="px-4 pb-6"
-      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   type NegociacaoTerapeuticaPersistida,
 } from '@/lib/treatment-negotiation';
 import { LABEL_ANALISE_EXAMES } from '@/lib/treatment-negotiation/constants';
+import { anexarInjetaveisAoGrafico } from '@/lib/treatment-negotiation/protocolosInjetaveis';
 import {
   calcularPesoAlvo,
   formatarMetaKg,
@@ -342,12 +343,27 @@ export default function PlanoTerapeuticoInterativoClient({ orcamentoId, token }:
     if (modalidade === 'personalizado') {
       if (negociacaoAtiva?.parametros && propostaPersonalizadoDisponivel) {
         try {
-          return recalcularPlanoNegociado({
+          const calculado = recalcularPlanoNegociado({
             parametros: negociacaoAtiva.parametros,
             configuracaoComercial,
             pesoAtual,
             metaPercentual: plano.contextoPaciente.metaPercentual ?? plano.metaPercentual,
           });
+          const valorSalvo = Number(negociacaoAtiva.valorTotal);
+          const composicaoSalva = negociacaoAtiva.composicao;
+          return {
+            ...calculado,
+            valorTotal:
+              Number.isFinite(valorSalvo) && valorSalvo > 0 ? valorSalvo : calculado.valorTotal,
+            composicao: composicaoSalva
+              ? {
+                  ...calculado.composicao,
+                  ...composicaoSalva,
+                  descontoMedicacaoVolume: 0,
+                  descontoMedicacaoVolumePercentual: 0,
+                }
+              : calculado.composicao,
+          };
         } catch {
           return null;
         }
@@ -713,8 +729,17 @@ export default function PlanoTerapeuticoInterativoClient({ orcamentoId, token }:
 
   const dadosGrafico = useMemo(() => {
     if (!planoContinuo) return [];
-    return montarDadosGraficoTratamento(planoContinuo, pesoAlvoGrafico);
-  }, [planoContinuo, pesoAlvoGrafico]);
+    const base = montarDadosGraficoTratamento(planoContinuo, pesoAlvoGrafico);
+    return anexarInjetaveisAoGrafico(
+      base,
+      negociacaoAtiva?.parametros?.protocolosInjetaveis,
+      planoContinuo.estimativa.duracaoSemanas
+    );
+  }, [
+    planoContinuo,
+    pesoAlvoGrafico,
+    negociacaoAtiva?.parametros?.protocolosInjetaveis,
+  ]);
 
   const marcosGrafico = useMemo(() => {
     if (!planoContinuo || pesoAtual == null || pesoAtual <= 0) return [];
@@ -790,9 +815,25 @@ export default function PlanoTerapeuticoInterativoClient({ orcamentoId, token }:
         )}
 
         <section className="space-y-4">
-          <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight text-center">
-            Plano terapêutico
-          </h1>
+          <div className="text-center space-y-1">
+            <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">
+              Plano terapêutico
+            </h1>
+            {(pdfContext?.ctx.pacienteNome || plano.contextoPaciente.nomeExibicao) && (
+              <p className="text-sm text-slate-600">
+                Paciente:{' '}
+                <span className="font-medium text-slate-800">
+                  {pdfContext?.ctx.pacienteNome || plano.contextoPaciente.nomeExibicao}
+                </span>
+              </p>
+            )}
+            {isPersonalizado &&
+            (negociacaoAtiva?.nomePlano || negociacaoAtiva?.parametros?.nomePlano) ? (
+              <p className="text-sm text-amber-800 font-medium">
+                {negociacaoAtiva.nomePlano || negociacaoAtiva.parametros?.nomePlano}
+              </p>
+            ) : null}
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <div className="rounded-xl bg-white border border-slate-200/90 px-3 sm:px-4 py-3">
@@ -877,6 +918,12 @@ export default function PlanoTerapeuticoInterativoClient({ orcamentoId, token }:
             modalidade={modalidade}
             onSelect={handleSelectModalidade}
             inclusoes={inclusoesPlano}
+            planoPersonalizadoTitulo={
+              negociacaoAtiva?.nomePlano || negociacaoAtiva?.parametros?.nomePlano
+            }
+            planoPersonalizadoSubtitulo={
+              negociacaoAtiva?.descricaoCurta || negociacaoAtiva?.parametros?.descricaoCurta
+            }
           >
             {!isPersonalizado && (
               <>
@@ -968,11 +1015,16 @@ export default function PlanoTerapeuticoInterativoClient({ orcamentoId, token }:
                             ? {
                                 ...prev,
                                 negociacaoTerapeutica: {
+                                  ...(prev.negociacaoTerapeutica ?? {}),
                                   status: atualizado.status,
                                   enviadaEm: atualizado.enviadaEm,
                                   nomePlano: atualizado.nomePlano,
                                   descricaoCurta: atualizado.descricaoCurta,
                                   parametros: atualizado.parametros,
+                                  valorTotal:
+                                    atualizado.valorTotal ?? prev.negociacaoTerapeutica?.valorTotal,
+                                  composicao:
+                                    atualizado.composicao ?? prev.negociacaoTerapeutica?.composicao,
                                   mensagemPaciente: atualizado.mensagemPaciente,
                                   vistaProposta: atualizado.vistaProposta,
                                 },
@@ -1071,12 +1123,15 @@ export default function PlanoTerapeuticoInterativoClient({ orcamentoId, token }:
                 { titulo: 'Bioimpedância', valor: comp.bioimpedancia },
                 { titulo: LABEL_ANALISE_EXAMES, valor: comp.exames },
                 { titulo: 'Aplicações (kits)', valor: comp.custoKits },
+                ...(comp.custoInjetaveis && comp.custoInjetaveis > 0
+                  ? [{ titulo: 'Injetáveis', valor: comp.custoInjetaveis }]
+                  : []),
                 { titulo: 'Outros', valor: comp.outrosCustos },
                 ...(comp.margem > 0 ? [{ titulo: 'Margem', valor: comp.margem }] : []),
                 ...(comp.descontoManual > 0
                   ? [{ titulo: 'Descontos', valor: -comp.descontoManual }]
                   : []),
-                ...(comp.descontoMedicacaoVolume > 0
+                ...(modalidade !== 'personalizado' && comp.descontoMedicacaoVolume > 0
                   ? [
                       {
                         titulo: 'Ajuste na medicação (volume)',

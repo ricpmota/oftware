@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import type { MedicoPerfilRelatorio } from '@/utils/relatorioPacientePdf';
 import type { PacienteCompleto } from '@/types/obesidade';
+import {
+  isValidPublicLinkToken,
+  normalizePublicLinkToken,
+} from '@/lib/publicLinks/publicLinkToken';
+import { gerarSlugDrMedico } from '@/utils/medicoDrSlug';
+import { normalizeMedicoInstagramUsuario } from '@/utils/instagramUsuario';
+import { resolveMedicoWhiteLabel } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
+import { DEFAULT_DR_PAGE_BACKGROUND, DEFAULT_DR_PAGE_TEXT } from '@/lib/whiteLabel/publicPagesTheme';
+import { mapSolicitacaoExamesFromFirestore } from '@/utils/solicitacaoExamesPdfDownload';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -59,8 +69,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizePublicLinkToken((await params).token);
+    if (!isValidPublicLinkToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 
@@ -81,7 +91,10 @@ export async function GET(
       return NextResponse.json({ error: 'Paciente não encontrado' }, { status: 404 });
     }
 
-    const paciente = pacienteSnap.data() as PacienteCompleto;
+    const paciente = {
+      ...(pacienteSnap.data() as PacienteCompleto),
+      id: pacienteSnap.id,
+    };
     const medicoId = paciente.medicoResponsavelId as string | undefined;
 
     let medicoPerfil: MedicoPerfilRelatorio | null = null;
@@ -92,20 +105,86 @@ export async function GET(
         const genero = (medico.genero || medico.gender || 'M').toString().toUpperCase();
         const base = (medico.nome || medico.name || 'Médico').toString();
         const crm = medico.crm as { estado?: string; numero?: string } | undefined;
+        const fotoPerfilUrl =
+          typeof medico.fotoPerfilUrl === 'string' && medico.fotoPerfilUrl.trim()
+            ? medico.fotoPerfilUrl.trim()
+            : null;
+        const wl = resolveMedicoWhiteLabel({
+          nome: base,
+          genero: genero === 'F' ? 'F' : 'M',
+          fotoPerfilUrl,
+          whiteLabel: (medico.whiteLabel as Parameters<typeof resolveMedicoWhiteLabel>[0]['whiteLabel']) ?? null,
+          organizationId: typeof medico.organizationId === 'string' ? medico.organizationId : null,
+        });
         medicoPerfil = {
+          id: medicoId,
           nome: base,
           genero,
           crm: crm?.estado && crm?.numero ? { estado: crm.estado, numero: String(crm.numero) } : undefined,
           telefone: (medico.telefone || medico.phone || '')?.toString() || undefined,
+          telefoneDdi: typeof medico.telefoneDdi === 'string' ? medico.telefoneDdi : undefined,
+          telefonePais: typeof medico.telefonePais === 'string' ? medico.telefonePais : undefined,
           cidades: Array.isArray(medico.cidades) ? medico.cidades as Array<{ cidade?: string; estado?: string }> : undefined,
           localizacao: medico.localizacao && typeof medico.localizacao === 'object' ? { endereco: (medico.localizacao as Record<string, unknown>).endereco as string } : undefined,
+          fotoPerfilUrl: wl.profilePhotoUrl || fotoPerfilUrl,
+          isVerificado: medico.isVerificado === true,
+          slug: gerarSlugDrMedico(base),
+          primaryColor: wl.primaryColor,
+          pageBg: wl.publicPages.dr.backgroundColor || DEFAULT_DR_PAGE_BACKGROUND,
+          pageText: wl.publicPages.dr.textColor || DEFAULT_DR_PAGE_TEXT,
+          instagramUsuario: normalizeMedicoInstagramUsuario(medico.instagramUsuario),
         };
+      }
+    }
+
+    const [pagamentoSnap, prescricoesSnap, solicitacoesSnap] = await Promise.all([
+      db.collection('pagamentos_pacientes').doc(pacienteId).get(),
+      db.collection('prescricoes').where('pacienteId', '==', pacienteId).get(),
+      db
+        .collection('pacientes_completos')
+        .doc(pacienteId)
+        .collection('solicitacoesExames')
+        .get(),
+    ]);
+
+    const pagamento = pagamentoSnap.exists
+      ? { ...(pagamentoSnap.data() as Record<string, unknown>), pacienteId }
+      : null;
+
+    const prescricoes = prescricoesSnap.docs
+      .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Record<string, unknown>) }))
+      .filter((p) => p.isTemplate !== true);
+
+    const solicitacoesExames = solicitacoesSnap.docs
+      .map((docSnap) =>
+        mapSolicitacaoExamesFromFirestore(
+          docSnap.id,
+          pacienteId,
+          docSnap.data() as Record<string, unknown>
+        )
+      )
+      .filter((s) => Boolean(s.signedPdfUrl));
+
+    let pacienteFotoPerfilUrl: string | null = null;
+    const pacienteUserId =
+      typeof paciente.userId === 'string' ? paciente.userId.trim() : '';
+    if (pacienteUserId) {
+      try {
+        const authUser = await getAuth(getApps()[0]).getUser(pacienteUserId);
+        const photo = authUser.photoURL?.trim();
+        if (photo) pacienteFotoPerfilUrl = photo;
+      } catch {
+        /* Auth indisponível — segue sem foto */
       }
     }
 
     return NextResponse.json({
       paciente: serializeForJson(paciente),
       medicoPerfil: medicoPerfil ? serializeForJson(medicoPerfil) : null,
+      pagamento: pagamento ? serializeForJson(pagamento) : null,
+      prescricoes: serializeForJson(prescricoes),
+      solicitacoesExames: serializeForJson(solicitacoesExames),
+      pacienteFotoPerfilUrl,
     });
   } catch (error) {
     console.error('Erro ao buscar dados do relatório:', error);

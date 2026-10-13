@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import {
+  isValidAplicacaoPublicToken,
+  normalizeAplicacaoPublicToken,
+} from '@/lib/aplicacao/aplicacaoPublicToken';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -61,8 +65,8 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizeAplicacaoPublicToken((await params).token);
+    if (!isValidAplicacaoPublicToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 

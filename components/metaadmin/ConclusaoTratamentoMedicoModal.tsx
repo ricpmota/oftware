@@ -22,6 +22,7 @@ import {
 } from '@/lib/conclusao/conclusaoFormUtils';
 import { salvarConclusaoMedicoNoPaciente } from '@/lib/conclusao/salvarConclusaoMedicoNoPaciente';
 import type { PacienteCompleto, SeguimentoSemanal } from '@/types/obesidade';
+import { protocoloDaSemanaGlobal, semanaRelativaNoProtocolo } from '@/utils/tirzepatidaProtocoloDisplay';
 
 const INTRO_STEP = 0;
 const REVIEW_KIND = 'review' as const;
@@ -99,6 +100,8 @@ export function ConclusaoTratamentoMedicoModal({
 
   const nomePaciente = paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || 'Paciente';
   const tituloMedico = medicoGenero === 'F' ? 'Dra.' : 'Dr.';
+  const protoConclusao = protocoloDaSemanaGlobal(paciente, semana);
+  const semanaRelativa = semanaRelativaNoProtocolo(semana, protoConclusao.semanaInicioCiclo);
 
   const flowSteps = useMemo((): FlowStep[] => {
     const steps: FlowStep[] = CONCLUSAO_QUESTIONS.map((question) => ({
@@ -275,7 +278,7 @@ export function ConclusaoTratamentoMedicoModal({
 
   return (
     <div
-      className="fixed inset-0 z-[10050] flex flex-col md:items-center md:justify-center md:bg-black/50 md:p-4"
+      className="fixed inset-0 z-[11000] flex flex-col md:items-center md:justify-center md:bg-black/50 md:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="conclusao-medico-title"
@@ -284,13 +287,13 @@ export function ConclusaoTratamentoMedicoModal({
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white/95 backdrop-blur-md">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-wider text-purple-700">
-              Conclusão pelo médico
+              Conclusão · Protocolo {protoConclusao.indice}
             </p>
             <h2
               id="conclusao-medico-title"
               className="text-sm font-semibold text-slate-900 truncate"
             >
-              {formatarNomePaciente(nomePaciente)} · Semana {semana}
+              {formatarNomePaciente(nomePaciente)} · Semana {semanaRelativa}
             </h2>
           </div>
           <button
@@ -428,10 +431,12 @@ export function ConclusaoTratamentoMedicoModal({
                   {isIntro ? (
                     <>
                       <h3 className="text-2xl font-bold text-slate-900 leading-tight mb-2">
-                        Conclusão do Tratamento
+                        Conclusão do Protocolo {protoConclusao.indice}
                       </h3>
                       <p className="text-sm text-slate-600 mb-5">
-                        Preencha em nome do paciente as mesmas informações da página de conclusão.
+                        Você está encerrando o Protocolo {protoConclusao.indice}. O depoimento e os
+                        dados finais ficam vinculados a este ciclo
+                        {protoConclusao.indice > 1 ? ', não ao protocolo anterior' : ''}.
                       </p>
 
                       <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm space-y-4">
@@ -469,11 +474,18 @@ export function ConclusaoTratamentoMedicoModal({
                           <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
                             <div className="flex items-center gap-2 text-slate-500 mb-1">
                               <Hash className="h-4 w-4" />
+                              <span className="text-[10px] font-semibold uppercase">Protocolo</span>
+                            </div>
+                            <p className="text-xl font-bold text-slate-900">{protoConclusao.indice}</p>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                            <div className="flex items-center gap-2 text-slate-500 mb-1">
+                              <Hash className="h-4 w-4" />
                               <span className="text-[10px] font-semibold uppercase">Semana</span>
                             </div>
-                            <p className="text-xl font-bold text-slate-900">{semana}</p>
+                            <p className="text-xl font-bold text-slate-900">{semanaRelativa}</p>
                           </div>
-                          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 col-span-1">
+                          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 col-span-2">
                             <div className="flex items-center gap-2 text-slate-500 mb-1">
                               <Calendar className="h-4 w-4" />
                               <span className="text-[10px] font-semibold uppercase">Data</span>

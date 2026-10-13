@@ -5,6 +5,10 @@ import { generateRelatorioPacientePdfBase64 } from '@/utils/relatorioPacientePdf
 import { readLabExamesConfigFromFirestore } from '@/lib/labExames/readLabLimitOverrides';
 import type { MedicoPerfilRelatorio } from '@/utils/relatorioPacientePdf';
 import type { PacienteCompleto } from '@/types/obesidade';
+import {
+  isValidPublicLinkToken,
+  normalizePublicLinkToken,
+} from '@/lib/publicLinks/publicLinkToken';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -51,8 +55,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizePublicLinkToken((await params).token);
+    if (!isValidPublicLinkToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 

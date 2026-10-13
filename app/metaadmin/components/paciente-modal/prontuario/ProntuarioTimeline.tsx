@@ -44,10 +44,12 @@ const LABEL_ORIGEM: Record<EventoTimelineOrigem, string> = {
   nutri: 'Nutrição',
   personal: 'Personal',
   admin: 'Admin',
+  /** Alinhado a medico/personal (papel profissional), não à pasta "Psiquiatria". */
+  psiquiatra: 'Psiquiatra',
 };
 
 
-type FiltroTimelineAtivo = 'todos' | 'exames' | 'aplicacoes' | EventoTimelineTipo;
+type FiltroTimelineAtivo = 'todos' | 'exames' | 'aplicacoes' | 'psiquiatria' | EventoTimelineTipo;
 
 const TIPOS_EXAMES: Set<EventoTimelineTipo> = new Set(['exame_solicitado', 'exame_resultado', 'imagem']);
 const TIPOS_APLICACOES: Set<EventoTimelineTipo> = new Set(['aplicacao', 'marco_zero', 'peso', 'cintura']);
@@ -64,6 +66,7 @@ const FILTROS_TIMELINE: { id: FiltroTimelineAtivo; label: string }[] = [
   { id: 'observacao', label: 'Observações' },
   { id: 'ia', label: 'IA' },
   { id: 'nutricao', label: 'Nutrição' },
+  { id: 'psiquiatria', label: 'Psiquiatria' },
   { id: 'atividade_fisica', label: 'Atividade física' },
   { id: 'sistema_importante', label: 'Alertas' },
   { id: 'aniversario', label: 'Aniversário' },
@@ -80,6 +83,7 @@ const FILTROS_TIMELINE_NUTRI: { id: FiltroTimelineAtivo; label: string }[] = [
   { id: 'bioimpedancia', label: 'Bioimpedância' },
   { id: 'observacao', label: 'Observações' },
   { id: 'nutricao', label: 'Nutrição' },
+  { id: 'psiquiatria', label: 'Psiquiatria' },
   { id: 'atividade_fisica', label: 'Atividade física' },
   { id: 'sistema_importante', label: 'Alertas' },
   { id: 'aniversario', label: 'Aniversário' },
@@ -209,6 +213,7 @@ export type ProntuarioTimelineProps = {
   prontuarioVazio?: boolean;
   variant?: 'medico' | 'nutricionista';
   fotosProgresso?: FotoProgressoCarousel[];
+  pacienteId?: string;
   onIrParaAba?: (aba: number) => void;
   onApagar?: (eventoId: string) => void;
   podeApagarEvento?: (evento: EventoTimelineMock) => boolean;
@@ -221,6 +226,7 @@ export function ProntuarioTimeline({
   prontuarioVazio,
   variant = 'medico',
   fotosProgresso = [],
+  pacienteId,
   onIrParaAba,
   onApagar,
   podeApagarEvento,
@@ -243,6 +249,13 @@ export function ProntuarioTimeline({
     }
     if (filtroAtivo === 'exames') {
       return eventos.filter((e) => TIPOS_EXAMES.has(e.tipo));
+    }
+    if (filtroAtivo === 'psiquiatria') {
+      return eventos.filter((e) => e.origem === 'psiquiatra');
+    }
+    if (filtroAtivo === 'consulta') {
+      // Consultas médicas — registros Psi ficam no filtro Psiquiatria
+      return eventos.filter((e) => e.tipo === 'consulta' && e.origem !== 'psiquiatra');
     }
     return eventos.filter((e) => e.tipo === filtroAtivo);
   }, [eventos, filtroAtivo, subfiltroAplicacao]);
@@ -375,9 +388,18 @@ export function ProntuarioTimeline({
                     </span>
                     {evento.origem && (
                       <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                        {LABEL_ORIGEM[evento.origem]}
+                        {evento.psiquiatraNome?.trim()
+                          ? evento.psiquiatraNome.trim()
+                          : evento.medicoNome?.trim()
+                            ? evento.medicoNome.trim()
+                            : LABEL_ORIGEM[evento.origem]}
                       </span>
                     )}
+                    {!evento.origem && (evento.psiquiatraNome?.trim() || evento.medicoNome?.trim()) ? (
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                        {(evento.psiquiatraNome || evento.medicoNome || '').trim()}
+                      </span>
+                    ) : null}
                     <span className="ml-auto text-gray-300 dark:text-gray-600 text-sm leading-none select-none cursor-default" title="Ações">⋮</span>
                   </div>
 
@@ -455,6 +477,7 @@ export function ProntuarioTimeline({
                         dados={evento.dados!}
                         descricao={evento.descricao}
                         fotosProgresso={fotosProgresso}
+                        pacienteId={pacienteId}
                       />
                       {evento.destaque && (
                         <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/50 px-3 py-1.5">

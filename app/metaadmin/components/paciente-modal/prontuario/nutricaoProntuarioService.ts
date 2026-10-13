@@ -1,5 +1,17 @@
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  planoTemAnamneseNutricional,
+  planoTemCalculosNutricionais,
+} from '@/lib/nutri/anamneseNutricional';
+import { deserializeCheckInSemanalNutri } from '@/lib/nutri/checkInSemanalNutriPersist';
+import {
+  CHECKIN_SEMANAL_NUTRI_COLLECTION,
+} from '@/lib/nutri/checkInSemanalNutriTypes';
+import {
+  TITULO_CHECKIN_NUTRI_DIARIO_LEGADO,
+  checkInsSemanaisNutricaoParaEventos,
+} from '@/lib/nutri/checkInSemanalNutriProntuario';
 import type { EventoTimelineMock } from './prontuarioTypes';
 
 const COL_PACIENTES = 'pacientes_completos';
@@ -39,6 +51,8 @@ type PlanoNutricionalFirestore = {
   itensCustomizadosPorRefeicao?: Record<string, unknown[]>;
   opcoesCustomizadas?: Record<string, unknown[]>;
   macrosPorRefeicao?: Record<string, unknown>;
+  anamneseNutricional?: { preenchidaEm?: string; objetivoPrincipal?: string } | null;
+  anamnesePendenteGeracao?: boolean;
 };
 
 function toDate(val: unknown): Date | null {
@@ -103,35 +117,83 @@ function resumirCheckIn(c: NutricaoCheckInFirestore): string {
   return partes.join(' · ') || 'Check-in registrado pelo paciente.';
 }
 
+const OBJETIVO_ANAMNESE_LABEL: Record<string, string> = {
+  perda_peso: 'Perda de peso',
+  recomposicao: 'Recomposição corporal',
+  controle_glicemia: 'Controle glicêmico',
+  melhora_disposicao: 'Mais disposição',
+  manutencao: 'Manutenção',
+};
+
 export function planoNutricionalParaEventos(
   plano: PlanoNutricionalFirestore,
   criadoEm: Date
 ): EventoTimelineMock[] {
   const eventos: EventoTimelineMock[] = [];
   const estilo = ESTILO_LABEL[plano.estilo ?? ''] ?? plano.estilo ?? 'Personalizado';
-  const data = fmtDDMMYYYY(criadoEm);
+  const dataPlano = fmtDDMMYYYY(criadoEm);
+  const temAnamnese = planoTemAnamneseNutricional(plano);
+  const temCalculos = planoTemCalculosNutricionais(plano);
 
-  const descPlano: string[] = [
-    `Perfil: ${estilo}`,
-    plano.protDia_g != null ? `Meta proteína: ${Math.round(plano.protDia_g)} g/dia` : '',
-    plano.aguaDia_ml != null ? `Meta água: ${(plano.aguaDia_ml / 1000).toFixed(1)} L/dia` : '',
-  ].filter(Boolean);
-
-  if (plano.hipoteseComportamental?.trim()) {
-    const h = plano.hipoteseComportamental.trim();
-    descPlano.push(h.length > 200 ? `${h.slice(0, 200)}…` : h);
+  if (temAnamnese) {
+    const preenchidaEm =
+      toDate(plano.anamneseNutricional?.preenchidaEm) ?? criadoEm;
+    const objetivo = plano.anamneseNutricional?.objetivoPrincipal;
+    const objetivoLabel = objetivo ? OBJETIVO_ANAMNESE_LABEL[objetivo] || objetivo : '';
+    eventos.push({
+      id: 'nutricao-anamnese-preenchida',
+      tipo: 'nutricao',
+      titulo: 'Anamnese nutricional preenchida',
+      descricao: objetivoLabel
+        ? `Questionário respondido pelo paciente · Objetivo: ${objetivoLabel}`
+        : 'Questionário da anamnese nutricional respondido pelo paciente.',
+      data: fmtDDMMYYYY(preenchidaEm),
+      origem: 'paciente',
+      destaque: 'Anamnese respondida',
+      dados: { status: 'Anamnese preenchida' },
+    });
   }
 
-  eventos.push({
-    id: 'nutricao-anamnese-plano',
-    tipo: 'nutricao',
-    titulo: 'Anamnese nutricional concluída',
-    descricao: descPlano.join(' · '),
-    data,
-    origem: 'paciente',
-    destaque: 'Plano Nutri criado',
-    dados: { status: 'Anamnese / plano inicial' },
-  });
+  if (temCalculos) {
+    const descPlano: string[] = [
+      `Perfil: ${estilo}`,
+      plano.protDia_g != null ? `Meta proteína: ${Math.round(plano.protDia_g)} g/dia` : '',
+      plano.aguaDia_ml != null ? `Meta água: ${(plano.aguaDia_ml / 1000).toFixed(1)} L/dia` : '',
+    ].filter(Boolean);
+
+    if (plano.hipoteseComportamental?.trim()) {
+      const h = plano.hipoteseComportamental.trim();
+      descPlano.push(h.length > 200 ? `${h.slice(0, 200)}…` : h);
+    }
+
+    eventos.push({
+      id: 'nutricao-anamnese-plano',
+      tipo: 'nutricao',
+      titulo: 'Plano nutricional criado',
+      descricao: descPlano.join(' · '),
+      data: dataPlano,
+      origem: 'paciente',
+      destaque: 'Plano Nutri criado',
+      dados: { status: 'Plano inicial' },
+    });
+  } else if (!temAnamnese) {
+    const descPlano: string[] = [
+      `Perfil: ${estilo}`,
+      plano.protDia_g != null ? `Meta proteína: ${Math.round(plano.protDia_g)} g/dia` : '',
+      plano.aguaDia_ml != null ? `Meta água: ${(plano.aguaDia_ml / 1000).toFixed(1)} L/dia` : '',
+    ].filter(Boolean);
+
+    eventos.push({
+      id: 'nutricao-anamnese-plano',
+      tipo: 'nutricao',
+      titulo: 'Anamnese nutricional concluída',
+      descricao: descPlano.join(' · '),
+      data: dataPlano,
+      origem: 'paciente',
+      destaque: 'Plano Nutri criado',
+      dados: { status: 'Anamnese / plano inicial' },
+    });
+  }
 
   if (planoTemCardapioPersonalizado(plano)) {
     eventos.push({
@@ -140,7 +202,7 @@ export function planoNutricionalParaEventos(
       titulo: 'Cardápio personalizado',
       descricao:
         'Paciente montou ou ajustou o cardápio (refeições e opções) no módulo Nutri.',
-      data,
+      data: dataPlano,
       origem: 'paciente',
       destaque: 'Cardápio ativo',
       dados: { status: 'Cardápio configurado' },
@@ -159,13 +221,13 @@ export function checkInsNutricaoParaEventos(checkIns: NutricaoCheckInFirestore[]
     return {
       id: `nutricao-checkin-${c.data}`,
       tipo: 'nutricao',
-      titulo: 'Check-in nutricional',
+      titulo: TITULO_CHECKIN_NUTRI_DIARIO_LEGADO,
       descricao: resumirCheckIn(c),
       data: fmtDDMMYYYY(dt),
       origem: 'paciente',
       destaque: c.score != null ? `Score ${Math.round(c.score)}` : undefined,
       dados: {
-        status: 'Check-in diário',
+        status: 'Check-in diário legado',
         ...(c.pesoHoje != null ? { peso: `${c.pesoHoje} kg` } : {}),
       },
     };
@@ -235,6 +297,15 @@ export async function buscarEventosNutricaoProntuario(pacienteId: string): Promi
 
   checkIns.sort((a, b) => b.data.localeCompare(a.data));
   eventos.push(...checkInsNutricaoParaEventos(checkIns.slice(0, 90)));
+
+  const weeklySnap = await getDocs(
+    collection(db, COL_PACIENTES, pacienteId, 'nutricao', 'dados', CHECKIN_SEMANAL_NUTRI_COLLECTION)
+  );
+  const weekly = weeklySnap.docs.map((docSnap) =>
+    deserializeCheckInSemanalNutri(docSnap.data() as Record<string, unknown>, docSnap.id)
+  );
+  weekly.sort((a, b) => b.weekKey.localeCompare(a.weekKey));
+  eventos.push(...checkInsSemanaisNutricaoParaEventos(weekly.slice(0, 90)));
 
   const chatDayKeys = new Set<string>();
 

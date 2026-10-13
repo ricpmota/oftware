@@ -1,13 +1,18 @@
 import type { PacienteCompleto, PlanoTerapeutico, SeguimentoSemanal } from '@/types/obesidade';
 import {
+  atualizarNumeroSemanasDoPlano,
   dataGradeSemanal,
   dataPrevistaConclusaoComoEsquema,
   injectionDayKeyFromLocalDate,
   normalizarDatasAplicacaoIndividuaisParaFirestore,
   primeiraDoseDoPlano,
+  semanaFimAplicacoesDoPlano,
   semanaIndexConclusao,
+  semanaInicioCicloDoPlano,
+  ultimaSemanaNaoCancelada,
   ymdLocal,
 } from '@/utils/datasAplicacaoSemanaPlano';
+import { limiteMinimoNumeroSemanasTratamento } from '@/utils/numeroSemanasTratamento';
 import {
   calcularDoseTitulacaoMg,
   DOSE_INICIAL_PADRAO_MG,
@@ -89,15 +94,16 @@ function startOfDay(d: Date): Date {
 export function calcularDoseAutomaticaEsquema(
   plano: PlanoTerapeutico,
   evolucao: SeguimentoSemanal[],
-  semanaIndex: number,
+  semanaIndexLocal0: number,
   primeiraDose: Date
 ): number {
+  const inicio = semanaInicioCicloDoPlano(plano);
   const doseInicial = plano.currentDoseMg || 2.5;
-  let semanasDesdeUltimoCiclo = semanaIndex;
+  let semanasDesdeUltimoCiclo = semanaIndexLocal0;
 
-  for (let s = 0; s < semanaIndex; s++) {
-    const semanaNum = s + 1;
-    const dataPrevista = dataGradeSemanal(primeiraDose, semanaNum);
+  for (let s = 0; s < semanaIndexLocal0; s++) {
+    const semanaNum = inicio + s;
+    const dataPrevista = dataGradeSemanal(primeiraDose, semanaNum, inicio);
     const registro = registroEvolucaoPorSemana(evolucao, semanaNum);
     if (!registro || !contaComoDoseAplicada(registro)) continue;
 
@@ -107,7 +113,7 @@ export function calcularDoseAutomaticaEsquema(
     const diffDias =
       (startOfDay(dataReal).getTime() - startOfDay(dataPrevista).getTime()) / (1000 * 60 * 60 * 24);
     if (diffDias >= 4) {
-      semanasDesdeUltimoCiclo = semanaIndex - s - 1;
+      semanasDesdeUltimoCiclo = semanaIndexLocal0 - s - 1;
       break;
     }
   }
@@ -136,14 +142,16 @@ export function buildSemanasEsquemaDoses(paciente: PacienteCompleto): {
   const datasAplicacaoIndividuais = plano.datasAplicacaoIndividuais || {};
   const semanasCanceladas = plano.semanasCanceladas || [];
   const semanas: SemanaEsquemaItem[] = [];
+  const inicio = semanaInicioCicloDoPlano(plano);
+  const fim = semanaFimAplicacoesDoPlano(plano);
 
-  for (let s = 0; s < numeroSemanas; s++) {
-    const semanaNum = s + 1;
-    const dataDose = dataGradeSemanal(primeiraDose, semanaNum);
+  for (let semanaNum = inicio; semanaNum <= fim; semanaNum++) {
+    const semanaLocal0 = semanaNum - inicio;
+    const dataDose = dataGradeSemanal(primeiraDose, semanaNum, inicio);
     const registro = registroEvolucaoPorSemana(evolucao, semanaNum);
     const temDoseAplicada = contaComoDoseAplicada(registro);
 
-    const doseAutomatica = calcularDoseAutomaticaEsquema(plano, evolucao, s, primeiraDose);
+    const doseAutomatica = calcularDoseAutomaticaEsquema(plano, evolucao, semanaLocal0, primeiraDose);
     const doseCustomizada = plano.esquemaDosesCustomizado?.[semanaNum];
     const doseAplicadaMg = temDoseAplicada ? doseMgAplicada(registro) : undefined;
     /** Fonte única para exibição: esquema (customizado ou titulação automática), nunca dose gravada só na evolução. */
@@ -206,6 +214,54 @@ export function buildSemanasEsquemaDoses(paciente: PacienteCompleto): {
   return { semanas, totalMiligramas, primeiraDose };
 }
 
+/**
+ * Altera o número de semanas do plano e sincroniza datas, conclusão e doses
+ * customizadas das semanas que saíram do tratamento.
+ */
+export function pacienteComNumeroSemanasAtualizado(
+  paciente: PacienteCompleto,
+  numeroSemanas: number
+): PacienteCompleto {
+  const min = limiteMinimoNumeroSemanasTratamento(paciente);
+  const n = Math.min(200, Math.max(min, Math.floor(numeroSemanas)));
+  const plano = paciente.planoTerapeutico;
+  if (!plano) {
+    return {
+      ...paciente,
+      planoTerapeutico: { metas: {}, numeroSemanasTratamento: n },
+    };
+  }
+
+  const built = buildSemanasEsquemaDoses(paciente);
+  const esquema = { ...(plano.esquemaDosesCustomizado || {}) };
+  if (built) {
+    for (const item of built.semanas) {
+      if (item.isConclusao || item.isCancelada) continue;
+      if (item.temDoseAplicada && item.doseAtual > 0) {
+        esquema[item.semana] = item.doseAtual;
+      }
+    }
+  }
+  for (const k of Object.keys(esquema)) {
+    const num = Number(k);
+    if (!Number.isFinite(num)) continue;
+    const inicioEsquema = semanaInicioCicloDoPlano(plano);
+    const fimEsquema = inicioEsquema + n - 1;
+    if (num < inicioEsquema || num > fimEsquema) delete esquema[num];
+  }
+
+  const planoAtualizado = atualizarNumeroSemanasDoPlano(plano, n, paciente.evolucaoSeguimento);
+
+  return {
+    ...paciente,
+    planoTerapeutico: {
+      ...plano,
+      ...planoAtualizado,
+      esquemaDosesCustomizado: Object.keys(esquema).length > 0 ? esquema : undefined,
+    },
+  };
+}
+
 /** Atualiza `datasAplicacaoIndividuais` com YYYY-MM-DD reais das doses aplicadas. */
 export function sincronizarDatasAplicacaoIndividuaisComEvolucao(
   plano: PlanoTerapeutico,
@@ -243,9 +299,10 @@ export function pacienteComDoseMgSemanaAtualizada(
 
   const primeira = primeiraDoseDoPlano(plano);
   const evolucao = paciente.evolucaoSeguimento || [];
+  const inicio = semanaInicioCicloDoPlano(plano);
   const doseAutomatica =
     primeira != null
-      ? calcularDoseAutomaticaEsquema(plano, evolucao, semanaNum - 1, primeira)
+      ? calcularDoseAutomaticaEsquema(plano, evolucao, Math.max(0, semanaNum - inicio), primeira)
       : doseMg;
 
   const esquema = { ...(plano.esquemaDosesCustomizado || {}) };
@@ -350,4 +407,77 @@ export function listarAplicacoesPlanejadasNoPeriodo(
   }
 
   return aplicacoes;
+}
+
+export type AplicacaoEsquemaComConclusao = {
+  data: Date;
+  semana: number;
+  dose: number;
+  localAplicacao: string;
+};
+
+/** Semanas do ciclo (incluindo conclusão) — mesma fonte da aba Aplicações. */
+export function listarAplicacoesEsquemaComConclusao(
+  paciente: PacienteCompleto
+): AplicacaoEsquemaComConclusao[] {
+  const pt = paciente.planoTerapeutico;
+  const primeira = pt ? primeiraDoseDoPlano(pt) : null;
+  if (!pt || !primeira) return [];
+
+  const nSem = Number(pt.numeroSemanasTratamento) || 18;
+  const inicioRange = new Date(primeira.getFullYear() - 1, primeira.getMonth(), primeira.getDate());
+  const fimRange = new Date(primeira);
+  fimRange.setDate(fimRange.getDate() + nSem * 7 + 400);
+
+  const lista: AplicacaoEsquemaComConclusao[] = listarAplicacoesPlanejadasNoPeriodo(
+    paciente,
+    inicioRange,
+    fimRange
+  ).map((a) => ({ ...a, localAplicacao: a.localAplicacao }));
+
+  const semanaConclusaoIdx = semanaIndexConclusao(pt);
+  if (!lista.some((a) => a.semana === semanaConclusaoIdx)) {
+    const ultSem = ultimaSemanaNaoCancelada(pt);
+    const rawDose = pt.esquemaDosesCustomizado?.[ultSem];
+    const doseNum =
+      typeof rawDose === 'number' && !Number.isNaN(rawDose)
+        ? rawDose
+        : Number(pt.currentDoseMg) || 0;
+    lista.push({
+      data: dataPrevistaConclusaoComoEsquema(pt, paciente.evolucaoSeguimento || []),
+      semana: semanaConclusaoIdx,
+      dose: doseNum,
+      localAplicacao: '—',
+    });
+  }
+
+  lista.sort((a, b) => b.data.getTime() - a.data.getTime());
+  return lista;
+}
+
+/** Mesmo critério do calendário MetaAdmin: compara ano/mês/dia civil da data da aplicação. */
+export function aplicacaoDataNoDiaCalendario(dataAplicacao: Date, dateKey: string): boolean {
+  return ymdLocal(dataAplicacao) === dateKey;
+}
+
+/**
+ * Aplicações de um dia — mesma fonte do calendário (`listarAplicacoesPlanejadasNoPeriodo` / Esquema de Doses).
+ * `dateKey`: YYYY-MM-DD (no cron, use a data de Brasília do dia).
+ */
+export function listarAplicacoesPlanejadasNoDia(
+  paciente: PacienteCompleto,
+  dateKey: string,
+): AplicacaoPlanejadaEsquema[] {
+  const match = dateKey.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return [];
+
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const mesInicio = new Date(y, m - 1, d, 0, 0, 0, 0);
+  const mesFim = new Date(y, m - 1, d, 23, 59, 59, 999);
+
+  return listarAplicacoesPlanejadasNoPeriodo(paciente, mesInicio, mesFim).filter((aplicacao) =>
+    aplicacaoDataNoDiaCalendario(aplicacao.data, dateKey),
+  );
 }

@@ -1,16 +1,21 @@
 import type { LucideIcon } from 'lucide-react';
+import { isDemoOrganization } from '@/lib/organization/isDemoOrganization';
 import {
   Activity,
+  Apple,
   BookOpen,
   Bot,
   Brain,
   Building2,
   Calendar,
+  ClipboardList,
   CreditCard,
   Dumbbell,
   FileText,
   FlaskConical,
   Globe,
+  Gauge,
+  HeartHandshake,
   Image,
   LayoutDashboard,
   Mail,
@@ -19,6 +24,7 @@ import {
   MessageSquare,
   Palette,
   Pill,
+  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -28,10 +34,13 @@ import {
   Users,
   UtensilsCrossed,
   Wrench,
+  Workflow,
 } from 'lucide-react';
-import { isDemoOrganization } from '@/lib/organization/isDemoOrganization';
-import { listOrganizations, METODO_ORGANIZATION } from '@/lib/organization/organizationRegistry';
-import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
+import {
+  listOrganizations,
+  METODO_ORGANIZATION,
+  type OrganizationDefinition,
+} from '@/lib/organization/organizationRegistry';
 
 /** Contexto de navegação — Plataforma vs Organização ativa. */
 export type MetaAdminGeralNavContext = 'platform' | 'organization';
@@ -70,10 +79,23 @@ export const META_ADMIN_GERAL_PLATFORM_MENU_IDS = new Set([
   'cores-do-sistema',
   'exames-laboratoriais',
   'protocolos-prescricao',
+  'alimentos-globais',
   'bio-impedancia',
   'oi-validation',
+  '50kg-depois',
+  'match-saudavel',
+  'disparos',
   'platform-patrimonio',
   'platform-health',
+  'platform-automacoes',
+  'automacoes-dashboard',
+  'automacoes-canal-chat',
+  'automacoes-catalogo',
+  'automacoes-templates',
+  'automacoes-organizacoes',
+  'automacoes-logs',
+  'automacoes-ferramentas',
+  'automation-ops',
   'leads-whitelabel',
 ]);
 
@@ -83,6 +105,7 @@ export const META_ADMIN_GERAL_PLATFORM_TOP: MetaAdminGeralPlatformTopItem[] = [
   { id: 'platform-produtos', label: 'Produtos da Plataforma', icon: BookOpen },
   { id: 'platform-patrimonio', label: 'Patrimônio Global', icon: FlaskConical },
   { id: 'platform-ferramentas', label: 'Ferramentas', icon: Wrench },
+  { id: 'platform-automacoes', label: 'Automações', icon: Workflow },
   { id: 'platform-config-global', label: 'Configurações Globais', icon: Settings },
 ];
 
@@ -111,8 +134,10 @@ export const META_ADMIN_GERAL_PLATFORM_DEPARTMENTS: MetaAdminGeralNavDepartment[
     icon: FlaskConical,
     items: [
       { id: 'chatinicial', label: 'Chat Inicial', icon: MessageSquare, href: '/metaadmingeral/chatinicial' },
+      { id: 'match-saudavel', label: 'Match Saudável', icon: HeartHandshake },
       { id: 'exames-laboratoriais', label: 'Exames Laboratoriais', icon: FlaskConical },
       { id: 'protocolos-prescricao', label: 'Prescrições / Protocolos', icon: Pill },
+      { id: 'alimentos-globais', label: 'Alimentos', icon: Apple },
       { id: 'bio-impedancia', label: 'Bio Impedância', icon: Activity },
       {
         id: 'oi-validation',
@@ -120,6 +145,8 @@ export const META_ADMIN_GERAL_PLATFORM_DEPARTMENTS: MetaAdminGeralNavDepartment[
         icon: Brain,
         href: '/metaadmingeral/oi-validation',
       },
+      { id: '50kg-depois', label: '50 KG DEPOIS', icon: BookOpen },
+      { id: 'disparos', label: 'Disparos', icon: Send },
     ],
   },
   {
@@ -127,6 +154,25 @@ export const META_ADMIN_GERAL_PLATFORM_DEPARTMENTS: MetaAdminGeralNavDepartment[
     label: 'Ferramentas',
     icon: Wrench,
     items: [{ id: 'platform-health', label: 'Saúde da Plataforma', icon: ShieldCheck }],
+  },
+  {
+    id: 'platform-automacoes',
+    label: 'Automações',
+    icon: Workflow,
+    items: [
+      { id: 'automacoes-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'automacoes-canal-chat', label: 'Canal Chat', icon: MessageCircle },
+      {
+        id: 'automation-ops',
+        label: 'Operations Center',
+        icon: Gauge,
+      },
+      { id: 'automacoes-catalogo', label: 'Automações', icon: Workflow },
+      { id: 'automacoes-templates', label: 'Templates', icon: FileText },
+      { id: 'automacoes-organizacoes', label: 'Organizações', icon: Building2 },
+      { id: 'automacoes-logs', label: 'Logs', icon: ClipboardList },
+      { id: 'automacoes-ferramentas', label: 'Ferramentas', icon: Wrench },
+    ],
   },
   {
     id: 'platform-config-global',
@@ -172,6 +218,7 @@ export const META_ADMIN_GERAL_ORG_DEPARTMENTS: MetaAdminGeralNavDepartment[] = [
       { id: 'medicos', label: 'Médicos', icon: Stethoscope },
       { id: 'nutricionistas', label: 'Nutricionistas', icon: UtensilsCrossed },
       { id: 'personal_trainers', label: 'Personais', icon: Dumbbell },
+      { id: 'psiquiatras', label: 'Psiquiatras', icon: Brain },
     ],
   },
   {
@@ -214,6 +261,7 @@ export const META_ADMIN_GERAL_ORG_DEPARTMENTS: MetaAdminGeralNavDepartment[] = [
     icon: CreditCard,
     items: [
       { id: 'org-financeiro-overview', label: 'Financeiro', icon: CreditCard },
+      { id: 'org-negocio-pacientes', label: 'Pacientes', icon: Users },
       { id: 'tirzepatida', label: 'Produtos / Tirzepatida', icon: Pill },
       { id: 'org-negocio-planos', label: 'Planos', icon: CreditCard, comingSoon: true },
       { id: 'org-negocio-assinaturas', label: 'Assinaturas', icon: CreditCard, comingSoon: true },

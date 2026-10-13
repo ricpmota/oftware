@@ -1,5 +1,16 @@
 import { getFirestoreAdmin } from '@/lib/server/firebaseAdminOftware';
 import {
+  isValidPublicLinkToken,
+  normalizePublicLinkToken,
+} from '@/lib/publicLinks/publicLinkToken';
+import {
+  HYDRATION_CHECKIN_LINKS_COLLECTION,
+  HYDRATION_CHECKIN_PURPOSE,
+  classifyHydrationCheckInToken,
+  normalizeHydrationCheckInToken,
+} from '@/lib/nutri/hidratacao/hydrationCheckInLink';
+import { hashHydrationCheckInToken } from '@/lib/nutri/hidratacao/hydrationCheckInToken';
+import {
   type MedicoWhiteLabelResolved,
   type MedicoWhiteLabelSource,
 } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
@@ -69,11 +80,31 @@ export async function getMedicoWhiteLabelByDrSlug(slugParam: string): Promise<Me
   return await resolveFromDoc(medicos[Math.max(0, indice)]);
 }
 
+/** Identidade white label a partir do paciente (médico responsável). */
+export async function getMedicoWhiteLabelByPacienteId(
+  pacienteIdRaw: string,
+): Promise<MedicoWhiteLabelResolved | null> {
+  const pacienteId = (pacienteIdRaw || '').trim();
+  if (!pacienteId) return null;
+
+  const db = getFirestoreAdmin();
+  const pacienteSnap = await db.collection('pacientes_completos').doc(pacienteId).get();
+  if (!pacienteSnap.exists) return null;
+
+  const paciente = pacienteSnap.data() as { medicoResponsavelId?: string };
+  const medicoId = (paciente.medicoResponsavelId || '').trim();
+  if (!medicoId) return null;
+
+  const medicoSnap = await db.collection('medicos').doc(medicoId).get();
+  return await resolveFromDoc(medicoSnap);
+}
+
 /** Busca identidade white label via token de aplicação. */
 export async function getMedicoWhiteLabelByAplicacaoToken(
-  token: string,
+  tokenRaw: string,
 ): Promise<MedicoWhiteLabelResolved | null> {
-  if (!token || token.length < 16) return null;
+  const token = normalizePublicLinkToken(tokenRaw);
+  if (!isValidPublicLinkToken(token)) return null;
 
   const db = getFirestoreAdmin();
   const linkRef = await db.collection('aplicacao_links').doc(token).get();
@@ -83,22 +114,36 @@ export async function getMedicoWhiteLabelByAplicacaoToken(
   const pacienteId = linkData.pacienteId;
   if (!pacienteId) return null;
 
-  const pacienteSnap = await db.collection('pacientes_completos').doc(pacienteId).get();
-  if (!pacienteSnap.exists) return null;
+  return getMedicoWhiteLabelByPacienteId(pacienteId);
+}
 
-  const paciente = pacienteSnap.data() as { medicoResponsavelId?: string };
-  const medicoId = paciente.medicoResponsavelId;
-  if (!medicoId) return null;
+/** Busca identidade white label via token de check-in de hidratação (inclui link expirado). */
+export async function getMedicoWhiteLabelByHidratacaoToken(
+  tokenRaw: string,
+): Promise<MedicoWhiteLabelResolved | null> {
+  const token = normalizeHydrationCheckInToken(tokenRaw);
+  const kind = classifyHydrationCheckInToken(token);
+  if (kind === 'invalid') return null;
 
-  const medicoSnap = await db.collection('medicos').doc(medicoId).get();
-  return await resolveFromDoc(medicoSnap);
+  const db = getFirestoreAdmin();
+  const docId =
+    kind === 'short' ? token : kind === 'hash' ? token.toLowerCase() : hashHydrationCheckInToken(token);
+  const linkRef = await db.collection(HYDRATION_CHECKIN_LINKS_COLLECTION).doc(docId).get();
+  if (!linkRef.exists) return null;
+
+  const linkData = linkRef.data() as { patientId?: string; token?: string; purpose?: string };
+  if (kind === 'secret' && linkData.token && linkData.token !== token) return null;
+  if (linkData.purpose && linkData.purpose !== HYDRATION_CHECKIN_PURPOSE) return null;
+
+  return getMedicoWhiteLabelByPacienteId(String(linkData.patientId || '').trim());
 }
 
 /** Busca identidade white label via token de conclusão. */
 export async function getMedicoWhiteLabelByConclusaoToken(
-  token: string,
+  tokenRaw: string,
 ): Promise<MedicoWhiteLabelResolved | null> {
-  if (!token || token.length < 16) return null;
+  const token = normalizePublicLinkToken(tokenRaw);
+  if (!isValidPublicLinkToken(token)) return null;
 
   const db = getFirestoreAdmin();
   const linkRef = await db.collection('conclusao_links').doc(token).get();

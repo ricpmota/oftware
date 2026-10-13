@@ -52,6 +52,7 @@ export async function listOftPayUsers(): Promise<OftPayUserDoc[]> {
       questoesEnabled: Boolean(d.questoesEnabled),
       accessStartAt: d.accessStartAt != null ? toMillis(d.accessStartAt as number | { toMillis: () => number }) ?? null : undefined,
       accessEndAt: d.accessEndAt != null ? toMillis(d.accessEndAt as number | { toMillis: () => number }) ?? null : undefined,
+      carplayCode: typeof d.carplayCode === 'string' && d.carplayCode ? d.carplayCode : null,
       updatedAt: d.updatedAt != null ? toMillis(d.updatedAt as number | { toMillis: () => number }) : undefined,
     };
   });
@@ -164,6 +165,23 @@ export async function getAllowedCourseIds(
   return allowedCourseIds;
 }
 
+/** Busca a conta pelo código CarPlay normalizado. */
+export async function findOftPayUserByCarplayCode(code: string): Promise<OftPayUserDoc | null> {
+  const db = getAdminFirestore();
+  if (!code) return null;
+  const snap = await db.collection(COLLECTION).where('carplayCode', '==', code).limit(1).get();
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  const d = doc.data() as Record<string, unknown>;
+  return {
+    email: (d.email as string) || doc.id,
+    displayName: d.displayName as string | null | undefined,
+    courseIds: Array.isArray(d.courseIds) ? (d.courseIds as string[]) : [],
+    questoesEnabled: Boolean(d.questoesEnabled),
+    carplayCode: typeof d.carplayCode === 'string' ? d.carplayCode : null,
+  };
+}
+
 /** Atualiza cursos e/ou vigência do usuário (apenas admin). */
 export async function updateOftPayUser(params: {
   email: string;
@@ -171,6 +189,7 @@ export async function updateOftPayUser(params: {
   questoesEnabled?: boolean;
   accessStartAt?: number | null;
   accessEndAt?: number | null;
+  carplayCode?: string | null;
 }): Promise<void> {
   const db = getAdminFirestore();
   const id = normalizeEmail(params.email);
@@ -180,6 +199,22 @@ export async function updateOftPayUser(params: {
   if (params.questoesEnabled !== undefined) payload.questoesEnabled = params.questoesEnabled;
   if (params.accessStartAt !== undefined) payload.accessStartAt = params.accessStartAt ?? null;
   if (params.accessEndAt !== undefined) payload.accessEndAt = params.accessEndAt ?? null;
+  if (params.carplayCode !== undefined) {
+    const { normalizeCarplayCode, isValidCarplayCode } = await import('@/lib/oftpay/carplayCode');
+    const code = normalizeCarplayCode(params.carplayCode);
+    if (!code) {
+      payload.carplayCode = null;
+    } else {
+      if (!isValidCarplayCode(code)) {
+        throw new Error('Código CarPlay inválido. Use de 4 a 12 letras ou números.');
+      }
+      const taken = await findOftPayUserByCarplayCode(code);
+      if (taken && normalizeEmail(taken.email) !== id) {
+        throw new Error('Esse código CarPlay já está em outra conta.');
+      }
+      payload.carplayCode = code;
+    }
+  }
   await db.collection(COLLECTION).doc(id).set(payload, { merge: true });
 }
 

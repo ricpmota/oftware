@@ -4,7 +4,6 @@ import {
   DEFAULT_APLICACAO_PAGE_TEXT,
   DEFAULT_CONCLUSAO_PAGE_BACKGROUND,
   DEFAULT_CONCLUSAO_PAGE_TEXT,
-  DEFAULT_DR_PAGE_BACKGROUND,
   DEFAULT_DR_PAGE_TEXT,
 } from '@/lib/whiteLabel/publicPagesTheme';
 import { DEFAULT_WHITE_LABEL_DESCRIPTION } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
@@ -12,7 +11,7 @@ import { ORGANIZATION_BRANDING_SEED_VERSION } from './organizationBrandingDefaul
 
 /** Paleta inicial neutra — não copia verde/navy nem arquivos do Método Emagrecer. */
 const NEW_ORGANIZATION_PRIMARY_COLOR = '#0F766E';
-const NEW_ORGANIZATION_SECONDARY_COLOR = '#111827';
+export const NEW_ORGANIZATION_SECONDARY_COLOR = '#111827';
 const NEW_ORGANIZATION_ACCENT_COLOR = '#14B8A6';
 import type { OrganizationBrandingStored } from './organizationBrandingTypes';
 import type { OrganizationDefinition } from './organizationTypes';
@@ -51,7 +50,7 @@ export function buildNewOrganizationBrandingSeed(
     errorColor: '#DC2626',
     publicPages: {
       dr: {
-        backgroundColor: DEFAULT_DR_PAGE_BACKGROUND,
+        backgroundColor: NEW_ORGANIZATION_SECONDARY_COLOR,
         textColor: DEFAULT_DR_PAGE_TEXT,
         logoUrl: null,
       },

@@ -42,6 +42,10 @@ interface ChatLayoutProps {
   surface?: ChatLayoutSurface;
   nutriPatientId?: string;
   nutriDateKey?: string;
+  /** Ocupa a altura do pai em vez da caixa de 70vh. */
+  fill?: boolean;
+  onNavigateSources?: (sources: ChatConversationSource[], content: string, activeId: number | null) => void;
+  onAssistantSources?: (sources: ChatConversationSource[], content: string) => void;
 }
 
 const ANON_USER_ID = 'anon';
@@ -51,6 +55,9 @@ export default function ChatLayout({
   surface = 'general',
   nutriPatientId,
   nutriDateKey,
+  fill = false,
+  onNavigateSources,
+  onAssistantSources,
 }: ChatLayoutProps) {
   const [userId, setUserId] = useState<string>(ANON_USER_ID);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -205,6 +212,11 @@ export default function ChatLayout({
         return;
       }
 
+      const priorUserMessages = messages
+        .filter((item) => item.role === 'user')
+        .map((item) => item.content)
+        .slice(-4);
+
       setInput('');
       setError(null);
       const userMsg: ChatMessage = {
@@ -226,6 +238,7 @@ export default function ChatLayout({
           sessionId: '-',
           conversationId: currentId,
           surface,
+          priorUserMessages,
         };
         if (surface === 'chatnutri' && nutriPatientId && nutriDateKey) {
           payload.patientId = nutriPatientId;
@@ -250,12 +263,14 @@ export default function ChatLayout({
         const sourcesRaw = Array.isArray(data.sources) ? data.sources : [];
         const sources: ChatConversationSource[] = sourcesRaw
           .filter((s: unknown) => s && typeof s === 'object' && 'title' in s)
-          .map((s: { id?: number; title: string; snippet?: string; page?: number; url?: string }) => ({
+          .map((s: { id?: number; title: string; snippet?: string; page?: number; url?: string; uri?: string; docId?: string }) => ({
             title: String(s.title),
             ...(typeof s.snippet === 'string' && { snippet: s.snippet }),
             ...(typeof s.page === 'number' && { page: s.page }),
             ...(typeof s.url === 'string' && { url: s.url }),
-            ...(typeof (s as { id?: number }).id === 'number' && { id: (s as { id: number }).id }),
+            ...(typeof s.uri === 'string' && s.uri.trim() && { uri: s.uri.trim() }),
+            ...(typeof s.docId === 'string' && s.docId.trim() && { docId: s.docId.trim() }),
+            ...(typeof s.id === 'number' && { id: s.id }),
           }));
 
         const assistantMsg = await appendMessage(userId, currentId, {
@@ -269,6 +284,7 @@ export default function ChatLayout({
           const withoutTemp = prev.filter((m) => m.id !== userMsg.id);
           return [...withoutTemp, { ...userMsg, id: userMsg.id }, { ...assistantMsg }];
         });
+        if (sources.length > 0) onAssistantSources?.(sources, answer);
 
         // Auto-rename from first user message if still default title
         if (currentConversation?.title === DEFAULT_CONVERSATION_TITLE) {
@@ -285,13 +301,13 @@ export default function ChatLayout({
         setTyping(false);
       }
     },
-    [userId, currentId, typing, isPropedeutics, currentConversation?.title, surface, nutriPatientId, nutriDateKey]
+    [userId, currentId, typing, isPropedeutics, currentConversation?.title, surface, nutriPatientId, nutriDateKey, messages, onAssistantSources]
   );
 
   const isMobile = useIsMobile();
 
   return (
-    <div className="flex flex-col h-[min(70vh,600px)] md:h-[min(72vh,640px)] rounded-lg border border-gray-200 bg-white overflow-hidden">
+    <div className={`flex flex-col rounded-lg border border-gray-200 bg-white overflow-hidden ${fill ? 'h-full min-h-0 flex-1' : 'h-[min(70vh,600px)] md:h-[min(72vh,640px)]'}`}>
       <div className="flex flex-1 min-h-0">
         {/* Sidebar: desktop expandível/recolhível; mobile drawer */}
         <div
@@ -367,6 +383,7 @@ export default function ChatLayout({
                     : 'Faça uma pergunta sobre o conteúdo das apostilas.'
               }
               ThinkingIndicator={AIThinkingIndicator}
+              onNavigateSources={onNavigateSources}
               courseId={courseId}
             />
           )}

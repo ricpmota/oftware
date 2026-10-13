@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import crypto from 'crypto';
-import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
-import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import { ensureRelatorioPacientePublicLink } from '@/lib/relatorio/ensureRelatorioPacientePublicLink';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -58,27 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getFirebaseAdmin();
-
-    const snapshot = await db
-      .collection('relatorio_paciente_links')
-      .where('pacienteId', '==', pacienteId.trim())
-      .limit(1)
-      .get();
-
-    let token: string;
-
-    if (!snapshot.empty) {
-      token = snapshot.docs[0].id;
-    } else {
-      token = crypto.randomBytes(32).toString('hex');
-      await db.collection('relatorio_paciente_links').doc(token).set({
-        pacienteId: pacienteId.trim(),
-        createdAt: new Date(),
-        ...shadowOrganizationFields(),
-      });
-    }
-
-    const url = buildOrganizacaoPublicUrl(`/relatorio/${token}`);
+    const { url } = await ensureRelatorioPacientePublicLink(db, pacienteId.trim());
 
     return NextResponse.json({ url });
   } catch (error) {

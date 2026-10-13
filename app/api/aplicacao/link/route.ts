@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import crypto from 'crypto';
-import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
-import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import { ensureAplicacaoPublicLink } from '@/lib/aplicacao/ensureAplicacaoPublicLink';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -61,32 +59,12 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getFirebaseAdmin();
-
-    const key = `${pacienteId.trim()}_${dataStr.trim()}_${semana}`;
-    const snapshot = await db
-      .collection('aplicacao_links')
-      .where('key', '==', key)
-      .limit(1)
-      .get();
-
-    let token: string;
-
-    if (!snapshot.empty) {
-      token = snapshot.docs[0].id;
-    } else {
-      token = crypto.randomBytes(32).toString('hex');
-      await db.collection('aplicacao_links').doc(token).set({
-        pacienteId: pacienteId.trim(),
-        data: dataStr.trim(),
-        semana: parseInt(semana, 10),
-        dose: parseFloat(dose),
-        key,
-        createdAt: new Date(),
-        ...shadowOrganizationFields(),
-      });
-    }
-
-    const url = buildOrganizacaoPublicUrl(`/aplicacao/${token}`);
+    const { url, token } = await ensureAplicacaoPublicLink(db, {
+      pacienteId: pacienteId.trim(),
+      dataStr: dataStr.trim(),
+      semana: parseInt(semana, 10),
+      dose: parseFloat(dose),
+    });
 
     return NextResponse.json({ url, token });
   } catch (error) {

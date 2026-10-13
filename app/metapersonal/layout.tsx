@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { isMetodoEmagrecerHost } from '@/lib/landing/appNavigation';
+import { buildMetodoEmagrecerOperationalRouteMetadata } from '@/lib/organization/organizationSiteMetadata.server';
+import { resolveHostFromHeaders } from '@/lib/tenant/resolveHostFromHeaders';
+import './metapersonal-shell.css';
 
-const TITLE = 'MetaPersonal | Área do personal trainer — Oftware';
-const DESCRIPTION =
-  'Treinos, agenda, evolução e acompanhamento dos alunos na plataforma Oftware.';
-
-export const metadata: Metadata = {
+const OFTWARE_METADATA: Metadata = {
   metadataBase: new URL('https://www.oftware.com.br'),
-  title: TITLE,
-  description: DESCRIPTION,
+  title: 'MetaPersonal | Área do personal trainer — Oftware',
+  description:
+    'Treinos, agenda, evolução e acompanhamento dos alunos na plataforma Oftware.',
   openGraph: {
-    title: TITLE,
-    description: DESCRIPTION,
+    title: 'MetaPersonal | Área do personal trainer — Oftware',
+    description:
+      'Treinos, agenda, evolução e acompanhamento dos alunos na plataforma Oftware.',
     url: 'https://www.oftware.com.br/metapersonal',
     siteName: 'Oftware',
     locale: 'pt_BR',
@@ -26,14 +29,27 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: TITLE,
-    description: DESCRIPTION,
+    title: 'MetaPersonal | Área do personal trainer — Oftware',
+    description:
+      'Treinos, agenda, evolução e acompanhamento dos alunos na plataforma Oftware.',
     images: ['/oftware3.png'],
   },
 };
 
+export async function generateMetadata(): Promise<Metadata> {
+  const host = resolveHostFromHeaders(await headers());
+  if (isMetodoEmagrecerHost(host)) {
+    return buildMetodoEmagrecerOperationalRouteMetadata('metapersonal');
+  }
+  return OFTWARE_METADATA;
+}
+
 export default function MetaPersonalLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return (
+    <div className="mp-shell-root" data-mp-shell="">
+      {children}
+    </div>
+  );
 }

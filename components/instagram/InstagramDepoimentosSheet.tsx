@@ -10,9 +10,15 @@ type Props = {
   depoimentos: InstagramDepoimentoItem[];
   open: boolean;
   onClose: () => void;
+  hidePatientName?: boolean;
 };
 
-export default function InstagramDepoimentosSheet({ depoimentos, open, onClose }: Props) {
+export default function InstagramDepoimentosSheet({
+  depoimentos,
+  open,
+  onClose,
+  hidePatientName = false,
+}: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const [offset, setOffset] = useState(0);
   const [chartDepoimento, setChartDepoimento] = useState<InstagramDepoimentoItem | null>(null);
@@ -105,7 +111,11 @@ export default function InstagramDepoimentosSheet({ depoimentos, open, onClose }
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold leading-snug text-white">{current.nome}</p>
+                        {hidePatientName ? (
+                          <p className="font-semibold leading-snug text-white">Paciente</p>
+                        ) : (
+                          <p className="font-semibold leading-snug text-white">{current.nome}</p>
+                        )}
                         {[current.cidadeEstado, current.idade != null ? `${current.idade} anos` : null]
                           .filter(Boolean)
                           .join(' · ') ? (
@@ -191,6 +201,7 @@ export default function InstagramDepoimentosSheet({ depoimentos, open, onClose }
       <InstagramDepoimentoResultadoSheet
         depoimento={chartDepoimento}
         onClose={() => setChartDepoimento(null)}
+        hidePatientName={hidePatientName}
       />
     </>
   );

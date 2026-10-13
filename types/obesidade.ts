@@ -8,6 +8,21 @@ export interface PacienteCompleto {
   email: string;
   nome: string;
   medicoResponsavelId: string | null; // ID do médico (null quando abandonou)
+  /**
+   * Espelho denormalizado dos vínculos ativos (fonte: paciente_nutricionista).
+   * Opcional — ausente em pacientes antigos / antes do sync.
+   */
+  nutricionistaVinculadoIds?: string[];
+  /**
+   * Espelho denormalizado dos vínculos ativos (fonte: paciente_personal_trainer).
+   * Opcional — ausente em pacientes antigos / antes do sync.
+   */
+  personalTrainerVinculadoIds?: string[];
+  /**
+   * Espelho denormalizado dos vínculos ativos (fonte: paciente_psiquiatra).
+   * NÃO é fonte de verdade da autorização.
+   */
+  psiquiatraVinculadoIds?: string[];
   
   // Pasta 1: Dados de Identificação
   dadosIdentificacao: DadosIdentificacao;
@@ -52,13 +67,58 @@ export interface PacienteCompleto {
   dataLeituraRecomendacoes?: Date; // Data em que o paciente leu as recomendações
   /** Versão do termo aceito na leitura obrigatória (ex.: v1 com etapa Aplicação). */
   recomendacoesTermoVersao?: string;
+  /** Paciente respondeu OK ao Canal Chat institucional. Ausente = não confirmado. */
+  canalChatVerified?: boolean;
+  canalChatVerifiedAt?: Date;
+  canalChatVerifiedByMessageId?: string;
+  /** Telefone normalizado gravado no envio de boas-vindas — chave de lookup inbound. */
+  canalChatPhoneKey?: string;
+  /** JID WhatsApp (@c.us ou @lid) devolvido no send-message / inbound. */
+  canalChatChatId?: string;
+  /**
+   * Lembrete automático de check-in de hidratação (Canal Chat).
+   * Ausente ou ≠ true = desativado (opt-in). Médico/nutri ativa na aba Água.
+   */
+  hydrationCheckInReminderEnabled?: boolean;
+  /** Horário civil HH:mm em America/Sao_Paulo. Fallback técnico: 09:00. */
+  hydrationCheckInReminderTime?: string;
+  hydrationCheckInReminderTimezone?: string;
+  hydrationCheckInReminderUpdatedAt?: Date;
+  hydrationCheckInReminderUpdatedByUserId?: string;
+  hydrationCheckInReminderUpdatedByType?: 'doctor' | 'nutritionist';
+  /** Cobrança (ou outra ação) aguardando o OK do Canal Chat. */
+  pendingCanalChatAction?: {
+    type: 'PAYMENT_CHARGE';
+    paymentId: string;
+    medicoId?: string;
+    valorAberto?: number;
+    createdAt?: Date;
+    status?: 'pending' | 'processing';
+  };
 }
 
 // Pasta 1: Dados de Identificação
 export interface DadosIdentificacao {
   nomeCompleto: string;
   email: string;
+  /** Nacional (legado BR: DDD+número, com ou sem máscara). Sem DDI implícito. */
   telefone?: string;
+  /**
+   * DDI explícito, só dígitos ou com "+". Ausente = legado Brasil (55).
+   * Opcional — pacientes antigos não têm este campo.
+   */
+  telefoneDdi?: string;
+  /**
+   * E.164 em dígitos (ex.: 5583988192848). Tem prioridade sobre DDI+telefone.
+   * Opcional — pacientes antigos não têm este campo.
+   */
+  telefoneE164?: string;
+  /**
+   * ISO-3166 alpha-2 do país do telefone (ex.: "US", "BR").
+   * Necessário porque o DDI não identifica um único país (+1 = EUA, Canadá, …).
+   * Opcional — pacientes antigos não têm este campo.
+   */
+  telefonePais?: string;
   cpf?: string;
   dataNascimento?: Date;
   sexoBiologico?: 'M' | 'F' | 'Outro';
@@ -212,12 +272,32 @@ export interface DadosClinicos {
       | 'obesidade'
       | 'sobrepeso_comorbidade'
       | 'pre_diabetes'
+      | 'hipertensao_arterial'
+      | 'dislipidemia'
+      | 'apneia_sono'
       | 'resistencia_insulinica'
       | 'sop_ri'
       | 'ehna_sem_dm2'
+      | 'nenhuma'
       | 'outro';
     outro?: string; // obrigatório se tipo='outro'
   };
+  /** Seleção múltipla do chat inicial. O primeiro item espelha `diagnosticoPrincipal.tipo`. */
+  diagnosticoPrincipalTipos?: Array<
+    | 'dm1'
+    | 'dm2'
+    | 'obesidade'
+    | 'sobrepeso_comorbidade'
+    | 'pre_diabetes'
+    | 'hipertensao_arterial'
+    | 'dislipidemia'
+    | 'apneia_sono'
+    | 'resistencia_insulinica'
+    | 'sop_ri'
+    | 'ehna_sem_dm2'
+    | 'nenhuma'
+    | 'outro'
+  >;
   
   // 2.3 Comorbidades associadas
   comorbidades: {
@@ -234,6 +314,51 @@ export interface DadosClinicos {
     nenhuma?: boolean;
     outra?: boolean;
     outraDescricao?: string;
+    retinopatiaDiabetica?: boolean;
+    anorexia?: boolean;
+    bulimia?: boolean;
+    psicoses?: boolean;
+    esquizofrenia?: boolean;
+    pancreatiteAgudaOuCronica?: boolean;
+    insuficienciaRenal?: boolean;
+    insuficienciaHepatica?: boolean;
+    problemaVesiculaBiliar?: boolean;
+    gastroparesia?: boolean;
+    problemasGravesIntestinoEstomago?: boolean;
+    dorPeitoEsforco?: boolean;
+    faltaArDeitarOuEscadas?: boolean;
+    infartoOuAvcAnterior?: boolean;
+    hipertensaoDescontrolada?: boolean;
+    arritmiaSignificativa?: boolean;
+    desmaiosFrequentes?: boolean;
+    cancerAtualOuRecente?: boolean;
+    carcinomaMedularTireoide?: boolean;
+    nem2?: boolean;
+    fibroseCistica?: boolean;
+  };
+
+  /** Medicamentos do diabetes, preenchido só quando o diagnóstico inclui tipo 1 ou tipo 2. */
+  medicamentosDiabetes?: {
+    nenhum?: boolean;
+    insulina?: boolean;
+    sulfonilureias?: boolean;
+    outrosAntidiabeticosOrais?: boolean;
+    outros?: boolean;
+    outrosDescricao?: string;
+  };
+
+  cirurgiasRealizadas?: {
+    sleeveGastrico?: boolean;
+    bypassGastrico?: boolean;
+    bandaGastrica?: boolean;
+    switchDuodenal?: boolean;
+    bariatricaNaoLembra?: boolean;
+    transplanteFigadoRimPancreas?: boolean;
+    retiradaParteIntestino?: boolean;
+    retiradaPancreas?: boolean;
+    retiradaParteFigado?: boolean;
+    outrasGrandesCirurgias?: boolean;
+    nenhuma?: boolean;
   };
   
   // 2.4 Medicações em uso atual
@@ -278,6 +403,12 @@ export interface DadosClinicos {
     constipacao?: boolean;
     refluxoPirose?: boolean;
     nenhum?: boolean;
+  };
+
+  /** Triagem após os sintomas digestivos: depressão recente e ideação nos últimos 12 meses. */
+  triagemHumor?: {
+    depressaoOuAnedonia30Dias?: 'sim' | 'nao';
+    ideacaoSuicida12Meses?: 'sim' | 'nao';
   };
   
   // 2.11 Objetivos do tratamento
@@ -405,6 +536,25 @@ export interface ExameDeImagemPaciente {
   criadoEm?: string;
 }
 
+/** Aplicação de protocolo injetável (aba Injetáveis do plano terapêutico). */
+export interface PlanoInjetavelAplicacao {
+  id: string;
+  /** Prescricao.id do catálogo Protocolos (catalogoAba: 'protocolo'). */
+  protocoloId: string;
+  /** Título do protocolo = nome da medicação. */
+  protocoloNome: string;
+  startDate?: Date | string;
+  injectionDayOfWeek?: 'seg' | 'ter' | 'qua' | 'qui' | 'sex' | 'sab' | 'dom';
+  numeroSemanasTratamento?: number;
+  semanasCanceladas?: number[];
+  /** Overrides de data por semana (chave = índice da semana). */
+  datasAplicacaoIndividuais?: Record<string, string>;
+  /** Observação por semana (sem dose em mg). */
+  observacoesPorSemana?: Record<string, string>;
+  /** Check do médico: aplicação da semana foi realizada. */
+  realizadoPorSemana?: Record<string, boolean>;
+}
+
 // Pasta 5: Plano Terapêutico
 export interface PlanoTerapeutico {
   // 5.1 Metadados do plano
@@ -412,10 +562,12 @@ export interface PlanoTerapeutico {
   injectionDayOfWeek?: 'seg' | 'ter' | 'qua' | 'qui' | 'sex' | 'sab' | 'dom';
   responsibleDoctorId?: string;
   consentSigned?: boolean;
-  numeroSemanasTratamento?: number; // Número de semanas do tratamento (padrão: 18, pode ser ampliado)
+  numeroSemanasTratamento?: number; // Duração do ciclo ativo (padrão: 18). Semanas reais = semanaInicioCiclo .. semanaInicioCiclo+N-1
+  /** Primeira semana do ciclo ativo. Omitido = 1 (protocolo inicial). */
+  semanaInicioCiclo?: number;
   
   // 5.2 Dose e titulação
-  currentDoseMg?: 1.25 | 2.5 | 5 | 7.5 | 10 | 12.5 | 15;
+  currentDoseMg?: number;
   lastDoseChangeAt?: Date;
   nextReviewDate?: Date;
   titrationStatus?: 'INICIADO' | 'EM_TITULACAO' | 'MANUTENCAO' | 'PAUSADO' | 'ENCERRADO';
@@ -425,9 +577,14 @@ export interface PlanoTerapeutico {
   esquemaDosesCustomizado?: { [semana: number]: number };
   // Semanas canceladas/puladas (array de números das semanas)
   semanasCanceladas?: number[];
+  /** Overrides de data por semana (chave = índice da semana, valor YYYY-MM-DD). */
+  datasAplicacaoIndividuais?: Record<string, string>;
   
   // Histórico (mantido compatibilidade)
   historicoDoses?: HistoricoDose[];
+
+  /** Aplicações de protocolos injetáveis (múltiplos protocolos possíveis). */
+  injetaveisAplicacoes?: PlanoInjetavelAplicacao[];
   
   // 5.3 Metas do tratamento
   metas: {
@@ -484,6 +641,31 @@ export interface PlanoTerapeutico {
   conclusaoTratamento?: Record<string, unknown>;
   /** Conclusões anteriores preservadas ao reabrir tratamento (ver utils/conclusaoTratamentoHistorico) */
   historicoConclusoesTratamento?: Record<string, unknown>[];
+  /** Ciclos de Tirzepatida já encerrados (Protocolo 1, 2…); o ciclo ativo fica nos campos acima. */
+  historicoProtocolosTirzepatida?: HistoricoProtocoloTirzepatida[];
+}
+
+/** Snapshot de um ciclo de Tirzepatida arquivado ao criar um novo protocolo. */
+export interface HistoricoProtocoloTirzepatida {
+  id: string;
+  indice: number;
+  startDate?: Date | string;
+  dataInicioTratamento?: Date | string;
+  injectionDayOfWeek?: PlanoTerapeutico['injectionDayOfWeek'];
+  numeroSemanasTratamento?: number;
+  semanaInicioCiclo?: number;
+  currentDoseMg?: PlanoTerapeutico['currentDoseMg'];
+  lastDoseChangeAt?: Date | string;
+  nextReviewDate?: Date | string;
+  titrationStatus?: PlanoTerapeutico['titrationStatus'];
+  titrationNotes?: string;
+  esquemaDosesCustomizado?: PlanoTerapeutico['esquemaDosesCustomizado'];
+  semanasCanceladas?: number[];
+  datasAplicacaoIndividuais?: Record<string, string>;
+  doseAtual?: PlanoTerapeutico['doseAtual'];
+  metas?: PlanoTerapeutico['metas'];
+  conclusaoTratamento?: Record<string, unknown>;
+  arquivadoEm?: Date | string;
 }
 
 export interface HistoricoDose {

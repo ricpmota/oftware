@@ -1,50 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getOrganizationBranding } from '@/lib/organization/getOrganizationBranding.server';
-import { isMetodoOrganizationMember } from '@/lib/organization/isMetodoOrganizationMember';
-import { METODO_ORGANIZATION_ID } from '@/lib/organization/organizationRegistry';
-import type { OrganizationId } from '@/lib/organization/organizationTypes';
+import { loadMemberOrganizationBranding } from '@/lib/organization/loadMemberOrganizationBranding.server';
+import { memberOrganizationLinkFromData } from '@/lib/organization/resolveMemberOrganizationId';
+import { requestOrganizationHost } from '@/lib/organization/requestOrganizationHost';
 import { requireMedicoMetaadmin } from '@/lib/server/metaadminExamesImagemGate';
 import { getFirestoreAdmin } from '@/lib/server/firebaseAdminOftware';
 
-function resolveMedicoOrganizationId(data: Record<string, unknown> | undefined): OrganizationId | null {
-  if (!data) return null;
-
-  const member = isMetodoOrganizationMember({
-    organizationId: typeof data.organizationId === 'string' ? data.organizationId : null,
-    metodoImagensAtivo: data.metodoImagensAtivo === true,
-  });
-
-  if (!member) return null;
-
-  const orgId = (typeof data.organizationId === 'string' ? data.organizationId.trim() : '') || METODO_ORGANIZATION_ID;
-  return orgId as OrganizationId;
-}
-
-/** GET — Marca da Organização do médico logado (shell MetaAdmin). */
+/**
+ * GET — Marca da organização do médico logado.
+ * O vínculo vem de `medicos/{id}`. Sem organizationId, só o legado `metodoImagensAtivo` usa o Método.
+ */
 export async function GET(request: NextRequest) {
   const auth = await requireMedicoMetaadmin(request);
   if (!auth.ok) return auth.res;
 
   try {
-    const db = getFirestoreAdmin();
-    const medSnap = await db.collection('medicos').doc(auth.medicoDocId).get();
-    const organizationId = resolveMedicoOrganizationId(medSnap.data());
-
-    if (!organizationId) {
-      return NextResponse.json({ organizationId: null, branding: null });
-    }
-
-    const branding = await getOrganizationBranding(organizationId);
-
-    return NextResponse.json({
-      organizationId,
-      branding: {
-        publicName: branding.publicName,
-        logoMainUrl: branding.logoMainUrl,
-        logoDarkUrl: branding.logoDarkUrl ?? null,
-        logoLightUrl: branding.logoLightUrl ?? null,
-      },
+    const medSnap = await getFirestoreAdmin().collection('medicos').doc(auth.medicoDocId).get();
+    const payload = await loadMemberOrganizationBranding({
+      member: memberOrganizationLinkFromData(medSnap.data()),
+      legacyDefault: 'none',
+      host: requestOrganizationHost(request),
     });
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('[metaadmin/organization-branding GET]', error);
     return NextResponse.json(

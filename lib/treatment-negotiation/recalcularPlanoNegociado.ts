@@ -2,7 +2,6 @@
  * Recalcula o Plano Personalizado negociado usando o motor comercial e visual existente.
  * Não invoca OI nem motor-personalizado — depende apenas dos parâmetros editados pelo médico.
  */
-import type { EstimativaPlanoInicialV1 } from '@/lib/metaadmin/orcamentoTerapeuticoUtils';
 import { calcularHorizonteAtualFasePerda } from '@/lib/treatment-designer/horizontePlano';
 import {
   calcularMarcosClinicosPorRitmo,
@@ -24,6 +23,10 @@ import { resolverMetaPerdaComLimite } from '@/lib/planoTerapeutico/limitePerdaPo
 import { estimarPerdaPrevistaPacote } from '@/lib/planoTerapeutico/perdaPesoPacote';
 import type { OrcamentoTerapeuticoConfig } from '@/types/orcamentoTerapeuticoConfig';
 import { montarComposicaoNegociada } from '@/lib/treatment-negotiation/composicaoManual';
+import {
+  montarEstimativaNegociada,
+  prepararParametrosNegociado,
+} from '@/lib/treatment-negotiation/investimentoAuto';
 import { dosesSemanaisParaNumeros } from '@/lib/treatment-negotiation/parametrosDefaults';
 import type { ParametrosPlanoPersonalizadoEditavel } from '@/lib/treatment-negotiation/types';
 
@@ -91,7 +94,8 @@ export type RecalcularPlanoNegociadoInput = {
 export function recalcularPlanoNegociado(
   input: RecalcularPlanoNegociadoInput
 ): PlanoTratamentoUnificado {
-  const { parametros, configuracaoComercial, pesoAtual, metaPercentual } = input;
+  const { configuracaoComercial, pesoAtual, metaPercentual } = input;
+  const parametros = prepararParametrosNegociado(input.parametros, configuracaoComercial);
 
   const dosesNumeros = dosesSemanaisParaNumeros(parametros.dosesSemanais);
   const semanas = Math.max(1, parametros.semanasPrazo || dosesNumeros.length);
@@ -111,16 +115,11 @@ export function recalcularPlanoNegociado(
       ? parametros.doseMensalMg
       : doseMensalInicial(configuracaoComercial);
 
-  const estimativa: EstimativaPlanoInicialV1 = {
+  const estimativa = {
+    ...montarEstimativaNegociada(parametros),
     duracaoMeses: meses,
     duracaoSemanas: semanas,
-    numeroAplicacoes: Math.max(0, parametros.aplicacoesTotal || semanas),
     quantidadeMedicacaoMg: mgTotal,
-    consultasIncluidas: Math.max(0, parametros.consultas),
-    bioimpedanciasIncluidas: Math.max(0, parametros.bioimpedancias),
-    examesIncluidos: Math.max(0, parametros.exames),
-    nomePlanoSugerido: parametros.nomePlano || 'Plano personalizado',
-    origemEstimativa: 'v2_deterministica',
   };
 
   const pesoInicio = parametros.pesoAtualKg ?? pesoAtual ?? 80;

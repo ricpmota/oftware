@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { buildPublicPacienteResultado } from '@/lib/dr/buildPublicPacienteResultado';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -82,9 +83,10 @@ export async function GET(request: NextRequest) {
     const pacientes = pacientesSnapshot.docs
       .map((docSnap) => {
         const data = docSnap.data();
+        const nome = data.nome || data.dadosIdentificacao?.nomeCompleto || '';
         const base = {
           id: docSnap.id,
-          nome: data.nome || data.dadosIdentificacao?.nomeCompleto || '',
+          nome,
           userId: data.userId,
           email: data.email,
           medicoResponsavelId: data.medicoResponsavelId,
@@ -103,7 +105,12 @@ export async function GET(request: NextRequest) {
               dataRegistro: e.dataRegistro,
             }))
             .sort((a, b) => a.weekIndex - b.weekIndex);
-          return { ...base, evolucaoPeso: pontos, pesoInicial };
+          return {
+            ...base,
+            evolucaoPeso: pontos,
+            pesoInicial,
+            resultado: buildPublicPacienteResultado(data, docSnap.id, nome),
+          };
         }
         return base;
       })
@@ -145,6 +152,10 @@ export async function GET(request: NextRequest) {
     if ((paciente as { evolucaoPeso?: unknown; pesoInicial?: number }).evolucaoPeso) {
       res.evolucaoPeso = (paciente as { evolucaoPeso: unknown }).evolucaoPeso;
       res.pesoInicial = (paciente as { pesoInicial?: number }).pesoInicial;
+    }
+    const resultado = (paciente as { resultado?: unknown }).resultado;
+    if (resultado) {
+      res.resultado = resultado;
     }
     return NextResponse.json(res);
   } catch (error) {

@@ -4,18 +4,25 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Loader2 } from 'lucide-react';
 import type { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import type { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
+import type { PsiquiatraDoc } from '@/features/metaPsi/metaPsi.types';
 import {
   FieldGrid,
   StepHint,
   inputClassName,
+  selectClassName,
 } from '@/components/whitelabel/cadastroMedico/CadastroMedicoFormUi';
 import VerificationWizardShell, { VerificationAwaitingSupportScreen } from '@/components/meta/VerificationWizardShell';
 import VerificationCidadesFields from '@/components/meta/VerificationCidadesFields';
+import { ESTADOS_BR_OPTIONS } from '@/lib/whiteLabel/cadastroMedicoConstants';
+import { ESTADOS_BR } from '@/lib/meta/metaMedicoVerificacao/constants';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import { isValidIdentificacaoPhone } from '@/lib/phone/internationalPhoneValue';
 import {
-  formatTelefone,
+  getCrmUfFromProfissional,
   getFirstIncompleteNutriPersonalStep,
   isNutriPersonalVerificacaoWizardCompleto,
   markIntroNutriPersonalSessionDone,
+  type NutriPersonalWizardTipo,
   type ProfissionalVerificacaoDoc,
 } from '@/lib/meta/metaNutriPersonalVerificacao';
 import {
@@ -29,7 +36,9 @@ import {
   META_NUTRI_PERSONAL_STEP_SELFIE,
   META_NUTRI_PERSONAL_STEP_TELEFONE,
   META_NUTRI_PERSONAL_WIZARD_PROGRESS_STEPS,
+  nutriPersonalRegistroLabel,
   nutriPersonalStepTexts,
+  wizardTipoToUploadProfissao,
 } from '@/lib/meta/metaNutriPersonalVerificacao/constants';
 import {
   MENSAGEM_AGUARDANDO_SUPORTE_VERIFICACAO,
@@ -45,11 +54,12 @@ export {
 export { getFirstIncompleteNutriPersonalStep, type ProfissionalVerificacaoDoc } from '@/lib/meta/metaNutriPersonalVerificacao';
 
 type Props = {
-  tipo: 'nutri' | 'personal';
+  tipo: NutriPersonalWizardTipo;
   profissional: ProfissionalVerificacaoDoc;
   setProfissional:
     | React.Dispatch<React.SetStateAction<NutricionistaDoc | null>>
-    | React.Dispatch<React.SetStateAction<PersonalTrainerDoc | null>>;
+    | React.Dispatch<React.SetStateAction<PersonalTrainerDoc | null>>
+    | React.Dispatch<React.SetStateAction<PsiquiatraDoc | null>>;
   userDisplayName: string | null;
   userId: string;
   onSave: (closeAfter?: boolean, atualizado?: ProfissionalVerificacaoDoc) => Promise<void>;
@@ -102,7 +112,7 @@ export default function MetaNutriPersonalWizard({
 
   const setProf = useCallback(
     (update: ProfissionalVerificacaoDoc) => {
-      setProfissional(update as NutricionistaDoc & PersonalTrainerDoc);
+      setProfissional(update as NutricionistaDoc & PersonalTrainerDoc & PsiquiatraDoc);
       profRef.current = update;
     },
     [setProfissional]
@@ -128,7 +138,7 @@ export default function MetaNutriPersonalWizard({
     const fd = new FormData();
     fd.append('file', file);
     fd.append('categoria', kind === 'registro_doc' ? 'registro_doc' : kind);
-    fd.append('profissao', tipo === 'nutri' ? 'nutricionista' : 'personal');
+    fd.append('profissao', wizardTipoToUploadProfissao(tipo));
     const res = await fetch('/api/upload-medico-foto', { method: 'POST', body: fd });
     const data = (await res.json()) as { url?: string; error?: string };
     if (!res.ok) throw new Error(data.error || 'Falha no upload');
@@ -190,9 +200,15 @@ export default function MetaNutriPersonalWizard({
       case META_NUTRI_PERSONAL_STEP_NOME:
         return !!(p.nome || '').trim();
       case META_NUTRI_PERSONAL_STEP_TELEFONE:
-        return (p.telefone || '').replace(/\D/g, '').length >= 10;
+        return isValidIdentificacaoPhone({
+          telefone: p.telefone,
+          telefoneDdi: p.telefoneDdi,
+          telefonePais: p.telefonePais,
+        });
       case META_NUTRI_PERSONAL_STEP_REGISTRO:
-        return (p.registroNumero || '').replace(/\D/g, '').length >= 1;
+        if ((p.registroNumero || '').replace(/\D/g, '').length < 1) return false;
+        if (tipo === 'psi') return (ESTADOS_BR as readonly string[]).includes(getCrmUfFromProfissional(p));
+        return true;
       case META_NUTRI_PERSONAL_STEP_CIDADES:
         return !!(p.cidades && p.cidades.length > 0);
       case META_NUTRI_PERSONAL_STEP_CNH:
@@ -301,12 +317,21 @@ export default function MetaNutriPersonalWizard({
 
         {step === META_NUTRI_PERSONAL_STEP_TELEFONE && (
           <FieldGrid>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={profissional.telefone || ''}
-              onChange={(e) => setProf({ ...profRef.current, telefone: formatTelefone(e.target.value) })}
-              placeholder="(11) 99999-9999"
+            <InternationalPhoneInput
+              id="meta-nutri-personal-wizard-telefone"
+              value={{
+                telefone: profissional.telefone,
+                telefoneDdi: profissional.telefoneDdi,
+                telefonePais: profissional.telefonePais,
+              }}
+              onChange={(next) =>
+                setProf({
+                  ...profRef.current,
+                  telefone: next.telefone,
+                  telefoneDdi: next.telefoneDdi,
+                  telefonePais: next.telefonePais,
+                })
+              }
               className={inputClassName}
             />
           </FieldGrid>
@@ -321,9 +346,25 @@ export default function MetaNutriPersonalWizard({
               onChange={(e) =>
                 setProf({ ...profRef.current, registroNumero: e.target.value.replace(/\D/g, '') })
               }
-              placeholder={tipo === 'nutri' ? 'Número do CRN' : 'Número do CREF'}
+              placeholder={`Número do ${nutriPersonalRegistroLabel(tipo)}`}
               className={inputClassName}
             />
+            {tipo === 'psi' ? (
+              <select
+                value={getCrmUfFromProfissional(profissional)}
+                onChange={(e) =>
+                  setProf({ ...profRef.current, crmUf: e.target.value } as ProfissionalVerificacaoDoc)
+                }
+                className={selectClassName}
+                aria-label="UF do CRM"
+              >
+                {ESTADOS_BR_OPTIONS.map((o) => (
+                  <option key={o.value || 'empty'} value={o.value}>
+                    {o.value ? `${o.value} — ${o.label}` : o.label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
           </FieldGrid>
         )}
 
@@ -367,9 +408,7 @@ export default function MetaNutriPersonalWizard({
                   ? 'Anexar foto da CNH'
                   : step === META_NUTRI_PERSONAL_STEP_SELFIE
                     ? 'Anexar selfie'
-                    : tipo === 'nutri'
-                      ? 'Anexar foto do CRN'
-                      : 'Anexar foto do CREF'}
+                    : `Anexar foto do ${nutriPersonalRegistroLabel(tipo)}`}
             </button>
           </div>
         )}

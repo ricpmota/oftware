@@ -57,6 +57,7 @@ const LABEL_ORIGEM: Record<EventoTimelineOrigem, string> = {
   nutri: 'Nutrição',
   personal: 'Personal',
   admin: 'Admin',
+  psiquiatra: 'Psiquiatra',
 };
 
 const MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];

@@ -7,6 +7,7 @@ import { normalizeLeadStatus } from '@/lib/crm/leadMedicoCrmUtils';
 import { isDefaultStageKey } from '@/lib/crm/leadStageKey';
 import { normalizeLeadReferral, referralToFirestore, formatReferralChangeDescription } from '@/lib/crm/resolveLeadReferral';
 import { dedupeLeadCrmTags, normalizeLeadCrmTags } from '@/lib/crm/leadCrmTagUtils';
+import { optionalLeadDdiPais } from '@/lib/whatsapp/resolveLeadPhone';
 import type { LeadCrmTagSnapshot } from '@/types/crmTag';
 
 export class LeadMedicoService {
@@ -19,6 +20,7 @@ export class LeadMedicoService {
       email: (data.email as string) || '',
       name: (data.name as string) || '',
       telefone: data.telefone as string | undefined,
+      ...optionalLeadDdiPais(data),
       cidade: data.cidade as string | undefined,
       estado: data.estado as string | undefined,
       createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.(),
@@ -70,6 +72,10 @@ export class LeadMedicoService {
 
       if (lead.telefone) {
         leadData.telefone = lead.telefone;
+      }
+      if (lead.telefoneDdi) {
+        leadData.telefoneDdi = lead.telefoneDdi;
+        if (lead.telefonePais) leadData.telefonePais = lead.telefonePais;
       }
 
       if (lead.cidade) {

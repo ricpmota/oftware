@@ -23,15 +23,57 @@ const FORM_INICIAL: ProntuarioNutriFormValues = {
   meta: '',
 };
 
+export type ProntuarioNutriFormVariant = 'nutricionista' | 'personal';
+
 export type ProntuarioNutriFormProps = {
   onSalvar: (values: ProntuarioNutriFormValues) => Promise<void> | void;
+  /** Textos do formulário: nutricional (padrão) ou educador físico (metapersonal). */
+  variant?: ProntuarioNutriFormVariant;
 };
+
+const COPY = {
+  nutricionista: {
+    titulo: 'Registrar consulta nutricional',
+    subtitulo: 'Visível ao médico responsável. O prontuário médico do paciente não é exibido aqui.',
+    opcoes: [
+      { value: 'consulta', label: 'Consulta nutricional' },
+      { value: 'retorno', label: 'Retorno nutricional' },
+      { value: 'teleconsulta', label: 'Teleconsulta nutricional' },
+      { value: 'observacao', label: 'Observação / orientação' },
+    ],
+    evolucaoPlaceholder: 'Queixa, hábitos, recordatório, contexto clínico nutricional...',
+    condutaLabel: 'Conduta / plano alimentar',
+    condutaPlaceholder: 'Metas, cardápio, suplementos, ajustes...',
+    adesaoPlaceholder: 'Check-ins, uso do app Nutri, ChatNutri, barreiras...',
+    metaPlaceholder: 'ex.: Manter 120 g proteína/dia, 3 check-ins/semana...',
+    salvar: 'Salvar consulta nutricional',
+    sucesso: 'Consulta nutricional registrada no prontuário.',
+  },
+  personal: {
+    titulo: 'Registrar consulta Educador Físico',
+    subtitulo: 'Visível ao médico responsável. O prontuário médico do paciente não é exibido aqui.',
+    opcoes: [
+      { value: 'consulta', label: 'Consulta Educador Físico' },
+      { value: 'retorno', label: 'Retorno Educador Físico' },
+      { value: 'teleconsulta', label: 'Teleconsulta Educador Físico' },
+      { value: 'observacao', label: 'Observação / orientação' },
+    ],
+    evolucaoPlaceholder: 'Queixa, treinos, evolução física, contexto do aluno...',
+    condutaLabel: 'Conduta / plano de treino',
+    condutaPlaceholder: 'Metas, ajustes de treino, carga, frequência...',
+    adesaoPlaceholder: 'Frequência nos treinos, aderência ao plano, barreiras...',
+    metaPlaceholder: 'ex.: 4 treinos/semana, progressão de carga no agachamento...',
+    salvar: 'Salvar consulta Educador Físico',
+    sucesso: 'Consulta Educador Físico registrada no prontuário.',
+  },
+} as const;
 
 function temConteudo(values: ProntuarioNutriFormValues): boolean {
   return [values.evolucao, values.conduta, values.adesao].some((v) => v.trim().length > 0);
 }
 
-export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
+export function ProntuarioNutriForm({ onSalvar, variant = 'nutricionista' }: ProntuarioNutriFormProps) {
+  const copy = COPY[variant];
   const [values, setValues] = useState<ProntuarioNutriFormValues>(FORM_INICIAL);
   const [salvando, setSalvando] = useState(false);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
@@ -57,7 +99,7 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
     try {
       await onSalvar(values);
       setValues({ ...FORM_INICIAL, dataRegistro: dataHojeISO() });
-      setMensagemSucesso('Consulta nutricional registrada no prontuário.');
+      setMensagemSucesso(copy.sucesso);
     } catch {
       setMensagemErro('Não foi possível salvar. Tente novamente.');
     } finally {
@@ -68,10 +110,8 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
   return (
     <section className="space-y-4 min-w-0">
       <div>
-        <h4 className="text-base font-semibold text-gray-900">Registrar consulta nutricional</h4>
-        <p className="text-sm text-gray-600 mt-0.5">
-          Visível ao médico responsável. O prontuário médico do paciente não é exibido aqui.
-        </p>
+        <h4 className="text-base font-semibold text-gray-900">{copy.titulo}</h4>
+        <p className="text-sm text-gray-600 mt-0.5">{copy.subtitulo}</p>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-4">
@@ -82,10 +122,11 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
             value={values.tipoRegistro}
             onChange={(e) => atualizar('tipoRegistro', e.target.value)}
           >
-            <option value="consulta">Consulta nutricional</option>
-            <option value="retorno">Retorno nutricional</option>
-            <option value="teleconsulta">Teleconsulta nutricional</option>
-            <option value="observacao">Observação / orientação</option>
+            {copy.opcoes.map((op) => (
+              <option key={op.value} value={op.value}>
+                {op.label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -103,7 +144,7 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Evolução / anamnese</label>
           <textarea
             rows={3}
-            placeholder="Queixa, hábitos, recordatório, contexto clínico nutricional..."
+            placeholder={copy.evolucaoPlaceholder}
             className={`${inputClass} resize-y min-h-[72px]`}
             value={values.evolucao}
             onChange={(e) => atualizar('evolucao', e.target.value)}
@@ -111,10 +152,10 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Conduta / plano alimentar</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">{copy.condutaLabel}</label>
           <textarea
             rows={2}
-            placeholder="Metas, cardápio, suplementos, ajustes..."
+            placeholder={copy.condutaPlaceholder}
             className={`${inputClass} resize-y min-h-[56px]`}
             value={values.conduta}
             onChange={(e) => atualizar('conduta', e.target.value)}
@@ -125,7 +166,7 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Adesão e comportamento</label>
           <textarea
             rows={2}
-            placeholder="Check-ins, uso do app Nutri, ChatNutri, barreiras..."
+            placeholder={copy.adesaoPlaceholder}
             className={`${inputClass} resize-y min-h-[56px]`}
             value={values.adesao}
             onChange={(e) => atualizar('adesao', e.target.value)}
@@ -136,7 +177,7 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Meta até próximo contato</label>
           <input
             type="text"
-            placeholder="ex.: Manter 120 g proteína/dia, 3 check-ins/semana..."
+            placeholder={copy.metaPlaceholder}
             className={inputClass}
             value={values.meta}
             onChange={(e) => atualizar('meta', e.target.value)}
@@ -149,7 +190,7 @@ export function ProntuarioNutriForm({ onSalvar }: ProntuarioNutriFormProps) {
           disabled={salvando}
           className="w-full rounded-md bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {salvando ? 'Salvando...' : 'Salvar consulta nutricional'}
+          {salvando ? 'Salvando...' : copy.salvar}
         </button>
 
         {mensagemErro && (

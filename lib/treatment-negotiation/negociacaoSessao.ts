@@ -17,23 +17,16 @@ const PREFIXO = 'oftware-negociacao-terapeutica';
 
 
 export type NegociacaoTerapeuticaPersistida = {
-
   orcamentoId: string;
-
   status: StatusNegociacaoTerapeutica;
-
   enviadaEm: string;
-
   nomePlano: string;
-
   descricaoCurta: string;
-
   parametros: ParametrosPlanoPersonalizadoEditavel;
-
+  valorTotal?: number;
+  composicao?: import('@/types/planoTerapeuticoInterativo').ComposicaoPlanoComercial;
   mensagemPaciente?: string;
-
   vistaProposta?: VistaPropostaNegociacao;
-
 };
 
 
@@ -194,9 +187,18 @@ export function negociacaoPersistidaFromSalva(
     orcamentoId,
     status: negociacao.status,
     enviadaEm: negociacao.enviadaEm,
-    nomePlano: negociacao.nomePlano,
-    descricaoCurta: negociacao.descricaoCurta,
-    parametros,
+    nomePlano: (negociacao.nomePlano || parametros.nomePlano || '').trim() || 'Plano personalizado',
+    descricaoCurta: negociacao.descricaoCurta ?? parametros.descricaoCurta ?? '',
+    parametros: {
+      ...parametros,
+      nomePlano:
+        (parametros.nomePlano || negociacao.nomePlano || '').trim() || 'Plano personalizado',
+      descricaoCurta: parametros.descricaoCurta || negociacao.descricaoCurta || '',
+    },
+    valorTotal: Number.isFinite(Number(negociacao.valorTotal))
+      ? Number(negociacao.valorTotal)
+      : undefined,
+    composicao: negociacao.composicao,
     mensagemPaciente: negociacao.mensagemPaciente,
     vistaProposta: negociacao.vistaProposta,
   };

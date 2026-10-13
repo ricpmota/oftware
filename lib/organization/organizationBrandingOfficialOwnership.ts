@@ -1,4 +1,4 @@
-import type { OrganizationId } from './organizationTypes';
+import type { OrganizationDefinition, OrganizationId } from './organizationTypes';
 import type { OrganizationBrandingStored } from './organizationBrandingTypes';
 import {
   ORGANIZATION_BRANDING_LEGACY_SEED_VERSIONS,
@@ -15,7 +15,7 @@ import { METODO_ORGANIZATION_ID } from './organizationRegistry';
 import { resolveOrganizationDefinition } from './resolveOrganizationDefinition.server';
 import { getMetodoImagensTemplateFromFirestore } from '@/lib/metodo/metodoImagensService.server';
 
-function needsOfficialOwnershipMigration(
+export function needsOfficialOwnershipMigration(
   existing: OrganizationBrandingStored | null | undefined,
 ): boolean {
   if (!existing?.publicName?.trim()) return true;
@@ -30,10 +30,34 @@ function needsOfficialOwnershipMigration(
 }
 
 /**
- * Etapa 11.1 — consolida assets legados (platformSettings + ricpmota.whiteLabel + hardcodes)
- * em organizations/{id}.branding sem alterar URLs (snapshot das fontes atuais).
- *
- * Para orgs novas (≠ metodo): seed neutro sem assets do Método.
+ * Marca já gravada de organização white label: só alinha seedVersion.
+ * Seed neutro entra apenas quando ainda não existe branding.
+ */
+export function buildNonMetodoOwnershipMigrationBranding(
+  organization: OrganizationDefinition,
+  existing: OrganizationBrandingStored | null | undefined,
+  now: string,
+): OrganizationBrandingStored {
+  if (existing?.publicName?.trim()) {
+    return {
+      ...existing,
+      seedVersion: ORGANIZATION_BRANDING_SEED_VERSION,
+      seededAt: existing.seededAt ?? now,
+      updatedAt: now,
+    };
+  }
+
+  const seed = buildNewOrganizationBrandingSeed(organization);
+  return {
+    ...seed,
+    seededAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Etapa 11.1 — no Método, consolida assets legados em organizations/metodo.branding.
+ * Nas demais organizações, não substitui logos, cores nem páginas já cadastradas.
  */
 export async function ensureOfficialOrganizationBrandingOwnership(
   organizationId: OrganizationId,
@@ -51,12 +75,11 @@ export async function ensureOfficialOrganizationBrandingOwnership(
   const now = new Date().toISOString();
 
   if (organizationId !== METODO_ORGANIZATION_ID) {
-    const seed = buildNewOrganizationBrandingSeed(organization);
-    await writeOrganizationBrandingSeed(organizationId, organization, {
-      ...seed,
-      seededAt: existing?.seededAt ?? now,
-      updatedAt: now,
-    });
+    await writeOrganizationBrandingSeed(
+      organizationId,
+      organization,
+      buildNonMetodoOwnershipMigrationBranding(organization, existing, now),
+    );
     return { consolidatedNow: true, usedLegacySources: false };
   }
 

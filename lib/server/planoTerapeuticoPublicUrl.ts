@@ -12,6 +12,7 @@ import {
 } from '@/lib/organization/resolveOrganizationFromHost';
 import type { OrganizationId } from '@/lib/organization/organizationTypes';
 import { getFirestoreAdmin } from '@/lib/server/firebaseAdminOftware';
+import { buildPlanoTerapeuticoPublicPath } from '@/lib/planoTerapeutico/planoTerapeuticoPublicPath';
 
 export function requestHostFromNextRequest(request: NextRequest): string {
   const xf = request.headers.get('x-forwarded-host');
@@ -139,6 +140,6 @@ export async function buildPlanoTerapeuticoPublicUrl(
     origin = 'https://www.oftware.com.br';
   }
 
-  const path = `/plano/${encodeURIComponent(orcamentoId)}?t=${encodeURIComponent(publicAccessToken)}`;
+  const path = buildPlanoTerapeuticoPublicPath(orcamentoId, publicAccessToken);
   return `${origin.replace(/\/$/, '')}${path}`;
 }

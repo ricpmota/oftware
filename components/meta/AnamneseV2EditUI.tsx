@@ -8,14 +8,13 @@ import {
   inputClassName,
 } from '@/components/whitelabel/cadastroMedico/CadastroMedicoFormUi';
 import {
-  COMORBIDADES_OPTIONS,
-  DIAGNOSTICO_LABELS,
-  DIAGNOSTICO_TIPOS,
   META_CHAT_STEP_COMORBIDADES,
   META_CHAT_STEP_DIAGNOSTICO,
   META_CHAT_STEP_MOTIVACAO,
   META_CHAT_STEP_RISCOS,
   META_CHAT_STEP_SINTOMAS_GI,
+  META_CHAT_STEP_DEPRESSAO,
+  META_CHAT_STEP_IDEACAO_SUICIDA,
   META_CHAT_STEP_TIREOIDE,
   MOTIVACAO_OPTIONS,
   SINTOMAS_GI_OPTIONS,
@@ -24,24 +23,31 @@ import {
   riskOptionLabel,
 } from '@/lib/meta/metaChatInicial';
 import type { RiskOption } from '@/lib/meta/metaChatInicial/constants';
+import DiagnosticoCondicoesPicker from '@/components/meta/DiagnosticoCondicoesPicker';
+import ComorbidadesChecklist from '@/components/meta/ComorbidadesChecklist';
+import CirurgiasChecklist from '@/components/meta/CirurgiasChecklist';
+import MedicamentosDiabetesPicker from '@/components/meta/MedicamentosDiabetesPicker';
+import { comRespostaTriagemHumor, respostaDepressao, respostaIdeacao, TRIAGEM_SIM_NAO } from '@/lib/meta/metaChatInicial/triagemHumor';
 
 export type AnamneseV2SectionId =
   | 'motivacao'
   | 'diagnostico'
+  | 'medicamentosDiabetes'
   | 'comorbidades'
+  | 'cirurgias'
   | 'medicacoes'
   | 'alergias'
   | 'riscos'
   | 'tireoide'
-  | 'sintomasGi';
+  | 'sintomasGi'
+  | 'triagemDepressao'
+  | 'triagemIdeacao';
 
 type Props = {
   sectionId: AnamneseV2SectionId;
   paciente: PacienteCompleto;
   setPaciente: React.Dispatch<React.SetStateAction<PacienteCompleto>>;
 };
-
-type DiagnosticoTipo = (typeof DIAGNOSTICO_TIPOS)[number];
 
 export function AnamneseV2EditUI({ sectionId, paciente, setPaciente }: Props) {
   const dc = paciente.dadosClinicos;
@@ -88,108 +94,19 @@ export function AnamneseV2EditUI({ sectionId, paciente, setPaciente }: Props) {
   }
 
   if (sectionId === 'diagnostico') {
-    const dcAny = dc as { diagnosticoPrincipalTipos?: string[] } | undefined;
-    const selected = (dcAny?.diagnosticoPrincipalTipos ||
-      (dc?.diagnosticoPrincipal?.tipo ? [dc.diagnosticoPrincipal.tipo] : [])) as string[];
+    return <DiagnosticoCondicoesPicker paciente={paciente} setPaciente={setPaciente} />;
+  }
 
-    const toggle = (value: string) => {
-      setPaciente((p) => {
-        const pDc = p.dadosClinicos as { diagnosticoPrincipalTipos?: string[] } | undefined;
-        const arr = (pDc?.diagnosticoPrincipalTipos ||
-          (p.dadosClinicos?.diagnosticoPrincipal?.tipo ? [p.dadosClinicos.diagnosticoPrincipal.tipo] : [])) as string[];
-        const next = arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
-        return {
-          ...p,
-          dadosClinicos: {
-            ...p.dadosClinicos,
-            diagnosticoPrincipal: {
-              tipo: ((next[0] as DiagnosticoTipo) || 'outro') as DiagnosticoTipo,
-              outro: p.dadosClinicos?.diagnosticoPrincipal?.outro,
-            },
-            diagnosticoPrincipalTipos: next,
-          } as PacienteCompleto['dadosClinicos'],
-        };
-      });
-    };
-
-    return (
-      <div className="space-y-3">
-        <div className="space-y-2.5">
-          {DIAGNOSTICO_TIPOS.map((value) => (
-            <ChoiceButton key={value} selected={selected.includes(value)} onClick={() => toggle(value)}>
-              {DIAGNOSTICO_LABELS[value]}
-            </ChoiceButton>
-          ))}
-        </div>
-        {selected.includes('outro') && (
-          <input
-            type="text"
-            className={inputClassName}
-            value={dc?.diagnosticoPrincipal?.outro || ''}
-            onChange={(e) =>
-              setPaciente((p) => ({
-                ...p,
-                dadosClinicos: {
-                  ...p.dadosClinicos,
-                  diagnosticoPrincipal: { tipo: 'outro', outro: e.target.value },
-                },
-              }))
-            }
-            placeholder="Especificar outro"
-          />
-        )}
-      </div>
-    );
+  if (sectionId === 'medicamentosDiabetes') {
+    return <MedicamentosDiabetesPicker paciente={paciente} setPaciente={setPaciente} />;
   }
 
   if (sectionId === 'comorbidades') {
-    const c = (dc?.comorbidades || {}) as Record<string, unknown>;
-    return (
-      <div className="space-y-3">
-        <div className="space-y-2.5">
-          {COMORBIDADES_OPTIONS.map(({ key, label }) => (
-            <ChoiceButton
-              key={key}
-              selected={!!c[key]}
-              onClick={() =>
-                setPaciente((p) => {
-                  const cur = (p.dadosClinicos?.comorbidades || {}) as Record<string, unknown>;
-                  return {
-                    ...p,
-                    dadosClinicos: {
-                      ...p.dadosClinicos,
-                      comorbidades: { ...cur, [key]: !Boolean(cur[key]) },
-                    },
-                  };
-                })
-              }
-            >
-              {label}
-            </ChoiceButton>
-          ))}
-        </div>
-        {Boolean(c.outra) && (
-          <input
-            type="text"
-            className={inputClassName}
-            value={String(c.outraDescricao || '')}
-            onChange={(e) =>
-              setPaciente((p) => {
-                const cur = (p.dadosClinicos?.comorbidades || {}) as Record<string, unknown>;
-                return {
-                  ...p,
-                  dadosClinicos: {
-                    ...p.dadosClinicos,
-                    comorbidades: { ...cur, outraDescricao: e.target.value },
-                  },
-                };
-              })
-            }
-            placeholder="Qual?"
-          />
-        )}
-      </div>
-    );
+    return <ComorbidadesChecklist paciente={paciente} setPaciente={setPaciente} />;
+  }
+
+  if (sectionId === 'cirurgias') {
+    return <CirurgiasChecklist paciente={paciente} setPaciente={setPaciente} />;
   }
 
   if (sectionId === 'medicacoes') {
@@ -574,6 +491,26 @@ export function AnamneseV2EditUI({ sectionId, paciente, setPaciente }: Props) {
     );
   }
 
+  if (sectionId === 'triagemDepressao' || sectionId === 'triagemIdeacao') {
+    const campo =
+      sectionId === 'triagemDepressao' ? 'depressaoOuAnedonia30Dias' : 'ideacaoSuicida12Meses';
+    const selected =
+      sectionId === 'triagemDepressao' ? respostaDepressao(dc) : respostaIdeacao(dc);
+    return (
+      <div className="space-y-2.5">
+        {TRIAGEM_SIM_NAO.map(({ value, label }) => (
+          <ChoiceButton
+            key={value}
+            selected={selected === value}
+            onClick={() => setPaciente((p) => comRespostaTriagemHumor(p, campo, value))}
+          >
+            {label}
+          </ChoiceButton>
+        ))}
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -584,4 +521,6 @@ export const ANAMNESE_V2_SECTION_CHAT_STEP = {
   riscos: META_CHAT_STEP_RISCOS,
   tireoide: META_CHAT_STEP_TIREOIDE,
   sintomasGi: META_CHAT_STEP_SINTOMAS_GI,
+  triagemDepressao: META_CHAT_STEP_DEPRESSAO,
+  triagemIdeacao: META_CHAT_STEP_IDEACAO_SUICIDA,
 } as const;

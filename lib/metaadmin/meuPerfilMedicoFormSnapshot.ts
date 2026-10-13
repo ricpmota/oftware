@@ -1,4 +1,5 @@
 import type { DoctorSignatureProviderFormState } from '@/types/doctorSignatureProvider';
+import { normalizeMedicoChavePix } from '@/lib/metaadmin/cobrancaPixMessage';
 import { DEFAULT_WHITE_LABEL_PRIMARY_COLOR } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import {
   DEFAULT_APLICACAO_PAGE_BACKGROUND,
@@ -21,9 +22,12 @@ export type MeuPerfilMedicoFormFields = {
   pontoReferencia: string;
   googleMapsUrl: string;
   telefone: string;
+  telefoneDdi?: string;
+  telefonePais?: string;
   instagramUsuario: string;
   cpfPessoal: string;
   cnpjEmpresa: string;
+  chavePix: string;
   genero: 'M' | 'F' | '';
   cidades: { estado: string; cidade: string }[];
   whiteLabelBrandName: string;
@@ -63,9 +67,12 @@ export function serializeMeuPerfilMedicoForm(
     pontoReferencia: perfil.pontoReferencia.trim(),
     googleMapsUrl: perfil.googleMapsUrl.trim(),
     telefone: perfil.telefone.trim(),
+    telefoneDdi: perfil.telefoneDdi?.trim() || '',
+    telefonePais: perfil.telefonePais?.trim() || '',
     instagramUsuario: perfil.instagramUsuario.trim(),
     cpfPessoal: perfil.cpfPessoal.replace(/\D/g, ''),
     cnpjEmpresa: perfil.cnpjEmpresa.replace(/\D/g, ''),
+    chavePix: normalizeMedicoChavePix(perfil.chavePix),
     genero: perfil.genero,
     cidades,
     whiteLabelBrandName: perfil.whiteLabelBrandName.trim(),
@@ -118,6 +125,7 @@ export function meuPerfilFormNeedsHydrateFromMedico(
     cidades?: { estado: string; cidade: string }[];
     localizacao?: { endereco?: string; cep?: string };
     cpfPessoal?: string;
+    chavePix?: string | null;
   } | null | undefined
 ): boolean {
   if (!medico) return false;
@@ -134,6 +142,7 @@ export function meuPerfilFormNeedsHydrateFromMedico(
   if (!perfil.endereco?.trim() && !!medico.localizacao?.endereco?.trim()) return true;
   if (!perfil.cep?.trim() && !!medico.localizacao?.cep?.trim()) return true;
   if (!perfil.cpfPessoal?.trim() && !!medico.cpfPessoal?.trim()) return true;
+  if (!perfil.chavePix?.trim() && !!medico.chavePix?.trim()) return true;
   return false;
 }
 

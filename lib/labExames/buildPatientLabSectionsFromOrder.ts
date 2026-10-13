@@ -1,5 +1,6 @@
 import { getLabRange, type LabLimitOverrides } from '@/utils/labRangesFromJson';
-import { LAB_SECTION_LABELS_PT } from '@/lib/labExames/labSectionLabels';
+import { resolveLabSectionLabel } from '@/lib/labExames/labSectionLabels';
+import { resolveExameLaboratorialField } from '@/lib/metaadmin/exameLaboratorialFormFields';
 
 const PREVIEW_DOB = new Date('1980-06-15');
 
@@ -18,11 +19,13 @@ export type PatientLabSection = { sectionId: string; section: string; fields: Pa
 /**
  * Monta seções/campos da UI de exames do paciente a partir da ordem do MetaAdmin Geral
  * (`labOrderBySection`) + mapa chave laboratorial → campo no documento do exame.
+ * Exames criados por médicos usam a própria chave como campo no documento.
  */
 export function buildPatientLabSectionsFromOrder(
   labOrderBySection: Record<string, string[]>,
   keyToField: Record<string, string>,
-  limitOverrides?: LabLimitOverrides | null
+  limitOverrides?: LabLimitOverrides | null,
+  extraSectionLabels?: Record<string, string> | null
 ): PatientLabSection[] {
   const out: PatientLabSection[] = [];
   for (const sectionId of Object.keys(labOrderBySection)) {
@@ -30,7 +33,7 @@ export function buildPatientLabSectionsFromOrder(
     if (!Array.isArray(keys)) continue;
     const fields: PatientLabField[] = [];
     for (const labKey of keys) {
-      const field = keyToField[labKey];
+      const field = keyToField[labKey] || resolveExameLaboratorialField(labKey);
       if (!field) continue;
       fields.push({
         key: labKey,
@@ -41,7 +44,7 @@ export function buildPatientLabSectionsFromOrder(
     if (fields.length === 0) continue;
     out.push({
       sectionId,
-      section: LAB_SECTION_LABELS_PT[sectionId] || sectionId,
+      section: resolveLabSectionLabel(sectionId, extraSectionLabels),
       fields,
     });
   }

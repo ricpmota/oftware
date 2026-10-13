@@ -1,13 +1,74 @@
 /**
- * DELETE /api/chatnutri/message?patientId=...&dateKey=YYYY-MM-DD&messageId=...
- * Apaga uma mensagem (e par relacionado em refeição). Atualiza dayTotals e usage.
+ * POST /api/chatnutri/message — mensagem humana (paciente/médico/nutri) sem Gemini.
+ * DELETE /api/chatnutri/message?patientId=...&dateKey=...&messageId=... — apaga mensagem.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type {
+  ApiErrorResponse,
+  ApiHumanMessageSuccessResponse,
+  ChatNutriHumanAuthorKind,
+  ChatNutriInputHumanMessage,
+} from '@/lib/chatnutri/types';
+import { executeChatNutriHumanMessage } from '@/lib/chat/executeChatNutriHumanMessage';
 import {
   getPatientStatusTratamento,
   deleteChatNutriMessage,
 } from '@/services/chatNutriServerService';
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = (await req.json()) as Partial<ChatNutriInputHumanMessage>;
+    const { patientId, dateKey, text, authorKind, authorName, authorId } = body;
+
+    if (
+      !patientId ||
+      !dateKey ||
+      typeof text !== 'string' ||
+      !text.trim() ||
+      !authorKind
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'patientId, dateKey, text e authorKind obrigatórios.',
+          },
+        } as ApiErrorResponse,
+        { status: 400 }
+      );
+    }
+
+    const result = await executeChatNutriHumanMessage({
+      patientId,
+      dateKey,
+      text,
+      authorKind: authorKind as ChatNutriHumanAuthorKind,
+      authorName: typeof authorName === 'string' ? authorName : undefined,
+      authorId: typeof authorId === 'string' ? authorId : undefined,
+    });
+
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error } as ApiErrorResponse,
+        { status: result.status }
+      );
+    }
+
+    const response: ApiHumanMessageSuccessResponse = {
+      ok: true,
+      message: result.message,
+    };
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error('[chatnutri/message POST] Erro:', error);
+    return NextResponse.json(
+      { ok: false, error: { code: 'INTERNAL_ERROR', message: 'Erro interno do servidor.' } } as ApiErrorResponse,
+      { status: 500 }
+    );
+  }
+}
 
 export async function DELETE(req: NextRequest) {
   try {

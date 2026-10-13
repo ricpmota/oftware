@@ -45,3 +45,6 @@ next-env.d.ts
 oftpay/*.json
 
 oftpay/gen-lang-client-*.json
+
+# Auditoria local de localização (pode conter id interno de revisão)
+/reports/localizacao/

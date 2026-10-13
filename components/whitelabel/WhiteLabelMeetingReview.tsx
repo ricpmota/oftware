@@ -1,8 +1,13 @@
 'use client';
 
 import { Calendar, Clock, Mail, Phone, User } from 'lucide-react';
-import { formatLeadWhiteLabelWhatsAppDisplay } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
+import { formatLeadWhiteLabelContactDisplay } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
 import { slotDurationMinutes } from '@/lib/whiteLabel/clientTrackingEvents';
+import {
+  whiteLabelExperienciaNoun,
+  whiteLabelProfissaoLabel,
+  type WhiteLabelProfissao,
+} from '@/lib/whiteLabel/profissao';
 import type { WhiteLabelAvailabilityApiRow } from '@/types/whiteLabelAvailability';
 
 type FormState = Record<string, string>;
@@ -10,6 +15,7 @@ type FormState = Record<string, string>;
 type Props = {
   form: FormState;
   slot: WhiteLabelAvailabilityApiRow;
+  profissao?: WhiteLabelProfissao;
 };
 
 function formatDateLong(date: string): string {
@@ -33,8 +39,9 @@ function optionalRow(label: string, value?: string) {
   );
 }
 
-export default function WhiteLabelMeetingReview({ form, slot }: Props) {
+export default function WhiteLabelMeetingReview({ form, slot, profissao = 'medico' }: Props) {
   const duration = slotDurationMinutes(slot.startTime, slot.endTime);
+  const experiencia = whiteLabelExperienciaNoun(profissao);
 
   return (
     <div className="space-y-5">
@@ -43,8 +50,8 @@ export default function WhiteLabelMeetingReview({ form, slot }: Props) {
           Revise sua reunião
         </h2>
         <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-          Você está a um passo de entender como transformar sua experiência médica em uma operação
-          digital escalável.
+          Você está a um passo de entender como transformar sua {experiencia} em uma operação digital
+          escalável.
         </p>
         <p className="text-sm text-slate-500 mt-2">
           Confira seus dados antes de confirmar. O convite será enviado para o e-mail informado.
@@ -63,6 +70,7 @@ export default function WhiteLabelMeetingReview({ form, slot }: Props) {
               <p className="text-sm font-medium text-slate-900 truncate">{form.nome}</p>
             </div>
           </div>
+          {optionalRow('Profissão', whiteLabelProfissaoLabel(profissao))}
           <div className="flex items-center gap-3 py-2.5 border-b border-slate-100">
             <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
             <div className="min-w-0">
@@ -75,11 +83,15 @@ export default function WhiteLabelMeetingReview({ form, slot }: Props) {
             <div className="min-w-0">
               <p className="text-xs text-slate-500">WhatsApp</p>
               <p className="text-sm font-medium text-slate-900">
-                {formatLeadWhiteLabelWhatsAppDisplay(form.whatsapp)}
+                {formatLeadWhiteLabelContactDisplay({
+                  whatsapp: form.whatsapp,
+                  whatsappDdi: form.whatsappDdi,
+                  whatsappPais: form.whatsappPais,
+                })}
               </p>
             </div>
           </div>
-          {optionalRow('CRM/UF', form.crmMedico)}
+          {optionalRow('Registro', form.crmMedico)}
           {optionalRow('Especialidade', form.especialidade)}
           {optionalRow('Cidade', form.cidade)}
           {optionalRow('Estado', form.estado)}

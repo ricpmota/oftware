@@ -16,4 +16,5 @@ export * from '@/lib/treatment-negotiation/composicaoManual';
 export * from '@/lib/treatment-negotiation/negociacaoSessao';
 export * from '@/lib/treatment-negotiation/investimentoAuto';
 export * from '@/lib/treatment-negotiation/normalizarParametrosNegociacao';
+export * from '@/lib/treatment-negotiation/protocolosInjetaveis';
 export { TreatmentNegotiationService } from '@/lib/treatment-negotiation/TreatmentNegotiationService';

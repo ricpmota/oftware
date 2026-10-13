@@ -11,12 +11,16 @@ import type { AnamneseV2SectionId } from '@/components/meta/AnamneseV2EditUI';
 const CARD_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   motivacao: AnamneseIcons.motivacao,
   diagnostico: AnamneseIcons.diagnostico,
+  medicamentosDiabetes: AnamneseIcons.medicacoes,
   comorbidades: AnamneseIcons.comorbidades,
+  cirurgias: AnamneseIcons.cirurgias,
   medicacoes: AnamneseIcons.medicacoes,
   alergias: AnamneseIcons.alergias,
   riscos: AnamneseIcons.riscos,
   tireoide: AnamneseIcons.tireoide,
   sintomasGi: AnamneseIcons.sintomasGi,
+  triagemDepressao: AnamneseIcons.triagemDepressao,
+  triagemIdeacao: AnamneseIcons.triagemIdeacao,
 };
 
 type Props = {

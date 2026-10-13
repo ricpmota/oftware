@@ -87,6 +87,12 @@ export type ProntuarioEventoInput = {
   dados?: EventoTimelineDados;
   /** Preenchido em registros do nutricionista (metanutri). */
   nutricionistaId?: string;
+  /** Médico autor do registro (responsável ou compartilhado via Comunicação). */
+  medicoId?: string;
+  medicoNome?: string;
+  /** Psiquiatra autor (gravação preferencial via API MetaPsi). */
+  psiquiatraId?: string;
+  psiquiatraNome?: string;
 };
 
 export type ProntuarioEventoAutomaticoParams = {
@@ -115,6 +121,10 @@ export type ProntuarioEvento = ProntuarioEventoInput & {
   atualizadoEm: Date;
   ativo: boolean;
   nutricionistaId?: string;
+  medicoId?: string;
+  medicoNome?: string;
+  psiquiatraId?: string;
+  psiquiatraNome?: string;
 };
 
 export type ProntuarioEventosPage = {
@@ -179,6 +189,10 @@ export async function criarEventoProntuario(
     destaque: evento.destaque,
     dados: evento.dados,
     nutricionistaId: evento.nutricionistaId,
+    medicoId: evento.medicoId,
+    medicoNome: evento.medicoNome,
+    psiquiatraId: evento.psiquiatraId,
+    psiquiatraNome: evento.psiquiatraNome,
     criadoEm: agora,
     atualizadoEm: agora,
     ativo: true,
@@ -201,6 +215,40 @@ export async function criarEventoProntuarioNutri(
     tipo: 'nutricao',
     origem: 'nutri',
     nutricionistaId: nutricionistaId?.trim() || undefined,
+  });
+}
+
+/**
+ * Registro manual pelo educador físico (metapersonal). Visível ao médico como Atividade física.
+ */
+export async function criarEventoProntuarioPersonal(
+  pacienteId: string,
+  personalId: string | undefined,
+  evento: Omit<ProntuarioEventoInput, 'origem' | 'tipo'>
+): Promise<string> {
+  return criarEventoProntuario(pacienteId, {
+    ...evento,
+    tipo: 'atividade_fisica',
+    origem: 'personal',
+    // Reusa o campo opcional de profissional até haver personalId dedicado.
+    nutricionistaId: personalId?.trim() || undefined,
+  });
+}
+
+/**
+ * Helper de payload para origem `psiquiatra`.
+ * Preferir a API MetaPsi (Admin + ACL) em produção; não usar no client MetaPsi.
+ */
+export async function criarEventoProntuarioPsiquiatra(
+  pacienteId: string,
+  psiquiatraId: string | undefined,
+  evento: Omit<ProntuarioEventoInput, 'origem' | 'tipo'>
+): Promise<string> {
+  return criarEventoProntuario(pacienteId, {
+    ...evento,
+    tipo: 'consulta',
+    origem: 'psiquiatra',
+    psiquiatraId: psiquiatraId?.trim() || undefined,
   });
 }
 
@@ -349,6 +397,10 @@ export async function listarEventosProntuarioPaginado(
         destaque: data.destaque as string | undefined,
         dados: data.dados as EventoTimelineDados | undefined,
         nutricionistaId: data.nutricionistaId as string | undefined,
+        medicoId: data.medicoId as string | undefined,
+        medicoNome: data.medicoNome as string | undefined,
+        psiquiatraId: data.psiquiatraId as string | undefined,
+        psiquiatraNome: data.psiquiatraNome as string | undefined,
         criadoEm: toDateSafe(data.criadoEm),
         atualizadoEm: toDateSafe(data.atualizadoEm),
         ativo: data.ativo !== false,
@@ -369,10 +421,89 @@ export async function listarEventosProntuarioPaginado(
   };
 }
 
-/** Timeline do nutricionista: apenas registros com origem `nutri`. */
+/** Timeline do nutricionista: apenas registros com origem `nutri` (exclui legado do personal). */
 export async function listarEventosProntuarioNutriPaginado(
   pacienteId: string,
   options?: { pageSize?: number; cursor?: { criadoEmMs: number; id: string } }
 ): Promise<ProntuarioEventosPage> {
-  return listarEventosProntuarioPaginado(pacienteId, { ...options, origem: 'nutri' });
+  if (!pacienteId?.trim()) {
+    throw new Error('pacienteId é obrigatório para listar eventos do prontuário.');
+  }
+  const pageSize = Math.max(1, Math.min(100, options?.pageSize ?? 30));
+  const page = await listarEventosProntuarioPaginado(pacienteId, {
+    pageSize: 200,
+    origem: 'nutri',
+  });
+  const todos = page.eventos.filter((e) => !tituloPareceEducadorFisico(e.titulo));
+  const startIdx = options?.cursor ? indiceAposCursor(todos, options.cursor) : 0;
+  const pageEventos = todos.slice(startIdx, startIdx + pageSize);
+  const last = pageEventos[pageEventos.length - 1];
+  return {
+    eventos: pageEventos,
+    nextCursor:
+      pageEventos.length === pageSize && startIdx + pageSize < todos.length && last
+        ? { criadoEmMs: last.criadoEm.getTime(), id: last.id }
+        : undefined,
+  };
+}
+
+function tituloPareceEducadorFisico(titulo: string | undefined): boolean {
+  return /Educador F[ií]sico/i.test(titulo || '');
+}
+
+/** Corrige registros do personal gravados por engano como Nutrição. */
+export function normalizarEventoTimelinePersonal<
+  T extends { tipo: EventoTimelineTipo; titulo: string; origem?: EventoTimelineOrigem },
+>(evento: T): T {
+  if (
+    (evento.tipo === 'nutricao' || evento.origem === 'nutri') &&
+    tituloPareceEducadorFisico(evento.titulo)
+  ) {
+    return {
+      ...evento,
+      tipo: 'atividade_fisica' as EventoTimelineTipo,
+      origem: 'personal' as EventoTimelineOrigem,
+    };
+  }
+  return evento;
+}
+
+/**
+ * Timeline do educador físico: origem `personal` + legado (nutri + título Educador Físico).
+ */
+export async function listarEventosProntuarioPersonalPaginado(
+  pacienteId: string,
+  options?: { pageSize?: number; cursor?: { criadoEmMs: number; id: string } }
+): Promise<ProntuarioEventosPage> {
+  if (!pacienteId?.trim()) {
+    throw new Error('pacienteId é obrigatório para listar eventos do prontuário.');
+  }
+  const pageSize = Math.max(1, Math.min(100, options?.pageSize ?? 30));
+
+  const [personalPage, nutriPage] = await Promise.all([
+    listarEventosProntuarioPaginado(pacienteId, { pageSize: 200, origem: 'personal' }),
+    listarEventosProntuarioPaginado(pacienteId, { pageSize: 200, origem: 'nutri' }),
+  ]);
+
+  const byId = new Map<string, ProntuarioEvento>();
+  for (const e of personalPage.eventos) {
+    byId.set(e.id, normalizarEventoTimelinePersonal(e));
+  }
+  for (const e of nutriPage.eventos) {
+    if (!tituloPareceEducadorFisico(e.titulo)) continue;
+    byId.set(e.id, normalizarEventoTimelinePersonal(e));
+  }
+
+  const todos = Array.from(byId.values()).sort(compararEventosTimeline);
+  const startIdx = options?.cursor ? indiceAposCursor(todos, options.cursor) : 0;
+  const pageEventos = todos.slice(startIdx, startIdx + pageSize);
+  const last = pageEventos[pageEventos.length - 1];
+
+  return {
+    eventos: pageEventos,
+    nextCursor:
+      pageEventos.length === pageSize && startIdx + pageSize < todos.length && last
+        ? { criadoEmMs: last.criadoEm.getTime(), id: last.id }
+        : undefined,
+  };
 }

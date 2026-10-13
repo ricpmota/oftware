@@ -16,84 +16,49 @@ import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto, DadosClinicos } from '@/types/obesidade';
 import { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
-import { Stethoscope, MapPin, Phone, Mail, Loader2, CheckCircle, Check, AlertCircle, X, UtensilsCrossed, Dumbbell, Users, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, AlertCircle, X } from 'lucide-react';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import {
+  IDENTIFICACAO_PHONE_ERROR,
+  isValidIdentificacaoPhone,
+  persistedPhoneForIdentificacao,
+} from '@/lib/phone/internationalPhoneValue';
+import {
+  identPhoneWriteFieldsFromSolicitacao,
+  solicitacaoPhoneWriteFields,
+} from '@/lib/whatsapp/resolveIndicacaoSolicitacaoPhone';
 import { alturaInputParaCm } from '@/utils/alturaInput';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import DepoimentosAnimatedBackdrop from '@/components/landing/DepoimentosAnimatedBackdrop';
-import { getMedicoGoogleMapsHref } from '@/lib/meta/medicoLocalizacao';
 import { resolveMedicoWhiteLabel } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import { publicPageCustomLogoUrl } from '@/lib/whiteLabel/publicPagesTheme';
 import PublicPageBrandFooter from '@/components/public/PublicPageBrandFooter';
 import WhiteLabelFaviconEffect from '@/components/public/WhiteLabelFaviconEffect';
+import PublicDoctorHero from '@/components/drprovisorio/PublicDoctorHero';
+import PublicDoctorQuickInfo from '@/components/drprovisorio/PublicDoctorQuickInfo';
+import PublicDoctorCTA from '@/components/drprovisorio/PublicDoctorCTA';
+import PublicDoctorBenefits from '@/components/drprovisorio/PublicDoctorBenefits';
+import PublicDoctorTechnology from '@/components/drprovisorio/PublicDoctorTechnology';
+import PublicDoctorAbout from '@/components/drprovisorio/PublicDoctorAbout';
+import PublicDoctorLocations from '@/components/drprovisorio/PublicDoctorLocations';
+import PublicDoctorSecurity from '@/components/drprovisorio/PublicDoctorSecurity';
+import PublicDoctorIndicacao from '@/components/drprovisorio/PublicDoctorIndicacao';
+import PublicDoctorDepoimentos from '@/components/drprovisorio/PublicDoctorDepoimentos';
+import type { InstagramDepoimentoItem } from '@/components/instagram/instagramDepoimentosTypes';
 
 /** Paleta alinhada à home (/) — fundo padrão #0A1F44, destaques #4CCB7A / #2F8FA3, texto #E8EDED */
 const DEFAULT_PAGE_BG = '#0A1F44';
-const SHELL_CARD = 'rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-xl';
-
-const CARDS_INSTITUCIONAIS = [
-  {
-    icon: Activity,
-    title: 'Acompanhamento estruturado',
-    text: 'Fluxo contínuo de acompanhamento com organização clínica e monitoramento individualizado.',
-  },
-  {
-    icon: Users,
-    title: 'Equipe integrada',
-    text: 'Possibilidade de integração com nutrição e treino conforme necessidade clínica.',
-  },
-  {
-    icon: CheckCircle,
-    title: 'Atendimento verificado',
-    text: 'Perfil validado com registro profissional ativo.',
-  },
-] as const;
-
-type DepoimentoPublico = {
-  pacienteId: string;
-  nome: string;
-  cidadeEstado: string | null;
-  idade: number | null;
-  depoimento: string;
-};
-
-function SeloPerfilInstitucional({ medico }: { medico: Medico }) {
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-      {medico.isVerificado ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#0095F6]/40 bg-[#0095F6]/10 px-3 py-1.5 text-sm font-medium text-[#B8E4FF]">
-          <CheckCircle className="h-4 w-4 shrink-0 text-[#0095F6]" aria-hidden />
-          Perfil verificado
-        </span>
-      ) : null}
-      {medico.crm ? (
-        <span className="text-sm text-[var(--public-page-text)]/65">CRM ativo · {medico.crm.estado} {medico.crm.numero}</span>
-      ) : null}
-    </div>
-  );
-}
-
-/** Selo azul com check branco, tangente ao canto inferior direito do avatar (estilo Instagram). */
-function SeloVerificadoInstagram({ ringClassName = 'ring-[#0A1F44]' }: { ringClassName?: string }) {
-  return (
-    <span
-      className={`-right-1 -bottom-1 pointer-events-none absolute z-10 flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-[#0095F6] text-white shadow-md ring-[3px] ${ringClassName}`}
-      title="Verificado"
-      aria-label="Perfil verificado"
-    >
-      <Check className="h-3 w-3 sm:h-[14px] sm:w-[14px]" strokeWidth={3.2} aria-hidden />
-    </span>
-  );
-}
-
-const AVATAR_MEDICO_WRAP = 'relative w-40 h-40 sm:w-44 sm:h-44 md:w-48 md:h-48 shrink-0';
-const AVATAR_MEDICO_FACE =
-  'h-full w-full rounded-full border-4 border-white/90 shadow-xl ring-4 ring-[#4CCB7A]/35';
 
 function MedicoPersonalPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isEmbed = searchParams.get('embed') === '1';
+
+  useEffect(() => {
+    if (isEmbed) return;
+    const html = document.documentElement;
+    html.classList.add('dr-public-lock');
+    return () => html.classList.remove('dr-public-lock');
+  }, [isEmbed]);
   const [medico, setMedico] = useState<Medico | null>(null);
   const [nutricionista, setNutricionista] = useState<NutricionistaDoc | null>(null);
   const [personalTrainer, setPersonalTrainer] = useState<PersonalTrainerDoc | null>(null);
@@ -130,6 +95,8 @@ function MedicoPersonalPageContent() {
   const [paciente, setPaciente] = useState<PacienteCompleto | null>(null);
   const [showTelefoneModal, setShowTelefoneModal] = useState(false);
   const [telefone, setTelefone] = useState('');
+  const [telefoneDdi, setTelefoneDdi] = useState('');
+  const [telefonePais, setTelefonePais] = useState('');
   const [pesoPacienteModal, setPesoPacienteModal] = useState('');
   const [alturaPacienteModal, setAlturaPacienteModal] = useState('');
   const [criandoSolicitacao, setCriandoSolicitacao] = useState(false);
@@ -140,25 +107,8 @@ function MedicoPersonalPageContent() {
   const [solicitacaoCriada, setSolicitacaoCriada] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pacienteIndicador, setPacienteIndicador] = useState<{ id: string; nome: string; userId?: string; email?: string } | null>(null);
-
-  // Estatísticas do médico (página pública)
-  type EstatisticasPayload = {
-    counts: { total: number; pendentes: number; emTratamento: number; concluidos: number; abandono: number };
-    demografia: { idadeMedia: number; totalComIdade: number; faixasEtarias: Record<string, number>; porcentagensFaixas: Record<string, number>; homens: number; mulheres: number; totalGenero: number; dadosGenero: { name: string; value: number; porcentagem: number }[] };
-    geografia: { dadosCidades: { cidadeEstado: string; count: number; porcentagem: number }[]; totalComCidade: number };
-    perdaPeso: { mediasPorSemana: { semana: number; media: number; quantidade: number }[] };
-  };
-  const [estatisticasMeus, setEstatisticasMeus] = useState<EstatisticasPayload | null>(null);
-  const [loadingEstatisticas, setLoadingEstatisticas] = useState(false);
-  const [filtroFaixaEtariaPerdaPeso, setFiltroFaixaEtariaPerdaPeso] = useState<string>('todas');
-  const [filtroSexoPerdaPeso, setFiltroSexoPerdaPeso] = useState<string>('todos');
-  const [erroEstatisticas, setErroEstatisticas] = useState<string | null>(null);
+  const [resultadoIndicador, setResultadoIndicador] = useState<InstagramDepoimentoItem | null>(null);
   const [informacoesPessoaisAberto, setInformacoesPessoaisAberto] = useState(false);
-  const [estatisticasTratamentoAberto, setEstatisticasTratamentoAberto] = useState(false);
-  const [depoimentos, setDepoimentos] = useState<DepoimentoPublico[]>([]);
-  const [loadingDepoimentos, setLoadingDepoimentos] = useState(false);
-  const [depoimentoIndex, setDepoimentoIndex] = useState(0);
-  const [depoimentosPausado, setDepoimentosPausado] = useState(false);
 
   // Extrair nome e sobrenome da URL
   // dr/ricardo-mota -> apenas médico
@@ -168,6 +118,7 @@ function MedicoPersonalPageContent() {
   const nomeSobrenomeMedico = slug[0] || '';
   const nomeSobrenomeProfissional = slug[1] === 'paciente' ? null : (slug[1] || null);
   const slugPacienteIndicador = slug[1] === 'paciente' && slug[2] ? slug[2] : null;
+  const incluirEvolucao = searchParams.get('evolucao') === '1';
 
   useEffect(() => {
     // Buscar médico e nutricionista pelo nome e sobrenome
@@ -263,7 +214,7 @@ function MedicoPersonalPageContent() {
         // Se houver paciente indicador na URL (fluxo "Indicar Médico")
         if (slugPacienteIndicador && medicoData.id) {
           const responsePaciente = await fetch(
-            `/api/paciente-por-nome?nome=${encodeURIComponent(slugPacienteIndicador)}&medicoId=${encodeURIComponent(medicoData.id)}`
+            `/api/paciente-por-nome?nome=${encodeURIComponent(slugPacienteIndicador)}&medicoId=${encodeURIComponent(medicoData.id)}${incluirEvolucao ? '&incluirEvolucao=true' : ''}`
           );
           if (!responsePaciente.ok) {
             if (responsePaciente.status === 404) {
@@ -291,8 +242,12 @@ function MedicoPersonalPageContent() {
             userId: pacienteData.userId,
             email: pacienteData.email,
           });
+          setResultadoIndicador(
+            incluirEvolucao && pacienteData.resultado ? (pacienteData.resultado as InstagramDepoimentoItem) : null
+          );
         } else {
           setPacienteIndicador(null);
+          setResultadoIndicador(null);
         }
       } catch (err) {
         console.error('Erro ao buscar dados:', err);
@@ -303,54 +258,7 @@ function MedicoPersonalPageContent() {
     };
 
     buscarDados();
-  }, [nomeSobrenomeMedico, nomeSobrenomeProfissional, slugPacienteIndicador]);
-
-  useEffect(() => {
-    if (!medico?.id) return;
-    setLoadingDepoimentos(true);
-    fetch(`/api/depoimentos-medico?medicoId=${encodeURIComponent(medico.id)}`)
-      .then((res) => (res.ok ? res.json() : { depoimentos: [] }))
-      .then((data: { depoimentos: DepoimentoPublico[] }) => {
-        setDepoimentos(data.depoimentos || []);
-        setDepoimentoIndex(0);
-      })
-      .catch(() => setDepoimentos([]))
-      .finally(() => setLoadingDepoimentos(false));
-  }, [medico?.id]);
-
-  useEffect(() => {
-    if (depoimentos.length <= 1 || depoimentosPausado) return;
-    const t = setInterval(() => {
-      setDepoimentoIndex((i) => (i + 1) % depoimentos.length);
-    }, 10000);
-    return () => clearInterval(t);
-  }, [depoimentos.length, depoimentosPausado]);
-
-  const loadEstatisticasMedico = async (base: 'meus' | 'oftware', sexo?: string, faixaEtaria?: string) => {
-    if (!medico?.id && base === 'meus') return;
-    setLoadingEstatisticas(true);
-    setErroEstatisticas(null);
-    try {
-      const params = new URLSearchParams({ base });
-      if (base === 'meus' && medico?.id) params.set('medicoId', medico.id);
-      if (sexo) params.set('sexo', sexo);
-      if (faixaEtaria) params.set('faixaEtaria', faixaEtaria);
-      const res = await fetch(`/api/estatisticas-medico?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Erro ao carregar estatísticas');
-      setEstatisticasMeus(data);
-    } catch (e) {
-      console.error('Erro ao carregar estatísticas:', e);
-      setErroEstatisticas(e instanceof Error ? e.message : 'Não foi possível carregar as estatísticas.');
-    } finally {
-      setLoadingEstatisticas(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!medico?.id) return;
-    loadEstatisticasMedico('meus', filtroSexoPerdaPeso, filtroFaixaEtariaPerdaPeso);
-  }, [medico?.id, filtroSexoPerdaPeso, filtroFaixaEtariaPerdaPeso]);
+  }, [nomeSobrenomeMedico, nomeSobrenomeProfissional, slugPacienteIndicador, incluirEvolucao]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -374,6 +282,8 @@ function MedicoPersonalPageContent() {
         setPaciente(pacienteData);
         if (pacienteData?.dadosIdentificacao?.telefone) {
           setTelefone(String(pacienteData.dadosIdentificacao.telefone));
+          setTelefoneDdi(pacienteData.dadosIdentificacao.telefoneDdi || '');
+          setTelefonePais(pacienteData.dadosIdentificacao.telefonePais || '');
         }
 
         // Paciente já cadastrado → área do paciente (sem nova solicitação ao médico)
@@ -521,6 +431,20 @@ function MedicoPersonalPageContent() {
 
     setShowEntrarConfirmModal(false);
 
+    // O login Google segue direto para /meta, onde o chat pede o telefone.
+    // A validação com DDI só vale no modal desta página, se ele estiver aberto.
+    if (
+      showTelefoneModal &&
+      !isValidIdentificacaoPhone({
+        telefone,
+        telefoneDdi,
+        telefonePais,
+      })
+    ) {
+      setError(IDENTIFICACAO_PHONE_ERROR);
+      return;
+    }
+
     const medicoId = medico.id;
     const emailPaciente = currentUser.email;
 
@@ -556,7 +480,11 @@ function MedicoPersonalPageContent() {
         telefone?.trim() ||
         paciente?.dadosIdentificacao?.telefone ||
         '';
-      const telefoneNormalizado = telefoneCadastro.replace(/\D/g, '');
+      const phoneWrite = identPhoneWriteFieldsFromSolicitacao({
+        pacienteTelefone: telefoneCadastro,
+        pacienteTelefoneDdi: telefoneDdi || paciente?.dadosIdentificacao?.telefoneDdi,
+        pacienteTelefonePais: telefonePais || paciente?.dadosIdentificacao?.telefonePais,
+      });
 
       const pacienteNome = paciente?.nome || 
                           paciente?.dadosIdentificacao?.nomeCompleto || 
@@ -606,9 +534,10 @@ function MedicoPersonalPageContent() {
             dadosIdentificacao: {
               nomeCompleto: pacienteNome,
               email: currentUser.email || '',
-              telefone: telefoneNormalizado,
               endereco: paciente?.dadosIdentificacao?.endereco ?? {},
               dataCadastro: new Date(),
+              telefone: phoneWrite.telefone || '',
+              ...phoneWrite,
             },
             dadosClinicos: {
               medidasIniciais,
@@ -650,9 +579,10 @@ function MedicoPersonalPageContent() {
             dadosIdentificacao: {
               nomeCompleto: pacienteNome,
               email: currentUser.email,
-              telefone: telefoneNormalizado,
               endereco: {},
               dataCadastro: new Date(),
+              telefone: phoneWrite.telefone || '',
+              ...phoneWrite,
             },
             dadosClinicos: {
               comorbidades: {},
@@ -752,7 +682,11 @@ function MedicoPersonalPageContent() {
         {
           pacienteEmail: emailPaciente,
           pacienteNome,
-          pacienteTelefone: telefoneNormalizado || '',
+          ...solicitacaoPhoneWriteFields({
+            pacienteTelefone: phoneWrite.telefone,
+            pacienteTelefoneDdi: phoneWrite.telefoneDdi,
+            pacienteTelefonePais: phoneWrite.telefonePais,
+          }),
           pacienteId: pacienteIdFinal,
           medicoId: medico.id,
           medicoNome: medico.nome,
@@ -767,12 +701,10 @@ function MedicoPersonalPageContent() {
       setSolicitacaoCriada(true);
       setShowTelefoneModal(false);
 
-      // Redirecionar para /meta após 2 segundos (mantém médico do link para o chat não pedir busca de médico)
-      setTimeout(() => {
-        navigateToMetaPaciente(medicoId);
-        setCriandoSolicitacao(false);
-        solicitacaoInFlightRef.current = false;
-      }, 2000);
+      // Redirecionar para /meta na hora (mantém médico do link para o chat não pedir busca de médico)
+      navigateToMetaPaciente(medicoId);
+      setCriandoSolicitacao(false);
+      solicitacaoInFlightRef.current = false;
     };
 
     const MAX_TENTATIVAS = 4;
@@ -806,7 +738,6 @@ function MedicoPersonalPageContent() {
 
   // Determinar se há profissional secundário (nutricionista ou personal) ou paciente indicador
   const profissionalSecundario = nutricionista || personalTrainer;
-  const tipoProfissional = nutricionista ? 'nutricionista' : personalTrainer ? 'personal' : null;
   const aguardandoSessaoPaciente = authChecking || (!!user && verificandoSessaoPaciente);
 
   if (loading) {
@@ -847,589 +778,174 @@ function MedicoPersonalPageContent() {
   const whiteLabelResolved = resolveMedicoWhiteLabel(medico);
   const drPage = whiteLabelResolved.publicPages.dr;
   const medicoAvatarUrl = whiteLabelResolved.profilePhotoUrl;
+  const profissionalAvatarUrl =
+    (profissionalSecundario?.fotoPerfilUrl && String(profissionalSecundario.fotoPerfilUrl).trim()) || null;
   const nomeCompleto = whiteLabelResolved.brandName;
   const accentColor = whiteLabelResolved.primaryColor;
   const pageBg = drPage.backgroundColor;
   const pageText = drPage.textColor;
   const drCustomLogo = publicPageCustomLogoUrl(drPage);
+  const organizationIdentity = whiteLabelResolved.organizationIdentity;
+  const footerLogoSrc = organizationIdentity
+    ? organizationIdentity.footerLogoUrl
+    : '/metodo-emagrecer-logotipo-28.png';
+  const accentTextColor = organizationIdentity?.accentTextColor;
+
+  const cidadeEstado =
+    medico.cidades?.[0]
+      ? `${medico.cidades[0].cidade}, ${medico.cidades[0].estado}`
+      : null;
+  const temLocalPresencial = !!(
+    medico.localizacao?.endereco ||
+    medico.localizacao?.nomeLocal ||
+    (medico.cidades && medico.cidades.length > 0)
+  );
+
+  const onSolicitarPrincipal = () => {
+    if (!user) void handleGoogleLogin();
+    else void handleCriarSolicitacao();
+  };
+
+  const showCta =
+    !isEmbed && !solicitacaoCriada && !aguardandoSessaoPaciente && !(user && showEntrarConfirmModal);
 
   return (
     <div
-      className={`min-h-screen relative ${isEmbed ? 'min-h-0' : ''}`}
-      style={{
-        backgroundColor: pageBg,
-        ['--public-page-text' as string]: pageText,
-      }}
+      className={`${isEmbed ? 'min-h-0' : 'dr-public-page flex flex-col'} bg-gray-50`}
+      style={{ ['--public-page-text' as string]: pageText }}
     >
       <WhiteLabelFaviconEffect
         faviconUrl={whiteLabelResolved.faviconUrl}
         cacheKey={medico.id}
       />
-      {!isEmbed && (
-        <div
-          className="fixed top-0 right-0 z-[1] flex items-start justify-end p-3 sm:p-5 pointer-events-none"
-          aria-hidden
-        >
-          <img
-            src="/simbolo-metodo.png"
-            alt=""
-            className="w-[min(200px,35vw)] h-auto opacity-[0.07]"
+
+      <div className={isEmbed ? undefined : 'min-h-0 flex-1 overflow-x-clip overflow-y-auto overscroll-y-contain'}>
+      <PublicDoctorHero
+        nomeCompleto={nomeCompleto}
+        medicoAvatarUrl={medicoAvatarUrl}
+        accentColor={accentColor}
+        pageBg={pageBg}
+        pageText={pageText}
+        crmEstado={medico.crm?.estado}
+        crmNumero={medico.crm?.numero}
+        isVerificado={medico.isVerificado}
+        logoUrl={drCustomLogo}
+        accentTextColor={accentTextColor}
+        profissionalSecundario={
+          profissionalSecundario
+            ? {
+                nome: profissionalSecundario.nome,
+                registroNumero: profissionalSecundario.registroNumero,
+                isVerificado: profissionalSecundario.isVerificado,
+                fotoUrl: profissionalAvatarUrl,
+                tipo: nutricionista ? 'nutricionista' : 'personal',
+              }
+            : null
+        }
+      />
+
+      <div className="relative z-10 mx-auto max-w-xl space-y-3 px-3 -mt-2 pb-10">
+        {pacienteIndicador ? (
+          <PublicDoctorIndicacao
+            nomeIndicador={pacienteIndicador.nome}
+            accentColor={accentColor}
+            accentTextColor={accentTextColor}
+            resultado={resultadoIndicador}
           />
-        </div>
-      )}
-      <div
-        className={`relative z-10 container mx-auto px-4 max-w-4xl ${isEmbed ? 'py-4' : 'py-12'} ${
-          !isEmbed && !solicitacaoCriada ? 'pb-32' : ''
-        }`}
-      >
-        {/* Banner Paciente Indicador */}
-        {pacienteIndicador && (
-          <div className="bg-gradient-to-r from-[#4CCB7A] to-[#2F8FA3] rounded-2xl shadow-xl p-6 mb-6 text-center">
-            <p className="text-lg sm:text-xl font-semibold text-white leading-relaxed">
-              <span className="font-bold">{pacienteIndicador.nome}</span> compartilhou sua experiência de acompanhamento com {nomeCompleto}
+        ) : null}
+
+        <PublicDoctorQuickInfo
+          accentColor={accentColor}
+          pageBg={pageBg}
+          cidadeEstado={cidadeEstado}
+          telefone={medico.telefone}
+          temLocalPresencial={temLocalPresencial}
+        />
+
+        {showCta ? (
+          <PublicDoctorCTA
+            accentColor={accentColor}
+            accentTextColor={accentTextColor}
+            pageBg={pageBg}
+            onSolicitar={onSolicitarPrincipal}
+            loading={criandoSolicitacao}
+            disabled={criandoSolicitacao}
+          />
+        ) : null}
+
+        {error && showCta ? (
+          <p className="text-center text-sm text-red-600">{error}</p>
+        ) : null}
+
+        <PublicDoctorBenefits accentColor={accentColor} pageBg={pageBg} />
+
+        <PublicDoctorTechnology accentColor={accentColor} pageBg={pageBg} />
+
+        <PublicDoctorAbout
+          medico={medico}
+          nomeCompleto={nomeCompleto}
+          accentColor={accentColor}
+          pageBg={pageBg}
+          aberto={informacoesPessoaisAberto}
+          onToggle={() => setInformacoesPessoaisAberto((v) => !v)}
+        />
+
+        <PublicDoctorLocations
+          accentColor={accentColor}
+          pageBg={pageBg}
+          cidadeEstado={cidadeEstado}
+          nomeLocal={medico.localizacao?.nomeLocal}
+        />
+
+        <PublicDoctorSecurity accentColor={accentColor} pageBg={pageBg} />
+
+        <PublicDoctorDepoimentos
+          medicoId={medico.id}
+          accentColor={accentColor}
+          accentTextColor={accentTextColor}
+          pageBg={pageBg}
+        />
+
+        {!isEmbed ? (
+          <footer className="drprov-rise px-1 pb-2 pt-1">
+            <p className="mx-auto max-w-2xl text-center text-xs leading-relaxed text-gray-500">
+              Esta página possui caráter informativo e institucional. As condutas dependem de avaliação médica individualizada. A resposta ao acompanhamento varia conforme características clínicas, adesão e evolução individual.
             </p>
-            <p className="text-white/75 text-xs sm:text-sm mt-3 leading-relaxed max-w-lg mx-auto">
-              Relatos individuais; não garantem resposta semelhante.
-            </p>
-          </div>
-        )}
-        {/* Header */}
-        <div className={`${SHELL_CARD} p-8 mb-8`}>
-          {profissionalSecundario ? (
-            <div className="flex flex-col items-center gap-6">
-              <div className="flex items-center justify-center gap-4">
-                {/* Ícone do Médico */}
-                <div className="flex flex-col items-center gap-2">
-                  <div className={AVATAR_MEDICO_WRAP}>
-                    {medicoAvatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={medicoAvatarUrl}
-                        alt=""
-                        className={`${AVATAR_MEDICO_FACE} object-cover`}
-                      />
-                    ) : (
-                      <div
-                        className={`flex ${AVATAR_MEDICO_FACE} items-center justify-center`}
-                        style={{ background: `linear-gradient(to bottom right, ${accentColor}, #2F8FA3)` }}
-                      >
-                        <Stethoscope className="h-14 w-14 text-white sm:h-16 sm:w-16 md:h-[4.25rem] md:w-[4.25rem]" strokeWidth={1.75} />
-                      </div>
-                    )}
-                    {medico.isVerificado ? <SeloVerificadoInstagram /> : null}
-                  </div>
-                  <span className="text-sm font-medium text-[var(--public-page-text)]/80">Médico</span>
-                </div>
-                
-                {/* Ícone do Profissional (Nutricionista ou Personal) */}
-                <div className="flex flex-col items-center gap-2">
-                  {tipoProfissional === 'nutricionista' ? (
-                    <div className="relative bg-gradient-to-br from-blue-500 to-blue-700 p-3 md:p-5 rounded-2xl shadow-lg">
-                      <UtensilsCrossed size={32} className="md:w-16 md:h-16 text-white" />
-                      {profissionalSecundario.isVerificado ? <SeloVerificadoInstagram /> : null}
-                    </div>
-                  ) : (
-                    <div className="relative bg-gradient-to-br from-yellow-500 to-yellow-700 p-3 md:p-5 rounded-2xl shadow-lg">
-                      <Dumbbell size={32} className="md:w-16 md:h-16 text-white" />
-                      {profissionalSecundario.isVerificado ? <SeloVerificadoInstagram /> : null}
-                    </div>
-                  )}
-                  <span className="text-sm font-medium text-[var(--public-page-text)]/80">
-                    {tipoProfissional === 'nutricionista' ? 'Nutricionista' : 'Personal Trainer'}
-                  </span>
-                </div>
-              </div>
-              <div className="text-center">
-                <h1 className="text-4xl font-bold text-[var(--public-page-text)] mb-2">{nomeCompleto}</h1>
-                {medico.crm && (
-                  <p className="text-lg text-[var(--public-page-text)]/75 mb-1">
-                    CRM-{medico.crm.estado} {medico.crm.numero}
-                  </p>
-                )}
-                <SeloPerfilInstitucional medico={medico} />
-                <div className="mt-4 pt-4 border-t border-white/10">
-                  <p className="text-lg font-semibold text-[var(--public-page-text)]/85 mb-1">
-                    {tipoProfissional === 'nutricionista' ? 'Nutricionista' : 'Personal Trainer'}
-                  </p>
-                  <p className="text-xl text-[var(--public-page-text)]">{profissionalSecundario.nome}</p>
-                  {profissionalSecundario.registroNumero && (
-                    <p className="text-sm text-[var(--public-page-text)]/65 mt-1">
-                      {tipoProfissional === 'nutricionista' ? 'CRN' : 'CREF'}: {profissionalSecundario.registroNumero}
-                    </p>
-                  )}
-                </div>
-              </div>
+            <div className="mt-4 flex flex-col items-center gap-3">
+              {/* Logo principal escura (fundo claro) — não a logo clara do hero */}
+              {footerLogoSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={footerLogoSrc}
+                  alt={nomeCompleto}
+                  className="h-8 w-auto max-w-[240px] object-contain opacity-90 sm:h-9"
+                />
+              ) : null}
+              {whiteLabelResolved.showPoweredByOftware ? (
+                <PublicPageBrandFooter
+                  theme={drPage}
+                  brandName={nomeCompleto}
+                  showLogo={false}
+                  showPoweredBy
+                  poweredByClassName="text-gray-400"
+                />
+              ) : null}
             </div>
-          ) : (
-            <div className="flex flex-col items-center gap-6">
-              <div className="flex items-center justify-center gap-4">
-                {/* Ícone do Médico */}
-                <div className="flex flex-col items-center gap-2">
-                  <div className={AVATAR_MEDICO_WRAP}>
-                    {medicoAvatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={medicoAvatarUrl}
-                        alt=""
-                        className={`${AVATAR_MEDICO_FACE} object-cover`}
-                      />
-                    ) : (
-                      <div
-                        className={`flex ${AVATAR_MEDICO_FACE} items-center justify-center`}
-                        style={{ background: `linear-gradient(to bottom right, ${accentColor}, #2F8FA3)` }}
-                      >
-                        <Stethoscope className="h-14 w-14 text-white sm:h-16 sm:w-16 md:h-[4.25rem] md:w-[4.25rem]" strokeWidth={1.75} />
-                      </div>
-                    )}
-                    {medico.isVerificado ? <SeloVerificadoInstagram /> : null}
-                  </div>
-                  <span className="text-sm font-medium text-[var(--public-page-text)]/80">Médico</span>
-                </div>
-              </div>
-              <div className="text-center">
-                <h1 className="text-4xl font-bold text-[var(--public-page-text)] mb-2">{nomeCompleto}</h1>
-                {medico.crm && (
-                  <p className="text-lg text-[var(--public-page-text)]/75 mb-1">
-                    CRM-{medico.crm.estado} {medico.crm.numero}
-                  </p>
-                )}
-                <SeloPerfilInstitucional medico={medico} />
-              </div>
-            </div>
-          )}
-        </div>
+          </footer>
+        ) : null}
+      </div>
+      </div>
 
-        {/* Informações Pessoais do Médico */}
-        <div className={`${SHELL_CARD} p-8 mb-8`}>
-          <button
-            type="button"
-            onClick={() => setInformacoesPessoaisAberto((v) => !v)}
-            className="w-full flex items-center justify-between text-left mb-6"
-          >
-            <h2 className="text-xl font-bold text-[var(--public-page-text)]">Informações Pessoais</h2>
-            {informacoesPessoaisAberto ? <ChevronUp className="h-6 w-6 text-[var(--public-page-text)]/55" /> : <ChevronDown className="h-6 w-6 text-[var(--public-page-text)]/55" />}
-          </button>
-
-          {informacoesPessoaisAberto && (
-          <div className="space-y-4">
-            {(medico.localizacao?.endereco || medico.localizacao?.nomeLocal) && (
-              <div className="flex items-start gap-4">
-                <MapPin className="h-6 w-6 text-[#4CCB7A] mt-1 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-[var(--public-page-text)]">Endereço</p>
-                  {medico.localizacao.nomeLocal && (
-                    <p className="text-[var(--public-page-text)] font-medium">{medico.localizacao.nomeLocal}</p>
-                  )}
-                  {medico.localizacao.endereco && (
-                    <p className="text-[var(--public-page-text)]/75">
-                      {medico.localizacao.endereco}
-                      {medico.localizacao.numero?.trim() ? `, nº ${medico.localizacao.numero.trim()}` : ''}
-                    </p>
-                  )}
-                  {medico.localizacao.pontoReferencia && (
-                    <p className="text-sm text-[var(--public-page-text)]/55 mt-1">
-                      Ref.: {medico.localizacao.pontoReferencia}
-                    </p>
-                  )}
-                  {getMedicoGoogleMapsHref(medico.localizacao) && (
-                    <a
-                      href={getMedicoGoogleMapsHref(medico.localizacao)!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-2 text-sm font-medium text-[#4CCB7A] hover:text-[#6dd99a]"
-                    >
-                      Ver no Google Maps →
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {medico.telefone && (
-              <div className="flex items-start gap-4">
-                <Phone className="h-6 w-6 text-[#4CCB7A] mt-1 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-[var(--public-page-text)]">Telefone</p>
-                  <p className="text-[var(--public-page-text)]/75">{medico.telefone}</p>
-                </div>
-              </div>
-            )}
-
-            {medico.email && (
-              <div className="flex items-start gap-4">
-                <Mail className="h-6 w-6 text-[#4CCB7A] mt-1 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-[var(--public-page-text)]">E-mail</p>
-                  <p className="text-[var(--public-page-text)]/75">{medico.email}</p>
-                </div>
-              </div>
-            )}
-
-            {medico.cidades && medico.cidades.length > 0 && (
-              <div className="flex items-start gap-4">
-                <MapPin className="h-6 w-6 text-[#4CCB7A] mt-1 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-[var(--public-page-text)]">Cidades de Atendimento</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {medico.cidades.map((cidade, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 rounded-full text-sm bg-[#4CCB7A]/20 text-[#B8F0CC] border border-[#4CCB7A]/35"
-                      >
-                        {cidade.cidade}, {cidade.estado}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          )}
-        </div>
-
-        {/* Dados do acompanhamento */}
-        <div className={`${SHELL_CARD} p-8 mb-8`}>
-          <h2 className="text-xl font-bold text-[var(--public-page-text)] mb-6">Dados do acompanhamento</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {CARDS_INSTITUCIONAIS.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="bg-[#0A1F44]/70 p-5 rounded-xl border border-white/10">
-                <Icon className="h-7 w-7 text-[#4CCB7A] mb-3" aria-hidden />
-                <h3 className="text-base font-semibold text-[var(--public-page-text)] mb-2">{title}</h3>
-                <p className="text-sm text-[var(--public-page-text)]/70 leading-relaxed">{text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Dados agregados de acompanhamento */}
-        <div className={`${SHELL_CARD} p-0 mb-8 overflow-hidden`}>
-          <button
-            type="button"
-            onClick={() => setEstatisticasTratamentoAberto((v) => !v)}
-            className="w-full flex items-center justify-between text-left px-5 sm:px-6 py-5"
-          >
-            <h2 className="text-xl font-bold text-[var(--public-page-text)]">Dados agregados de acompanhamento</h2>
-            {estatisticasTratamentoAberto ? <ChevronUp className="h-6 w-6 text-[var(--public-page-text)]/55" /> : <ChevronDown className="h-6 w-6 text-[var(--public-page-text)]/55" />}
-          </button>
-
-          {estatisticasTratamentoAberto && (
-          <>
-          {loadingEstatisticas && !estatisticasMeus ? (
-            <div className="flex items-center justify-center py-12 px-5 sm:px-6">
-              <Loader2 className="h-10 w-10 text-[#4CCB7A] animate-spin" />
-              <span className="ml-3 text-[var(--public-page-text)]/75">Carregando estatísticas...</span>
-            </div>
-          ) : erroEstatisticas ? (
-            <div className="flex flex-col items-center justify-center py-12 px-5 sm:px-6 text-center">
-              <AlertCircle className="h-12 w-12 text-amber-400 mb-3" />
-              <p className="text-[var(--public-page-text)]/85 mb-2">{erroEstatisticas}</p>
-              <button
-                type="button"
-                onClick={() => medico?.id && loadEstatisticasMedico('meus')}
-                className="px-4 py-2 rounded-lg font-semibold text-[#0A1F44] bg-[#4CCB7A] hover:bg-[#45b86d]"
-              >
-                Tentar novamente
-              </button>
-            </div>
-          ) : estatisticasMeus ? (
-            <div className="space-y-6 bg-[#0A1F44]/85 px-3 sm:px-5 md:px-6 py-5 sm:py-6 border-t border-white/10">
-              {/* Perfil da base em acompanhamento */}
-              {estatisticasMeus?.demografia && (
-                <div className="border-t border-white/10 pt-6 first:border-t-0 first:pt-0">
-                  <h3 className="text-lg font-semibold text-[var(--public-page-text)] mb-1">Perfil da base em acompanhamento</h3>
-                  <p className="text-xs text-[var(--public-page-text)]/50 mb-4">
-                    Dados agregados do acompanhamento deste profissional. Observacionais e sujeitos a variações individuais.
-                  </p>
-                  <div className="bg-white/5 rounded-xl p-5 border border-white/10 space-y-4">
-                    <div>
-                      <p className="text-xs font-medium text-[var(--public-page-text)]/60 uppercase tracking-wide">Idade média</p>
-                      <p className="text-2xl font-semibold text-[var(--public-page-text)] mt-1">
-                        {estatisticasMeus.demografia.idadeMedia > 0
-                          ? `${estatisticasMeus.demografia.idadeMedia.toFixed(1)} anos`
-                          : '—'}
-                      </p>
-                      <p className="text-xs text-[var(--public-page-text)]/55 mt-1">
-                        {estatisticasMeus.demografia.totalComIdade} registro
-                        {estatisticasMeus.demografia.totalComIdade !== 1 ? 's' : ''} com data de nascimento
-                      </p>
-                    </div>
-                    <div className="border-t border-white/10 pt-4">
-                      <p className="text-xs font-medium text-[var(--public-page-text)]/60 mb-2">Faixas etárias (distribuição geral)</p>
-                      <ul className="space-y-1.5 text-sm text-[var(--public-page-text)]/75">
-                        {(['18-24', '25-40', '41-65', '65+'] as const).map((faixa) => (
-                          <li key={faixa} className="flex justify-between gap-4">
-                            <span>{faixa === '65+' ? 'Acima de 65 anos' : `${faixa.replace('-', ' a ')} anos`}</span>
-                            <span className="text-[var(--public-page-text)]/90 tabular-nums">
-                              {(estatisticasMeus.demografia.porcentagensFaixas[faixa] || 0).toFixed(1)}%
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    {estatisticasMeus.demografia.totalGenero > 0 && (
-                      <p className="text-xs text-[var(--public-page-text)]/55 border-t border-white/10 pt-4">
-                        Composição registrada:{' '}
-                        {estatisticasMeus.demografia.dadosGenero
-                          .map((g) => `${g.porcentagem.toFixed(0)}% ${g.name.toLowerCase()}`)
-                          .join(' · ')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Evolução agregada registrada */}
-              <div className="border-t border-white/10 pt-6">
-                <h3 className="text-lg font-semibold text-[var(--public-page-text)] mb-1">Evolução agregada registrada</h3>
-                <p className="text-xs text-[var(--public-page-text)]/50 mb-4">
-                  Dados agregados, observacionais e sujeitos a variações individuais.
-                </p>
-                <div className="flex flex-wrap items-end justify-end gap-3 mb-4">
-                  <div className="flex flex-wrap gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--public-page-text)]/90 mb-1">Faixa Etária</label>
-                      <div className="flex gap-1 flex-wrap">
-                        <button type="button" onClick={() => setFiltroFaixaEtariaPerdaPeso('todas')} className={`px-2 py-1 text-xs rounded-md ${filtroFaixaEtariaPerdaPeso === 'todas' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>Todas</button>
-                        <button type="button" onClick={() => setFiltroFaixaEtariaPerdaPeso('18-24')} className={`px-2 py-1 text-xs rounded-md ${filtroFaixaEtariaPerdaPeso === '18-24' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>18-24</button>
-                        <button type="button" onClick={() => setFiltroFaixaEtariaPerdaPeso('25-40')} className={`px-2 py-1 text-xs rounded-md ${filtroFaixaEtariaPerdaPeso === '25-40' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>25-40</button>
-                        <button type="button" onClick={() => setFiltroFaixaEtariaPerdaPeso('41-65')} className={`px-2 py-1 text-xs rounded-md ${filtroFaixaEtariaPerdaPeso === '41-65' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>41-65</button>
-                        <button type="button" onClick={() => setFiltroFaixaEtariaPerdaPeso('65+')} className={`px-2 py-1 text-xs rounded-md ${filtroFaixaEtariaPerdaPeso === '65+' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>&gt;65</button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--public-page-text)]/90 mb-1">Sexo</label>
-                      <div className="flex gap-1">
-                        <button type="button" onClick={() => setFiltroSexoPerdaPeso('todos')} className={`px-2 py-1 text-xs rounded-md ${filtroSexoPerdaPeso === 'todos' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>Todos</button>
-                        <button type="button" onClick={() => setFiltroSexoPerdaPeso('M')} className={`px-2 py-1 text-xs rounded-md ${filtroSexoPerdaPeso === 'M' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>M</button>
-                        <button type="button" onClick={() => setFiltroSexoPerdaPeso('F')} className={`px-2 py-1 text-xs rounded-md ${filtroSexoPerdaPeso === 'F' ? 'bg-[#4CCB7A] text-[#0A1F44]' : 'bg-white/10 text-[var(--public-page-text)]/80 hover:bg-white/20'}`}>F</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {loadingEstatisticas ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-[#4CCB7A]" /><span className="ml-3 text-[var(--public-page-text)]/75">Carregando...</span></div>
-                ) : (() => {
-                  const dadosPerda = estatisticasMeus;
-                  const mediasPorSemana = dadosPerda?.perdaPeso?.mediasPorSemana || [];
-                  // Para o gráfico, usamos valores NEGATIVOS para que a linha desça visualmente
-                  const dadosGrafico = mediasPorSemana.map(item => ({
-                    semana: item.semana,
-                    perda: -Math.max(0, item.media),
-                    quantidade: item.quantidade,
-                  }));
-                  const valoresPerda = dadosGrafico.map(d => d.perda);
-                  const minPerda = Math.min(...valoresPerda, 0); // valor mais negativo
-                  const margem = Math.abs(minPerda) * 0.1;
-                  return (
-                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                      <div className="lg:col-span-2 space-y-4">
-                        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                          <h4 className="text-sm font-semibold text-[var(--public-page-text)]/90 mb-3">Média registrada por semana</h4>
-                          <div className="space-y-3 max-h-96 overflow-y-auto pr-1" style={{ scrollbarColor: '#4CCB7A66 transparent' }}>
-                            {mediasPorSemana.length === 0 && <div className="text-center py-4 text-[var(--public-page-text)]/50 text-sm">Nenhum dado com os filtros selecionados</div>}
-                            {mediasPorSemana.map((item) => (
-                              <div key={item.semana} className="flex items-center justify-between">
-                                <span className="text-sm text-[var(--public-page-text)]/70 font-medium w-20">Sem {item.semana}</span>
-                                <div className="flex items-center gap-3 flex-1">
-                                  <div className="w-full max-w-xs bg-white/20 rounded-full h-2">
-                                    <div className={`h-2 rounded-full ${item.media > 0 ? 'bg-[#4CCB7A]' : item.media < 0 ? 'bg-red-400' : 'bg-[var(--public-page-text)]/40'}`} style={{ width: `${Math.min(Math.abs(item.media) * 5, 100)}%` }} />
-                                  </div>
-                                  <span className={`text-sm font-semibold min-w-[100px] text-right ${item.media > 0 ? 'text-[#4CCB7A]' : item.media < 0 ? 'text-red-300' : 'text-[var(--public-page-text)]/75'}`}>
-                                    {item.media.toFixed(2)} kg <span className="text-[var(--public-page-text)]/55 text-xs">(n={item.quantidade})</span>
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="lg:col-span-3">
-                        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                          <h4 className="text-sm font-semibold text-[var(--public-page-text)]/90 mb-3">Evolução média registrada</h4>
-                          {dadosGrafico.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={300}>
-                              <LineChart data={dadosGrafico} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(232, 237, 237, 0.22)" />
-                                <XAxis dataKey="semana" tick={{ fontSize: 12 }} stroke={pageText} />
-                                {/* Eixo Y invertido visualmente (valores negativos), mas mostramos o valor absoluto na tooltip */}
-                                <YAxis
-                                  stroke={pageText}
-                                  domain={[minPerda - margem, 0]}
-                                  tickFormatter={(v) => Math.abs(v).toFixed(1)}
-                                />
-                                <Tooltip
-                                  contentStyle={{ backgroundColor: pageBg, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: pageText }}
-                                  itemStyle={{ color: pageText }}
-                                  labelStyle={{ color: pageText }}
-                                  formatter={(value: number) => [`${Math.abs(value).toFixed(2)} kg`, 'Média agregada']}
-                                  labelFormatter={(l) => `Semana ${l}`}
-                                />
-                                <Line type="monotone" dataKey="perda" stroke="#4CCB7A" strokeWidth={2.5} dot={{ r: 4, fill: '#4CCB7A' }} name="Média registrada (kg)" />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          ) : (
-                            <div className="flex items-center justify-center h-[300px] text-[var(--public-page-text)]/50 text-sm">Nenhum dado para o gráfico</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center py-12 px-5 sm:px-6 text-[var(--public-page-text)]/60">
-              <span>Carregando estatísticas do médico...</span>
-            </div>
-          )}
-          </>
-          )}
-        </div>
-
-        {/* Experiências compartilhadas */}
-        <div className={`relative ${SHELL_CARD} p-8 mb-8 overflow-hidden`}>
-          <DepoimentosAnimatedBackdrop />
-
-          <div className="relative">
-            <h2 className="text-xl font-bold text-[#0A1F44] mb-2">Experiências compartilhadas</h2>
-            <p className="text-sm text-[#0A1F44]/65 mb-6">
-              Relatos individuais compartilhados espontaneamente pelos pacientes.
-            </p>
-
-            {loadingDepoimentos ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-10 w-10 text-[#4CCB7A] animate-spin" />
-                <span className="ml-3 text-[#0A1F44]/80 font-medium">Carregando relatos...</span>
-              </div>
-            ) : depoimentos.length === 0 ? (
-              <p className="text-[#0A1F44]/70 text-center py-8 font-medium">Nenhuma experiência publicada ainda.</p>
-            ) : (
-              <div
-                className="relative cursor-pointer"
-                onClick={() => setDepoimentosPausado(true)}
-              >
-                <div key={depoimentoIndex} className="min-h-[160px] flex flex-col items-center justify-center text-center px-4 animate-fade-in">
-                  <p className="text-[#0A1F44] font-semibold mb-0.5">
-                    {depoimentos[depoimentoIndex]?.nome}
-                  </p>
-                  {(depoimentos[depoimentoIndex]?.cidadeEstado || depoimentos[depoimentoIndex]?.idade != null) && (
-                    <p className="text-[#0A1F44]/70 text-sm mb-2">
-                      {[depoimentos[depoimentoIndex]?.cidadeEstado, depoimentos[depoimentoIndex]?.idade != null ? `${depoimentos[depoimentoIndex]?.idade} anos` : null].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                  <p className="text-[#0A1F44]/90 leading-relaxed max-w-2xl font-medium">"{depoimentos[depoimentoIndex]?.depoimento}"</p>
-                </div>
-
-                {depoimentos.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setDepoimentoIndex((i) => (i - 1 + depoimentos.length) % depoimentos.length)}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 p-2 rounded-full bg-[#0A1F44]/10 hover:bg-[#0A1F44]/20 text-[#0A1F44]/80"
-                    aria-label="Anterior"
-                  >
-                    <ChevronDown className="h-5 w-5 rotate-90" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDepoimentoIndex((i) => (i + 1) % depoimentos.length)}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 p-2 rounded-full bg-[#0A1F44]/10 hover:bg-[#0A1F44]/20 text-[#0A1F44]/80"
-                    aria-label="Próximo"
-                  >
-                    <ChevronDown className="h-5 w-5 -rotate-90" />
-                  </button>
-                  <div className="flex justify-center gap-1.5 mt-4">
-                    {depoimentos.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setDepoimentoIndex(i)}
-                        className={`w-2 h-2 rounded-full transition-colors ${i === depoimentoIndex ? 'bg-[#4CCB7A]' : 'bg-[#0A1F44]/30 hover:bg-[#0A1F44]/50'}`}
-                        aria-label={`Experiência ${i + 1}`}
-                      />
-                    ))}
-                  </div>
-                </>
-                )}
-              </div>
-            )}
-            <p className="text-center text-[#0A1F44]/50 text-xs max-w-2xl mx-auto mt-6 leading-relaxed px-2">
-              Resultados variam conforme características clínicas, adesão e resposta individual.
-            </p>
-          </div>
-        </div>
-
-        {/* Área de Login/Solicitação — oculta em embed (perfil dentro do modal no chat /meta) */}
-        {!isEmbed &&
-          (aguardandoSessaoPaciente ? (
-            <div className={`${SHELL_CARD} p-8 text-center`}>
-              <Loader2 className="h-10 w-10 text-[#4CCB7A] animate-spin mx-auto mb-4" aria-hidden />
-              <p className="text-[var(--public-page-text)]/75">Verificando sua conta...</p>
-            </div>
-          ) : !user ? (
-            <div className={`${SHELL_CARD} p-8 text-center`}>
-              <h2 className="text-2xl font-bold text-[var(--public-page-text)] mb-4">
-                Solicitar avaliação
-              </h2>
-              <p className="text-[var(--public-page-text)]/75 mb-6 max-w-lg mx-auto">
-                {profissionalSecundario
-                  ? `Faça login com sua conta Google para solicitar avaliação com ${nomeCompleto} e ${profissionalSecundario.nome}`
-                  : pacienteIndicador
-                  ? `Faça login com sua conta Google para solicitar avaliação com ${nomeCompleto}`
-                  : `Faça login com sua conta Google para solicitar avaliação com ${nomeCompleto}`}
-              </p>
-              <button
-                onClick={handleGoogleLogin}
-                className="px-8 py-4 rounded-xl font-semibold text-[#0A1F44] bg-[#4CCB7A] hover:bg-[#45b86d] transition-all shadow-lg hover:shadow-[#4CCB7A]/25 text-lg mx-auto"
-              >
-                Solicitar avaliação
-              </button>
-              {error && <p className="mt-4 text-red-400 text-sm">{error}</p>}
-            </div>
-          ) : solicitacaoCriada ? (
-            <div className={`${SHELL_CARD} p-8 text-center`}>
-              <CheckCircle className="h-16 w-16 text-[#4CCB7A] mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-[var(--public-page-text)] mb-2">
-                Solicitação enviada com sucesso!
-              </h2>
-              <p className="text-[var(--public-page-text)]/75 mb-4 max-w-lg mx-auto">
-                {profissionalSecundario
-                  ? `As solicitações foram enviadas. O médico e o ${tipoProfissional === 'nutricionista' ? 'nutricionista' : 'personal trainer'} serão notificados e entrarão em contato em breve.`
-                  : pacienteIndicador
-                  ? 'Sua solicitação foi enviada. O médico será notificado e entrará em contato em breve.'
-                  : 'O médico será notificado e entrará em contato em breve.'}
-              </p>
-              <p className="text-sm text-[var(--public-page-text)]/55">Redirecionando para sua área do paciente...</p>
-            </div>
-          ) : showEntrarConfirmModal ? (
-            <div className={`${SHELL_CARD} p-8 text-center`}>
-              <p className="text-[var(--public-page-text)]/80 text-sm max-w-md mx-auto leading-relaxed">
-                Para continuar, use o botão <span className="text-[#4CCB7A] font-semibold">Continuar para avaliação</span> na janela que abriu ao centro da tela.
-              </p>
-            </div>
-          ) : (
-            <div className={`${SHELL_CARD} p-8 text-center`}>
-              <h2 className="text-2xl font-bold text-[var(--public-page-text)] mb-4">
-                Iniciar acompanhamento
-              </h2>
-              <p className="text-[var(--public-page-text)]/75 mb-6 max-w-lg mx-auto">
-                {pacienteIndicador
-                  ? `${pacienteIndicador.nome} compartilhou este link. Clique abaixo para solicitar acompanhamento com ${nomeCompleto}.`
-                  : `Clique no botão abaixo para solicitar acompanhamento com ${nomeCompleto}`}
-              </p>
-              <button
-                type="button"
-                onClick={handleCriarSolicitacao}
-                disabled={criandoSolicitacao}
-                className="px-8 py-4 rounded-xl font-semibold text-[#0A1F44] bg-[#4CCB7A] hover:bg-[#45b86d] transition-all text-lg shadow-lg hover:shadow-[#4CCB7A]/25 disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
-              >
-                {criandoSolicitacao && (
-                  <Loader2 className="h-5 w-5 animate-spin shrink-0" aria-hidden />
-                )}
-                {criandoSolicitacao ? 'Aguarde...' : 'Iniciar acompanhamento'}
-              </button>
-            </div>
-          ))}
+      {showCta ? (
+        <PublicDoctorCTA
+          sticky
+          accentColor={accentColor}
+          accentTextColor={accentTextColor}
+          onSolicitar={onSolicitarPrincipal}
+          loading={criandoSolicitacao}
+          disabled={criandoSolicitacao}
+        />
+      ) : null}
 
         {/* Modal de solicitar acompanhamento — igual ao /meta */}
         {showTelefoneModal && medico && (
@@ -1449,6 +965,8 @@ function MedicoPersonalPageContent() {
                     if (!criandoSolicitacao) {
                       setShowTelefoneModal(false);
                       setTelefone('');
+                      setTelefoneDdi('');
+                      setTelefonePais('');
                       setPesoPacienteModal('');
                       setAlturaPacienteModal('');
                       setError(null);
@@ -1496,14 +1014,20 @@ function MedicoPersonalPageContent() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Seu número de telefone *</label>
-                  <input
-                    type="tel"
-                    value={telefone}
-                    onChange={(e) => setTelefone(e.target.value)}
-                    placeholder="(00) 00000-0000"
+                  <InternationalPhoneInput
+                    id="dr-solicitacao-telefone"
+                    value={{
+                      telefone,
+                      telefoneDdi,
+                      telefonePais,
+                    }}
+                    onChange={(next) => {
+                      const phone = persistedPhoneForIdentificacao(next);
+                      setTelefone(phone.telefone);
+                      setTelefoneDdi(phone.telefoneDdi);
+                      setTelefonePais(phone.telefonePais);
+                    }}
                     disabled={criandoSolicitacao}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 disabled:bg-gray-100"
-                    required
                   />
                   <p className="mt-1 text-xs text-gray-500">O médico usará este número para entrar em contato com você</p>
                 </div>
@@ -1679,6 +1203,8 @@ function MedicoPersonalPageContent() {
                     if (!criandoSolicitacao) {
                       setShowTelefoneModal(false);
                       setTelefone('');
+                      setTelefoneDdi('');
+                      setTelefonePais('');
                       setPesoPacienteModal('');
                       setAlturaPacienteModal('');
                       setError(null);
@@ -1691,7 +1217,14 @@ function MedicoPersonalPageContent() {
                 </button>
                 <button
                   onClick={handleCriarSolicitacao}
-                  disabled={criandoSolicitacao || !telefone.trim()}
+                  disabled={
+                    criandoSolicitacao ||
+                    !isValidIdentificacaoPhone({
+                      telefone,
+                      telefoneDdi,
+                      telefonePais,
+                    })
+                  }
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {criandoSolicitacao && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -1701,54 +1234,6 @@ function MedicoPersonalPageContent() {
             </div>
           </div>
         )}
-
-        {!isEmbed && (
-          <footer className={`${SHELL_CARD} p-6 mb-8`}>
-            <p className="text-[var(--public-page-text)]/45 text-xs leading-relaxed text-center max-w-2xl mx-auto">
-              Esta página possui caráter informativo e institucional. As condutas dependem de avaliação médica individualizada. A resposta ao acompanhamento varia conforme características clínicas, adesão e evolução individual.
-            </p>
-            <PublicPageBrandFooter
-              theme={drPage}
-              brandName={nomeCompleto}
-              showLogo
-              showPoweredBy={whiteLabelResolved.showPoweredByOftware}
-              className="mt-4"
-              logoClassName="opacity-80"
-              poweredByClassName="text-[var(--public-page-text)]/40"
-            />
-          </footer>
-        )}
-      </div>
-
-      {!isEmbed && !solicitacaoCriada && !aguardandoSessaoPaciente && (
-        <div
-          className="fixed bottom-0 inset-x-0 z-40 border-t border-white/20 backdrop-blur-md p-3"
-          style={{ backgroundColor: `${pageBg}f2` }}
-        >
-          <div className="container mx-auto max-w-4xl px-1">
-            {!user ? (
-              <button
-                onClick={handleGoogleLogin}
-                className="w-full px-6 py-3 rounded-xl font-semibold text-[#0A1F44] bg-[#4CCB7A] hover:bg-[#45b86d] transition-all shadow-lg hover:shadow-[#4CCB7A]/25"
-              >
-                Solicitar avaliação
-              </button>
-            ) : showEntrarConfirmModal ? null : (
-              <button
-                type="button"
-                onClick={handleCriarSolicitacao}
-                disabled={criandoSolicitacao}
-                className="w-full px-6 py-3 rounded-xl font-semibold text-[#0A1F44] bg-[#4CCB7A] hover:bg-[#45b86d] transition-all shadow-lg hover:shadow-[#4CCB7A]/25 disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
-              >
-                {criandoSolicitacao && (
-                  <Loader2 className="h-5 w-5 animate-spin shrink-0" aria-hidden />
-                )}
-                {criandoSolicitacao ? 'Aguarde...' : 'Iniciar acompanhamento'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {!isEmbed &&
         user &&
@@ -1783,9 +1268,10 @@ function MedicoPersonalPageContent() {
               <button
                 type="button"
                 onClick={handleCriarSolicitacao}
-                className="mt-6 min-h-[48px] w-full touch-manipulation rounded-xl bg-[#4CCB7A] px-6 py-3 font-semibold text-[#0A1F44] shadow-lg transition-all hover:bg-[#45b86d] hover:shadow-[#4CCB7A]/25"
+                className="mt-6 min-h-[48px] w-full touch-manipulation rounded-xl px-6 py-3 font-semibold text-[#0A1F44] shadow-lg transition-opacity hover:opacity-95"
+                style={{ backgroundColor: accentColor }}
               >
-                Iniciar acompanhamento
+                Iniciar Avaliação
               </button>
             </div>
           </div>

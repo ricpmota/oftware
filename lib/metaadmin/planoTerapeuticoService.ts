@@ -23,8 +23,8 @@ const SUBCOLLECTION = 'orcamentosTerapeuticos';
 function toIso(value: unknown): string {
   if (value instanceof Timestamp) return value.toDate().toISOString();
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'string') return value;
-  return new Date().toISOString();
+  if (typeof value === 'string' && value.trim()) return value;
+  return '';
 }
 
 function mapPlanoFirestoreDoc(

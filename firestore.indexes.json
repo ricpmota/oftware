@@ -1,6 +1,70 @@
 {
   "indexes": [
     {
+      "collectionGroup": "documentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "statusAssinatura",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipoDocumento",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "email_automation_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledFor",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "email_automation_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledFor",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "email_envios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "leadId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "emailTipo",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "internal_notifications",
       "queryScope": "COLLECTION",
       "fields": [
@@ -29,16 +93,16 @@
       ]
     },
     {
-      "collectionGroup": "email_envios",
+      "collectionGroup": "progressPhotos",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "leadId",
+          "fieldPath": "compartilharComMedico",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "emailTipo",
-          "order": "ASCENDING"
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     },
@@ -53,61 +117,327 @@
         {
           "fieldPath": "criadoEm",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "whatsapp_automation_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
         },
         {
-          "fieldPath": "__name__",
+          "fieldPath": "scheduledFor",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "lembretes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "whatsappNotifyStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "notificarEm",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "email_automation_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "email_automation_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sentAt",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "progressPhotos",
+      "collectionGroup": "email_automation_queue",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "compartilharComMedico",
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "email_automation_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sentAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "publishedTrainingPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "patientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "publishedTrainingPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "patientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "planVersion",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "workoutPlanDrafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "patientId",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "documentos",
+      "collectionGroup": "trainingSessionExecutions",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "statusAssinatura",
+          "fieldPath": "patientId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "tipoDocumento",
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "trainingSessionExecutions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "patientId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
+          "fieldPath": "timing.startedAt",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "orcamentosTerapeuticos",
-      "queryScope": "COLLECTION_GROUP",
+      "collectionGroup": "trainingSessionExecutions",
+      "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "publicAccessToken",
+          "fieldPath": "patientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "source.clientRequestId",
           "order": "ASCENDING"
         }
+      ]
+    },
+    {
+      "collectionGroup": "trainingSessionExecutions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "source.publishedPlanId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timing.startedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "alimentos_globais",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nomeNormalizado",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "alimentos_globais",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "segmento",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nomeNormalizado",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "trainingSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "patientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pacientes_completos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "statusTratamento",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "hydrationCheckInReminderEnabled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "hydration_adherence_alerts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "patientId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "match_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "match_connection_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "toUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "match_connection_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "match_connections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "users", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contatos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "rowNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contatos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "telefones", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "rowNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "itens",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
     }
   ],

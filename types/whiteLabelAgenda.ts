@@ -7,6 +7,18 @@ export type WhiteLabelAgendaSettings = {
   maxAdvanceDays: number;
   allowedDaysMode: WhiteLabelAllowedDaysMode;
   slotGenerationEnabled: boolean;
+  /** Dispara WhatsApp de confirmação após criar a reunião no Google Calendar. */
+  whatsappConfirmacaoEnabled: boolean;
+  /** E-mail do médico cuja sessão WhatsApp (metaadmin) envia as mensagens. */
+  whatsappSenderDoctorEmail: string;
+  /** Confirmação para o lead que agendou. */
+  whatsappNotifyLead: boolean;
+  /** Aviso interno para o responsável pela agenda. */
+  whatsappNotifyResponsavel: boolean;
+  whatsappResponsavelNome: string;
+  whatsappResponsavelEmail: string;
+  /** WhatsApp do responsável (ex.: 83988192848). */
+  whatsappResponsavelPhone: string;
   updatedAt?: string | null;
 };
 

@@ -1,6 +1,13 @@
+import type { WhiteLabelProfissao } from '@/lib/whiteLabel/profissao';
+
 export type CadastroMedicoStatus = 'rascunho' | 'concluido';
 
 export type DominioStatus = 'disponivel' | 'em_analise' | 'indisponivel';
+
+export type CadastroWhiteLabelOrigem =
+  | 'whitelabel_cadastromedico'
+  | 'whitelabel_cadastronutricionista'
+  | 'whitelabel_cadastropersonal';
 
 export type CadastroMedicoFormData = {
   // Etapa 1 — Identidade pública
@@ -83,7 +90,8 @@ export type CadastroMedicoWhiteLabel = CadastroMedicoFormData & {
   id: string;
   status: CadastroMedicoStatus;
   currentStep: number;
-  origem: 'whitelabel_cadastromedico';
+  profissao: WhiteLabelProfissao;
+  origem: CadastroWhiteLabelOrigem;
   createdAt: Date | null;
   updatedAt: Date | null;
   concluidoAt: Date | null;

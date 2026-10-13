@@ -113,6 +113,9 @@ function CollapsibleDepartment({
           if (department.id === 'platform-patrimonio' && willExpand) {
             onSelectMenu('platform-patrimonio');
           }
+          if (department.id === 'platform-automacoes' && willExpand) {
+            onSelectMenu('automacoes-dashboard');
+          }
         }}
         className={`${navButtonClass(hasActiveChild && !expanded, orgAccent)} justify-between`}
       >
@@ -158,7 +161,7 @@ function OrganizationSwitcher({
 }) {
   const [open, setOpen] = useState(false);
   const org =
-    organizations.find((o) => o.id === activeOrganizationId) ??
+    organizations.find((item) => item.id === activeOrganizationId) ??
     getNavOrganizationById(activeOrganizationId);
 
   return (
@@ -209,11 +212,8 @@ function OrganizationSwitcher({
               type="button"
               onClick={() => {
                 setOpen(false);
-                if (onRequestCreateOrganization) {
-                  onRequestCreateOrganization();
-                } else {
-                  onOpenOrganizations();
-                }
+                if (onRequestCreateOrganization) onRequestCreateOrganization();
+                else onOpenOrganizations();
               }}
               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[#4CCB7A] hover:bg-white/10 border-t border-white/10 mt-1"
             >
@@ -250,7 +250,7 @@ export default function MetaAdminGeralNavShell({
 }: MetaAdminGeralNavShellProps) {
   const organizations = organizationsProp?.length ? organizationsProp : listNavOrganizations();
   const activeOrgName =
-    organizations.find((o) => o.id === activeOrganizationId)?.name ??
+    organizations.find((item) => item.id === activeOrganizationId)?.name ??
     getNavOrganizationById(activeOrganizationId)?.name ??
     'Organização';
   const resolvedMenu = resolveMetaAdminGeralMenuId(activeMenu);

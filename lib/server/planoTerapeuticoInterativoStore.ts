@@ -19,6 +19,13 @@ import type { OrganizationId } from '@/lib/organization/organizationTypes';
 import { METODO_ORGANIZATION_ID } from '@/lib/organization/organizationRegistry';
 import { buildPlanoTerapeuticoPublicUrl } from '@/lib/server/planoTerapeuticoPublicUrl';
 import {
+  generatePublicLinkToken,
+  isShortPublicLinkToken,
+  isValidPublicLinkToken,
+  normalizePublicLinkToken,
+  publicLinkTokensMatch,
+} from '@/lib/publicLinks/publicLinkToken';
+import {
   escolherPlanoAtivoPaciente,
   escolherPlanoEdicaoMedico,
 } from '@/lib/planoTerapeutico/planoTerapeuticoSelecao';
@@ -51,8 +58,18 @@ function gerarOrcamentoId(): string {
   return `pt_${Date.now()}_${randomBytes(4).toString('hex')}`;
 }
 
-function gerarTokenPublico(): string {
-  return randomBytes(24).toString('hex');
+async function allocateUniquePlanoPublicAccessToken(): Promise<string> {
+  const db = getFirestoreAdmin();
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const token = generatePublicLinkToken();
+    const snapshot = await db
+      .collection(LINKS_COLLECTION)
+      .where('publicAccessToken', '==', token)
+      .limit(1)
+      .get();
+    if (snapshot.empty) return token;
+  }
+  throw new Error('Falha ao gerar token único de plano terapêutico');
 }
 
 /** Firestore não aceita `undefined` — remove recursivamente antes de gravar. */
@@ -195,7 +212,7 @@ export async function criarPlanoTerapeuticoRascunho(
   publicUrl: string;
 }> {
   const orcamentoId = gerarOrcamentoId();
-  const publicAccessToken = gerarTokenPublico();
+  const publicAccessToken = await allocateUniquePlanoPublicAccessToken();
   const cenarioSelecionado = input.cenarioSelecionado ?? 'equilibrado';
   const valorTotal = input.cenarios[cenarioSelecionado].valorTotal;
   const now = new Date();
@@ -270,12 +287,41 @@ export async function buscarPlanoPorIdComToken(
   const link = linkSnap.data() as Record<string, unknown>;
   const pacienteId = typeof link.pacienteId === 'string' ? link.pacienteId.trim() : '';
   const tokenSalvo = typeof link.publicAccessToken === 'string' ? link.publicAccessToken : '';
-  if (!pacienteId || tokenSalvo !== token) return null;
+  if (!pacienteId || !publicLinkTokensMatch(tokenSalvo, token)) return null;
 
   const snap = await orcamentoRef(pacienteId, orcamentoId).get();
   if (!snap.exists) return null;
 
   return mapPlanoDoc(orcamentoId, pacienteId, snap.data() as Record<string, unknown>);
+}
+
+/** Resolve `/plano/{token}` curto ou o formato legado `/plano/{orcamentoId}?t=...`. */
+export async function resolverAcessoPublicoPlano(
+  pathId: string,
+  queryToken?: string | null
+): Promise<{ orcamentoId: string; token: string } | null> {
+  const path = String(pathId || '').trim();
+  if (!path) return null;
+
+  const fromQuery = queryToken ? normalizePublicLinkToken(queryToken) : '';
+  if (fromQuery) {
+    if (!isValidPublicLinkToken(fromQuery)) return null;
+    const doc = await buscarPlanoPorIdComToken(path, fromQuery);
+    if (!doc) return null;
+    return { orcamentoId: path, token: fromQuery };
+  }
+
+  const token = normalizePublicLinkToken(path);
+  if (!isShortPublicLinkToken(token)) return null;
+
+  const snapshot = await getFirestoreAdmin()
+    .collection(LINKS_COLLECTION)
+    .where('publicAccessToken', '==', token)
+    .limit(1)
+    .get();
+  if (snapshot.empty) return null;
+
+  return { orcamentoId: snapshot.docs[0].id, token };
 }
 
 function mapPlanoDoc(
@@ -376,7 +422,7 @@ export async function atualizarCenarioSelecionadoPlano(
   if (!snap.exists) return null;
 
   const data = snap.data() as Record<string, unknown>;
-  if (data.publicAccessToken !== token) return null;
+  if (!publicLinkTokensMatch(String(data.publicAccessToken ?? ''), token)) return null;
 
   const cenarios = data.cenarios as PlanoTerapeuticoInterativoDocumento['cenarios'];
   const cenario = cenarios?.[cenarioSelecionado];
@@ -408,7 +454,7 @@ export async function salvarEscolhaPacientePlano(
   if (!snap.exists) return null;
 
   const data = snap.data() as Record<string, unknown>;
-  if (data.publicAccessToken !== token) return null;
+  if (!publicLinkTokensMatch(String(data.publicAccessToken ?? ''), token)) return null;
   if (data.status === 'aceito' || data.status === 'cancelado') return null;
   if (data.pacienteSignStatus === 'link_gerado' || data.pacienteSignStatus === 'assinado') {
     return null;
@@ -448,7 +494,7 @@ export async function prepararPlanoParaAssinaturaPaciente(
   if (!snap.exists) return null;
 
   const data = snap.data() as Record<string, unknown>;
-  if (data.publicAccessToken !== token) return null;
+  if (!publicLinkTokensMatch(String(data.publicAccessToken ?? ''), token)) return null;
   if (data.status === 'cancelado') return null;
   if (data.status === 'aceito') {
     const mapped = mapPlanoDoc(orcamentoId, pacienteId, data);
@@ -641,7 +687,7 @@ export async function atualizarNegociacaoPacientePlano(
   if (!snap.exists) return null;
 
   const data = snap.data() as Record<string, unknown>;
-  if (data.publicAccessToken !== token) return null;
+  if (!publicLinkTokensMatch(String(data.publicAccessToken ?? ''), token)) return null;
   if (data.status === 'cancelado' || data.status === 'aceito') return null;
 
   const atual = data.negociacaoTerapeutica as NegociacaoTerapeuticaSalva | null | undefined;

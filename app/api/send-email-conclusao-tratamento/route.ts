@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
-import crypto from 'crypto';
 import type { MedicoPerfilRelatorio } from '@/utils/relatorioPacientePdf';
-import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
-import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import { ensureRelatorioPacientePublicLink } from '@/lib/relatorio/ensureRelatorioPacientePublicLink';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -154,14 +152,7 @@ export async function POST(request: NextRequest) {
 
     const duracaoTratamento = duracaoTratamentoTexto(evolucao);
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const linkRelatorio = buildOrganizacaoPublicUrl(`/relatorio/${token}`);
-
-    await db.collection('relatorio_paciente_links').doc(token).set({
-      pacienteId,
-      createdAt: new Date(),
-      ...shadowOrganizationFields(),
-    });
+    const { url: linkRelatorio } = await ensureRelatorioPacientePublicLink(db, pacienteId);
 
     const emailDoc = await db.collection('emails').doc('conclusao_tratamento_conclusao_tratamento').get();
     if (!emailDoc.exists) {

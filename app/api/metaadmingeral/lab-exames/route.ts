@@ -5,6 +5,10 @@ import {
   validateLabOrderBySection,
 } from '@/lib/labExames/validateLabOrderBySection';
 import { validateLabLimitOverrides } from '@/lib/labExames/validateLabLimitOverrides';
+import {
+  extraSectionLabelsFromAllCustomExams,
+  normalizeLabCustomExams,
+} from '@/lib/labExames/labCustomExams';
 
 const METAADMINGERAL_EMAIL = 'ricpmota.med@gmail.com';
 const COLLECTION = 'platformSettings';
@@ -38,6 +42,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         labOrderBySection: getDefaultLabOrderBySection(),
         labLimitOverrides: {},
+        labCustomExams: [],
+        labSectionLabels: {},
         source: 'default',
       });
     }
@@ -46,18 +52,18 @@ export async function GET(request: NextRequest) {
     const rawOv = data?.labLimitOverrides;
     const labLimitOverrides =
       rawOv && typeof rawOv === 'object' && !Array.isArray(rawOv) ? rawOv : {};
-    if (order && typeof order === 'object') {
-      return NextResponse.json({
-        labOrderBySection: order,
-        labLimitOverrides,
-        source: 'firestore',
-        updatedAt: data?.updatedAt,
-      });
-    }
+    const labCustomExams = normalizeLabCustomExams(data?.labCustomExams);
+    const catalogOrder =
+      order && typeof order === 'object'
+        ? order
+        : getDefaultLabOrderBySection();
     return NextResponse.json({
-      labOrderBySection: getDefaultLabOrderBySection(),
+      labOrderBySection: catalogOrder,
       labLimitOverrides,
-      source: 'default',
+      labCustomExams,
+      labSectionLabels: extraSectionLabelsFromAllCustomExams(labCustomExams),
+      source: 'firestore',
+      updatedAt: data?.updatedAt,
     });
   } catch (e) {
     console.error('[metaadmingeral/lab-exames GET]', e);
@@ -99,5 +105,36 @@ export async function PUT(request: NextRequest) {
   } catch (e) {
     console.error('[metaadmingeral/lab-exames PUT]', e);
     return NextResponse.json({ error: 'Falha ao salvar.' }, { status: 500 });
+  }
+}
+
+/** Liga/desliga exame criado por médico no patrimônio global. */
+export async function PATCH(request: NextRequest) {
+  const gate = await requireMetaAdminGeral(request);
+  if (!gate.ok) return gate.res;
+  try {
+    const body = (await request.json()) as { customExamId?: unknown; enabled?: unknown };
+    const customExamId = typeof body.customExamId === 'string' ? body.customExamId.trim() : '';
+    if (!customExamId || typeof body.enabled !== 'boolean') {
+      return NextResponse.json({ error: 'Informe customExamId e enabled (boolean).' }, { status: 400 });
+    }
+    const db = getFirestoreAdmin();
+    const ref = db.collection(COLLECTION).doc(DOC_ID);
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const list = normalizeLabCustomExams(snap.exists ? snap.data()?.labCustomExams : []);
+      const idx = list.findIndex((e) => e.id === customExamId);
+      if (idx < 0) return { ok: false as const };
+      list[idx] = { ...list[idx], enabled: body.enabled as boolean };
+      tx.set(ref, { labCustomExams: list, updatedAt: new Date() }, { merge: true });
+      return { ok: true as const, exam: list[idx] };
+    });
+    if (!result.ok) {
+      return NextResponse.json({ error: 'Exame customizado não encontrado.' }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, exam: result.exam });
+  } catch (e) {
+    console.error('[metaadmingeral/lab-exames PATCH]', e);
+    return NextResponse.json({ error: 'Falha ao atualizar visibilidade.' }, { status: 500 });
   }
 }

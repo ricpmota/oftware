@@ -3,6 +3,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { listOftPayUsers, updateOftPayUser, addOftPayUserByEmail, deleteOftPayUser } from '@/services/oftpayAccessService';
 import { OFTPAY_OWNER_EMAIL } from '@/types/oftpayAccess';
+import { OFTPAY_COURSES } from '@/app/oftpay/coursesConfig';
 
 const METAADMINGERAL_EMAIL = OFTPAY_OWNER_EMAIL;
 
@@ -39,15 +40,26 @@ const ownerEmailLower = OFTPAY_OWNER_EMAIL.trim().toLowerCase();
 
 /**
  * GET /api/metaadmingeral/oftpay/users
- * Lista todos os usuários OftPay (exceto o usuário mestre). Requer token do proprietário.
+ * Lista os usuários OftPay, incluindo o administrador principal. Requer token do proprietário.
  */
 export async function GET(request: NextRequest) {
   const authResult = await requireAdmin(request);
   if (authResult instanceof NextResponse) return authResult;
   try {
     const all = await listOftPayUsers();
-    const users = all.filter((u) => (u.email || '').trim().toLowerCase() !== ownerEmailLower);
-    return NextResponse.json({ users });
+    const owner = all.find((u) => (u.email || '').trim().toLowerCase() === ownerEmailLower);
+    const others = all.filter((u) => (u.email || '').trim().toLowerCase() !== ownerEmailLower);
+    const ownerRow = {
+      email: owner?.email || OFTPAY_OWNER_EMAIL,
+      displayName: owner?.displayName ?? null,
+      lastLoginAt: owner?.lastLoginAt,
+      courseIds: OFTPAY_COURSES.map((c) => c.id),
+      questoesEnabled: true,
+      accessStartAt: null,
+      accessEndAt: null,
+      carplayCode: owner?.carplayCode ?? null,
+    };
+    return NextResponse.json({ users: [ownerRow, ...others] });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('Erro ao listar usuários OftPay:', message);
@@ -76,7 +88,8 @@ export async function PATCH(request: NextRequest) {
         : Boolean(body.questoesEnabled);
     const accessStartAt = body.accessStartAt === undefined ? undefined : (typeof body.accessStartAt === 'number' ? body.accessStartAt : null);
     const accessEndAt = body.accessEndAt === undefined ? undefined : (typeof body.accessEndAt === 'number' ? body.accessEndAt : null);
-    await updateOftPayUser({ email, courseIds, questoesEnabled, accessStartAt, accessEndAt });
+    const carplayCode = body.carplayCode === undefined ? undefined : (typeof body.carplayCode === 'string' ? body.carplayCode : null);
+    await updateOftPayUser({ email, courseIds, questoesEnabled, accessStartAt, accessEndAt, carplayCode });
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

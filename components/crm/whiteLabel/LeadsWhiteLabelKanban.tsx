@@ -13,6 +13,7 @@ import {
 } from '@dnd-kit/core';
 import LeadsWhiteLabelPipelineCard from '@/components/crm/whiteLabel/LeadsWhiteLabelPipelineCard';
 import { useWhiteLabelCrmTheme } from '@/components/crm/whiteLabel/WhiteLabelCrmProvider';
+import type { CadastroMedicoWhiteLabel } from '@/types/cadastroMedicoWhiteLabel';
 import type { LeadWhiteLabel } from '@/types/leadWhiteLabel';
 import { WHITELABEL_CRM_STAGES, type WhiteLabelCrmStage } from '@/types/leadWhiteLabelCrm';
 
@@ -20,11 +21,13 @@ function KanbanColumn({
   stage,
   label,
   leads,
+  cadastroByLeadId,
   onOpenLead,
 }: {
   stage: WhiteLabelCrmStage;
   label: string;
   leads: LeadWhiteLabel[];
+  cadastroByLeadId: Map<string, CadastroMedicoWhiteLabel>;
   onOpenLead: (lead: LeadWhiteLabel) => void;
 }) {
   const t = useWhiteLabelCrmTheme();
@@ -45,7 +48,12 @@ function KanbanColumn({
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {leads.map((lead) => (
-          <LeadsWhiteLabelPipelineCard key={lead.id} lead={lead} onOpen={onOpenLead} />
+          <LeadsWhiteLabelPipelineCard
+            key={lead.id}
+            lead={lead}
+            cadastro={cadastroByLeadId.get(lead.id) || null}
+            onOpen={onOpenLead}
+          />
         ))}
         {leads.length === 0 && (
           <p className={`text-xs ${t.kanbanEmpty} text-center py-8 px-2`}>Nenhum lead neste estágio</p>
@@ -57,11 +65,17 @@ function KanbanColumn({
 
 type Props = {
   leads: LeadWhiteLabel[];
+  cadastroByLeadId: Map<string, CadastroMedicoWhiteLabel>;
   onOpenLead: (lead: LeadWhiteLabel) => void;
   onStageChange: (leadId: string, stage: WhiteLabelCrmStage) => Promise<void>;
 };
 
-export default function LeadsWhiteLabelKanban({ leads, onOpenLead, onStageChange }: Props) {
+export default function LeadsWhiteLabelKanban({
+  leads,
+  cadastroByLeadId,
+  onOpenLead,
+  onStageChange,
+}: Props) {
   const [activeLead, setActiveLead] = useState<LeadWhiteLabel | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -106,6 +120,7 @@ export default function LeadsWhiteLabelKanban({ leads, onOpenLead, onStageChange
             stage={col.value}
             label={col.shortLabel}
             leads={columns.get(col.value) || []}
+            cadastroByLeadId={cadastroByLeadId}
             onOpenLead={onOpenLead}
           />
         ))}
@@ -113,7 +128,11 @@ export default function LeadsWhiteLabelKanban({ leads, onOpenLead, onStageChange
       <DragOverlay>
         {activeLead ? (
           <div className="w-[280px] rotate-2 opacity-95">
-            <LeadsWhiteLabelPipelineCard lead={activeLead} onOpen={() => undefined} />
+            <LeadsWhiteLabelPipelineCard
+              lead={activeLead}
+              cadastro={cadastroByLeadId.get(activeLead.id) || null}
+              onOpen={() => undefined}
+            />
           </div>
         ) : null}
       </DragOverlay>

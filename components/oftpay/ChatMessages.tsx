@@ -152,13 +152,19 @@ interface ChatMessagesProps {
   ThinkingIndicator?: React.ComponentType;
   /** courseId para link "Abrir PDF" no modal de fontes (ex: oftreview, propedeutics) */
   courseId?: string;
+  /**
+   * Quando definido (Oftreview), [n] e Fontes abrem o painel da resposta.
+   * Sem este callback, o modal continua valendo para as outras superfícies.
+   */
+  onNavigateSources?: (sources: ChatConversationSource[], content: string, activeId: number | null) => void;
 }
 
 /** Renderiza resposta do assistant por linhas: remove [n] e coloca ícone PDF colorido no lugar; negrito com **texto**. */
 function renderAnswerByLines(
   content: string,
   sources: ChatConversationSource[] | undefined,
-  onOpenSource: (sources: ChatConversationSource[]) => void
+  onOpenSource: (sources: ChatConversationSource[]) => void,
+  onNavigateSources?: (sources: ChatConversationSource[], content: string, activeId: number | null) => void
 ): React.ReactNode {
   if (!sources || sources.length === 0) return renderInlineBold(content);
   const parsed = parseAnswerLines(content);
@@ -185,7 +191,9 @@ function renderAnswerByLines(
                     <button
                       key={`${i}-${id}`}
                       type="button"
-                      onClick={() => onOpenSource([src])}
+                      onClick={() =>
+                        onNavigateSources ? onNavigateSources(sources, content, id) : onOpenSource([src])
+                      }
                       className={`p-0.5 rounded ${getRefColorClasses(id)}`}
                       title={`${src.title.replace(/\.(cdr|pdf)$/i, '')}${src.page != null ? ` — Pág. ${src.page}` : ''}`}
                       aria-label={`Referência ${id}: ${src.title}`}
@@ -213,6 +221,7 @@ export default function ChatMessages({
   emptyMessage,
   ThinkingIndicator,
   courseId = 'oftreview',
+  onNavigateSources,
 }: ChatMessagesProps) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -242,7 +251,11 @@ export default function ChatMessages({
                 <span className="text-xs font-medium text-gray-500">Baseado nas apostilas</span>
                 <button
                   type="button"
-                  onClick={() => onOpenSources(msg.sources!)}
+                  onClick={() =>
+                    onNavigateSources
+                      ? onNavigateSources(msg.sources!, msg.content, null)
+                      : onOpenSources(msg.sources!)
+                  }
                   className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium"
                   title="Ver todas as fontes"
                 >
@@ -254,7 +267,7 @@ export default function ChatMessages({
             {msg.content ? (
               <div className="break-words">
                 {msg.role === 'assistant' && msg.sources && msg.sources.length > 0
-                  ? renderAnswerByLines(msg.content, msg.sources, onOpenSources)
+                  ? renderAnswerByLines(msg.content, msg.sources, onOpenSources, onNavigateSources)
                   : renderInlineBold(msg.content)}
               </div>
             ) : (

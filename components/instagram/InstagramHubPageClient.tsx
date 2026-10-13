@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import InstagramDepoimentosButton from '@/components/instagram/InstagramDepoimentosButton';
 import InstagramDepoimentosSheet from '@/components/instagram/InstagramDepoimentosSheet';
 import type { InstagramDepoimentoItem } from '@/components/instagram/instagramDepoimentosTypes';
@@ -20,6 +21,23 @@ import {
   trackInstagramBioPageView,
 } from '@/lib/analytics/instagramBioStatsClient';
 import { trackInstagramHubProfileEvent } from '@/lib/analytics/instagramHubAnalytics';
+
+const navContainerVariants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.07, delayChildren: 0.08 },
+  },
+};
+
+const navItemVariants = {
+  hidden: { opacity: 0, y: 18, filter: 'blur(6px)' },
+  show: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { type: 'spring', stiffness: 400, damping: 32 },
+  },
+};
 
 const DEFAULT_CONFIG: InstagramHubPageConfig = {
   copy: INSTAGRAM_HUB_COPY,
@@ -118,46 +136,58 @@ export default function InstagramHubPageClient({
             width={logoWidth}
             height={logoHeight}
           />
-          <h1 className="mt-3 text-[1.05rem] font-bold leading-snug tracking-tight text-white sm:text-lg">
+          <h1 className="mt-3 text-lg font-bold leading-snug tracking-tight text-white sm:text-xl">
             {copy.headline}
           </h1>
-          <p className="mx-auto mt-2 max-w-[340px] text-[12px] leading-relaxed text-slate-400 sm:text-[13px]">
+          <p className="mx-auto mt-2.5 max-w-[360px] text-[13px] leading-relaxed text-slate-300/90 sm:text-[15px] sm:leading-relaxed">
             {copy.subtitle}
           </p>
-          <p className="mt-4 text-sm font-semibold text-slate-200">{copy.profilePrompt}</p>
+          <p className="mt-4 text-sm font-semibold text-slate-100 sm:text-[15px]">{copy.profilePrompt}</p>
         </header>
 
-        <nav aria-label="Perfis Oftware" className="flex flex-col gap-2.5">
+        <motion.nav
+          aria-label="Perfis Oftware"
+          className="flex flex-col gap-2.5"
+          variants={navContainerVariants}
+          initial="hidden"
+          animate="show"
+        >
           {depoimentos.length > 0 ? (
-            <InstagramDepoimentosButton onOpen={() => setShowDepoimentosSheet(true)} />
+            <motion.div variants={navItemVariants}>
+              <InstagramDepoimentosButton onOpen={() => setShowDepoimentosSheet(true)} />
+            </motion.div>
           ) : null}
 
           {profiles.map((profile) => (
-            <InstagramLinkButton
-              key={profile.id}
-              variant="profile"
-              item={profile}
-              onOpen={() => openItem(profile.id)}
-            />
+            <motion.div key={profile.id} variants={navItemVariants}>
+              <InstagramLinkButton
+                variant="profile"
+                item={profile}
+                onOpen={() => openItem(profile.id)}
+              />
+            </motion.div>
           ))}
 
           {founder ? (
-            <InstagramLinkButton
-              variant="founder"
-              item={founder}
-              onOpen={() => openItem('fundador')}
-            />
+            <motion.div variants={navItemVariants}>
+              <InstagramLinkButton
+                variant="founder"
+                item={founder}
+                onOpen={() => openItem('fundador')}
+              />
+            </motion.div>
           ) : null}
 
           {trailingProfiles.map((profile) => (
-            <InstagramLinkButton
-              key={profile.id}
-              variant="profile"
-              item={profile}
-              onOpen={() => openItem(profile.id)}
-            />
+            <motion.div key={profile.id} variants={navItemVariants}>
+              <InstagramLinkButton
+                variant="profile"
+                item={profile}
+                onOpen={() => openItem(profile.id)}
+              />
+            </motion.div>
           ))}
-        </nav>
+        </motion.nav>
 
         <footer className="mt-6 text-center text-[11px] text-slate-500">{footerText}</footer>
       </main>

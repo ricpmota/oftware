@@ -11,10 +11,11 @@ import { generateReceituarioControleEspecialPdf } from '@/utils/receituarioContr
 import type { DoctorSignatureProvider } from '@/types/doctorSignatureProvider';
 import type { Medico } from '@/types/medico';
 import type { Prescricao } from '@/types/prescricao';
+import type { PrescriptionPrintLanguage } from '@/types/prescriptionPrintLanguage';
 import type { PrescriptionPrintType } from '@/types/prescriptionPrintType';
 import type { PrescricaoPdfPacienteContext } from '@/utils/prescricaoPdfDownload';
 
-export type PrescriptionSignedPrintProgressPhase = 'generating_pdf' | 'submitting_signature';
+export type PrescriptionSignedPrintProgressPhase = 'translating' | 'generating_pdf' | 'submitting_signature';
 
 export type PrescriptionSignedPrintResult =
   | { outcome: 'opened'; signedPdfUrl: string }
@@ -27,17 +28,15 @@ export type RunPrescriptionSignedPrintParams = {
   ctx: PrescricaoPdfPacienteContext;
   providerConfig?: DoctorSignatureProvider | null;
   printType?: PrescriptionPrintType;
+  language?: PrescriptionPrintLanguage;
   controleEspecialCtx?: ReceituarioControleEspecialPacienteContext;
   onProgress?: (phase: PrescriptionSignedPrintProgressPhase) => void;
 };
 
 function resolveEligibility(
-  providerConfig: DoctorSignatureProvider | null | undefined,
-  prescricao: Prescricao
+  providerConfig: DoctorSignatureProvider | null | undefined
 ): PrescriptionSignedPrintEligibility {
-  return getPrescriptionSignedPrintEligibility(providerConfig, {
-    isRecibo: prescricao.tipoDocumento === 'recibo_medico',
-  });
+  return getPrescriptionSignedPrintEligibility(providerConfig);
 }
 
 async function buildOriginalPdfBase64(
@@ -46,15 +45,18 @@ async function buildOriginalPdfBase64(
   ctx: PrescricaoPdfPacienteContext,
   omitManualSignatureBlock: boolean,
   printType: PrescriptionPrintType = 'simple',
-  controleEspecialCtx?: ReceituarioControleEspecialPacienteContext
+  controleEspecialCtx?: ReceituarioControleEspecialPacienteContext,
+  language: PrescriptionPrintLanguage = 'pt'
 ): Promise<string> {
   const doc =
     printType === 'controle_especial' && controleEspecialCtx
       ? await generateReceituarioControleEspecialPdf(prescricao, medico, controleEspecialCtx, {
           reserveSignedFooterSpace: omitManualSignatureBlock,
+          language,
         })
       : await buildPrescricaoJsPdfDocument(prescricao, medico, ctx, {
           omitManualSignatureBlock,
+          language,
         });
   const ab = doc.output('arraybuffer') as ArrayBuffer;
   return arrayBufferToBase64(ab);
@@ -66,7 +68,7 @@ async function buildOriginalPdfBase64(
 export async function runPrescriptionSignedPrint(
   params: RunPrescriptionSignedPrintParams
 ): Promise<PrescriptionSignedPrintResult> {
-  const eligibility = resolveEligibility(params.providerConfig, params.prescricao);
+  const eligibility = resolveEligibility(params.providerConfig);
   if (!eligibility.allowed) {
     throw new Error(eligibility.message);
   }
@@ -74,13 +76,15 @@ export async function runPrescriptionSignedPrint(
   params.onProgress?.('generating_pdf');
   const omitManualSignatureBlock = eligibility.mode === 'bry_cloud';
   const printType = params.printType ?? 'simple';
+  const language = params.language ?? 'pt';
   const originalPdfBase64 = await buildOriginalPdfBase64(
     params.prescricao,
     params.medico,
     params.ctx,
     omitManualSignatureBlock,
     printType,
-    params.controleEspecialCtx
+    params.controleEspecialCtx,
+    language
   );
 
   params.onProgress?.('submitting_signature');

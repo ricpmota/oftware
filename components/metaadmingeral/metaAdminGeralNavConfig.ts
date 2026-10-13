@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
+  Apple,
   BarChart3,
   BookOpen,
   Brain,
@@ -9,6 +10,7 @@ import {
   Dumbbell,
   FileText,
   FlaskConical,
+  HeartHandshake,
   Image,
   LayoutDashboard,
   Mail,
@@ -16,6 +18,7 @@ import {
   MessageSquare,
   Palette,
   Pill,
+  Send,
   ShieldCheck,
   Sparkles,
   Stethoscope,
@@ -76,6 +79,7 @@ export const META_ADMIN_GERAL_OFTWARE_NAV: MetaAdminGeralNavEntry[] = [
     item: { id: 'exames-laboratoriais', label: 'Exames Laboratoriais', icon: FlaskConical },
   },
   { type: 'item', item: { id: 'protocolos-prescricao', label: 'Prescrições', icon: Pill } },
+  { type: 'item', item: { id: 'alimentos-globais', label: 'Alimentos', icon: Apple } },
   { type: 'item', item: { id: 'bio-impedancia', label: 'Bio Impedância', icon: Activity } },
   {
     type: 'item',
@@ -86,6 +90,9 @@ export const META_ADMIN_GERAL_OFTWARE_NAV: MetaAdminGeralNavEntry[] = [
       href: '/metaadmingeral/oi-validation',
     },
   },
+  { type: 'item', item: { id: '50kg-depois', label: '50 KG DEPOIS', icon: BookOpen } },
+  { type: 'item', item: { id: 'match-saudavel', label: 'Match Saudável', icon: HeartHandshake } },
+  { type: 'item', item: { id: 'disparos', label: 'Disparos', icon: Send } },
   { type: 'subsection-header', label: 'Ferramentas' },
   {
     type: 'item',
@@ -110,6 +117,7 @@ export const META_ADMIN_GERAL_ORGANIZATION_NAV: MetaAdminGeralNavEntry[] = [
   { type: 'item', item: { id: 'medicos', label: 'Médicos', icon: Stethoscope } },
   { type: 'item', item: { id: 'nutricionistas', label: 'Nutricionistas', icon: UtensilsCrossed } },
   { type: 'item', item: { id: 'personal_trainers', label: 'Personais', icon: Dumbbell } },
+  { type: 'item', item: { id: 'psiquiatras', label: 'Psiquiatras', icon: Brain } },
   { type: 'item', item: { id: 'pacientes', label: 'Pacientes', icon: Users } },
   { type: 'item', item: { id: 'leads', label: 'Leads', icon: Target } },
   { type: 'item', item: { id: 'tirzepatida', label: 'Tirzepatida', icon: Pill } },

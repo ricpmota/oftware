@@ -3,16 +3,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { collection, deleteDoc, doc, getDocs, orderBy, query } from 'firebase/firestore';
-import { FlaskConical, FileText, Loader2, Plus, Trash2, X } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { Bookmark, BookmarkPlus, FileText, Download, FlaskConical, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { auth, db } from '@/lib/firebase';
 import type { PacienteCompleto } from '@/types/obesidade';
-import type { Medico, HipoteseDiagnosticaSalva } from '@/types/medico';
-import { normalizeHipotesesDiagnosticasSalvas } from '@/types/medico';
+import type { Medico, HipoteseDiagnosticaSalva, ModeloPadraoExamesSalvo } from '@/types/medico';
+import { normalizeHipotesesDiagnosticasSalvas, normalizeModelosPadraoExames } from '@/types/medico';
 import { Sex } from '@/types/labRanges';
-import { LAB_SECTION_LABELS_PT } from '@/lib/labExames/labSectionLabels';
+import { resolveLabSectionLabel } from '@/lib/labExames/labSectionLabels';
+import {
+  allLabSectionOptions,
+  LAB_NEW_SECTION_SENTINEL,
+} from '@/lib/labExames/labCustomExams';
 import { getLabRange, type LabLimitOverrides } from '@/utils/labRangesFromJson';
 import { restaurarSelecaoDeRegistroSalvo } from '@/utils/coletarExamesSolicitacaoLista';
-import type { SolicitacaoExamesSalva } from '@/utils/solicitacaoExamesPdfDownload';
+import {
+  mapSolicitacaoExamesFromFirestore,
+  type SolicitacaoExamesSalva,
+} from '@/utils/solicitacaoExamesPdfDownload';
+import { openSolicitacaoExamesPdfUrl } from '@/utils/solicitacaoExamesPdfGenerate';
 
 function coletarTodasChavesExamesDisponiveis(
   sexo: Sex | undefined,
@@ -62,12 +70,19 @@ export type SolicitarExamesModalProps = {
   setHipoteseDiagnosticaTituloSalvar: (v: string) => void;
   labOrderBySecaoConfig: Record<string, string[]>;
   labLimitOverrides: LabLimitOverrides | null;
-  onGerarPdf: () => void;
+  labSectionLabels?: Record<string, string>;
+  onReloadLabConfig?: () => void;
+  onGerarPdf: () => void | Promise<void>;
   onSalvarHipotese: () => Promise<void>;
   onRemoverHipoteseSalva: (indice: number) => Promise<void>;
   salvandoHipoteseDiagnostica: boolean;
+  onSalvarModeloPadrao: (nome: string) => Promise<void>;
+  onRemoverModeloPadrao: (id: string) => Promise<void>;
+  salvandoModeloPadrao: boolean;
   registrosRefreshKey?: number;
 };
+
+type SubpastaRequisicao = 'salvas' | 'padrao' | 'novos';
 
 export function SolicitarExamesModal({
   open,
@@ -84,19 +99,39 @@ export function SolicitarExamesModal({
   setHipoteseDiagnosticaTituloSalvar,
   labOrderBySecaoConfig,
   labLimitOverrides,
+  labSectionLabels = {},
+  onReloadLabConfig,
   onGerarPdf,
   onSalvarHipotese,
   onRemoverHipoteseSalva,
   salvandoHipoteseDiagnostica,
+  onSalvarModeloPadrao,
+  onRemoverModeloPadrao,
+  salvandoModeloPadrao,
   registrosRefreshKey = 0,
 }: SolicitarExamesModalProps) {
   const selectTodosExamesCheckboxRef = useRef<HTMLInputElement>(null);
   const selectExameAnteriorCheckboxRef = useRef<HTMLInputElement>(null);
+  const nomeModeloPadraoInputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
   const [registros, setRegistros] = useState<SolicitacaoExamesSalva[]>([]);
   const [loadingRegistros, setLoadingRegistros] = useState(false);
   const [deletandoRegistroId, setDeletandoRegistroId] = useState<string | null>(null);
   const [registroSelecionadoId, setRegistroSelecionadoId] = useState<string | null>(null);
+  const [salvandoRascunhoPdf, setSalvandoRascunhoPdf] = useState(false);
+  const [subpastaRequisicao, setSubpastaRequisicao] = useState<SubpastaRequisicao>('salvas');
+  const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string | null>(null);
+  const [deletandoModeloId, setDeletandoModeloId] = useState<string | null>(null);
+  const [showSalvarPadraoModal, setShowSalvarPadraoModal] = useState(false);
+  const [nomeModeloPadrao, setNomeModeloPadrao] = useState('');
+  const [novoExameNome, setNovoExameNome] = useState('');
+  const [novoExameUnidade, setNovoExameUnidade] = useState('');
+  const [novoExameMin, setNovoExameMin] = useState('');
+  const [novoExameMax, setNovoExameMax] = useState('');
+  const [novoExameSetorId, setNovoExameSetorId] = useState('');
+  const [novoExameSetorNovo, setNovoExameSetorNovo] = useState('');
+  const [salvandoNovoExame, setSalvandoNovoExame] = useState(false);
+  const [novoExameFeedback, setNovoExameFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -105,8 +140,20 @@ export function SolicitarExamesModal({
   useEffect(() => {
     if (!open) {
       setRegistroSelecionadoId(null);
+      setModeloSelecionadoId(null);
+      setSalvandoRascunhoPdf(false);
+      setSubpastaRequisicao('salvas');
+      setShowSalvarPadraoModal(false);
+      setNomeModeloPadrao('');
+      setNovoExameFeedback(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!showSalvarPadraoModal) return;
+    const t = window.setTimeout(() => nomeModeloPadraoInputRef.current?.focus(), 50);
+    return () => window.clearTimeout(t);
+  }, [showSalvarPadraoModal]);
 
   const pacienteNome =
     paciente.dadosIdentificacao?.nomeCompleto ||
@@ -119,6 +166,14 @@ export function SolicitarExamesModal({
   const temExamesSelecionados =
     examesSelecionados.length > 0 || examesCustomizados.some((e) => e.trim().length > 0);
 
+  const modelosPadrao = useMemo(
+    () => normalizeModelosPadraoExames(medicoPerfil.modelosPadraoExames),
+    [medicoPerfil.modelosPadraoExames]
+  );
+
+  const qtdExamesSelecao =
+    examesSelecionados.length + examesCustomizados.filter((e) => e.trim().length > 0).length;
+
   const carregarRegistros = useCallback(async () => {
     if (!paciente.id) return;
     setLoadingRegistros(true);
@@ -130,17 +185,9 @@ export function SolicitarExamesModal({
         )
       );
       setRegistros(
-        snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            pacienteId: paciente.id,
-            medicoId: (data.medicoId as string) ?? '',
-            exames: (data.exames as string[]) ?? [],
-            hipoteseDiagnostica: (data.hipoteseDiagnostica as string) ?? '',
-            criadoEm: data.criadoEm?.toDate?.() ?? new Date(),
-          };
-        })
+        snap.docs.map((d) =>
+          mapSolicitacaoExamesFromFirestore(d.id, paciente.id, d.data() as Record<string, unknown>)
+        )
       );
     } catch (err) {
       console.error('[SolicitarExamesModal] Erro ao carregar registros:', err);
@@ -250,6 +297,103 @@ export function SolicitarExamesModal({
       setHipoteseDiagnosticaSolicitacao(reg.hipoteseDiagnostica);
     }
     setRegistroSelecionadoId(reg.id);
+    setModeloSelecionadoId(null);
+  };
+
+  const aplicarModeloPadrao = (modelo: ModeloPadraoExamesSalvo) => {
+    setExamesSelecionados([...modelo.examesSelecionados]);
+    setExamesCustomizados(modelo.examesCustomizados.length > 0 ? [...modelo.examesCustomizados] : ['']);
+    setHipoteseDiagnosticaSolicitacao(modelo.hipoteseDiagnostica || '');
+    setHipoteseDiagnosticaTituloSalvar(modelo.hipoteseDiagnosticaTitulo || '');
+    setModeloSelecionadoId(modelo.id);
+    setRegistroSelecionadoId(null);
+  };
+
+  const handleDeletarModeloPadrao = async (modeloId: string) => {
+    if (!confirm('Excluir este modelo padrão?')) return;
+    setDeletandoModeloId(modeloId);
+    try {
+      await onRemoverModeloPadrao(modeloId);
+      if (modeloSelecionadoId === modeloId) setModeloSelecionadoId(null);
+    } catch (err) {
+      console.error('[SolicitarExamesModal] Erro ao excluir modelo padrão:', err);
+    } finally {
+      setDeletandoModeloId(null);
+    }
+  };
+
+  const handleConfirmarSalvarPadrao = async () => {
+    const nome = nomeModeloPadrao.trim();
+    if (!nome || !temExamesSelecionados || salvandoModeloPadrao) return;
+    try {
+      await onSalvarModeloPadrao(nome);
+      setShowSalvarPadraoModal(false);
+      setNomeModeloPadrao('');
+      setSubpastaRequisicao('padrao');
+    } catch (err) {
+      console.error('[SolicitarExamesModal] Erro ao salvar modelo padrão:', err);
+    }
+  };
+
+  const handleSalvarNovoTipoExame = async () => {
+    const label = novoExameNome.trim();
+    const unit = novoExameUnidade.trim();
+    const min = Number(novoExameMin.replace(',', '.'));
+    const max = Number(novoExameMax.replace(',', '.'));
+    if (!label || !unit || !Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+      setNovoExameFeedback({ type: 'err', text: 'Preencha nome, unidade, mínimo e máximo válidos.' });
+      return;
+    }
+    if (!novoExameMin.trim() || !novoExameMax.trim()) {
+      setNovoExameFeedback({ type: 'err', text: 'Informe os limites mínimo e máximo.' });
+      return;
+    }
+    if (!novoExameSetorId) return;
+    if (novoExameSetorId === LAB_NEW_SECTION_SENTINEL && !novoExameSetorNovo.trim()) return;
+    const user = auth.currentUser;
+    if (!user) {
+      setNovoExameFeedback({ type: 'err', text: 'Faça login novamente.' });
+      return;
+    }
+    setSalvandoNovoExame(true);
+    setNovoExameFeedback(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/metaadmin/lab-custom-exams', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label,
+          unit,
+          min,
+          max,
+          sectionId: novoExameSetorId,
+          newSectionLabel: novoExameSetorId === LAB_NEW_SECTION_SENTINEL ? novoExameSetorNovo.trim() : undefined,
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; exam?: { key?: string } };
+      if (!res.ok) {
+        setNovoExameFeedback({ type: 'err', text: j.error || 'Não foi possível salvar o exame.' });
+        return;
+      }
+      if (j.exam?.key) {
+        setExamesSelecionados((prev) => (prev.includes(j.exam!.key!) ? prev : [...prev, j.exam!.key!]));
+      }
+      setNovoExameNome('');
+      setNovoExameUnidade('');
+      setNovoExameMin('');
+      setNovoExameMax('');
+      setNovoExameSetorNovo('');
+      setNovoExameFeedback({
+        type: 'ok',
+        text: 'Exame salvo no patrimônio global. Aparece para todos os médicos até o Admin Geral desligar.',
+      });
+      onReloadLabConfig?.();
+    } catch {
+      setNovoExameFeedback({ type: 'err', text: 'Falha de rede ao salvar o exame.' });
+    } finally {
+      setSalvandoNovoExame(false);
+    }
   };
 
   if (!open || !mounted) return null;
@@ -262,6 +406,7 @@ export function SolicitarExamesModal({
   );
 
   return createPortal(
+    <>
     <div className="fixed inset-0 z-[10001] flex flex-col overflow-hidden md:items-center md:justify-center md:bg-black/50 md:p-4">
       <div className="flex flex-col w-full h-[100dvh] md:h-auto md:max-h-[92vh] md:max-w-4xl md:rounded-2xl md:shadow-2xl bg-gradient-to-b from-slate-50 via-white to-slate-50 overflow-hidden">
         {/* Header */}
@@ -312,85 +457,347 @@ export function SolicitarExamesModal({
             </div>
           </div>
 
-          {/* Histórico */}
+          {/* Histórico com subpastas */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Requisições salvas
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Toque para repetir os mesmos exames</p>
-              </div>
-              <span className="text-xs text-slate-400 shrink-0">
-                {registros.length} {registros.length === 1 ? 'registro' : 'registros'}
-              </span>
-            </div>
-            {loadingRegistros ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Carregando…
-              </div>
-            ) : registros.length === 0 ? (
-              <div className="px-4 py-8 text-center">
-                <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Nenhuma requisição salva ainda.</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Ao gerar o PDF, o registro é salvo automaticamente com data e hora.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
-                {registros.map((reg) => {
-                  const selecionado = registroSelecionadoId === reg.id;
+            <div className="px-3 sm:px-4 pt-3 pb-2 border-b border-slate-100 bg-slate-50/80 space-y-2">
+              <div
+                role="tablist"
+                aria-label="Pastas de requisições"
+                className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100/90"
+              >
+                {(
+                  [
+                    { id: 'salvas' as const, label: 'Requisições salvas' },
+                    { id: 'padrao' as const, label: 'Modelo Padrão' },
+                    { id: 'novos' as const, label: 'Novos Exames' },
+                  ] as const
+                ).map((tab) => {
+                  const ativa = subpastaRequisicao === tab.id;
                   return (
-                    <div
-                      key={reg.id}
-                      className={`flex items-start gap-2 px-3 py-3 transition-colors ${
-                        selecionado ? 'bg-violet-50 ring-1 ring-inset ring-violet-200' : 'hover:bg-slate-50/50'
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={ativa}
+                      onClick={() => setSubpastaRequisicao(tab.id)}
+                      className={`min-h-[2.5rem] px-1.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold leading-tight transition-colors ${
+                        ativa
+                          ? 'bg-white text-violet-800 shadow-sm ring-1 ring-violet-200'
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
                       }`}
                     >
-                      <button
-                        type="button"
-                        onClick={() => aplicarRegistroSalvo(reg)}
-                        className="flex-1 min-w-0 text-left rounded-lg px-1 py-0.5"
-                      >
-                        <p className="text-sm font-semibold text-slate-900">
-                          {formatarDataHoraRegistro(reg.criadoEm)}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {reg.exames.length} {reg.exames.length === 1 ? 'exame' : 'exames'} · {resumoExames(reg.exames)}
-                        </p>
-                        {reg.hipoteseDiagnostica && (
-                          <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                            HD: {reg.hipoteseDiagnostica}
-                          </p>
-                        )}
-                        {selecionado && (
-                          <p className="text-[11px] font-medium text-violet-700 mt-1.5">
-                            Exames selecionados — gere o PDF para salvar nova requisição
-                          </p>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDeletarRegistro(reg.id);
-                        }}
-                        disabled={deletandoRegistroId === reg.id}
-                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-50"
-                        title="Excluir registro"
-                        aria-label="Excluir registro"
-                      >
-                        {deletandoRegistroId === reg.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
+                      {tab.label}
+                    </button>
                   );
                 })}
+              </div>
+              {subpastaRequisicao === 'salvas' && (
+                <p className="text-[11px] text-slate-400 px-0.5">
+                  Toque para repetir os mesmos exames · {registros.length}{' '}
+                  {registros.length === 1 ? 'registro' : 'registros'}
+                </p>
+              )}
+              {subpastaRequisicao === 'padrao' && (
+                <p className="text-[11px] text-slate-400 px-0.5">
+                  Modelos do seu perfil, para todos os pacientes · {modelosPadrao.length}{' '}
+                  {modelosPadrao.length === 1 ? 'modelo' : 'modelos'}
+                </p>
+              )}
+              {subpastaRequisicao === 'novos' && (
+                <p className="text-[11px] text-slate-400 px-0.5">
+                  Cadastre tipos de exame próprios (limites e setor)
+                </p>
+              )}
+            </div>
+
+            {subpastaRequisicao === 'salvas' && (
+              <>
+                {loadingRegistros ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Carregando…
+                  </div>
+                ) : registros.length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Nenhuma requisição salva ainda.</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Ao clicar em Gerar Requisição, o rascunho é salvo automaticamente com data e hora.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                    {registros.map((reg) => {
+                      const selecionado = registroSelecionadoId === reg.id;
+                      return (
+                        <div
+                          key={reg.id}
+                          className={`flex items-start gap-2 px-3 py-3 transition-colors ${
+                            selecionado ? 'bg-violet-50 ring-1 ring-inset ring-violet-200' : 'hover:bg-slate-50/50'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => aplicarRegistroSalvo(reg)}
+                            className="flex-1 min-w-0 text-left rounded-lg px-1 py-0.5"
+                          >
+                            <p className="text-sm font-semibold text-slate-900">
+                              {formatarDataHoraRegistro(reg.criadoEm)}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {reg.exames.length} {reg.exames.length === 1 ? 'exame' : 'exames'} · {resumoExames(reg.exames)}
+                            </p>
+                            {reg.hipoteseDiagnostica && (
+                              <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                                HD: {reg.hipoteseDiagnostica}
+                              </p>
+                            )}
+                            {selecionado && (
+                              <p className="text-[11px] font-medium text-violet-700 mt-1.5">
+                                Exames selecionados — ao gerar, o rascunho é salvo em Requisições salvas
+                              </p>
+                            )}
+                          </button>
+                          <div className="flex items-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (reg.signedPdfUrl) openSolicitacaoExamesPdfUrl(reg.signedPdfUrl);
+                              }}
+                              disabled={!reg.signedPdfUrl}
+                              className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                              title={
+                                reg.signedPdfUrl
+                                  ? 'Baixar PDF assinado'
+                                  : 'PDF assinado ainda não disponível'
+                              }
+                              aria-label={
+                                reg.signedPdfUrl
+                                  ? 'Baixar PDF assinado'
+                                  : 'PDF assinado ainda não disponível'
+                              }
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDeletarRegistro(reg.id);
+                              }}
+                              disabled={deletandoRegistroId === reg.id}
+                              className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                              title="Excluir registro"
+                              aria-label="Excluir registro"
+                            >
+                              {deletandoRegistroId === reg.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {subpastaRequisicao === 'padrao' && (
+              <>
+                {modelosPadrao.length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <Bookmark className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Nenhum modelo padrão ainda.</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Selecione os exames (incluindo hipótese e outros exames) e use Salvar como Padrão.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                    {modelosPadrao.map((modelo) => {
+                      const selecionado = modeloSelecionadoId === modelo.id;
+                      const qtd =
+                        modelo.examesSelecionados.length + modelo.examesCustomizados.length;
+                      const labelsResumo: string[] = [];
+                      const temHemograma = ['hgb', 'wbc', 'platelets'].every((k) =>
+                        modelo.examesSelecionados.includes(k)
+                      );
+                      if (temHemograma) labelsResumo.push('Hemograma Completo');
+                      for (const key of modelo.examesSelecionados) {
+                        if (temHemograma && ['hgb', 'wbc', 'platelets'].includes(key)) continue;
+                        const range = getLabRange(key, sexoPaciente, dataNascPaciente, labLimitOverrides);
+                        labelsResumo.push(range?.label || key);
+                      }
+                      labelsResumo.push(...modelo.examesCustomizados);
+                      return (
+                        <div
+                          key={modelo.id}
+                          className={`flex items-start gap-2 px-3 py-3 transition-colors ${
+                            selecionado ? 'bg-violet-50 ring-1 ring-inset ring-violet-200' : 'hover:bg-slate-50/50'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => aplicarModeloPadrao(modelo)}
+                            className="flex-1 min-w-0 text-left rounded-lg px-1 py-0.5"
+                          >
+                            <p className="text-sm font-semibold text-slate-900">{modelo.nome}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {qtd} {qtd === 1 ? 'exame' : 'exames'}
+                              {modelo.examesCustomizados.length > 0
+                                ? ` · ${modelo.examesCustomizados.length} manual${modelo.examesCustomizados.length === 1 ? '' : 'is'}`
+                                : ''}
+                              {labelsResumo.length > 0 ? ` · ${resumoExames(labelsResumo)}` : ''}
+                            </p>
+                            {modelo.hipoteseDiagnostica && (
+                              <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                                HD: {modelo.hipoteseDiagnosticaTitulo || modelo.hipoteseDiagnostica}
+                              </p>
+                            )}
+                            {selecionado && (
+                              <p className="text-[11px] font-medium text-violet-700 mt-1.5">
+                                Modelo aplicado — exames, outros exames e hipótese diagnóstica selecionados
+                              </p>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDeletarModeloPadrao(modelo.id);
+                            }}
+                            disabled={deletandoModeloId === modelo.id}
+                            className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 shrink-0"
+                            title="Excluir modelo"
+                            aria-label="Excluir modelo"
+                          >
+                            {deletandoModeloId === modelo.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {subpastaRequisicao === 'novos' && (
+              <div className="px-4 py-4 space-y-3">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  O exame entra no patrimônio global e aparece para todos os médicos e pacientes.
+                  O Admin Geral pode desligar a visibilidade em Exames Laboratoriais.
+                </p>
+                <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Nome do exame
+                </label>
+                <input
+                  type="text"
+                  value={novoExameNome}
+                  onChange={(e) => setNovoExameNome(e.target.value)}
+                  placeholder="Ex.: Zinco sérico"
+                  className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                      Unidade
+                    </label>
+                    <input
+                      type="text"
+                      value={novoExameUnidade}
+                      onChange={(e) => setNovoExameUnidade(e.target.value)}
+                      placeholder="mg/dL"
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                      Mínimo
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={novoExameMin}
+                      onChange={(e) => setNovoExameMin(e.target.value)}
+                      placeholder="0"
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                      Máximo
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={novoExameMax}
+                      onChange={(e) => setNovoExameMax(e.target.value)}
+                      placeholder="100"
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                    />
+                  </div>
+                </div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Setor
+                </label>
+                <select
+                  value={novoExameSetorId}
+                  onChange={(e) => setNovoExameSetorId(e.target.value)}
+                  className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                >
+                  <option value="">Selecione o setor</option>
+                  {allLabSectionOptions(labSectionLabels).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                  <option value={LAB_NEW_SECTION_SENTINEL}>Criar novo setor…</option>
+                </select>
+                {novoExameSetorId === LAB_NEW_SECTION_SENTINEL && (
+                  <input
+                    type="text"
+                    value={novoExameSetorNovo}
+                    onChange={(e) => setNovoExameSetorNovo(e.target.value)}
+                    placeholder="Nome do novo setor"
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                  />
+                )}
+                {novoExameFeedback && (
+                  <p
+                    className={`text-xs ${
+                      novoExameFeedback.type === 'ok' ? 'text-emerald-700' : 'text-red-600'
+                    }`}
+                  >
+                    {novoExameFeedback.text}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={
+                    salvandoNovoExame ||
+                    !novoExameNome.trim() ||
+                    !novoExameUnidade.trim() ||
+                    !novoExameMin.trim() ||
+                    !novoExameMax.trim() ||
+                    !novoExameSetorId ||
+                    (novoExameSetorId === LAB_NEW_SECTION_SENTINEL && !novoExameSetorNovo.trim()) ||
+                    !Number.isFinite(Number(novoExameMin.replace(',', '.'))) ||
+                    !Number.isFinite(Number(novoExameMax.replace(',', '.')))
+                  }
+                  onClick={() => void handleSalvarNovoTipoExame()}
+                  className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-violet-700 hover:bg-violet-800 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {salvandoNovoExame ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {salvandoNovoExame ? 'Salvando…' : 'Salvar no patrimônio global'}
+                </button>
               </div>
             )}
           </div>
@@ -469,7 +876,7 @@ export function SolicitarExamesModal({
             </div>
             <div className="p-4 space-y-4 max-h-72 overflow-y-auto">
               {Object.entries(labOrderBySecaoConfig).map(([secaoKey, campos]) => {
-                const nomeSecao = LAB_SECTION_LABELS_PT[secaoKey] || secaoKey;
+                const nomeSecao = resolveLabSectionLabel(secaoKey, labSectionLabels);
 
                 if (secaoKey === 'hemograma') {
                   const temHemograma = examesSelecionados.some((f) =>
@@ -669,23 +1076,121 @@ export function SolicitarExamesModal({
             <button
               type="button"
               onClick={handleFechar}
-              className="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="hidden md:inline-flex px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
             >
               Cancelar
             </button>
             <button
               type="button"
-              onClick={onGerarPdf}
-              disabled={!temExamesSelecionados}
+              onClick={() => {
+                setNomeModeloPadrao('');
+                setShowSalvarPadraoModal(true);
+              }}
+              disabled={!temExamesSelecionados || salvandoModeloPadrao}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-violet-800 bg-violet-50 hover:bg-violet-100 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <BookmarkPlus className="w-4 h-4" />
+              <span className="md:hidden">Salvar Padrão</span>
+              <span className="hidden md:inline">Salvar como Padrão</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSalvandoRascunhoPdf(true);
+                void Promise.resolve(onGerarPdf()).finally(() => setSalvandoRascunhoPdf(false));
+              }}
+              disabled={!temExamesSelecionados || salvandoRascunhoPdf}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FileText className="w-4 h-4" />
-              Gerar Requisição em PDF
+              {salvandoRascunhoPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              {salvandoRascunhoPdf ? (
+                'Salvando rascunho…'
+              ) : (
+                <>
+                  <span className="md:hidden">Gerar Requisição</span>
+                  <span className="hidden md:inline">Gerar Requisição em PDF</span>
+                </>
+              )}
             </button>
           </div>
         </div>
       </div>
-    </div>,
+    </div>
+    {showSalvarPadraoModal ? (
+      <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Modelo Padrão</p>
+              <h3 className="text-base font-semibold text-slate-900 mt-0.5">Salvar seleção atual</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (salvandoModeloPadrao) return;
+                setShowSalvarPadraoModal(false);
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <p className="text-sm text-slate-600">
+              Qual o nome deste modelo padrão? Na próxima requisição, ao selecioná-lo, todos os exames
+              atuais serão marcados — inclusive hipótese diagnóstica e outros exames manuais.
+            </p>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Nome do modelo
+            </label>
+            <input
+              ref={nomeModeloPadraoInputRef}
+              type="text"
+              value={nomeModeloPadrao}
+              onChange={(e) => setNomeModeloPadrao(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleConfirmarSalvarPadrao();
+                }
+              }}
+              maxLength={80}
+              placeholder="Ex.: Check-up metabólico inicial"
+              className="w-full text-sm px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+            />
+            <p className="text-xs text-slate-400">
+              {qtdExamesSelecao} {qtdExamesSelecao === 1 ? 'exame selecionado' : 'exames selecionados'}
+              {hipoteseDiagnosticaSolicitacao.trim() ? ' · hipótese diagnóstica incluída' : ''}
+            </p>
+          </div>
+          <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2 bg-slate-50/80">
+            <button
+              type="button"
+              disabled={salvandoModeloPadrao}
+              onClick={() => setShowSalvarPadraoModal(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-white rounded-xl"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={!nomeModeloPadrao.trim() || salvandoModeloPadrao}
+              onClick={() => void handleConfirmarSalvarPadrao()}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-violet-700 hover:bg-violet-800 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {salvandoModeloPadrao ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookmarkPlus className="w-4 h-4" />}
+              {salvandoModeloPadrao ? 'Salvando…' : 'Salvar modelo'}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>,
     document.body
   );
 }

@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, Printer, X } from 'lucide-react';
-import type { CardapioPdfContext } from '@/types/cardapioPrint';
+import type { CardapioPdfContext, CardapioPdfOpcao } from '@/types/cardapioPrint';
 import { downloadCardapioPdfComoImpressao } from '@/utils/cardapioPdfDownload';
+import { hydrateCardapioPdfMealImages } from '@/lib/nutri/cardapioPdfMealImages';
+import { formatCardapioPdfItemCells, macrosDaOpcao } from '@/utils/cardapioPdfLayout';
+import { auth } from '@/lib/firebase';
 
 export type CardapioPrintModalProps = {
   open: boolean;
@@ -12,6 +15,105 @@ export type CardapioPrintModalProps = {
   onClose: () => void;
   zIndexClass?: string;
 };
+
+function CardapioPrintOpcaoPreview({
+  nomeRefeicao,
+  opcao,
+  opcaoIdx,
+  carregandoFoto,
+}: {
+  nomeRefeicao: string;
+  opcao: CardapioPdfOpcao;
+  opcaoIdx: number;
+  carregandoFoto: boolean;
+}) {
+  const totais = macrosDaOpcao(opcao.itens || []);
+  const aguardandoFoto = Boolean(opcao.mealImageRef) && !opcao.imageUrl && carregandoFoto;
+
+  return (
+    <div className={opcaoIdx > 0 ? 'mt-3' : ''}>
+      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 italic">Escolha: {opcao.tituloOpcao}</p>
+      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
+        {opcao.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={opcao.imageUrl}
+            alt={`Imagem ilustrativa de ${nomeRefeicao}`}
+            className="h-32 w-32 sm:h-36 sm:w-36 shrink-0 rounded-xl border border-gray-200 object-cover dark:border-gray-700"
+          />
+        ) : aguardandoFoto ? (
+          <div
+            className="flex h-32 w-32 sm:h-36 sm:w-36 shrink-0 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-400 dark:border-gray-600 dark:bg-gray-800/60"
+            aria-hidden
+          >
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          {opcao.itens.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300">
+                  <tr>
+                    <th className="px-2 py-2 text-left font-semibold">Item</th>
+                    <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">Qtd</th>
+                    <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">Prot.</th>
+                    <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">kcal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {opcao.itens.map((row, idx) => {
+                    const cells = formatCardapioPdfItemCells(row);
+                    return (
+                      <tr
+                        key={`${nomeRefeicao}-${opcaoIdx}-${idx}`}
+                        className="border-t border-gray-100 dark:border-gray-700"
+                      >
+                        <td className="px-2 py-2 text-gray-800 dark:text-gray-200 align-top">{cells.alimento}</td>
+                        <td className="px-2 py-2 text-right whitespace-nowrap text-gray-800 dark:text-gray-200">
+                          {cells.quantidade}
+                        </td>
+                        <td className="px-2 py-2 text-right whitespace-nowrap">{cells.proteina}</td>
+                        <td className="px-2 py-2 text-right whitespace-nowrap">{cells.kcal}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {typeof totais.proteina === 'number' || typeof totais.kcal === 'number' ? (
+                  <tfoot className="border-t-2 border-gray-200 bg-gray-50 dark:border-gray-600 dark:bg-gray-800/70">
+                    <tr>
+                      <td className="px-2 py-2 font-semibold text-gray-800 dark:text-gray-100" colSpan={2}>
+                        Total da opção
+                      </td>
+                      <td className="px-2 py-2 text-right font-bold whitespace-nowrap">
+                        {typeof totais.proteina === 'number' ? `${totais.proteina.toFixed(1)} g` : '—'}
+                      </td>
+                      <td className="px-2 py-2 text-right font-bold whitespace-nowrap">
+                        {typeof totais.kcal === 'number' ? `${Math.round(totais.kcal)}` : '—'}
+                      </td>
+                    </tr>
+                  </tfoot>
+                ) : null}
+              </table>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">Sem itens detalhados nesta opção.</p>
+          )}
+        </div>
+      </div>
+      {opcao.observacao?.trim() ? (
+        <div className="mt-2 rounded-lg border border-teal-200 dark:border-teal-800 bg-teal-50/70 dark:bg-teal-950/30 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-800 dark:text-teal-300">
+            Observação da nutri
+          </p>
+          <p className="text-xs text-gray-800 dark:text-gray-100 whitespace-pre-wrap mt-0.5 leading-relaxed">
+            {opcao.observacao.trim()}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * Modal de impressão do cardápio (fluxo alinhado a PrescricaoLeituraModal: preview + botão verde Imprimir).
@@ -24,8 +126,39 @@ export default function CardapioPrintModal({
   zIndexClass = 'z-[10050]',
 }: CardapioPrintModalProps) {
   const [imprimindo, setImprimindo] = useState(false);
+  const [contextoExibicao, setContextoExibicao] = useState<CardapioPdfContext | null>(contexto);
+  const [hidratandoFotos, setHidratandoFotos] = useState(false);
+
+  const getToken = useCallback(async () => (await auth.currentUser?.getIdToken()) || null, []);
 
   const fecharModal = useCallback(() => onClose(), [onClose]);
+
+  useEffect(() => {
+    if (!open) {
+      setContextoExibicao(null);
+      setHidratandoFotos(false);
+      return;
+    }
+    if (!contexto) return;
+    setContextoExibicao(contexto);
+    setHidratandoFotos(true);
+    let cancelled = false;
+    void hydrateCardapioPdfMealImages(contexto, getToken)
+      .then((next) => {
+        if (!cancelled) setContextoExibicao(next);
+      })
+      .catch(() => {
+        /* preview segue sem fotos */
+      })
+      .finally(() => {
+        if (!cancelled) setHidratandoFotos(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // contexto é recriado a cada render do pai; hidrata na abertura do modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, getToken]);
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +178,7 @@ export default function CardapioPrintModal({
     if (!contexto) return;
     setImprimindo(true);
     try {
-      await downloadCardapioPdfComoImpressao(contexto);
+      await downloadCardapioPdfComoImpressao(contextoExibicao || contexto, { getToken });
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : 'Erro ao gerar PDF.';
@@ -56,6 +189,7 @@ export default function CardapioPrintModal({
   };
 
   if (!open || !contexto || typeof document === 'undefined') return null;
+  const preview = contextoExibicao || contexto;
 
   return createPortal(
     <div
@@ -68,7 +202,7 @@ export default function CardapioPrintModal({
         aria-modal="true"
         aria-labelledby="cardapio-print-titulo"
         className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col overflow-hidden border-gray-200 dark:border-gray-700
-          h-[100dvh] max-h-[100dvh] w-full min-h-0 sm:h-auto sm:max-h-[min(90vh,800px)] sm:max-w-2xl sm:rounded-xl shadow-2xl sm:border"
+          h-[100dvh] max-h-[100dvh] w-full min-h-0 sm:h-auto sm:max-h-[min(90vh,800px)] sm:max-w-3xl sm:rounded-xl shadow-2xl sm:border"
         onClick={(e) => e.stopPropagation()}
       >
         <div
@@ -80,7 +214,7 @@ export default function CardapioPrintModal({
               Imprimir cardápio
             </h3>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-              Gerado em {contexto.dataImpressao}
+              Gerado em {preview.dataImpressao}
             </p>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -122,44 +256,43 @@ export default function CardapioPrintModal({
 
             <div className="p-4 sm:p-6 space-y-4">
               <div className="text-sm space-y-1">
-                <p>Paciente: {contexto.pacienteNome}</p>
-                {contexto.pacienteCpf ? <p>CPF: {contexto.pacienteCpf}</p> : null}
+                <p>Paciente: {preview.pacienteNome}</p>
+                {preview.pacienteCpf ? <p>CPF: {preview.pacienteCpf}</p> : null}
+                {preview.medicoNome ? <p>Médico: {preview.medicoNome}</p> : null}
+                {preview.nutricionistaNome ? (
+                  <p>
+                    Nutricionista: {preview.nutricionistaNome}
+                    {preview.nutricionistaCrn ? ` · CRN ${preview.nutricionistaCrn}` : ''}
+                  </p>
+                ) : null}
               </div>
 
-              {contexto.refeicoes.map((ref) => (
+              {preview.refeicoes.map((ref) => {
+                const opcoes =
+                  ref.opcoes?.length > 0
+                    ? ref.opcoes
+                    : [
+                        {
+                          tituloOpcao: ref.tituloOpcao,
+                          itens: ref.itens,
+                          observacao: ref.observacao,
+                        },
+                      ];
+                return (
                 <div key={ref.nomeRefeicao} className="border-t border-gray-200 dark:border-gray-700 pt-4 first:border-t-0 first:pt-0">
                   <div className="text-sm font-bold text-[#2c3e50] dark:text-gray-100">{ref.nomeRefeicao}</div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 italic">Escolha: {ref.tituloOpcao}</p>
-                  {ref.itens.length > 0 ? (
-                    <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                      <table className="w-full text-xs sm:text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300">
-                          <tr>
-                            <th className="px-2 py-2 text-left font-semibold">Item</th>
-                            <th className="px-2 py-2 text-right font-semibold w-20">Prot.</th>
-                            <th className="px-2 py-2 text-right font-semibold w-24">Kcal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ref.itens.map((row, idx) => (
-                            <tr key={`${ref.nomeRefeicao}-${idx}`} className="border-t border-gray-100 dark:border-gray-700">
-                              <td className="px-2 py-2 text-gray-800 dark:text-gray-200">{row.descricao}</td>
-                              <td className="px-2 py-2 text-right whitespace-nowrap">
-                                {row.proteinaG > 0 ? `${row.proteinaG.toFixed(1)} g` : '-'}
-                              </td>
-                              <td className="px-2 py-2 text-right whitespace-nowrap">
-                                {row.kcal > 0 ? `${Math.round(row.kcal)}` : '-'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-2">Sem itens detalhados nesta refeição.</p>
-                  )}
+                  {opcoes.map((opcao, opcaoIdx) => (
+                    <CardapioPrintOpcaoPreview
+                      key={`${ref.nomeRefeicao}-${opcao.tituloOpcao}-${opcaoIdx}`}
+                      nomeRefeicao={ref.nomeRefeicao}
+                      opcao={opcao}
+                      opcaoIdx={opcaoIdx}
+                      carregandoFoto={hidratandoFotos}
+                    />
+                  ))}
                 </div>
-              ))}
+                );
+              })}
 
               <div>
                 <div className="text-sm font-bold text-[#2c3e50] dark:text-gray-100 mb-2">Resumo total do dia</div>
@@ -173,7 +306,7 @@ export default function CardapioPrintModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {contexto.resumoDia.map((linha, index) => (
+                      {preview.resumoDia.map((linha, index) => (
                         <tr
                           key={linha.nome}
                           className={`border-t border-slate-200 dark:border-slate-700 ${
@@ -194,10 +327,10 @@ export default function CardapioPrintModal({
                       <tr>
                         <td className="px-2 py-2 font-bold text-slate-900 dark:text-white">Totais</td>
                         <td className="px-2 py-2 text-right font-bold whitespace-nowrap text-slate-900 dark:text-white">
-                          {contexto.totais.protAtual.toFixed(1)}/{contexto.totais.protPrev.toFixed(1)} g
+                          {preview.totais.protAtual.toFixed(1)}/{preview.totais.protPrev.toFixed(1)} g
                         </td>
                         <td className="px-2 py-2 text-right font-bold whitespace-nowrap text-slate-900 dark:text-white">
-                          {Math.round(contexto.totais.kcalAtual)}/{contexto.totais.kcalPrev}
+                          {Math.round(preview.totais.kcalAtual)}/{preview.totais.kcalPrev}
                         </td>
                       </tr>
                     </tfoot>
@@ -205,7 +338,7 @@ export default function CardapioPrintModal({
                 </div>
               </div>
 
-              <p className="text-xs text-black dark:text-gray-300 pt-2">Data: {contexto.dataImpressao}</p>
+              <p className="text-xs text-black dark:text-gray-300 pt-2">Data: {preview.dataImpressao}</p>
             </div>
           </div>
         </div>

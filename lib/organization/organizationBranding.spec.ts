@@ -179,6 +179,42 @@ describe('organizationBrandingMerge', () => {
     );
   });
 
+  it('organização nova com cor inválida não cai no verde ou navy do Método', () => {
+    const organization = {
+      id: 'kamilla-montenegro',
+      name: 'Kamilla Montenegro',
+      kind: 'organization' as const,
+      primaryOrigin: 'https://www.endocrinokamillamontenegro.com.br',
+      hosts: ['www.endocrinokamillamontenegro.com.br'],
+    };
+    const seed = buildNewOrganizationBrandingSeed(organization);
+    const merged = resolveOrganizationBrandingFromSources({
+      organization,
+      firestoreBranding: {
+        ...seed,
+        primaryColor: 'nao-e-hex',
+        secondaryColor: '',
+      },
+      metodoImagens: {
+        ogImageUrl: 'https://cdn.example/og-metodo.png',
+        faviconUrl: '/metodo-simbolo-17.png',
+        pdfLogoUrl: null,
+        drPageLogoUrl: '/metodo-emagrecer-logotipo-28.png',
+        aplicacaoPageLogoUrl: null,
+        conclusaoPageLogoUrl: null,
+      },
+      sourceWhiteLabel: {
+        primaryColor: '#4CCB7A',
+        drPageBackgroundColor: '#0A1F44',
+      },
+    });
+
+    expect(merged.primaryColor).toBe(seed.primaryColor);
+    expect(merged.secondaryColor).toBe(seed.secondaryColor);
+    expect(merged.primaryColor).not.toBe('#4CCB7A');
+    expect(merged.secondaryColor).not.toBe('#0A1F44');
+  });
+
   it('sourceMedico layer retorna null sem whiteLabel', () => {
     expect(
       organizationBrandingLayerFromSourceMedicoWhiteLabel(METODO_ORGANIZATION, null),

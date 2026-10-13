@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react';
 import { toneVariacaoMedida } from '@/lib/aplicacao/formatarVariacaoMedida';
 
 export type DigitalMeasurePickerProps = {
@@ -14,6 +14,8 @@ export type DigitalMeasurePickerProps = {
   label?: string;
   /** Último valor registrado — usado para exibir a variação em tempo real. */
   referenceValue?: number | null;
+  /** Impede alterar o valor (conclusão já registrada). */
+  readOnly?: boolean;
 };
 
 const HOLD_DELAY_MS = 380;
@@ -46,6 +48,16 @@ function formatDelta(delta: number, decimals: number, unit: string): string {
   return `${sinal}${formatMeasureValue(delta, decimals)} ${unit}`;
 }
 
+function isAllowedManualDraft(raw: string, decimals: number): boolean {
+  const normalized = raw.replace(',', '.');
+  if (normalized === '' || normalized === '.') return true;
+  const pattern =
+    decimals <= 0
+      ? /^\d{0,4}$/
+      : new RegExp(`^\\d{0,4}(\\.\\d{0,${decimals}})?$`);
+  return pattern.test(normalized);
+}
+
 const VARIATION_TONE_CLASS: Record<ReturnType<typeof toneVariacaoMedida>, string> = {
   positivo: 'text-emerald-600 bg-emerald-50 border-emerald-200',
   atencao: 'text-amber-600 bg-amber-50 border-amber-200',
@@ -74,11 +86,18 @@ export function DigitalMeasurePicker({
   min = step,
   label,
   referenceValue,
+  readOnly = false,
 }: DigitalMeasurePickerProps) {
   const [pressedDirection, setPressedDirection] = useState<1 | -1 | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [editError, setEditError] = useState(false);
 
   const valueRef = useRef(value);
   valueRef.current = value;
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
 
   const holdDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -176,6 +195,45 @@ export function DigitalMeasurePicker({
 
   useEffect(() => () => stopHold(), [stopHold]);
 
+  useEffect(() => {
+    if (!isEditing) return;
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isEditing]);
+
+  const beginEdit = () => {
+    if (readOnly) return;
+    stopHold();
+    setDraft(numValue != null ? formatMeasureValue(numValue, decimals) : '');
+    setEditError(false);
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setDraft('');
+    setEditError(false);
+  };
+
+  const commitEdit = () => {
+    const parsed = parseMeasureValue(draft);
+    if (parsed == null || parsed < min) {
+      setEditError(true);
+      inputRef.current?.focus();
+      return;
+    }
+
+    const next = formatMeasureValue(roundToDecimals(parsed, decimals), decimals);
+    valueRef.current = next;
+    onChange(next);
+    setIsEditing(false);
+    setDraft('');
+    setEditError(false);
+  };
+
   const delta =
     referenceValue != null && numValue != null
       ? roundToDecimals(numValue - referenceValue, decimals)
@@ -218,33 +276,123 @@ export function DigitalMeasurePicker({
         <p className="text-sm text-slate-500 mb-3 text-center">{label}</p>
       )}
 
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-3 px-8">
         <button
-          {...bindHoldButton(1)}
-          className={buttonClass(pressedDirection === 1)}
+          {...bindHoldButton(1, isEditing || readOnly)}
+          className={buttonClass(pressedDirection === 1, isEditing || readOnly)}
           aria-label={`Aumentar ${unit}`}
         >
           <ChevronUp className="h-8 w-8 stroke-[2.5]" />
         </button>
 
-        <div className="w-full max-w-[280px] rounded-2xl border-2 border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 px-4 py-6 shadow-inner shadow-black/40">
-          <div className="flex items-baseline justify-center gap-3">
-            <span
-              className="font-mono text-5xl sm:text-6xl font-bold tabular-nums tracking-wider text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.35)]"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {displayValue}
-            </span>
-            <span className="text-lg sm:text-xl font-semibold text-emerald-500/90 pt-2">
-              {unit}
-            </span>
+        <div className="relative w-full max-w-[280px]">
+          <div
+            className={`rounded-2xl border-2 bg-gradient-to-b from-slate-900 to-slate-950 px-4 py-6 shadow-inner shadow-black/40 ${
+              isEditing
+                ? editError
+                  ? 'border-rose-400 ring-2 ring-rose-400/30'
+                  : 'border-emerald-500 ring-2 ring-emerald-500/25'
+                : 'border-slate-800'
+            }`}
+          >
+            <div className="flex items-baseline justify-center gap-3">
+              {isEditing ? (
+                <input
+                  ref={inputRef}
+                  id={inputId}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  enterKeyHint="done"
+                  aria-label={`Editar valor em ${unit}`}
+                  aria-invalid={editError}
+                  value={draft}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (!isAllowedManualDraft(next, decimals)) return;
+                    setDraft(next);
+                    setEditError(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      commitEdit();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      cancelEdit();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const nextFocus = e.relatedTarget as HTMLElement | null;
+                    if (nextFocus?.dataset?.measureEditAction) return;
+                    commitEdit();
+                  }}
+                  className="w-[7.5ch] max-w-full bg-transparent text-center font-mono text-5xl sm:text-6xl font-bold tabular-nums tracking-wider text-emerald-400 caret-emerald-300 outline-none drop-shadow-[0_0_12px_rgba(52,211,153,0.35)] placeholder:text-emerald-400/30"
+                  placeholder="0"
+                />
+              ) : (
+                <span
+                  className="font-mono text-5xl sm:text-6xl font-bold tabular-nums tracking-wider text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.35)]"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {displayValue}
+                </span>
+              )}
+              <span className="text-lg sm:text-xl font-semibold text-emerald-500/90 pt-2">
+                {unit}
+              </span>
+            </div>
+          </div>
+
+          {/* Ícone discreto ao lado direito do card (não invade o display) */}
+          <div className="absolute left-full top-1/2 z-10 ml-1.5 flex -translate-y-1/2 flex-col items-center gap-1">
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  data-measure-edit-action="confirm"
+                  onClick={commitEdit}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-emerald-600/70 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+                  aria-label="Confirmar valor"
+                >
+                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  data-measure-edit-action="cancel"
+                  onClick={cancelEdit}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400/65 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                  aria-label="Cancelar edição"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </button>
+              </>
+            ) : readOnly ? null : (
+              <button
+                type="button"
+                onClick={beginEdit}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400/50 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                aria-label={`Editar valor em ${unit}`}
+              >
+                <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+            )}
           </div>
         </div>
 
+        {editError && (
+          <p className="text-xs text-rose-600" role="alert">
+            Informe um valor válido (mín. {formatMeasureValue(min, decimals)} {unit}).
+          </p>
+        )}
+
         <button
-          {...bindHoldButton(-1, !canDecrease && numValue != null)}
-          className={buttonClass(pressedDirection === -1, !canDecrease && numValue != null)}
+          {...bindHoldButton(-1, readOnly || isEditing || (!canDecrease && numValue != null))}
+          className={buttonClass(
+            pressedDirection === -1,
+            readOnly || isEditing || (!canDecrease && numValue != null)
+          )}
           aria-label={`Diminuir ${unit}`}
         >
           <ChevronDown className="h-8 w-8 stroke-[2.5]" />

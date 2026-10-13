@@ -1,6 +1,35 @@
-import { collection, addDoc, getDocs, query, where, updateDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Indicacao } from '@/types/indicacao';
+import type { InternationalPhoneFields } from '@/lib/whatsapp/resolveInternationalPhone';
+import {
+  findMatchingIndicacao,
+  indicadoPorPhoneWriteFields,
+  indicacaoPhoneWriteFields,
+  optionalIndicacaoDdiPais,
+} from '@/lib/whatsapp/resolveIndicacaoSolicitacaoPhone';
+
+function mapIndicacao(id: string, data: Record<string, unknown>): Indicacao {
+  return {
+    id,
+    indicadoPor: (data.indicadoPor as string) || '',
+    indicadoPorNome: data.indicadoPorNome as string | undefined,
+    indicadoPorTelefone: data.indicadoPorTelefone as string | undefined,
+    nomePaciente: (data.nomePaciente as string) || '',
+    telefonePaciente: (data.telefonePaciente as string) || '',
+    estado: (data.estado as string) || '',
+    cidade: (data.cidade as string) || '',
+    medicoId: (data.medicoId as string) || '',
+    medicoNome: (data.medicoNome as string) || '',
+    status: (data.status as Indicacao['status']) || 'pendente',
+    criadoEm: (data.criadoEm as { toDate?: () => Date })?.toDate?.() || new Date(),
+    visualizadaEm: (data.visualizadaEm as { toDate?: () => Date })?.toDate?.(),
+    virouVendaEm: (data.virouVendaEm as { toDate?: () => Date })?.toDate?.(),
+    pagaEm: (data.pagaEm as { toDate?: () => Date })?.toDate?.(),
+    pacienteIdVenda: data.pacienteIdVenda as string | undefined,
+    ...optionalIndicacaoDdiPais(data),
+  };
+}
 
 export class IndicacaoService {
   private static COLLECTION = 'indicacoes';
@@ -10,24 +39,23 @@ export class IndicacaoService {
    */
   static async criarIndicacao(indicacao: Omit<Indicacao, 'id' | 'criadoEm'>): Promise<string> {
     try {
-      const indicacaoData: any = {
+      const phoneWrite = indicacaoPhoneWriteFields(indicacao);
+      const indicadoPorWrite = indicadoPorPhoneWriteFields(indicacao);
+      const indicacaoData: Record<string, unknown> = {
         indicadoPor: indicacao.indicadoPor,
         nomePaciente: indicacao.nomePaciente,
-        telefonePaciente: indicacao.telefonePaciente,
+        ...phoneWrite,
         estado: indicacao.estado,
         cidade: indicacao.cidade,
         medicoId: indicacao.medicoId,
         medicoNome: indicacao.medicoNome,
         status: 'pendente',
-        criadoEm: Timestamp.now()
+        criadoEm: Timestamp.now(),
+        ...indicadoPorWrite,
       };
 
       if (indicacao.indicadoPorNome) {
         indicacaoData.indicadoPorNome = indicacao.indicadoPorNome;
-      }
-
-      if (indicacao.indicadoPorTelefone) {
-        indicacaoData.indicadoPorTelefone = indicacao.indicadoPorTelefone;
       }
 
       const docRef = await addDoc(collection(db, this.COLLECTION), indicacaoData);
@@ -54,27 +82,9 @@ export class IndicacaoService {
       
       console.log('Documentos encontrados:', snapshot.docs.length);
       
-      const indicacoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          indicadoPor: data.indicadoPor,
-          indicadoPorNome: data.indicadoPorNome,
-          indicadoPorTelefone: data.indicadoPorTelefone,
-          nomePaciente: data.nomePaciente,
-          telefonePaciente: data.telefonePaciente,
-          estado: data.estado,
-          cidade: data.cidade,
-          medicoId: data.medicoId,
-          medicoNome: data.medicoNome,
-          status: data.status || 'pendente',
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          visualizadaEm: data.visualizadaEm?.toDate(),
-          virouVendaEm: data.virouVendaEm?.toDate(),
-          pagaEm: data.pagaEm?.toDate(),
-          pacienteIdVenda: data.pacienteIdVenda
-        } as Indicacao;
-      });
+      const indicacoes = snapshot.docs.map((docSnap) =>
+        mapIndicacao(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
       
       // Ordenar manualmente por data de criação (mais recente primeiro)
       indicacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
@@ -100,27 +110,9 @@ export class IndicacaoService {
       );
       const snapshot = await getDocs(q);
       
-      const indicacoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          indicadoPor: data.indicadoPor,
-          indicadoPorNome: data.indicadoPorNome,
-          indicadoPorTelefone: data.indicadoPorTelefone,
-          nomePaciente: data.nomePaciente,
-          telefonePaciente: data.telefonePaciente,
-          estado: data.estado,
-          cidade: data.cidade,
-          medicoId: data.medicoId,
-          medicoNome: data.medicoNome,
-          status: data.status || 'pendente',
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          visualizadaEm: data.visualizadaEm?.toDate(),
-          virouVendaEm: data.virouVendaEm?.toDate(),
-          pagaEm: data.pagaEm?.toDate(),
-          pacienteIdVenda: data.pacienteIdVenda
-        } as Indicacao;
-      });
+      const indicacoes = snapshot.docs.map((docSnap) =>
+        mapIndicacao(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
       
       // Ordenar manualmente por data de criação (mais recente primeiro)
       indicacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
@@ -144,27 +136,9 @@ export class IndicacaoService {
       );
       const snapshot = await getDocs(q);
       
-      const indicacoes = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          indicadoPor: data.indicadoPor,
-          indicadoPorNome: data.indicadoPorNome,
-          indicadoPorTelefone: data.indicadoPorTelefone,
-          nomePaciente: data.nomePaciente,
-          telefonePaciente: data.telefonePaciente,
-          estado: data.estado,
-          cidade: data.cidade,
-          medicoId: data.medicoId,
-          medicoNome: data.medicoNome,
-          status: data.status || 'pendente',
-          criadoEm: data.criadoEm?.toDate() || new Date(),
-          visualizadaEm: data.visualizadaEm?.toDate(),
-          virouVendaEm: data.virouVendaEm?.toDate(),
-          pagaEm: data.pagaEm?.toDate(),
-          pacienteIdVenda: data.pacienteIdVenda
-        } as Indicacao;
-      });
+      const indicacoes = snapshot.docs.map((docSnap) =>
+        mapIndicacao(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
       
       // Ordenar manualmente por data de criação (mais recente primeiro)
       indicacoes.sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
@@ -226,51 +200,26 @@ export class IndicacaoService {
   }
 
   /**
-   * Buscar indicação por telefone (para matching no cadastro)
+   * Buscar indicação por telefone (matching no cadastro).
+   * Firestore: status in ['pendente','visualizada'] — sem where em telefone.
+   * Comparação client-side pela chave canônica derivada (não persistida).
    */
-  static async getIndicacaoPorTelefone(telefone: string): Promise<Indicacao | null> {
+  static async getIndicacaoPorTelefone(
+    source: string | InternationalPhoneFields,
+  ): Promise<Indicacao | null> {
     try {
-      // Normalizar telefone (remover caracteres especiais)
-      const telefoneNormalizado = telefone.replace(/\D/g, '');
-      
-      // Buscar indicações pendentes ou visualizadas que ainda não viraram venda
       const q = query(
         collection(db, this.COLLECTION),
         where('status', 'in', ['pendente', 'visualizada'])
       );
       const snapshot = await getDocs(q);
-      
-      // Verificar se algum telefone bate (normalizado)
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        const telefoneIndicacao = data.telefonePaciente?.replace(/\D/g, '') || '';
-        
-        if (telefoneNormalizado === telefoneIndicacao) {
-          return {
-            id: docSnap.id,
-            indicadoPor: data.indicadoPor,
-            indicadoPorNome: data.indicadoPorNome,
-            nomePaciente: data.nomePaciente,
-            telefonePaciente: data.telefonePaciente,
-            estado: data.estado,
-            cidade: data.cidade,
-            medicoId: data.medicoId,
-            medicoNome: data.medicoNome,
-            status: data.status || 'pendente',
-            criadoEm: data.criadoEm?.toDate() || new Date(),
-            visualizadaEm: data.visualizadaEm?.toDate(),
-            virouVendaEm: data.virouVendaEm?.toDate(),
-            pagaEm: data.pagaEm?.toDate(),
-            pacienteIdVenda: data.pacienteIdVenda
-          } as Indicacao;
-        }
-      }
-      
-      return null;
+      const candidatos = snapshot.docs.map((docSnap) =>
+        mapIndicacao(docSnap.id, docSnap.data() as Record<string, unknown>)
+      );
+      return findMatchingIndicacao(candidatos, source);
     } catch (error) {
       console.error('Erro ao buscar indicação por telefone:', error);
       return null;
     }
   }
 }
-

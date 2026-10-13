@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getFirestoreAdmin } from '@/lib/server/firebaseAdminOftware';
-import { WHITELABEL_LEAD_REQUIRED_KEYS } from '@/lib/whiteLabel/leadWhiteLabelQuestions';
+import { WHITELABEL_LEAD_REQUIRED_KEYS, mapProfissaoChoiceToValue } from '@/lib/whiteLabel/leadWhiteLabelQuestions';
 import {
   isValidLeadWhiteLabelEmail,
   normalizeLeadWhiteLabelEmail,
   normalizeLeadWhiteLabelInstagram,
-  normalizeLeadWhiteLabelWhatsApp,
 } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
+import { persistWhiteLabelWhatsAppFromPayload } from '@/lib/whatsapp/resolveLeadPhone';
 import { buildInitialCrmFields, buildLeadScoreFields } from '@/lib/whiteLabel/leadCrmService';
 import { recordLeadCreated } from '@/lib/whiteLabel/leadTimelineService';
+import { parseWhiteLabelProfissao } from '@/lib/whiteLabel/profissao';
 
 const STRING_FIELDS = WHITELABEL_LEAD_REQUIRED_KEYS;
 
@@ -43,20 +44,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'E-mail inválido.' }, { status: 400 });
     }
 
-    const whatsapp = normalizeLeadWhiteLabelWhatsApp(raw.whatsapp);
-    if (!whatsapp || whatsapp.length < 12) {
-      return NextResponse.json({ error: 'WhatsApp inválido.' }, { status: 400 });
+    const whatsappPersist = persistWhiteLabelWhatsAppFromPayload(body);
+    if (!whatsappPersist.ok) {
+      return NextResponse.json({ error: whatsappPersist.error }, { status: 400 });
     }
+    const { whatsapp, whatsappDdi, whatsappPais } = whatsappPersist.fields;
 
     const instagram = normalizeLeadWhiteLabelInstagram(raw.instagram);
     const scoreFields = buildLeadScoreFields(raw);
+    const profissaoFromChoice = mapProfissaoChoiceToValue(asTrimmedString(body.profissao));
+    const profissao = parseWhiteLabelProfissao(profissaoFromChoice || body.profissao, 'medico');
+    const origemCampanha = asTrimmedString(body.origemCampanha);
 
     const db = getFirestoreAdmin();
     const docRef = await db.collection('leadsWhiteLabel').add({
       nome: raw.nome,
       whatsapp,
+      ...(whatsappDdi ? { whatsappDdi, ...(whatsappPais ? { whatsappPais } : {}) } : {}),
       email,
       instagram,
+      profissao,
+      ...(origemCampanha ? { origemCampanha } : {}),
       situacaoProfissional: raw.situacaoProfissional,
       objetivo3Anos: raw.objetivo3Anos,
       interesseReduzirPlantao: raw.interesseReduzirPlantao,

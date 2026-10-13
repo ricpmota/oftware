@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HelpCircle, Loader2, RefreshCw } from 'lucide-react';
+import { HelpCircle, Kanban, Loader2, RefreshCw } from 'lucide-react';
 import LeadsMedicoCrmFilters, { type MedicoCrmFiltersState } from '@/components/crm/medico/LeadsMedicoCrmFilters';
 import LeadsMedicoCrmKpis from '@/components/crm/medico/LeadsMedicoCrmKpis';
 import LeadsMedicoReferralKpis from '@/components/crm/medico/LeadsMedicoReferralKpis';
@@ -16,7 +16,7 @@ import CrmHomeKpisCollapsible from '@/components/crm/medico/CrmHomeKpisCollapsib
 import { buildResolvedPipelineStages } from '@/lib/crm/resolveCrmPipelineStages';
 import { computeLeadReferralKpis, matchesReferralFilter } from '@/lib/crm/resolveLeadReferral';
 import { getLeadStageKey, isDefaultStageKey } from '@/lib/crm/leadStageKey';
-import { getLeadPhone } from '@/lib/crm/leadContactHelpers';
+import { getLeadPhone, getLeadPhoneDigits } from '@/lib/crm/leadContactHelpers';
 import {
   buildLembretesByLeadId,
   buildPaciente360SummariesForLeads,
@@ -26,6 +26,7 @@ import {
 import { buildPaciente360LembreteDraft } from '@/lib/paciente360/paciente360LembreteDraft';
 import type { LembretesMutation } from '@/lib/metaadmin/lembretesMutation';
 import { loadLeadsMedicoData } from '@/lib/metaadmin/loadLeadsMedicoData';
+import { useLeadPatientPhotos } from '@/lib/crm/useLeadPatientPhotos';
 import { metaadminSessionCache } from '@/lib/metaadmin/metaadminSessionCache';
 import { whiteLabelCrmVariantFromMetaadminHome } from '@/lib/crm/whiteLabelCrmTheme';
 import { LeadMedicoService } from '@/services/leadMedicoService';
@@ -55,6 +56,7 @@ type InnerProps = {
   onOpenFinanceiro?: (pacienteId: string) => void;
   onMutateLembretes?: (mutation: LembretesMutation) => void;
   themeHome?: 'light' | 'dark';
+  organizationPublicName?: string | null;
 };
 
 function LeadsMedicoCrmViewInner({
@@ -72,6 +74,7 @@ function LeadsMedicoCrmViewInner({
   onOpenFinanceiro,
   onMutateLembretes,
   themeHome = 'dark',
+  organizationPublicName,
 }: InnerProps) {
   const t = useMedicoLeadsCrmTheme();
   const isHome = variant === 'home';
@@ -167,6 +170,12 @@ function LeadsMedicoCrmViewInner({
 
   const pacienteIndex = useMemo(() => buildPacienteLookupIndex(pacientesCrm), [pacientesCrm]);
 
+  const patientUserIds = useMemo(
+    () => pacientesCrm.map((p) => p.userId).filter((id): id is string => typeof id === 'string' && id.length > 0),
+    [pacientesCrm]
+  );
+  const patientPhotos = useLeadPatientPhotos(patientUserIds);
+
   const leadsFiltrados = useMemo(() => {
     const q = filters.busca.trim().toLowerCase();
     const minEstrelas = filters.minEstrelas ? Number(filters.minEstrelas) : 0;
@@ -178,10 +187,13 @@ function LeadsMedicoCrmViewInner({
       if (!q) return true;
       const paciente = resolvePacienteForLead(lead, pacienteIndex);
       const phoneDigits = (getLeadPhone(lead, paciente) || '').replace(/\D/g, '');
+      const canonical = getLeadPhoneDigits(lead, paciente) || '';
+      const qDigits = q.replace(/\D/g, '');
       return (
         lead.name.toLowerCase().includes(q) ||
         lead.email.toLowerCase().includes(q) ||
-        phoneDigits.includes(q.replace(/\D/g, ''))
+        phoneDigits.includes(qDigits) ||
+        canonical.includes(qDigits)
       );
     });
   }, [leads, filters, pacienteIndex]);
@@ -399,20 +411,21 @@ function LeadsMedicoCrmViewInner({
 
   return (
     <div className="space-y-4">
-      {isHome ? (
-        <div className="flex items-center justify-between mb-2 lg:mb-4 gap-3">
-          <h3 className={`text-base lg:text-lg font-semibold ${t.textPrimary}`}>Pipeline de Qualificação</h3>
-          {headerActions}
-        </div>
-      ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 className={`text-lg font-bold ${t.textPrimary}`}>CRM de Leads</h2>
-            <p className={`text-xs ${t.textMuted}`}>Pacientes que solicitaram contato com você</p>
+      <div className="mb-2 flex items-center justify-between gap-3 lg:mb-4">
+        {isHome ? (
+          <h3 className={`text-base font-semibold lg:hidden ${t.textPrimary}`}>Pipeline de Qualificação</h3>
+        ) : null}
+        <div className="hidden min-w-0 items-center gap-3 lg:flex">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <Kanban className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h3 className={`text-xl font-semibold tracking-tight ${t.textPrimary}`}>Leads</h3>
+            <p className={`text-sm ${t.textMuted}`}>Pipeline de qualificação</p>
           </div>
-          {headerActions}
         </div>
-      )}
+        <div className="ml-auto">{headerActions}</div>
+      </div>
 
       {message && (
         <div
@@ -424,7 +437,7 @@ function LeadsMedicoCrmViewInner({
         </div>
       )}
 
-      <CrmHomeKpisCollapsible collapsibleOnMobile={isHome}>
+      <CrmHomeKpisCollapsible collapsibleOnMobile>
         <LeadsMedicoCrmKpis pipelineKpis={pipelineKpis} />
         <LeadsMedicoReferralKpis kpis={referralKpis} />
         <LeadsMedicoCrmFilters filters={filters} onChange={setFilters} estados={estados} />
@@ -457,6 +470,8 @@ function LeadsMedicoCrmViewInner({
           userEmail={userEmail}
           pacientes={pacientes}
           onReferralSaved={handleReferralSaved}
+          organizationPublicName={organizationPublicName}
+          patientPhotos={patientPhotos}
           onCreateReminder={(lead, summary) => {
             setSelectedLead(lead);
             openLembretesPanel(summary);
@@ -507,6 +522,7 @@ function LeadsMedicoCrmViewInner({
           stageConfigs={stageConfigs}
           onStageChange={handleStageChange}
           onOpenFinanceiro={onOpenFinanceiro}
+          organizationPublicName={organizationPublicName}
         />
       )}
 

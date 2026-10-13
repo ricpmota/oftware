@@ -1,6 +1,7 @@
 'use client';
 
 import LeadsMedicoCrmView from '@/components/crm/medico/LeadsMedicoCrmView';
+import MetaadminLeadsAgendaHub from '@/components/metaadmin/agenda/MetaadminLeadsAgendaHub';
 import type { LeadMedico } from '@/types/leadMedico';
 import type { Lembrete } from '@/types/lembrete';
 import type { LembretesMutation } from '@/lib/metaadmin/lembretesMutation';
@@ -21,6 +22,8 @@ type Props = {
   onOpenPaciente?: (pacienteId: string) => void;
   onOpenFinanceiro?: (pacienteId: string) => void;
   onMutateLembretes?: (mutation: LembretesMutation) => void;
+  organizationPublicName?: string | null;
+  variant?: 'home' | 'standalone';
 };
 
 export default function MetaadminHomeLeadsPipeline({
@@ -37,10 +40,12 @@ export default function MetaadminHomeLeadsPipeline({
   onOpenPaciente,
   onOpenFinanceiro,
   onMutateLembretes,
+  organizationPublicName,
+  variant = 'home',
 }: Props) {
   if (!medicoId) return null;
 
-  return (
+  const pipeline = (
     <LeadsMedicoCrmView
       themeHome={themeHome}
       medicoId={medicoId}
@@ -48,7 +53,7 @@ export default function MetaadminHomeLeadsPipeline({
       onOpenMessages={onOpenMessages}
       onOpenManual={onOpenManual}
       refreshSignal={refreshSignal}
-      variant="home"
+      variant={variant}
       pacientes={pacientes}
       pagamentosPacientes={pagamentosPacientes}
       lembretes={lembretes}
@@ -56,6 +61,11 @@ export default function MetaadminHomeLeadsPipeline({
       onOpenPaciente={onOpenPaciente}
       onOpenFinanceiro={onOpenFinanceiro}
       onMutateLembretes={onMutateLembretes}
+      organizationPublicName={organizationPublicName}
     />
   );
+
+  if (variant !== 'standalone') return pipeline;
+
+  return <MetaadminLeadsAgendaHub leadsContent={pipeline} />;
 }

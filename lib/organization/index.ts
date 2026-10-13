@@ -46,6 +46,40 @@ export {
 
 export { getDefaultOrganizationId, shadowOrganizationFields } from './shadowOrganizationId';
 
+export {
+  readBrowserOrganizationHint,
+  resolveOrganizationHintFromHost,
+  resolvePatientOrganizationContext,
+} from './patientOrganizationContext';
+export type {
+  DoctorOrganizationFields,
+  PatientOrganizationContextValue,
+  PatientOrganizationFields,
+  PatientOrganizationHint,
+  PatientOrganizationSource,
+  PatientOrganizationStatus,
+  ResolvePatientOrganizationContextInput,
+} from './patientOrganizationContext';
+
+export {
+  fallbackPatientOrganizationBranding,
+  mapSourceLayerToPatientBrandingSource,
+  patientOrganizationBrandingLogPayload,
+  resolvePatientOrganizationBrandingState,
+  shouldFetchPatientOrganizationBranding,
+  toPatientOrganizationBrandingPublic,
+} from './patientOrganizationBranding';
+export type {
+  PatientOrganizationBrandingApiOk,
+  PatientOrganizationBrandingPublic,
+  PatientOrganizationBrandingSource,
+  PatientOrganizationBrandingStatus,
+  PatientOrganizationBrandingValue,
+} from './patientOrganizationBranding';
+
+export { metaUiBrandingCssVars, resolveMetaUiBranding } from './resolveMetaUiBranding';
+export type { MetaUiBranding, MetaUiBrandingDivergence } from './resolveMetaUiBranding';
+
 export type {
   OrganizationBrandingApiResponse,
   OrganizationBrandingInstagramBioDefaults,

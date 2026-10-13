@@ -1,6 +1,9 @@
 export interface CrmPipelineStage {
   id: string;
-  medicoId: string;
+  /** Médico (MetaAdmin). */
+  medicoId?: string;
+  /** Nutricionista ou personal (MetaNutri / MetaPersonal). */
+  profissionalId?: string;
   stageKey: string;
   label: string;
   color: string;

@@ -13,11 +13,13 @@ import {
   Loader2,
   MessageCircle,
   Pill,
+  Play,
+  PlayCircle,
   Target,
   User,
   UserCircle,
 } from 'lucide-react';
-import type { MarcoZero } from '@/types/obesidade';
+import type { MarcoZero, PacienteCompleto } from '@/types/obesidade';
 import type { MedicoWhiteLabelResolved } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import { resolveMedicoWhiteLabel } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import PublicPageTopLogo from '@/components/public/PublicPageTopLogo';
@@ -34,6 +36,9 @@ import {
   type MarcoZeroQuestion,
 } from '@/lib/aplicacao/marcoZeroQuestions';
 import AplicacaoFotosEvolucaoSection from '@/components/aplicacao/AplicacaoFotosEvolucaoSection';
+import AplicacaoCompartilharResultadoCard, {
+  AplicacaoPerguntaCompartilharResultadoModal,
+} from '@/components/aplicacao/AplicacaoCompartilharResultadoCard';
 
 const INTRO_STEP = 0;
 const QUESTION_COUNT = MARCO_ZERO_QUESTIONS.length;
@@ -53,6 +58,7 @@ type DadosAplicacao = {
   medicoGenero?: 'M' | 'F';
   medicoFotoPerfilUrl?: string | null;
   linkIndicacao?: string;
+  pacienteResultado?: PacienteCompleto | null;
 };
 
 type FormState = Record<string, string>;
@@ -108,6 +114,7 @@ export default function AplicacaoMarcoZeroPageClient() {
   const [dados, setDados] = useState<DadosAplicacao | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const [redirecionandoContrato, setRedirecionandoContrato] = useState(false);
   const [resultado, setResultado] = useState<{
     marcoZero: MarcoZero;
     dataInicio: string;
@@ -116,16 +123,24 @@ export default function AplicacaoMarcoZeroPageClient() {
   const [temFotosLocais, setTemFotosLocais] = useState(false);
   const [mostrarFotosPosSucesso, setMostrarFotosPosSucesso] = useState(false);
   const [linkIndicacao, setLinkIndicacao] = useState<string | null>(null);
+  const [pacienteResultado, setPacienteResultado] = useState<PacienteCompleto | null>(null);
   const [medicoNome, setMedicoNome] = useState<string | null>(null);
   const [medicoGenero, setMedicoGenero] = useState<'M' | 'F'>('M');
   const [linkCopiado, setLinkCopiado] = useState(false);
   const [showModalIndicarMedico, setShowModalIndicarMedico] = useState(false);
+  const [showModalPerguntaResultado, setShowModalPerguntaResultado] = useState(false);
+  const [showResultadoModal, setShowResultadoModal] = useState(false);
   const [showModalEvolucao, setShowModalEvolucao] = useState(false);
   const [pendingAcaoEvolucao, setPendingAcaoEvolucao] = useState<'copiar' | 'whatsapp' | null>(null);
   const [evolucaoFromIndicar, setEvolucaoFromIndicar] = useState(false);
   const [evolucaoEscolhida, setEvolucaoEscolhida] = useState<boolean | null>(null);
+  const [showModalVideo, setShowModalVideo] = useState(false);
+  const [modalVideoMostrarVideo, setModalVideoMostrarVideo] = useState(false);
+  const [videoSignedUrl, setVideoSignedUrl] = useState<string | null>(null);
+  const [videoUrlLoading, setVideoUrlLoading] = useState(false);
   const fotosSectionRef = useRef<HTMLDivElement | null>(null);
   const indicarModalAgendadoRef = useRef(false);
+  const videoAbrirBusyRef = useRef(false);
 
   const isIntro = step === INTRO_STEP;
   const questionIndex = step - 1;
@@ -169,8 +184,10 @@ export default function AplicacaoMarcoZeroPageClient() {
         if (data.medicoGenero === 'F' || data.medicoGenero === 'M') {
           setMedicoGenero(data.medicoGenero);
         }
+        if (data.pacienteResultado) setPacienteResultado(data.pacienteResultado);
         if (data.jaPreenchido && data.marcoZero) {
           if (data.linkIndicacao) setLinkIndicacao(data.linkIndicacao);
+          if (data.pacienteResultado) setPacienteResultado(data.pacienteResultado);
           setResultado({
             marcoZero: data.marcoZero,
             dataInicio: data.data,
@@ -189,6 +206,13 @@ export default function AplicacaoMarcoZeroPageClient() {
     const t = setTimeout(() => setShowModalIndicarMedico(true), 2500);
     return () => clearTimeout(t);
   }, [sucesso, linkIndicacao]);
+
+  useEffect(() => {
+    if (!loading && dados && !sucesso && !erro) {
+      setShowModalVideo(true);
+      setModalVideoMostrarVideo(false);
+    }
+  }, [loading, dados, sucesso, erro]);
 
   const executarAcaoLink = useCallback(
     (comEvolucao: boolean, acao: 'copiar' | 'whatsapp') => {
@@ -333,9 +357,17 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
       };
 
       if (json.linkIndicacao) setLinkIndicacao(json.linkIndicacao);
+      if (json.pacienteResultado) setPacienteResultado(json.pacienteResultado);
       if (json.medicoNome) setMedicoNome(json.medicoNome);
       if (json.medicoGenero === 'F' || json.medicoGenero === 'M') {
         setMedicoGenero(json.medicoGenero);
+      }
+
+      // Contrato pendente: força retorno ao /meta para assinar (modal obrigatório).
+      if (json.contratoAssinaturaPendente) {
+        setRedirecionandoContrato(true);
+        goToMetodoPacienteMeta({ fromAplicacao: true });
+        return;
       }
 
       setResultado({
@@ -366,12 +398,42 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
     }
   }, [step]);
 
+  const abrirVideoAplicacao = async () => {
+    if (videoAbrirBusyRef.current) return;
+    videoAbrirBusyRef.current = true;
+    setVideoUrlLoading(true);
+    try {
+      const res = await fetch('/api/aplicacao/video-signed-url');
+      const json = await res.json();
+      if (res.ok && json.signedUrl) {
+        setVideoSignedUrl(json.signedUrl);
+        setShowModalVideo(true);
+        setModalVideoMostrarVideo(true);
+      }
+    } finally {
+      videoAbrirBusyRef.current = false;
+      setVideoUrlLoading(false);
+    }
+  };
+
   const stepLabel = useMemo(() => `${step + 1} de ${TOTAL_STEPS}`, [step]);
 
   if (loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-slate-50 p-4">
         <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (redirecionandoContrato) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-slate-50 p-6 text-center gap-3">
+        <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+        <p className="text-slate-800 font-semibold">Você tem um contrato pendente</p>
+        <p className="text-sm text-slate-600 max-w-sm">
+          Redirecionando para sua página para concluir a assinatura…
+        </p>
       </div>
     );
   }
@@ -468,7 +530,8 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             <div ref={fotosSectionRef} className="mb-4">
               <AplicacaoFotosEvolucaoSection
                 token={token}
-                defaultAberto={mostrarFotosPosSucesso || !possuiFotos}
+                context="marco-zero"
+                sexoBiologico={pacienteResultado?.dadosIdentificacao?.sexoBiologico ?? null}
               />
             </div>
           )}
@@ -514,6 +577,12 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
               </div>
             </div>
           )}
+
+          <AplicacaoCompartilharResultadoCard
+            paciente={pacienteResultado}
+            open={showResultadoModal}
+            onOpenChange={setShowResultadoModal}
+          />
         </div>
 
         {showModalIndicarMedico && (
@@ -543,7 +612,11 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                   type="button"
                   onClick={() => {
                     setShowModalIndicarMedico(false);
-                    goToMetodoPacienteMeta();
+                    if (pacienteResultado?.id) {
+                      setShowModalPerguntaResultado(true);
+                    } else {
+                      goToMetodoPacienteMeta();
+                    }
                   }}
                   className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-medium"
                 >
@@ -553,6 +626,18 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             </div>
           </div>
         )}
+
+        <AplicacaoPerguntaCompartilharResultadoModal
+          open={showModalPerguntaResultado}
+          onMeuResultado={() => {
+            setShowModalPerguntaResultado(false);
+            setShowResultadoModal(true);
+          }}
+          onNao={() => {
+            setShowModalPerguntaResultado(false);
+            goToMetodoPacienteMeta();
+          }}
+        />
 
         {showModalEvolucao && (pendingAcaoEvolucao || evolucaoFromIndicar) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -713,33 +798,11 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                 </div>
               </>
             ) : currentQuestion?.type === 'marco_fotos' ? (
-              <div className="space-y-4">
-                <h2 className="text-lg sm:text-xl font-semibold text-slate-900">
-                  Registro fotográfico
-                </h2>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Essas fotos são privadas e servem apenas para acompanhar sua evolução. Muitos
-                  pacientes só percebem a magnitude da transformação quando comparam as fotos do
-                  início com as de algumas semanas depois.
-                </p>
-                <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3 space-y-2 text-sm text-amber-950">
-                  <p>📸 Tire sua foto frontal</p>
-                  <p>📸 Tire sua foto de perfil</p>
-                  <p className="text-xs text-amber-800 pt-1">
-                    Daqui a algumas semanas você ficará feliz por ter registrado este momento.
-                  </p>
-                </div>
-                {!temFotosLocais && (
-                  <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                    Recomendamos fortemente que você registre suas fotos iniciais. Elas serão uma
-                    das formas mais poderosas de visualizar sua evolução.
-                  </div>
-                )}
-                <AplicacaoFotosEvolucaoSection
-                  token={token}
-                  defaultAberto
-                />
-              </div>
+              <AplicacaoFotosEvolucaoSection
+                token={token}
+                context="marco-zero"
+                sexoBiologico={pacienteResultado?.dadosIdentificacao?.sexoBiologico ?? null}
+              />
             ) : currentQuestion ? (
               <>
                 <label className="block text-lg sm:text-xl font-semibold text-slate-900 mb-4 leading-snug">
@@ -838,6 +901,60 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={abrirVideoAplicacao}
+        disabled={videoUrlLoading}
+        className="fixed bottom-5 right-4 z-40 flex flex-col items-center gap-1.5"
+        aria-label="Assistir vídeo de como fazer a aplicação"
+      >
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff0000] text-white shadow-lg">
+          {videoUrlLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Play className="h-7 w-7 fill-white translate-x-0.5" />}
+        </span>
+        <span className="rounded-md bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-slate-900 shadow-sm">Aplicação</span>
+      </button>
+
+      {showModalVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+            {!modalVideoMostrarVideo ? (
+              <>
+                <h3 className="text-lg font-semibold text-slate-900 mb-3 text-center">
+                  Deseja assistir o vídeo auxiliando em como fazer a aplicação?
+                </h3>
+                <div className="flex gap-3 justify-center mt-5">
+                  <button
+                    type="button"
+                    onClick={abrirVideoAplicacao}
+                    disabled={videoUrlLoading}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium"
+                  >
+                    {videoUrlLoading ? <Loader2 className="animate-spin" /> : <PlayCircle size={20} />} Sim
+                  </button>
+                  <button type="button" onClick={() => setShowModalVideo(false)} className="px-6 py-3 bg-slate-100 rounded-lg font-medium">
+                    Não
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-semibold text-slate-900">Como fazer a aplicação</h3>
+                  <button type="button" onClick={() => { setShowModalVideo(false); setModalVideoMostrarVideo(false); }} className="text-slate-400 p-1">✕</button>
+                </div>
+                <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
+                  {videoSignedUrl ? (
+                    <video src={videoSignedUrl} controls className="w-full h-full" autoPlay />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin" /></div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <PublicPageBrandFooter
         theme={aplicacaoPage}

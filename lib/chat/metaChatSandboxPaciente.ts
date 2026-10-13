@@ -31,7 +31,7 @@ export function createMetaChatSandboxPacienteVazio(): PacienteCompleto {
 }
 
 /**
- * Dados coerentes até o passo 13 (antes das metas), sexo M para menos perguntas de risco.
+ * Dados coerentes até a triagem de humor (antes das metas), sexo M para menos perguntas de risco.
  * Útil para testar passo 14+ em loop.
  */
 export function createMetaChatSandboxPacienteAteMetas(): PacienteCompleto {
@@ -58,6 +58,7 @@ export function createMetaChatSandboxPacienteAteMetas(): PacienteCompleto {
       diagnosticoPrincipalTipos: ['obesidade'],
       diagnosticoPrincipal: { tipo: 'obesidade' },
       comorbidades: { nenhuma: true },
+      cirurgiasRealizadas: { nenhuma: true },
       riscos: {
         pancreatitePrevia: 'nao',
         gastroparesia: 'nao',
@@ -65,6 +66,10 @@ export function createMetaChatSandboxPacienteAteMetas(): PacienteCompleto {
       },
       historiaTireoidiana: 'eutireoidismo',
       sintomasGI: { nenhum: true },
+      triagemHumor: {
+        depressaoOuAnedonia30Dias: 'nao',
+        ideacaoSuicida12Meses: 'nao',
+      },
     },
   };
 }

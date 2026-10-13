@@ -12,8 +12,12 @@ export const textareaClassName =
 
 export const labelClassName = 'block text-sm font-medium text-slate-700 mb-1.5';
 
-export function FieldLabel({ children }: { children: ReactNode }) {
-  return <label className={labelClassName}>{children}</label>;
+export function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
+  return (
+    <label htmlFor={htmlFor} className={labelClassName}>
+      {children}
+    </label>
+  );
 }
 
 export function ChoiceButton({

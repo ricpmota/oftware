@@ -11,8 +11,10 @@ import type {
   WhiteLabelLeadCrmMetrics,
   WhiteLabelLeadScoreDetail,
 } from '@/types/leadWhiteLabelCrm';
+import type { WhiteLabelProfissao } from '@/lib/whiteLabel/profissao';
 
 export type LeadWhiteLabelTemperatura = 'frio' | 'morno' | 'quente';
+export type { WhiteLabelProfissao };
 
 export type LeadWhiteLabelMeetingStatus = 'scheduled' | 'error';
 
@@ -30,9 +32,15 @@ export type LeadWhiteLabelMeeting = {
 export type LeadWhiteLabel = {
   id: string;
   nome: string;
+  /** Nacional. Docs novos: sem DDI concatenado. Legado: pode vir prefixado com 55. */
   whatsapp: string;
+  /** DDI sem "+". Ausente = Brasil (legado, inclusive se `whatsapp` já começa com 55). */
+  whatsappDdi?: string;
+  whatsappPais?: string;
   email: string;
   instagram: string;
+  /** Médico | Nutricionista | Personal — separa o CRM. */
+  profissao: WhiteLabelProfissao;
   situacaoProfissional: string;
   objetivo3Anos: string;
   interesseReduzirPlantao: string;

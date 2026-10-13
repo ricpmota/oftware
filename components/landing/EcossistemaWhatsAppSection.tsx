@@ -9,7 +9,7 @@ const MERCADO = [
 ];
 
 const OFTWARE = [
-  'Paciente, médico, nutri e personal conectados',
+  'Paciente ou cliente, equipe e organização conectados',
   'Mesmo prontuário compartilhado',
   'Mesma evolução visível para toda a equipe',
 ];
@@ -25,9 +25,12 @@ export default function EcossistemaWhatsAppSection() {
           <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.22em] text-[#16A34A] mb-4 md:mb-5">
             O ecossistema conectado
           </p>
-          <h2 className="text-3xl sm:text-4xl md:text-[2.75rem] font-bold leading-[1.1] tracking-tight text-[#1D1D1D]">
-            Pare de coordenar tratamento pelo WhatsApp.
+          <h2 className="text-3xl sm:text-4xl md:text-[2.75rem] font-bold leading-[1.1] tracking-tight text-[#1D1D1D] mb-4">
+            Pare de coordenar acompanhamento pelo WhatsApp.
           </h2>
+          <p className="text-base md:text-lg text-[#5A5A5A] leading-relaxed">
+            Sua equipe acompanha. O paciente responde. A organização evolui.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-5 md:gap-6">

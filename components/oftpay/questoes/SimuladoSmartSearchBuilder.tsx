@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoMatchable } from '@/types/oftpayQuestaoCatalog';
 import {
   buildPublishedTopicIndex,
   countConfiguredSmartRows,
@@ -20,7 +20,7 @@ import { Check, Search, X } from 'lucide-react';
 const DIFFICULTIES: QuestaoDificuldade[] = ['facil', 'medio', 'dificil'];
 
 interface SimuladoSmartSearchBuilderProps {
-  publicadas: OftpayQuestaoDoc[];
+  publicadas: OftpayQuestaoMatchable[];
   rows: SmartSearchRow[];
   onRowsChange: (rows: SmartSearchRow[]) => void;
 }

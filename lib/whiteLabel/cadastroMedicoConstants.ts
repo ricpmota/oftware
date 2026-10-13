@@ -1,11 +1,20 @@
+import type { WhiteLabelProfissao } from '@/lib/whiteLabel/profissao';
+import { whiteLabelClienteNoun } from '@/lib/whiteLabel/profissao';
+
 export const CADASTRO_MEDICO_DRAFT_STORAGE_KEY = 'whitelabel_cadastro_medico_draft_id';
+
+export function cadastroDraftStorageKey(profissao: WhiteLabelProfissao): string {
+  if (profissao === 'nutricionista') return 'whitelabel_cadastro_nutricionista_draft_id';
+  if (profissao === 'personal') return 'whitelabel_cadastro_personal_draft_id';
+  return CADASTRO_MEDICO_DRAFT_STORAGE_KEY;
+}
 
 export const CADASTRO_MEDICO_COLLECTION = 'cadastroMedicoWhiteLabel';
 
 export const CADASTRO_MEDICO_TOTAL_STEPS = 7;
 
 export const CADASTRO_MEDICO_STEP_TITLES = [
-  'Como você deseja aparecer para seus pacientes?',
+  'Como você deseja aparecer publicamente?',
   'Escolha o endereço do seu site',
   'Para onde enviaremos seus materiais?',
   'Dados para emissão do contrato',
@@ -13,6 +22,14 @@ export const CADASTRO_MEDICO_STEP_TITLES = [
   'Fotos e identidade visual',
   'Confirmação dos dados',
 ] as const;
+
+export function cadastroStepTitles(profissao: WhiteLabelProfissao): string[] {
+  const { plural } = whiteLabelClienteNoun(profissao);
+  return [
+    `Como você deseja aparecer para seus ${plural}?`,
+    ...CADASTRO_MEDICO_STEP_TITLES.slice(1),
+  ];
+}
 
 export type DomainTldOption = {
   ext: string;

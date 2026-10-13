@@ -1,7 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { scheduleBodyScanGeneration } from '@/lib/bodyscan/tryGenerateBodyScan';
+import {
+  alinharSemanaFotosDaAplicacao,
+  resolverSemanaAplicacaoDoLink,
+} from '@/lib/aplicacao/semanaAplicacaoPublica';
+import {
+  isValidAplicacaoPublicToken,
+  normalizeAplicacaoPublicToken,
+} from '@/lib/aplicacao/aplicacaoPublicToken';
 
 type TipoFotoProgresso = 'frontal' | 'perfil';
 
@@ -85,8 +94,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizeAplicacaoPublicToken((await params).token);
+    if (!isValidAplicacaoPublicToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 
@@ -169,8 +178,8 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizeAplicacaoPublicToken((await params).token);
+    if (!isValidAplicacaoPublicToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 
@@ -216,6 +225,16 @@ export async function POST(
       Number.isFinite(semana) ? semana : null,
       dataAplicacao
     );
+    const semanaRegistro =
+      (await resolverSemanaAplicacaoDoLink(linkData)) ??
+      (Number.isFinite(semana) && semana > 0 ? semana : null);
+    if (semanaRegistro != null) {
+      await alinharSemanaFotosDaAplicacao(db, {
+        pacienteId,
+        applicationId,
+        semana: semanaRegistro,
+      });
+    }
 
     const existingSnap = await db
       .collection('pacientes_completos')
@@ -270,7 +289,7 @@ export async function POST(
     await photoRef.set({
       id: photoRef.id,
       applicationId,
-      semana: Number.isFinite(semana) ? semana : null,
+      semana: semanaRegistro,
       dataAplicacao,
       tipo,
       url,
@@ -290,12 +309,22 @@ export async function POST(
         {
           applicationId,
           compartilharComMedico,
-          semana: Number.isFinite(semana) ? semana : null,
+          semana: semanaRegistro,
           dataAplicacao,
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
+
+    if (semanaRegistro != null && semanaRegistro > 0) {
+      after(() => {
+        scheduleBodyScanGeneration({
+          patientId: pacienteId,
+          week: semanaRegistro,
+          date: dataAplicacao || undefined,
+        });
+      });
+    }
 
     return NextResponse.json({
       foto: {
@@ -303,7 +332,7 @@ export async function POST(
         tipo,
         url,
         data: dataAplicacao,
-        semana: Number.isFinite(semana) ? semana : undefined,
+        semana: semanaRegistro ?? undefined,
         applicationId,
         compartilharComMedico,
         storagePath,
@@ -324,8 +353,8 @@ export async function DELETE(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizeAplicacaoPublicToken((await params).token);
+    if (!isValidAplicacaoPublicToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 

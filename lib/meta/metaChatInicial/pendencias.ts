@@ -8,7 +8,12 @@ import {
   STEP_PERFIL_METABOLICO_SONO,
 } from '@/lib/meta/perfilMetabolicoV3Chat';
 import {
+  META_CHAT_STEP_CIRURGIAS,
+  META_CHAT_STEP_DEPRESSAO,
+  META_CHAT_STEP_IDEACAO_SUICIDA,
   META_CHAT_STEP_INTRO,
+  META_CHAT_STEP_LOCALIZACAO,
+  META_CHAT_STEP_MEDICAMENTOS_DIABETES,
   META_CHAT_STEP_MEDICO_LISTA,
   META_CHAT_STEP_MEDICO_UF,
   META_CHAT_STEP_METAS,
@@ -19,6 +24,7 @@ import { getFirstIncompleteStep } from './resume';
 const V2_STEP_LABELS: Record<number, string> = {
   [META_CHAT_STEP_INTRO]: 'Introdução do cadastro',
   1: 'Telefone de contato',
+  [META_CHAT_STEP_LOCALIZACAO]: 'Onde você mora',
   2: 'Data de nascimento',
   3: 'Gênero / identificação',
   4: 'CPF',
@@ -27,10 +33,14 @@ const V2_STEP_LABELS: Record<number, string> = {
   7: 'Circunferência abdominal',
   8: 'Motivação para o tratamento',
   9: 'Diagnóstico principal',
+  [META_CHAT_STEP_MEDICAMENTOS_DIABETES]: 'Medicamentos para o diabetes',
   10: 'Comorbidades',
+  [META_CHAT_STEP_CIRURGIAS]: 'Cirurgias realizadas',
   11: 'Perguntas de saúde (riscos)',
   12: 'História tireoidiana',
   13: 'Sintomas digestivos',
+  [META_CHAT_STEP_DEPRESSAO]: 'Depressão ou perda de interesse',
+  [META_CHAT_STEP_IDEACAO_SUICIDA]: 'Pensamentos de tirar a própria vida',
   [META_CHAT_STEP_METAS]: 'Metas de tratamento',
   [META_CHAT_STEP_MEDICO_UF]: 'Estado para busca de médico',
   [META_CHAT_STEP_MEDICO_LISTA]: 'Seleção do médico',
@@ -56,6 +66,16 @@ function labelV2Step(step: number): string {
  */
 export function getMetaChatInicialProximaPendencia(p: PacienteCompleto): string | null {
   const firstV2 = getFirstIncompleteStep(p);
+
+  if (
+    firstV2 === META_CHAT_STEP_LOCALIZACAO ||
+    firstV2 === META_CHAT_STEP_CIRURGIAS ||
+    firstV2 === META_CHAT_STEP_MEDICAMENTOS_DIABETES ||
+    firstV2 === META_CHAT_STEP_DEPRESSAO ||
+    firstV2 === META_CHAT_STEP_IDEACAO_SUICIDA
+  ) {
+    return labelV2Step(firstV2);
+  }
 
   if (firstV2 <= META_CHAT_STEP_METAS) {
     return labelV2Step(firstV2);

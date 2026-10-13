@@ -11,7 +11,14 @@ import {
   Trash2,
   UserCheck,
 } from 'lucide-react';
-import { formatDomainPreview } from '@/lib/whiteLabel/cadastroMedicoConstants';
+import CadastroWhiteLabelDetailPanel, {
+  cadastroWhiteLabelDisplayName,
+} from '@/components/crm/whiteLabel/CadastroWhiteLabelDetailPanel';
+import {
+  WHITELABEL_PROFISSAO_OPTIONS,
+  whiteLabelProfissaoLabel,
+  type WhiteLabelProfissao,
+} from '@/lib/whiteLabel/profissao';
 import type { CadastroMedicoWhiteLabel } from '@/types/cadastroMedicoWhiteLabel';
 
 type ApiCadastro = CadastroMedicoWhiteLabel & {
@@ -43,88 +50,6 @@ function formatDate(value: string | Date | null | undefined) {
   return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-function displayName(c: ApiCadastro) {
-  const nome = [c.tratamento, c.nome, c.sobrenome].filter(Boolean).join(' ').trim();
-  return nome || c.nomeMarca || c.nomeCompletoContrato || 'Sem nome';
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  if (!value?.trim()) return null;
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-1 py-1.5 border-b border-white/5 last:border-0">
-      <span className="text-xs text-[#E8EDED]/50">{label}</span>
-      <span className="text-sm text-[#E8EDED]/90 break-words">{value}</span>
-    </div>
-  );
-}
-
-function CadastroDetail({ cadastro }: { cadastro: ApiCadastro }) {
-  const dominio =
-    cadastro.dominioDesejado && cadastro.extensaoDominio
-      ? formatDomainPreview(cadastro.dominioDesejado, cadastro.extensaoDominio)
-      : '';
-
-  return (
-    <div className="mt-3 space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[#4CCB7A] mb-2">
-          Identidade pública
-        </h4>
-        <DetailRow label="Nome" value={displayName(cadastro)} />
-        <DetailRow label="Marca" value={cadastro.nomeMarca} />
-        <DetailRow label="Especialidade" value={cadastro.especialidade} />
-        <DetailRow label="Cidade/UF" value={[cadastro.cidade, cadastro.estado].filter(Boolean).join(' / ')} />
-      </div>
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[#4CCB7A] mb-2">Domínio</h4>
-        <DetailRow label="Site" value={dominio} />
-        <DetailRow label="Status" value={cadastro.statusDominio} />
-      </div>
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[#4CCB7A] mb-2">
-          Endereço de entrega
-        </h4>
-        <DetailRow label="CEP" value={cadastro.cepEntrega} />
-        <DetailRow
-          label="Endereço"
-          value={[cadastro.ruaEntrega, cadastro.numeroEntrega, cadastro.complementoEntrega].filter(Boolean).join(', ')}
-        />
-        <DetailRow label="Bairro" value={cadastro.bairroEntrega} />
-        <DetailRow
-          label="Cidade/UF"
-          value={[cadastro.cidadeEntrega, cadastro.estadoEntrega].filter(Boolean).join(' / ')}
-        />
-        <DetailRow label="Recebedor" value={cadastro.nomeRecebedor} />
-        <DetailRow label="Telefone" value={cadastro.telefoneEntrega} />
-      </div>
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[#4CCB7A] mb-2">
-          Dados contratuais
-        </h4>
-        <DetailRow label="Nome completo" value={cadastro.nomeCompletoContrato} />
-        <DetailRow label="CPF" value={cadastro.cpf} />
-        <DetailRow label="CRM" value={`${cadastro.crm} / ${cadastro.crmUf}`} />
-        <DetailRow label="E-mail" value={cadastro.emailContrato} />
-        <DetailRow label="WhatsApp" value={cadastro.whatsappContrato} />
-      </div>
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[#4CCB7A] mb-2">
-          Personalização
-        </h4>
-        <DetailRow label="Instagram" value={cadastro.instagram} />
-        <DetailRow label="Frase da marca" value={cadastro.fraseMarca} />
-        <DetailRow label="Descrição" value={cadastro.descricaoProfissional} />
-      </div>
-      <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[#4CCB7A] mb-2">Arquivos</h4>
-        <DetailRow label="Enviar depois" value={cadastro.enviarDepois === 'true' ? 'Sim' : 'Não'} />
-        <DetailRow label="Foto profissional" value={cadastro.fotoProfissionalUrl ? 'Anexado' : '—'} />
-        <DetailRow label="Logo" value={cadastro.logoUrl ? 'Anexado' : '—'} />
-      </div>
-    </div>
-  );
-}
-
 export default function CadastroMedicoMentoradosAdmin() {
   const [cadastros, setCadastros] = useState<ApiCadastro[]>([]);
   const [kpis, setKpis] = useState<Kpis>({ total: 0, rascunhos: 0, concluidos: 0 });
@@ -133,6 +58,7 @@ export default function CadastroMedicoMentoradosAdmin() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<'todos' | 'rascunho' | 'concluido'>('todos');
+  const [filtroProfissao, setFiltroProfissao] = useState<WhiteLabelProfissao | ''>('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,20 +88,22 @@ export default function CadastroMedicoMentoradosAdmin() {
     const q = busca.trim().toLowerCase();
     return cadastros.filter((c) => {
       if (filtroStatus !== 'todos' && c.status !== filtroStatus) return false;
+      if (filtroProfissao && (c.profissao || 'medico') !== filtroProfissao) return false;
       if (!q) return true;
       const hay = [
-        displayName(c),
+        cadastroWhiteLabelDisplayName(c),
         c.nomeMarca,
         c.emailContrato,
         c.whatsappContrato,
         c.cidade,
         c.estado,
+        whiteLabelProfissaoLabel(c.profissao || 'medico'),
       ]
         .join(' ')
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [busca, cadastros, filtroStatus]);
+  }, [busca, cadastros, filtroStatus, filtroProfissao]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Excluir este cadastro de onboarding?')) return;
@@ -219,6 +147,18 @@ export default function CadastroMedicoMentoradosAdmin() {
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40 focus:outline-none focus:ring-2 focus:ring-[#4CCB7A]/40"
           />
         </div>
+        <select
+          value={filtroProfissao}
+          onChange={(e) => setFiltroProfissao(e.target.value as WhiteLabelProfissao | '')}
+          className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-[#E8EDED] focus:outline-none focus:ring-2 focus:ring-[#4CCB7A]/40"
+        >
+          <option value="">Todas as profissões</option>
+          {WHITELABEL_PROFISSAO_OPTIONS.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
         <select
           value={filtroStatus}
           onChange={(e) => setFiltroStatus(e.target.value as typeof filtroStatus)}
@@ -269,9 +209,12 @@ export default function CadastroMedicoMentoradosAdmin() {
                 >
                   <UserCheck className="w-5 h-5 text-[#4CCB7A] shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-[#E8EDED] truncate">{displayName(cadastro)}</p>
+                    <p className="font-medium text-[#E8EDED] truncate">
+                      {cadastroWhiteLabelDisplayName(cadastro)}
+                    </p>
                     <p className="text-xs text-[#E8EDED]/50 truncate">
-                      {cadastro.nomeMarca} · {cadastro.emailContrato || cadastro.whatsappContrato || '—'}
+                      {whiteLabelProfissaoLabel(cadastro.profissao || 'medico')} · {cadastro.nomeMarca} ·{' '}
+                      {cadastro.emailContrato || cadastro.whatsappContrato || '—'}
                     </p>
                   </div>
                   <span
@@ -294,7 +237,7 @@ export default function CadastroMedicoMentoradosAdmin() {
                 </button>
                 {expanded && (
                   <div className="px-4 pb-4">
-                    <CadastroDetail cadastro={cadastro} />
+                    <CadastroWhiteLabelDetailPanel cadastro={cadastro} className="mt-3" />
                     <div className="mt-3 flex justify-end">
                       <button
                         type="button"

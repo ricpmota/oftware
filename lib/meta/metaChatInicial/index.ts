@@ -3,6 +3,7 @@ export {
   META_CHAT_INTRO_SANDBOX_SESSION_KEY,
   META_CHAT_STEP_INTRO,
   META_CHAT_STEP_TELEFONE,
+  META_CHAT_STEP_LOCALIZACAO,
   META_CHAT_STEP_DATA_NASCIMENTO,
   META_CHAT_STEP_SEXO,
   META_CHAT_STEP_CPF,
@@ -11,10 +12,14 @@ export {
   META_CHAT_STEP_CIRCUNFERENCIA,
   META_CHAT_STEP_MOTIVACAO,
   META_CHAT_STEP_DIAGNOSTICO,
+  META_CHAT_STEP_MEDICAMENTOS_DIABETES,
   META_CHAT_STEP_COMORBIDADES,
+  META_CHAT_STEP_CIRURGIAS,
   META_CHAT_STEP_RISCOS,
   META_CHAT_STEP_TIREOIDE,
   META_CHAT_STEP_SINTOMAS_GI,
+  META_CHAT_STEP_DEPRESSAO,
+  META_CHAT_STEP_IDEACAO_SUICIDA,
   META_CHAT_STEP_METAS,
   META_CHAT_STEP_MEDICO_UF,
   META_CHAT_STEP_MEDICO_LISTA,
@@ -25,6 +30,10 @@ export {
   TEXTO_INTRO_TITULO,
   TEXTO_INTRO_HINT,
   TEXTO_AGUARDANDO_ACEITE_MEDICO,
+  TEXTO_LOCALIZACAO_PACIENTE,
+  TEXTO_CIRURGIAS,
+  TEXTO_DEPRESSAO,
+  TEXTO_IDEACAO_SUICIDA,
   TEXTO_PESQUISA_MEDICO,
   TEXTO_FECHAMENTO_PERFIL,
   TEXTO_POS_METAS_SEM_BUSCA_MEDICO,
@@ -37,6 +46,7 @@ export {
   RISK_QUESTIONS,
   MOTIVACAO_OPTIONS,
   COMORBIDADES_OPTIONS,
+  CIRURGIAS_OPTIONS,
   TIREOIDE_OPTIONS,
   SINTOMAS_GI_OPTIONS,
   SEXO_OPTIONS,
@@ -77,11 +87,20 @@ export {
 export { getMetaChatInicialPendencias, getMetaChatInicialProximaPendencia } from './pendencias';
 
 export {
+  getMetaChatAnamneseProgress,
+  getMetaChatWizardProgressIndex,
+  normalizeMetaChatWizardStep,
+} from './wizardProgress';
+export type { MetaChatAnamneseProgress } from './wizardProgress';
+
+export {
   validateMetaChatStep,
   resolveInitialChatStep,
   resolveEffectiveStep,
   getNextStepAfter,
   getPreviousStep,
+  getNextMetaPacienteWizardStep,
+  getPreviousMetaPacienteWizardStep,
 } from './validation';
 
 export type { MetaChatMedicoUiState, ValidateMetaChatStepOptions } from './validation';

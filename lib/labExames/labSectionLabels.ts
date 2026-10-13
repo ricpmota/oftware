@@ -19,3 +19,10 @@ export const LAB_SECTION_LABELS_PT: Record<string, string> = {
   marcadoresTumorais: 'Marcadores Tumorais Complementares',
   estresseOxidativo: 'Estresse Oxidativo / Defesa Antioxidante',
 };
+
+export function resolveLabSectionLabel(
+  sectionId: string,
+  extraLabels?: Record<string, string> | null
+): string {
+  return extraLabels?.[sectionId] || LAB_SECTION_LABELS_PT[sectionId] || sectionId;
+}

@@ -71,7 +71,7 @@ type Props = {
   onRemoverExame: (id: string) => void;
   confirmarNomePacienteDoAnexo: (nomeAnexo: string, nomeProntuario: string) => Promise<boolean>;
   /** Lista compacta no mobile; pré-visualização em modal separado. */
-  layout?: 'default' | 'mobileStack';
+  layout?: 'default' | 'mobileStack' | 'datesSplit';
   /** Portal paciente: sem adicionar/remover; só lista e visualização. */
   somenteLeitura?: boolean;
 };
@@ -87,6 +87,7 @@ export function ExamesImagemPacientePanel({
   somenteLeitura = false,
 }: Props) {
   const mobileStack = layout === 'mobileStack';
+  const datesSplit = layout === 'datesSplit';
   const exames = examesDeImagem ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Mobile: PDF só neste modal, não na lista. */
@@ -405,18 +406,39 @@ export function ExamesImagemPacientePanel({
     }
   }, [exames, selectedId, visualizarPdfModalAberto]);
 
+  const examesOrdenados = useMemo(() => {
+    return [...exames].sort((a, b) => {
+      const da = a.dataExame || a.criadoEm || '';
+      const db = b.dataExame || b.criadoEm || '';
+      return db.localeCompare(da);
+    });
+  }, [exames]);
+
+  const formatDateLabel = (dateKey: string | null | undefined): string => {
+    if (!dateKey || !/^\d{4}-\d{2}-\d{2}/.test(dateKey)) return 'Sem data';
+    const key = dateKey.slice(0, 10);
+    const [y, m, d] = key.split('-').map(Number);
+    if (!y || !m || !d) return key;
+    return new Date(y, m - 1, d)
+      .toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })
+      .replace(/\./g, '')
+      .replace(/\s+/g, ' ');
+  };
+
   return (
     <div
       className={
         mobileStack
-          ? 'flex min-h-0 flex-1 flex-col gap-3'
-          : 'flex min-h-[min(70vh,560px)] flex-col gap-4'
+          ? 'flex flex-col gap-3'
+          : datesSplit
+            ? 'flex min-h-0 h-full flex-1 flex-col gap-0'
+            : 'flex min-h-[min(70vh,560px)] flex-col gap-4'
       }
     >
+      {!somenteLeitura && (
       <div
-        className={`flex flex-wrap items-center justify-end gap-2 ${mobileStack ? 'shrink-0' : ''}`}
+        className={`flex flex-wrap items-center justify-end gap-2 ${mobileStack || datesSplit ? 'shrink-0' : ''}`}
       >
-        {!somenteLeitura && (
         <button
           type="button"
           onClick={() => {
@@ -431,26 +453,41 @@ export function ExamesImagemPacientePanel({
           <Plus className="h-4 w-4 shrink-0" />
           Adicionar novo exame
         </button>
-        )}
       </div>
+      )}
 
       <div
         className={
           mobileStack
-            ? 'flex min-h-0 flex-1 flex-col gap-3 overflow-hidden'
-            : 'grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6'
+            ? 'flex flex-col gap-3'
+            : datesSplit
+              ? 'grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(9rem,0.5fr)_minmax(0,1.5fr)] lg:gap-5 lg:items-stretch'
+              : 'grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6'
         }
       >
         <div
           className={
             mobileStack
-              ? 'flex min-h-0 flex-1 flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-600 dark:bg-gray-900/40'
-              : 'flex min-h-[280px] flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-600 dark:bg-gray-900/40'
+              ? 'flex flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-600 dark:bg-gray-900/40'
+              : datesSplit
+                ? 'min-w-0 rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm flex flex-col lg:min-h-[28rem] max-h-[min(40vh,22rem)] lg:max-h-none dark:border-gray-600 dark:bg-gray-900/40'
+                : 'flex min-h-[280px] flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-600 dark:bg-gray-900/40'
           }
         >
-          <h4 className="mb-2 shrink-0 text-sm font-semibold text-gray-800 dark:text-gray-200">
-            Exames anexados
-          </h4>
+          {datesSplit ? (
+            <div className="shrink-0 border-b border-gray-200 bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/40 px-4 py-3 dark:border-gray-600 dark:from-emerald-950/30 dark:via-gray-900 dark:to-teal-950/20">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Datas dos exames
+              </p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5 dark:text-gray-100">
+                {examesOrdenados.length} registro{examesOrdenados.length === 1 ? '' : 's'}
+              </p>
+            </div>
+          ) : (
+            <h4 className="mb-2 shrink-0 text-sm font-semibold text-gray-800 dark:text-gray-200">
+              Exames anexados
+            </h4>
+          )}
           {mobileStack && exames.length > 0 && (
             <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
               {somenteLeitura
@@ -459,16 +496,47 @@ export function ExamesImagemPacientePanel({
             </p>
           )}
           <div
-            className={`space-y-2 overflow-y-auto pr-1 ${mobileStack ? 'min-h-0 flex-1' : 'flex-1'}`}
+            className={`overscroll-contain ${
+              datesSplit
+                ? 'flex-1 min-h-0 overflow-y-auto py-2 px-2 space-y-0.5'
+                : mobileStack
+                  ? 'space-y-2'
+                  : 'space-y-2 pr-1 flex-1 overflow-y-auto'
+            }`}
           >
-            {exames.length === 0 ? (
+            {examesOrdenados.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
                 {somenteLeitura
                   ? 'Nenhum exame de imagem anexado pelo seu médico.'
                   : 'Nenhum anexo. Use &quot;Adicionar novo exame&quot; para enviar PDF ou imagem (JPEG, PNG, WEBP, GIF).'}
               </p>
+            ) : datesSplit ? (
+              examesOrdenados.map((ex) => {
+                const dateKey = ex.dataExame || (ex.criadoEm ? ex.criadoEm.slice(0, 10) : null);
+                const ativo = selectedId === ex.id;
+                return (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    onClick={() => setSelectedId(ex.id)}
+                    className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
+                      ativo
+                        ? 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-100'
+                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <span className="block text-sm font-medium capitalize leading-tight">
+                      {formatDateLabel(dateKey)}
+                    </span>
+                    <span className="block text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                      {TIPO_LABELS[ex.tipoExame]}
+                      {dateKey ? ` · ${dateKey.split('-').reverse().join('/')}` : ''}
+                    </span>
+                  </button>
+                );
+              })
             ) : (
-              exames.map((ex) => (
+              examesOrdenados.map((ex) => (
                 <div
                   key={ex.id}
                   className={`flex gap-2 rounded-lg border p-2.5 text-left transition-colors ${
@@ -518,11 +586,36 @@ export function ExamesImagemPacientePanel({
         </div>
 
         {!mobileStack && (
-        <div className="flex min-h-[320px] flex-col rounded-xl border border-gray-200 bg-gray-50/80 p-3 shadow-sm dark:border-gray-600 dark:bg-gray-900/30">
-          <h4 className="mb-2 shrink-0 text-sm font-semibold text-gray-800 dark:text-gray-200">
-            Visualização
-          </h4>
-          <div className="relative min-h-[240px] flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-950">
+        <div
+          className={
+            datesSplit
+              ? 'min-w-0 rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm flex flex-col lg:min-h-[28rem] dark:border-gray-600 dark:bg-gray-900/30'
+              : 'flex min-h-[320px] flex-col rounded-xl border border-gray-200 bg-gray-50/80 p-3 shadow-sm dark:border-gray-600 dark:bg-gray-900/30'
+          }
+        >
+          {datesSplit ? (
+            <div className="shrink-0 border-b border-gray-200 bg-gradient-to-r from-teal-50/50 via-white to-emerald-50/40 px-4 py-3 dark:border-gray-600 dark:from-teal-950/20 dark:via-gray-900 dark:to-emerald-950/20">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Resultados
+              </p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5 dark:text-gray-100 truncate">
+                {selecionado
+                  ? `${TIPO_LABELS[selecionado.tipoExame]}${selecionado.dataExame ? ` · ${selecionado.dataExame.split('-').reverse().join('/')}` : ''}`
+                  : 'Selecione uma data'}
+              </p>
+            </div>
+          ) : (
+            <h4 className="mb-2 shrink-0 text-sm font-semibold text-gray-800 dark:text-gray-200">
+              Visualização
+            </h4>
+          )}
+          <div
+            className={`relative flex-1 overflow-hidden ${
+              datesSplit
+                ? 'min-h-[240px] bg-gray-50 dark:bg-gray-950'
+                : 'min-h-[240px] rounded-lg border border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-950'
+            }`}
+          >
             {previewLoading && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/90 text-sm text-gray-600 dark:bg-gray-950/90 dark:text-gray-300">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />

@@ -30,6 +30,23 @@ export async function resolvePacienteDaSolicitacao(
   )[0];
 }
 
+/** Todos os docs de pacientes_completos ligados à solicitação (id + e-mail). */
+export async function listPacienteIdsDaSolicitacao(
+  solicitacao: Pick<SolicitacaoMedico, 'pacienteId' | 'pacienteEmail'>
+): Promise<string[]> {
+  const ids = new Set<string>();
+  const byId = solicitacao.pacienteId?.trim();
+  if (byId) ids.add(byId);
+
+  const email = solicitacao.pacienteEmail?.trim();
+  if (email) {
+    const listed = await PacienteService.listPacienteIdsByEmail(email);
+    listed.forEach((id) => ids.add(id));
+  }
+
+  return [...ids];
+}
+
 export function pickTelefoneSolicitacao(
   solicitacao: Pick<SolicitacaoMedico, 'pacienteTelefone'>,
   paciente?: PacienteCompleto | null

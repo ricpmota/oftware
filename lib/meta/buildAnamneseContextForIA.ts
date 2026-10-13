@@ -14,10 +14,13 @@ export function buildAnamneseContextForIA(paciente: PacienteCompleto): Record<st
     motivacaoOutro: dc.motivacaoOutro ?? null,
     diagnosticoPrincipal: dc.diagnosticoPrincipal ?? null,
     diagnosticoPrincipalTipos: (dc as { diagnosticoPrincipalTipos?: string[] }).diagnosticoPrincipalTipos ?? null,
+    medicamentosDiabetes: dc.medicamentosDiabetes ?? null,
     comorbidades: dc.comorbidades ?? null,
+    cirurgiasRealizadas: dc.cirurgiasRealizadas ?? null,
     riscos: dc.riscos ?? null,
     historiaTireoidiana: dc.historiaTireoidiana ?? null,
     sintomasGI: dc.sintomasGI ?? null,
+    triagemHumor: dc.triagemHumor ?? null,
     objetivosTratamento: dc.objetivosTratamento ?? null,
     perfilMetabolicoV3: pm ?? null,
     perfilMetabolicoResumoLegivel: cards.map((c) => ({

@@ -7,12 +7,19 @@ import {
 import {
   CADASTRO_MEDICO_FORM_KEYS,
   type CadastroMedicoStatus,
+  type CadastroWhiteLabelOrigem,
 } from '@/types/cadastroMedicoWhiteLabel';
 import {
   isValidLeadWhiteLabelEmail,
   normalizeLeadWhiteLabelEmail,
   normalizeLeadWhiteLabelWhatsApp,
 } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
+import {
+  parseWhiteLabelProfissao,
+  whiteLabelCadastroOrigem,
+  whiteLabelRegistroLabel,
+  type WhiteLabelProfissao,
+} from '@/lib/whiteLabel/profissao';
 
 function asTrimmedString(value: unknown): string {
   if (value == null) return '';
@@ -35,14 +42,28 @@ function timestampToDate(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function resolveProfissao(
+  data: FirebaseFirestore.DocumentData | Record<string, unknown> | undefined
+): WhiteLabelProfissao {
+  if (data?.profissao) return parseWhiteLabelProfissao(data.profissao, 'medico');
+  const origem = asTrimmedString(data?.origem);
+  if (origem === 'whitelabel_cadastronutricionista') return 'nutricionista';
+  if (origem === 'whitelabel_cadastropersonal') return 'personal';
+  return 'medico';
+}
+
 export function mapCadastroMedicoDoc(id: string, data: FirebaseFirestore.DocumentData) {
   const form = extractFormData(data);
+  const profissao = resolveProfissao(data);
+  const origem = (asTrimmedString(data.origem) ||
+    whiteLabelCadastroOrigem(profissao)) as CadastroWhiteLabelOrigem;
   return {
     id,
     ...form,
     status: (data.status as CadastroMedicoStatus) || 'rascunho',
     currentStep: typeof data.currentStep === 'number' ? data.currentStep : 0,
-    origem: 'whitelabel_cadastromedico' as const,
+    profissao,
+    origem,
     createdAt: timestampToDate(data.createdAt),
     updatedAt: timestampToDate(data.updatedAt),
     concluidoAt: timestampToDate(data.concluidoAt),
@@ -53,6 +74,7 @@ export type SaveCadastroMedicoInput = {
   draftId?: string;
   form: Record<string, unknown>;
   currentStep: number;
+  profissao?: WhiteLabelProfissao;
 };
 
 export type SaveCadastroMedicoResult = {
@@ -66,6 +88,8 @@ export async function saveCadastroMedicoDraft(
   const db = getFirestoreAdmin();
   const form = extractFormData(input.form);
   const currentStep = Math.max(0, Math.min(input.currentStep, CADASTRO_MEDICO_TOTAL_STEPS - 1));
+  const profissao = parseWhiteLabelProfissao(input.profissao ?? input.form.profissao, 'medico');
+  const origem = whiteLabelCadastroOrigem(profissao);
 
   const draftId = asTrimmedString(input.draftId);
   const ref = draftId
@@ -86,7 +110,8 @@ export async function saveCadastroMedicoDraft(
     ...form,
     status: 'rascunho',
     currentStep,
-    origem: 'whitelabel_cadastromedico',
+    profissao,
+    origem,
     updatedAt: FieldValue.serverTimestamp(),
   };
 
@@ -111,7 +136,12 @@ function validateCpfDigits(cpf: string): boolean {
   return digits.length === 11;
 }
 
-function validateStep(form: Record<string, string>, step: number): string | null {
+function validateStep(
+  form: Record<string, string>,
+  step: number,
+  profissao: WhiteLabelProfissao = 'medico'
+): string | null {
+  const registro = whiteLabelRegistroLabel(profissao);
   switch (step) {
     case 0:
       if (!form.tratamento) return 'Selecione o tratamento.';
@@ -147,8 +177,8 @@ function validateStep(form: Record<string, string>, step: number): string | null
       if (!form.dataNascimento.trim()) return 'Informe a data de nascimento.';
       if (!form.estadoCivil.trim()) return 'Selecione o estado civil.';
       if (!form.nacionalidade.trim()) return 'Informe a nacionalidade.';
-      if (!form.crm.trim()) return 'Informe o CRM.';
-      if (!form.crmUf.trim()) return 'Selecione a UF do CRM.';
+      if (!form.crm.trim()) return `Informe o ${registro}.`;
+      if (!form.crmUf.trim()) return `Selecione a UF do ${registro}.`;
       if (!isValidLeadWhiteLabelEmail(normalizeLeadWhiteLabelEmail(form.emailContrato))) {
         return 'Informe um e-mail válido.';
       }
@@ -189,14 +219,18 @@ function validateStep(form: Record<string, string>, step: number): string | null
 
 export function validateCadastroMedicoStep(
   form: Record<string, string>,
-  step: number
+  step: number,
+  profissao: WhiteLabelProfissao = 'medico'
 ): string | null {
-  return validateStep(form, step);
+  return validateStep(form, step, profissao);
 }
 
-export function validateCadastroMedicoForm(form: Record<string, string>): string | null {
+export function validateCadastroMedicoForm(
+  form: Record<string, string>,
+  profissao: WhiteLabelProfissao = 'medico'
+): string | null {
   for (let s = 0; s < CADASTRO_MEDICO_TOTAL_STEPS; s += 1) {
-    const err = validateStep(form, s);
+    const err = validateStep(form, s, profissao);
     if (err) return err;
   }
   return null;
@@ -205,26 +239,34 @@ export function validateCadastroMedicoForm(form: Record<string, string>): string
 export async function submitCadastroMedico(input: {
   draftId: string;
   form: Record<string, unknown>;
+  profissao?: WhiteLabelProfissao;
 }): Promise<{ id: string }> {
   const draftId = asTrimmedString(input.draftId);
   if (!draftId) throw new Error('Rascunho inválido.');
 
   const form = extractFormData(input.form);
-  const validationError = validateCadastroMedicoForm(form);
-  if (validationError) throw new Error(validationError);
-
   const db = getFirestoreAdmin();
   const ref = db.collection(CADASTRO_MEDICO_COLLECTION).doc(draftId);
   const existing = await ref.get();
   if (!existing.exists) throw new Error('Rascunho não encontrado.');
   if (existing.data()?.status === 'concluido') throw new Error('Este cadastro já foi concluído.');
 
+  const profissao = parseWhiteLabelProfissao(
+    input.profissao ?? input.form.profissao ?? existing.data()?.profissao,
+    resolveProfissao(existing.data())
+  );
+  const origem = whiteLabelCadastroOrigem(profissao);
+
+  const validationError = validateCadastroMedicoForm(form, profissao);
+  if (validationError) throw new Error(validationError);
+
   await ref.set(
     {
       ...form,
       status: 'concluido',
       currentStep: CADASTRO_MEDICO_TOTAL_STEPS - 1,
-      origem: 'whitelabel_cadastromedico',
+      profissao,
+      origem,
       concluidoAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     },

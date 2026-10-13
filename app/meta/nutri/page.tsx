@@ -9,6 +9,7 @@ import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
 import { UtensilsCrossed, CheckCircle, XCircle, Droplet, Activity, AlertCircle, Calendar, ChevronRight, Stethoscope } from 'lucide-react';
 import { alturaInputParaCm } from '@/utils/alturaInput';
+import { CHECK_IN_DIARIO_NUTRI_ENABLED } from '@/lib/nutri/checkInSemanalNutriCapabilities';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -921,6 +922,22 @@ export default function NutriPage() {
 
   // ===== VIEW: CHECK-IN =====
   if (view === 'checkin') {
+    if (!CHECK_IN_DIARIO_NUTRI_ENABLED) {
+      return (
+        <div className="min-h-screen bg-gray-50 py-8 px-4">
+          <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+            <p className="font-medium text-gray-900">O Check-in Diário foi substituído pelo Check-in Semanal.</p>
+            <button
+              type="button"
+              onClick={() => setView('plano')}
+              className="mt-4 px-4 py-2 bg-green-600 text-white rounded-md"
+            >
+              Voltar ao plano
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
         <div className="max-w-2xl mx-auto">
@@ -1087,6 +1104,7 @@ export default function NutriPage() {
                 Criado em {new Date(plano.criadoEm).toLocaleDateString('pt-BR')}
               </p>
             </div>
+            {CHECK_IN_DIARIO_NUTRI_ENABLED ? (
             <button
               onClick={() => setView('checkin')}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
@@ -1094,6 +1112,7 @@ export default function NutriPage() {
               <Calendar className="h-4 w-4" />
               Check-in Diário
             </button>
+            ) : null}
           </div>
         </div>
         

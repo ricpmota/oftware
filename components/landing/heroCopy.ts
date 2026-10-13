@@ -8,12 +8,11 @@ export const HERO_COPY: Record<
 > = {
   A: {
     titleLines: [
-      'Sua marca.',
-      'Sua plataforma.',
-      'Seus pacientes.',
+      'Construa sua própria estrutura',
+      'digital de acompanhamento em saúde.',
     ],
     subtitle:
-      'Conecte paciente, médico, nutricionista e personal em uma única jornada clínica, com prontuário compartilhado, protocolos integrados e acompanhamento contínuo.',
+      'A Oftware permite que médicos, nutricionistas, personal trainers, clínicas e equipes multiprofissionais organizem pacientes, parceiros e acompanhamento contínuo com sua própria marca.',
   },
   B: {
     titleLines: [

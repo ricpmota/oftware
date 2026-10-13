@@ -120,6 +120,12 @@ export type MarcadorTimelineTratamento = {
   rotulo: string;
 };
 
+export type InjetavelPontoGrafico = {
+  protocoloId: string;
+  nome: string;
+  observacao: string;
+};
+
 export type PontoGraficoTratamento = {
   semana: number;
   semanaLabel: string;
@@ -130,6 +136,8 @@ export type PontoGraficoTratamento = {
   pesoPerdaMinKg: number | null;
   pesoAlvo: number | null;
   doseSemanalMg: number;
+  /** Protocolos injetáveis previstos nesta semana (eixo de dose). */
+  injetaveis?: InjetavelPontoGrafico[];
   marcadores: MarcadorTimelineTratamento[];
   /** Extensões futuras — não renderizadas na UI atual. */
   extensao?: PontoGraficoOiExtensao;

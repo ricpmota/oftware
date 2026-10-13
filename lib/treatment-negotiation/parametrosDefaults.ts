@@ -1,4 +1,5 @@
 import { PLANO_PERSONALIZADO_CARD } from '@/lib/treatment-negotiation/constants';
+import { clonarProtocolosInjetaveis } from '@/lib/treatment-negotiation/protocolosInjetaveis';
 import type {
   DoseSemanalEditavel,
   InvestimentoManualNegociado,
@@ -45,6 +46,7 @@ export function clonarParametros(
     ...p,
     investimento: { ...p.investimento },
     dosesSemanais: p.dosesSemanais.map((d) => ({ ...d })),
+    protocolosInjetaveis: clonarProtocolosInjetaveis(p.protocolosInjetaveis),
     parcelamento: p.parcelamento ? { ...p.parcelamento } : null,
   };
 }
@@ -109,6 +111,7 @@ export function criarParametrosDePlanoBase(args: {
     examesDescricao: '',
     examesValorUnitario: config.valorPorExame,
     examesValorTotalManual: null,
+    protocolosInjetaveis: [],
     consolidacaoHabilitada: planoBase.fases.some((f) => f.id === 'consolidacao'),
     consolidacaoSemanas: 4,
     estrategiaPosMeta: 'nao_definido',

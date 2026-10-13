@@ -8,7 +8,7 @@ import {
   getCronZeptoMaxSendsPerRun,
 } from '@/lib/email/cronZeptoBatch';
 import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
-import { dataPrevistaSemanaComoEsquema } from '@/utils/datasAplicacaoSemanaPlano';
+import { dataPrevistaSemanaComoEsquema, semanaInicioCicloDoPlano } from '@/utils/datasAplicacaoSemanaPlano';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -68,7 +68,9 @@ function listarAplicacoesDoPaciente(paciente: any): Array<{ data: Date; semana: 
   const semanasCanceladas = new Set<number>(plano.semanasCanceladas || []);
   const evolucao = paciente.evolucaoSeguimento || [];
   const aplicacoes: Array<{ data: Date; semana: number; dose: number; localAplicacao: string }> = [];
-  for (let semana = 1; semana <= numeroSemanas; semana++) {
+  const inicio = semanaInicioCicloDoPlano(plano);
+  const fim = inicio + numeroSemanas - 1;
+  for (let semana = inicio; semana <= fim; semana++) {
     if (semanasCanceladas.has(semana)) continue;
     const dataDose = dataPrevistaSemanaComoEsquema(plano, semana, evolucao);
     dataDose.setHours(0, 0, 0, 0);

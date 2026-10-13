@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Loader2 } from 'lucide-react';
 import type { Medico } from '@/types/medico';
+import VerificationCidadesFields from '@/components/meta/VerificationCidadesFields';
+import VerificationWizardShell, { VerificationAwaitingSupportScreen } from '@/components/meta/VerificationWizardShell';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import { isValidIdentificacaoPhone } from '@/lib/phone/internationalPhoneValue';
 import {
   ChoiceButton,
   FieldGrid,
@@ -11,12 +15,9 @@ import {
   inputClassName,
   selectClassName,
 } from '@/components/whitelabel/cadastroMedico/CadastroMedicoFormUi';
-import VerificationWizardShell, { VerificationAwaitingSupportScreen } from '@/components/meta/VerificationWizardShell';
-import VerificationCidadesFields from '@/components/meta/VerificationCidadesFields';
 import {
   ESTADOS_BR,
   formatCpf,
-  formatTelefone,
   getFirstIncompleteMedicoStep,
   isMedicoVerificacaoWizardCompleto,
   markIntroMedicoSessionDone,
@@ -176,7 +177,11 @@ export default function MetaMedicoWizard({
       case META_MEDICO_STEP_NOME:
         return !!(m.nome || '').trim();
       case META_MEDICO_STEP_TELEFONE:
-        return (m.telefone || '').replace(/\D/g, '').length >= 10;
+        return isValidIdentificacaoPhone({
+          telefone: m.telefone,
+          telefoneDdi: m.telefoneDdi,
+          telefonePais: m.telefonePais,
+        });
       case META_MEDICO_STEP_GENERO:
         return m.genero === 'M' || m.genero === 'F';
       case META_MEDICO_STEP_CPF:
@@ -296,15 +301,21 @@ export default function MetaMedicoWizard({
 
         {step === META_MEDICO_STEP_TELEFONE && (
           <FieldGrid>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={draftMedico.telefone || ''}
-              onChange={(e) => {
-                const formatted = formatTelefone(e.target.value);
-                patchMedico((prev) => ({ ...prev, telefone: formatted }));
+            <InternationalPhoneInput
+              id="meta-medico-wizard-telefone"
+              value={{
+                telefone: draftMedico.telefone,
+                telefoneDdi: draftMedico.telefoneDdi,
+                telefonePais: draftMedico.telefonePais,
               }}
-              placeholder="(11) 99999-9999"
+              onChange={(next) =>
+                patchMedico((prev) => ({
+                  ...prev,
+                  telefone: next.telefone,
+                  telefoneDdi: next.telefoneDdi,
+                  telefonePais: next.telefonePais,
+                }))
+              }
               className={inputClassName}
             />
           </FieldGrid>

@@ -22,10 +22,21 @@ function scoreEmpreender(interessePlataformaMarca?: string): number {
   return 0;
 }
 
-function scorePlantonista(situacaoProfissional?: string): number {
+/** Pontua quem ainda depende de fonte externa (plantão, academia, convênio, etc.). */
+function scoreDependenciaExterna(situacaoProfissional?: string): number {
   if (!situacaoProfissional) return 0;
   const lower = situacaoProfissional.toLowerCase();
-  if (lower.includes('plantão') || lower.includes('plantao')) return 20;
+  if (
+    lower.includes('plantão') ||
+    lower.includes('plantao') ||
+    lower.includes('academia') ||
+    lower.includes('convênio') ||
+    lower.includes('convenio') ||
+    lower.includes('dependo parcialmente') ||
+    lower.includes('outras fontes')
+  ) {
+    return 20;
+  }
   return 0;
 }
 
@@ -78,7 +89,7 @@ export function calculateWhiteLabelLeadScore(data: WhiteLabelScoreInput): WhiteL
   const score = Math.min(
     100,
     scoreEmpreender(data.interessePlataformaMarca) +
-      scorePlantonista(data.situacaoProfissional) +
+      scoreDependenciaExterna(data.situacaoProfissional) +
       scoreTecnologia(data.familiaridadeTecnologia) +
       scoreEscalar(data.realidadeAtual, data.interesseExperienciaDigital) +
       scoreEquipe(data.realidadeAtual) +

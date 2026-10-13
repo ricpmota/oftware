@@ -5,6 +5,7 @@ import { PagamentoPaciente, VendaAvulsa } from '@/types/pagamento';
 export class PagamentoService {
   private static readonly COLLECTION = 'pagamentos_pacientes';
   private static readonly COLLECTION_NUTRI_PACIENTE = 'pagamentos_nutricionista_paciente';
+  private static readonly COLLECTION_PERSONAL_TRAINER_PACIENTE = 'pagamentos_personal_trainer_paciente';
 
   private static resolvePagamentoDocId(pagamento: PagamentoPaciente): string {
     const pacienteId = typeof pagamento?.pacienteId === 'string' ? pagamento.pacienteId.trim() : '';
@@ -28,6 +29,9 @@ export class PagamentoService {
       }
       if (!pagamentoToSave.dataVencimento) {
         delete pagamentoToSave.dataVencimento;
+      }
+      if (!pagamentoToSave.observacoesPorVenda) {
+        delete pagamentoToSave.observacoesPorVenda;
       }
       if (pagamentoToSave.parcelas && Array.isArray(pagamentoToSave.parcelas)) {
         pagamentoToSave.parcelas = pagamentoToSave.parcelas.map((p: any) => {
@@ -171,6 +175,9 @@ export class PagamentoService {
       if (!vendaToSave.dataVencimento) {
         delete vendaToSave.dataVencimento;
       }
+      if (!vendaToSave.observacaoVenda) {
+        delete vendaToSave.observacaoVenda;
+      }
       if (vendaToSave.parcelas && Array.isArray(vendaToSave.parcelas)) {
         vendaToSave.parcelas = vendaToSave.parcelas.map((p: any) => {
           const parcela: any = { ...p };
@@ -225,6 +232,9 @@ export class PagamentoService {
       }
       if (!vendaToSave.dataVencimento) {
         delete vendaToSave.dataVencimento;
+      }
+      if (!vendaToSave.observacaoVenda) {
+        delete vendaToSave.observacaoVenda;
       }
       if (vendaToSave.parcelas && Array.isArray(vendaToSave.parcelas)) {
         vendaToSave.parcelas = vendaToSave.parcelas.map((p: any) => {
@@ -375,6 +385,58 @@ export class PagamentoService {
     const q = query(
       collection(db, this.COLLECTION_NUTRI_PACIENTE),
       where('nutricionistaId', '==', nutricionistaId)
+    );
+    const snap = await getDocs(q);
+    const out: Record<string, PagamentoPaciente> = {};
+    snap.forEach((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const pacienteId = (data.pacienteId as string) || d.id.split('_').slice(1).join('_');
+      out[pacienteId] = this.mapPagamentoDoc(data, pacienteId);
+    });
+    return out;
+  }
+
+  // ========== PAGAMENTOS PERSONAL TRAINER × PACIENTE ==========
+
+  private static personalTrainerPacienteDocId(personalTrainerId: string, pacienteId: string): string {
+    return `${personalTrainerId}_${pacienteId}`;
+  }
+
+  static async salvarPagamentoPersonalTrainerPaciente(
+    personalTrainerId: string,
+    pacienteId: string,
+    pagamento: Omit<PagamentoPaciente, 'pacienteId'>
+  ): Promise<void> {
+    const docId = this.personalTrainerPacienteDocId(personalTrainerId, pacienteId);
+    const ref = doc(db, this.COLLECTION_PERSONAL_TRAINER_PACIENTE, docId);
+    await setDoc(
+      ref,
+      {
+        ...pagamento,
+        personalTrainerId,
+        pacienteId,
+        pacienteIdRef: pacienteId,
+      },
+      { merge: true }
+    );
+  }
+
+  static async getPagamentoPersonalTrainerPaciente(
+    personalTrainerId: string,
+    pacienteId: string
+  ): Promise<PagamentoPaciente | null> {
+    const docId = this.personalTrainerPacienteDocId(personalTrainerId, pacienteId);
+    const snap = await getDoc(doc(db, this.COLLECTION_PERSONAL_TRAINER_PACIENTE, docId));
+    if (!snap.exists()) return null;
+    return this.mapPagamentoDoc(snap.data() as Record<string, unknown>, pacienteId);
+  }
+
+  static async getAllPagamentosPersonalTrainer(
+    personalTrainerId: string
+  ): Promise<Record<string, PagamentoPaciente>> {
+    const q = query(
+      collection(db, this.COLLECTION_PERSONAL_TRAINER_PACIENTE),
+      where('personalTrainerId', '==', personalTrainerId)
     );
     const snap = await getDocs(q);
     const out: Record<string, PagamentoPaciente> = {};

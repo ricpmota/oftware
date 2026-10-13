@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
     const profissaoRaw = ((formData.get('profissao') as string | null)?.trim().toLowerCase() || 'medico') as
       | 'medico'
       | 'nutricionista'
-      | 'personal';
+      | 'personal'
+      | 'psiquiatra';
 
     if (!file) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
@@ -86,6 +87,14 @@ export async function POST(request: NextRequest) {
               crm_doc: 'personal-verificacao/registro',
               registro_doc: 'personal-verificacao/registro',
             }
+          : profissaoRaw === 'psiquiatra'
+            ? {
+                perfil: 'psiquiatra-perfil-fotos',
+                cnh: 'psiquiatra-verificacao/cnh',
+                selfie: 'psiquiatra-verificacao/selfie',
+                crm_doc: 'psiquiatra-verificacao/crm',
+                registro_doc: 'psiquiatra-verificacao/crm',
+              }
           : {
               perfil: 'medico-perfil-fotos',
               cnh: 'medico-verificacao/cnh',

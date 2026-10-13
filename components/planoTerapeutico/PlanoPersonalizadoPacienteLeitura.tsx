@@ -128,7 +128,22 @@ export default function PlanoPersonalizadoPacienteLeitura({
 
       </div>
 
-
+      {(parametros.protocolosInjetaveis ?? []).length > 0 ? (
+        <div className="rounded-xl border border-violet-200 bg-violet-50/50 px-4 py-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-violet-700">Protocolos injetáveis</p>
+          {(parametros.protocolosInjetaveis ?? []).map((p) => (
+            <div key={p.id} className="text-sm text-violet-950">
+              <p className="font-medium">{p.protocoloNome || 'Protocolo'}</p>
+              <p className="text-xs text-violet-800/80">
+                {p.semanasAplicacao?.length
+                  ? `S${p.semanasAplicacao.join(', S')}`
+                  : `${p.semanas} semana${p.semanas === 1 ? '' : 's'}`}
+                {p.itens.length > 0 ? ` · ${p.itens.map((i) => i.medicamento).filter(Boolean).join(', ')}` : ''}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {parametros.examesDescricao ? (
 

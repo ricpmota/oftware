@@ -27,6 +27,9 @@ export const NOVO_MODULO_LABEL: Record<NovoModuloKey, { titulo: string; subtitul
   treino_personal: { titulo: 'Treino Personal', subtitulo: 'Lembrete antes / dia' },
   nutri_pediu_vinculo: { titulo: 'Nutri pediu vínculo', subtitulo: 'Aviso ao médico' },
   personal_pediu_vinculo: { titulo: 'Personal pediu vínculo', subtitulo: 'Aviso ao médico' },
+  psi_pediu_vinculo: { titulo: 'Psi pediu vínculo', subtitulo: 'Aviso ao médico' },
+  medico_pediu_vinculo_psi: { titulo: 'Médico pediu vínculo Psi', subtitulo: 'Aviso ao psiquiatra' },
+  paciente_compartilhado_psi: { titulo: 'Paciente compartilhado Psi', subtitulo: 'Aviso administrativo' },
   novo_lead_para_medico: { titulo: 'Novo lead para médico', subtitulo: 'Paciente selecionou médico' },
   novo_lead_nutri: { titulo: 'Novo lead Nutri', subtitulo: 'Aviso à nutricionista' },
   check_recomendacoes_nutri: { titulo: 'Check rec. Nutri', subtitulo: 'Paciente leu recomendações' },
@@ -108,6 +111,18 @@ export function getVariaveisNovoModulo(
       return { variaveis: [medico, nutri, nome] };
     case 'personal_pediu_vinculo':
       return { variaveis: [medico, personal, nome] };
+    case 'psi_pediu_vinculo':
+      return { variaveis: [medico, v('{psiquiatra}', 'Psiquiatra')] };
+    case 'medico_pediu_vinculo_psi':
+      return { variaveis: [medico, v('{psiquiatra}', 'Psiquiatra')] };
+    case 'paciente_compartilhado_psi':
+      return {
+        variaveis: [
+          medico,
+          v('{paciente}', 'Nome do paciente'),
+          v('{nome}', 'Alias de {paciente}'),
+        ],
+      };
     case 'novo_lead_para_medico':
       return { variaveis: [medico, nome, leadEmail] };
     case 'novo_lead_nutri':

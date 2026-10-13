@@ -2,6 +2,8 @@ import type { Indicacao } from '@/types/indicacao';
 import type { LeadMedico, LeadReferralSnapshot, LeadReferralType } from '@/types/leadMedico';
 import type { PacienteCompleto } from '@/types/obesidade';
 import type { SolicitacaoMedico } from '@/types/solicitacaoMedico';
+import { leadCanonicalMatchKey } from '@/lib/whatsapp/resolveLeadPhone';
+import { tryResolveIndicacaoPhone } from '@/lib/whatsapp/resolveIndicacaoSolicitacaoPhone';
 
 export type ResolveLeadReferralContext = {
   medicoId: string;
@@ -257,18 +259,25 @@ export function computeLeadReferralKpis(leads: LeadMedico[]): LeadReferralKpis {
 export function buildIndicacaoByPhoneMap(indicacoes: Indicacao[]): Map<string, Indicacao> {
   const map = new Map<string, Indicacao>();
   for (const ind of indicacoes) {
-    const phone = ind.telefonePaciente?.replace(/\D/g, '');
-    if (phone && !map.has(phone)) {
-      map.set(phone, ind);
+    const canonical = tryResolveIndicacaoPhone(ind);
+    if (canonical && !map.has(canonical)) map.set(canonical, ind);
+    if (!ind.telefonePacienteDdi) {
+      const national = ind.telefonePaciente?.replace(/\D/g, '');
+      if (national && !map.has(national)) map.set(national, ind);
     }
   }
   return map;
 }
 
 export function findIndicacaoForLead(
-  lead: Pick<LeadMedico, 'telefone'>,
+  lead: Pick<LeadMedico, 'telefone' | 'telefoneDdi'>,
   indicacaoByPhone: Map<string, Indicacao>
 ): Indicacao | null {
+  const canonical = leadCanonicalMatchKey(lead);
+  if (canonical && indicacaoByPhone.has(canonical)) {
+    return indicacaoByPhone.get(canonical) ?? null;
+  }
+  if (lead.telefoneDdi) return null;
   const phone = lead.telefone?.replace(/\D/g, '');
   if (!phone) return null;
   return indicacaoByPhone.get(phone) ?? null;

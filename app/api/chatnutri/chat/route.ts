@@ -1,93 +1,55 @@
 /**
  * POST /api/chatnutri/chat
- * ETAPA 2: Gemini real (reutiliza padrão app/api/chat)
+ * Analisar com IA: texto → Gemini → resposta do assistente.
+ * Mensagens humanas comuns usam POST /api/chatnutri/message (sem Gemini).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import type { ChatNutriInputText, ApiChatSuccessResponse, ApiErrorResponse } from '@/lib/chatnutri/types';
-import {
-  getPatientStatusTratamento,
-  saveChatNutriMessage,
-  listChatNutriMessages,
-  getChatNutriDayTotals,
-  getPatientContextForChat,
-} from '@/services/chatNutriServerService';
-import { chatNutriTextReply, type ChatHistoryEntry } from '@/services/chatNutriGeminiService';
+import type {
+  ChatNutriInputText,
+  ApiChatSuccessResponse,
+  ApiErrorResponse,
+  ChatNutriHumanAuthorKind,
+} from '@/lib/chatnutri/types';
+import { executeChatNutriTextTurn } from '@/lib/chat/executeChatNutriTextTurn';
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Partial<ChatNutriInputText>;
-    const { patientId, dateKey, type, text } = body;
+    const { patientId, dateKey, type, text, authorKind, authorName, authorId } = body;
 
     if (!patientId || !dateKey || type !== 'text' || typeof text !== 'string' || !text.trim()) {
       return NextResponse.json(
-        { ok: false, error: { code: 'INVALID_INPUT', message: 'patientId, dateKey, type="text" e text obrigatórios.' } } as ApiErrorResponse,
+        {
+          ok: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'patientId, dateKey, type="text" e text obrigatórios.',
+          },
+        } as ApiErrorResponse,
         { status: 400 }
       );
     }
 
-    const statusTratamento = await getPatientStatusTratamento(patientId);
-    if (statusTratamento !== 'em_tratamento') {
-      return NextResponse.json(
-        { ok: false, error: { code: 'NOT_IN_TREATMENT', message: 'Disponível apenas para pacientes em Tratamento.' } } as ApiErrorResponse,
-        { status: 403 }
-      );
-    }
-
-    const dateKeyRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateKeyRegex.test(dateKey)) {
-      return NextResponse.json(
-        { ok: false, error: { code: 'INVALID_DATE_KEY', message: 'dateKey deve ser YYYY-MM-DD.' } } as ApiErrorResponse,
-        { status: 400 }
-      );
-    }
-
-    const [messages, dayTotals, patientContext] = await Promise.all([
-      listChatNutriMessages(patientId, dateKey),
-      getChatNutriDayTotals(patientId, dateKey),
-      getPatientContextForChat(patientId),
-    ]);
-
-    const history: ChatHistoryEntry[] = messages.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      text: m.text,
-    }));
-
-    let replyText: string;
-    try {
-      replyText = await chatNutriTextReply({
-        history,
-        dayTotals,
-        patientContext,
-        userText: text.trim(),
-      });
-    } catch (e) {
-      console.error('[chatnutri/chat] Gemini error:', e);
-      replyText = 'Desculpe, não consegui processar sua mensagem no momento. Tente novamente em instantes.';
-    }
-
-    const now = new Date().toISOString();
-
-    await saveChatNutriMessage(patientId, dateKey, {
-      role: 'user',
-      type: 'chat',
+    const result = await executeChatNutriTextTurn({
+      patientId,
+      dateKey,
       text: text.trim(),
-      createdAt: now,
+      authorKind: (authorKind as ChatNutriHumanAuthorKind | undefined) ?? 'patient',
+      authorName: typeof authorName === 'string' ? authorName : undefined,
+      authorId: typeof authorId === 'string' ? authorId : undefined,
     });
 
-    const assistantMsg: ApiChatSuccessResponse['message'] = {
-      id: `a_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      role: 'assistant',
-      type: 'chat',
-      text: replyText,
-      createdAt: now,
-    };
-
-    await saveChatNutriMessage(patientId, dateKey, { ...assistantMsg, createdAt: now });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error } as ApiErrorResponse,
+        { status: result.status }
+      );
+    }
 
     const response: ApiChatSuccessResponse = {
       ok: true,
-      message: assistantMsg,
+      message: result.message,
     };
 
     return NextResponse.json(response);

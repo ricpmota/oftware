@@ -16,6 +16,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // WhatsApp/Facebook não executam JS — metadados OG devem vir no HTML inicial (Next 15 streaming).
+  htmlLimitedBots: /WhatsApp|whatsapp|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|Googlebot|bingbot|Bingbot|Mediapartners-Google|AdsBot-Google|Google-PageRenderer/i,
   serverExternalPackages: [
     'screenshot-desktop',
     'pdf-parse',
@@ -36,6 +38,33 @@ const nextConfig: NextConfig = {
       "./node_modules/@napi-rs/canvas-linux-arm64-gnu/**/*",
       "./node_modules/@napi-rs/canvas-linux-arm64-musl/**/*",
     ],
+    "/api/metaadmingeral/alimentos-globais/importacoes": [
+      "./node_modules/pdf-parse/**/*",
+      "./node_modules/pdfjs-dist/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-musl/**/*",
+      "./node_modules/@napi-rs/canvas-linux-arm64-gnu/**/*",
+      "./node_modules/@napi-rs/canvas-linux-arm64-musl/**/*",
+    ],
+    "/api/metaadmingeral/alimentos-globais/importacoes/[id]/process": [
+      "./node_modules/pdf-parse/**/*",
+      "./node_modules/pdfjs-dist/**/*",
+      "./node_modules/pdf-parse/node_modules/pdfjs-dist/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-musl/**/*",
+      "./node_modules/@napi-rs/canvas-linux-arm64-gnu/**/*",
+      "./node_modules/@napi-rs/canvas-linux-arm64-musl/**/*",
+    ],
+    "/api/metaadmingeral/alimentos-globais/importacoes/[id]/inspect-page": [
+      "./node_modules/pdf-parse/**/*",
+      "./node_modules/pdfjs-dist/**/*",
+      "./node_modules/pdf-parse/node_modules/pdfjs-dist/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-musl/**/*",
+    ],
   },
   async headers() {
     return [
@@ -50,6 +79,42 @@ const nextConfig: NextConfig = {
             key: "Cache-Control",
             value:
               "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
+          },
+        ],
+      },
+      {
+        source: "/50kgdepois/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
+          },
+        ],
+      },
+      {
+        source: "/50kgdepois.jpeg",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/videosmentorados",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
+          },
+        ],
+      },
+      {
+        source: "/videosmentorados/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
           },
         ],
       },
@@ -69,6 +134,10 @@ const nextConfig: NextConfig = {
         fs: false,
         path: false,
         crypto: false,
+      };
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        canvas: false,
       };
     }
     return config;

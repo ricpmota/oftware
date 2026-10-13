@@ -2,9 +2,13 @@ export interface Indicacao {
   id: string;
   indicadoPor: string; // Email do paciente que indicou
   indicadoPorNome?: string; // Nome do paciente que indicou (opcional, para facilitar)
-  indicadoPorTelefone?: string; // Telefone do paciente que indicou (para contato ao pagar)
+  indicadoPorTelefone?: string; // Snapshot do telefone de quem indicou (paciente logado)
+  indicadoPorTelefoneDdi?: string;
+  indicadoPorTelefonePais?: string;
   nomePaciente: string; // Nome do paciente indicado
-  telefonePaciente: string; // Telefone do paciente indicado (usado para matching)
+  telefonePaciente: string; // Número NACIONAL do indicado (não concatenar DDI)
+  telefonePacienteDdi?: string;
+  telefonePacientePais?: string;
   estado: string; // Estado selecionado
   cidade: string; // Cidade selecionada
   medicoId: string; // ID do médico indicado

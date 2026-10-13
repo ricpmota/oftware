@@ -108,3 +108,8 @@ export const EXAME_LABORATORIAL_ALLOWED_INTERNAL_FIELDS: readonly string[] = Obj
 export function isAllowedExameLaboratorialField(key: string): boolean {
   return _allowed.has(key);
 }
+
+/** Campo no documento do paciente: mapa legado ou a própria chave (exames criados por médicos). */
+export function resolveExameLaboratorialField(labKey: string): string {
+  return EXAME_LABORATORIAL_KEY_TO_FIELD[labKey] || labKey;
+}

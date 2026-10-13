@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { DigitalMeasurePicker } from '@/components/aplicacao/DigitalMeasurePicker';
 import { CheckInSemanalScoreCard } from '@/components/aplicacao/CheckInSemanalScoreCard';
-import { DoseMgTirzepatidaSelectOptions } from '@/components/tirzepatida/DoseMgTirzepatidaSelectOptions';
+import { DoseMgTirzepatidaStepperField } from '@/components/tirzepatida/DoseMgTirzepatidaStepperField';
 import {
   CHECK_IN_SEMANAL_QUESTIONS,
   LOCAL_APLICACAO_LABEL_TO_VALUE,
@@ -470,17 +470,15 @@ export function AplicacaoCheckInMedicoModal({
                           <label className="block text-[10px] font-semibold uppercase text-amber-900 mb-2">
                             Dose aplicada (mg) — editável
                           </label>
-                          <select
+                          <DoseMgTirzepatidaStepperField
                             value={doseMg}
-                            onChange={(e) => {
-                              setDoseMg(e.target.value);
+                            onChange={(mg) => {
+                              setDoseMg(String(mg));
                               setErro(null);
                             }}
-                            className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                          >
-                            <option value="">Selecione a dose</option>
-                            <DoseMgTirzepatidaSelectOptions />
-                          </select>
+                            placeholder="Selecione a dose"
+                            ariaLabel="Alterar dose aplicada em miligramas"
+                          />
                         </div>
 
                         <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 flex items-center gap-3">

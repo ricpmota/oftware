@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { submitCadastroMedico } from '@/lib/whiteLabel/cadastroMedicoService';
+import { parseWhiteLabelProfissao } from '@/lib/whiteLabel/profissao';
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => null)) as {
       draftId?: string;
       form?: Record<string, unknown>;
+      profissao?: string;
     } | null;
 
     if (!body?.draftId || !body?.form || typeof body.form !== 'object') {
@@ -15,6 +17,7 @@ export async function POST(request: NextRequest) {
     const result = await submitCadastroMedico({
       draftId: body.draftId,
       form: body.form,
+      profissao: parseWhiteLabelProfissao(body.profissao ?? body.form.profissao, 'medico'),
     });
 
     return NextResponse.json({ success: true, id: result.id });

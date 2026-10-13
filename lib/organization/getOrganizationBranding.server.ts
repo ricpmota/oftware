@@ -118,8 +118,12 @@ export async function saveOrganizationBrandingForAdmin(
     throw new Error(`Organização não registrada: ${organizationId}`);
   }
 
+  const logoMainUrl = branding.logoMainUrl?.trim() || null;
   const payload: OrganizationBrandingStored = {
     ...branding,
+    logoMainUrl,
+    // Preview de compartilhamento acompanha a Logo principal da Marca.
+    ogImageUrl: logoMainUrl || branding.ogImageUrl?.trim() || null,
     seedVersion: ORGANIZATION_BRANDING_SEED_VERSION,
     updatedAt: new Date().toISOString(),
   };

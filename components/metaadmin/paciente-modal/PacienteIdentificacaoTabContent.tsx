@@ -3,6 +3,7 @@
 import { Calendar, Hash, Mail, MapPin, Stethoscope, User } from 'lucide-react';
 import type { PacienteCompleto } from '@/types/obesidade';
 import { formatDateBr, formatDateInputValue } from '@/lib/metaadmin/pacienteModalObesidadeDisplay';
+import { InternationalPhoneDisplay } from '@/components/phone/InternationalPhoneInput';
 
 const RO =
   'w-full border border-gray-300 rounded-md px-3 py-2 text-gray-600 bg-gray-50 cursor-default dark:border-gray-600 dark:bg-gray-800/60 dark:text-gray-400';
@@ -156,7 +157,13 @@ export function PacienteIdentificacaoTabContent({
           </div>
           <div>
             <FieldLabel>Telefone</FieldLabel>
-            <input type="tel" readOnly disabled value={id?.telefone || ''} className={RO} />
+            <InternationalPhoneDisplay
+              value={{
+                telefone: id?.telefone,
+                telefoneDdi: id?.telefoneDdi,
+                telefonePais: id?.telefonePais,
+              }}
+            />
           </div>
         </FieldCard>
 

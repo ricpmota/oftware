@@ -54,7 +54,7 @@ export function MetaHomeSeisMetricas({
   const mPrev = registroBioAnterior ? getBioMainMetrics(registroBioAnterior) : null;
   const pesoBio = registroBio?.peso;
 
-  const gridCls = `grid gap-3 ${compact ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`;
+  const gridCls = 'grid grid-cols-2 gap-3 lg:grid-cols-4';
   const abrirEvolucao = (id: MetaHomeMetricId) => () => setMetricModal(id);
 
   return (

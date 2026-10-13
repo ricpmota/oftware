@@ -6,17 +6,19 @@ import {
   isCanalChatSessionId,
   isInboundTextMessage,
   parseCanalChatInboundPayload,
-  phoneLookupVariants,
   summarizeCanalChatInbound,
   type CanalChatInboundMessage,
 } from '@/lib/whatsapp/canalChatInboundMessage';
 import { CANAL_CHAT_PENDING_PAYMENT_CHARGE } from '@/lib/whatsapp/canalChatPendingAction';
 import { flushPendingPaymentChargeAfterOk } from '@/services/canalChatPendingPaymentService';
 import { getWhatsappConnectionByDoctor } from '@/services/whatsappConnectionService';
+import { assertCanonicalWhatsappPhone } from '@/lib/whatsapp/resolveInternationalPhone';
 import {
-  normalizeWhatsappPhone,
-  phonesLikelyMatch,
-} from '@/services/whatsappProviderClient';
+  INBOUND_PHONE_QUERY_LIMIT,
+  inboundIdentLookupValues,
+  inboundPatientMatchesCanonical,
+  inboundPhoneKeyLookupValues,
+} from '@/lib/whatsapp/canalChatInboundPhoneMatch';
 
 const PACIENTES_COLLECTION = 'pacientes_completos';
 
@@ -46,37 +48,24 @@ function logCanalChatInbound(raw: unknown, result: CanalChatInboundResult): void
   });
 }
 
-function extractPatientPhone(data: Record<string, unknown>): string | null {
-  const dadosIdentificacao = data.dadosIdentificacao as Record<string, unknown> | undefined;
-  const candidates = [
-    data.canalChatPhoneKey,
-    dadosIdentificacao?.telefone,
-    data.telefone,
-    data.celular,
-    data.phone,
-    data.whatsapp,
-    data.telefoneWhatsApp,
-  ];
-  for (const raw of candidates) {
-    if (typeof raw !== 'string' || !raw.trim()) continue;
-    try {
-      return normalizeWhatsappPhone(raw);
-    } catch {
-      const digits = raw.replace(/\D/g, '');
-      if (digits.length >= 10) return digits;
-    }
+function canonicalizeInboundPhone(phone: string): string {
+  try {
+    return assertCanonicalWhatsappPhone(phone);
+  } catch {
+    return phone.replace(/\D/g, '');
   }
-  return null;
 }
 
 async function queryByPhoneField(
   field: string,
   variants: string[],
 ): Promise<Array<{ id: string; data: Record<string, unknown> }>> {
+  if (variants.length === 0) return [];
   try {
     const snap = await getFirestoreAdmin()
       .collection(PACIENTES_COLLECTION)
       .where(field, 'in', variants)
+      .limit(INBOUND_PHONE_QUERY_LIMIT)
       .get();
     return snap.docs.map((doc) => ({ id: doc.id, data: doc.data() as Record<string, unknown> }));
   } catch {
@@ -121,19 +110,17 @@ async function findPatientsByChatId(
 async function findPatientsByWhatsappPhone(phone: string): Promise<
   Array<{ id: string; data: Record<string, unknown> }>
 > {
-  let normalized = phone;
-  try {
-    normalized = normalizeWhatsappPhone(phone);
-  } catch {
-    normalized = phone.replace(/\D/g, '');
-  }
-  const variants = phoneLookupVariants(normalized);
-  if (variants.length === 0) return [];
+  const normalized = canonicalizeInboundPhone(phone);
+  if (!normalized || normalized.length < 10) return [];
+
+  const keyVariants = inboundPhoneKeyLookupValues(normalized);
+  const identVariants = inboundIdentLookupValues(normalized);
+  if (keyVariants.length === 0 && identVariants.length === 0) return [];
 
   const snaps = await Promise.all([
-    queryByPhoneField('canalChatPhoneKey', variants),
-    queryByPhoneField('dadosIdentificacao.telefone', variants),
-    queryByPhoneField('telefone', variants),
+    queryByPhoneField('canalChatPhoneKey', keyVariants),
+    queryByPhoneField('dadosIdentificacao.telefone', identVariants),
+    queryByPhoneField('telefone', identVariants),
   ]);
 
   const byId = new Map<string, Record<string, unknown>>();
@@ -143,11 +130,9 @@ async function findPatientsByWhatsappPhone(phone: string): Promise<
 
   const matched: Array<{ id: string; data: Record<string, unknown> }> = [];
   for (const [id, data] of byId) {
-    const docPhone = extractPatientPhone(data);
-    const key = typeof data.canalChatPhoneKey === 'string' ? data.canalChatPhoneKey : '';
-    const keyMatch = Boolean(key && phonesLikelyMatch(key, normalized));
-    const phoneMatch = docPhone ? phonesLikelyMatch(docPhone, normalized) : false;
-    if (keyMatch || phoneMatch) matched.push({ id, data });
+    if (inboundPatientMatchesCanonical(data, normalized)) {
+      matched.push({ id, data });
+    }
   }
   return matched;
 }
@@ -156,14 +141,7 @@ async function findPendingPatientsFallback(params: {
   phone: string | null;
   chatIds: string[];
 }): Promise<Array<{ id: string; data: Record<string, unknown> }>> {
-  let normalized = params.phone;
-  if (normalized) {
-    try {
-      normalized = normalizeWhatsappPhone(normalized);
-    } catch {
-      normalized = normalized.replace(/\D/g, '');
-    }
-  }
+  const normalized = params.phone ? canonicalizeInboundPhone(params.phone) : null;
   const chatIds = new Set(params.chatIds.map((id) => id.toLowerCase()));
   try {
     const snap = await getFirestoreAdmin()
@@ -180,12 +158,7 @@ async function findPendingPatientsFallback(params: {
         continue;
       }
       if (!normalized) continue;
-      const docPhone = extractPatientPhone(data);
-      const key = typeof data.canalChatPhoneKey === 'string' ? data.canalChatPhoneKey : '';
-      if (
-        (key && phonesLikelyMatch(key, normalized)) ||
-        (docPhone && phonesLikelyMatch(docPhone, normalized))
-      ) {
+      if (inboundPatientMatchesCanonical(data, normalized)) {
         matched.push({ id: doc.id, data });
       }
     }
@@ -196,6 +169,8 @@ async function findPendingPatientsFallback(params: {
   }
 }
 
+// canalChatPhoneKey só é gravado no aceite OK (já era o contrato).
+// O lookup internacional NÃO escreve a chave automaticamente.
 async function markPatientVerified(
   patientId: string,
   message: CanalChatInboundMessage,

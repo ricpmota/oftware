@@ -9,7 +9,7 @@ import {
   createQuestao,
   deleteQuestao,
   listQuestoesAdmin,
-  listQuestoesPublicadas,
+  listQuestoesPublicadasCatalog,
   markQuestaoAsReview,
   publicarQuestao,
   updateQuestao,
@@ -17,6 +17,7 @@ import {
   OftpayQuestoesValidationError,
   type OftpayQuestaoDoc,
 } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoCatalogItem } from '@/types/oftpayQuestaoCatalog';
 import OftpayKnowledgeMapPanel from './OftpayKnowledgeMapPanel';
 import OftpaySourcesPanel from './OftpaySourcesPanel';
 import QuestaoFonteOficialBlock, {
@@ -288,7 +289,7 @@ export default function OftpayQuestoesPageClient() {
   const [creatorMode, setCreatorMode] = useState<CreatorMode>('guiado');
   const [manualExpanded, setManualExpanded] = useState(false);
 
-  const [publicadas, setPublicadas] = useState<OftpayQuestaoDoc[]>([]);
+  const [publicadas, setPublicadas] = useState<OftpayQuestaoCatalogItem[]>([]);
   const [adminQuestoes, setAdminQuestoes] = useState<OftpayQuestaoDoc[]>([]);
   const [loadingPublicadas, setLoadingPublicadas] = useState(true);
   const [loadingAdmin, setLoadingAdmin] = useState(false);
@@ -359,11 +360,16 @@ export default function OftpayQuestoesPageClient() {
   const userEmail = user?.email ?? '';
   const userId = user?.uid ?? null;
 
-  const loadPublicadas = useCallback(async () => {
+  const loadPublicadas = useCallback(async (options?: { forceRefresh?: boolean }) => {
     setLoadingPublicadas(true);
     setPublicadasLoadError(null);
     try {
-      const list = await listQuestoesPublicadas();
+      const user = auth.currentUser;
+      if (!user) {
+        setPublicadas([]);
+        return;
+      }
+      const list = await listQuestoesPublicadasCatalog(() => user.getIdToken(), options);
       setPublicadas(list);
     } catch (e) {
       console.error('[questoes] loadPublicadas:', e);
@@ -399,8 +405,9 @@ export default function OftpayQuestoesPageClient() {
   }, [userEmail, isAdmin]);
 
   useEffect(() => {
+    if (!authChecked || !user) return;
     loadPublicadas();
-  }, [loadPublicadas]);
+  }, [authChecked, user, loadPublicadas]);
 
   useEffect(() => {
     if (activeArea === 'criador' && isAdmin && userEmail) {
@@ -604,7 +611,7 @@ export default function OftpayQuestoesPageClient() {
         const { id: _id, createdAt, updatedAt, ...createPayload } = payload;
         await createQuestao(createPayload, userEmail);
       }
-      await Promise.all([loadAdmin(), loadPublicadas()]);
+      await Promise.all([loadAdmin(), loadPublicadas({ forceRefresh: true })]);
       closeForm();
     } catch (e) {
       if (e instanceof OftpayQuestoesValidationError) {
@@ -645,7 +652,7 @@ export default function OftpayQuestoesPageClient() {
     setFormError(null);
     try {
       await publicarQuestao(questao.id, userEmail);
-      await Promise.all([loadAdmin(), loadPublicadas()]);
+      await Promise.all([loadAdmin(), loadPublicadas({ forceRefresh: true })]);
     } catch (e) {
       if (e instanceof OftpayQuestoesValidationError) {
         setFormError(e.errors.join(' ') || 'Validação falhou.');

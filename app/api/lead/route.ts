@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isZeptoMailConfigured, sendEmail } from '@/lib/email/transporter';
+import { persistMentoriaWhatsAppFromPayload } from '@/lib/whatsapp/resolveLeadPhone';
+import { formatLeadWhiteLabelContactDisplay } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
 
 const LEAD_EMAIL = 'dr.ricardo.oftware@gmail.com';
 
@@ -35,6 +37,8 @@ export type LeadPayload = {
   estado: string;
   email: string;
   whatsapp: string;
+  whatsappDdi?: string;
+  whatsappPais?: string;
   faturamentoAtual: string;
   objetivoPrincipal: string;
   atendeOnline: string;
@@ -51,6 +55,8 @@ export async function POST(request: NextRequest) {
       estado,
       email,
       whatsapp,
+      whatsappDdi,
+      whatsappPais,
       faturamentoAtual,
       objetivoPrincipal,
       atendeOnline,
@@ -65,12 +71,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const whatsappPersist = persistMentoriaWhatsAppFromPayload({
+      whatsapp,
+      whatsappDdi,
+      whatsappPais,
+    });
+    if (!whatsappPersist.ok) {
+      return NextResponse.json({ error: whatsappPersist.error }, { status: 400 });
+    }
+    const whatsappFields = whatsappPersist.fields;
+    const whatsappDisplay = formatLeadWhiteLabelContactDisplay(whatsappFields);
+
     const assunto = 'Novo lead - Mentoria Método Emagrecer';
     const corpo = `
 Nome: ${nomeCompleto}
 Cidade/Estado: ${cidade || ''} / ${estado || ''}
 Email: ${email}
-Telefone: ${whatsapp}
+Telefone: ${whatsappDisplay}
 Faturamento atual: ${faturamentoAtual || '—'}
 Objetivo: ${objetivoPrincipal || '—'}
 Atende online: ${atendeOnline || '—'}
@@ -90,7 +107,13 @@ Travamento: ${travamento || '—'}
       cidade: (cidade || '').trim(),
       estado: estado || '',
       email: email.trim(),
-      whatsapp: whatsapp.trim(),
+      whatsapp: whatsappFields.whatsapp,
+      ...(whatsappFields.whatsappDdi
+        ? {
+            whatsappDdi: whatsappFields.whatsappDdi,
+            ...(whatsappFields.whatsappPais ? { whatsappPais: whatsappFields.whatsappPais } : {}),
+          }
+        : {}),
       faturamentoAtual: faturamentoAtual || '',
       objetivoPrincipal: objetivoPrincipal || '',
       atendeOnline: atendeOnline || '',
@@ -112,7 +135,7 @@ Travamento: ${travamento || '—'}
           .replace(/\{cidade\}/g, (cidade || '').trim())
           .replace(/\{estado\}/g, estado || '')
           .replace(/\{email\}/g, email.trim())
-          .replace(/\{telefone\}/g, whatsapp.trim())
+          .replace(/\{telefone\}/g, whatsappDisplay)
           .replace(/\{faturamento\}/g, faturamentoAtual || '—')
           .replace(/\{objetivo\}/g, objetivoPrincipal || '—')
           .replace(/\{atende_online\}/g, atendeOnline || '—')

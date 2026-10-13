@@ -1,9 +1,14 @@
 import { collection, collectionGroup, doc, getDocs, getDoc, updateDoc, addDoc, query, where, setDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import { applyMedicoResponsavelIdForFirestoreUpdate } from '@/lib/metaadmin/medicoResponsavelIdOnUpdate';
 import { PacienteCompleto } from '@/types/obesidade';
 import { ensureImcOnMedidasIniciais } from '@/lib/meta/medidasIniciaisImc';
 import { parseDataNascimentoDiaMesLocal } from '@/utils/dataNascimentoLocal';
+import {
+  planosAplicacaoScheduleSignatureChanged,
+  type PlanoScheduleSignatureSource,
+} from '@/lib/whatsapp/planoAplicacaoScheduleSignature';
 
 /**
  * Remove valores undefined recursivamente de um objeto (Firestore não aceita undefined)
@@ -44,6 +49,49 @@ function toDateSafe(value: unknown): Date | undefined {
   }
   const d = new Date(value as string | number);
   return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+function mapInjetaveisAplicacoesDates(list: unknown): unknown {
+  if (!Array.isArray(list)) return list;
+  return list.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const a = item as Record<string, unknown>;
+    const startDate = toDateSafe(a.startDate);
+    const next: Record<string, unknown> = { ...a };
+    if (startDate) next.startDate = startDate;
+    else delete next.startDate;
+    return next;
+  });
+}
+
+function mapHistoricoProtocolosTirzepatidaDates(raw: unknown): unknown {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const s = item as Record<string, unknown>;
+    return {
+      ...s,
+      startDate: toDateSafe(s.startDate),
+      dataInicioTratamento: toDateSafe(s.dataInicioTratamento),
+      lastDoseChangeAt: toDateSafe(s.lastDoseChangeAt),
+      nextReviewDate: toDateSafe(s.nextReviewDate),
+      arquivadoEm: toDateSafe(s.arquivadoEm),
+    };
+  });
+}
+
+function mapPlanoTerapeuticoDates(plano: Record<string, any> | null | undefined): Record<string, any> | undefined {
+  if (!plano) return plano ?? undefined;
+  return {
+    ...plano,
+    startDate: toDateSafe(plano.startDate),
+    lastDoseChangeAt: toDateSafe(plano.lastDoseChangeAt),
+    nextReviewDate: toDateSafe(plano.nextReviewDate),
+    injetaveisAplicacoes: mapInjetaveisAplicacoesDates(plano.injetaveisAplicacoes),
+    historicoProtocolosTirzepatida: mapHistoricoProtocolosTirzepatidaDates(
+      plano.historicoProtocolosTirzepatida
+    ),
+  };
 }
 
 /** dataNascimento: dia civil correto (evita um dia a menos com ISO/UTC no calendário). */
@@ -150,7 +198,79 @@ function applyImcBeforeSave<T extends PacienteCompleto | Omit<PacienteCompleto, 
   };
 }
 
+function statusTratamentoChanged(before: unknown, after: unknown): boolean {
+  return String(before ?? '').trim() !== String(after ?? '').trim();
+}
+
+/**
+ * Após salvar o paciente, se as datas de aplicação ou o status mudaram,
+ * reconcilia a fila WhatsApp daquele paciente. Fire-and-forget — não quebra o save.
+ */
+function maybeRebuildWhatsappQueueAfterPatientSave(
+  patientId: string,
+  opts: {
+    beforePlano: PlanoScheduleSignatureSource | null | undefined;
+    afterPlano: PlanoScheduleSignatureSource | null | undefined;
+    beforeStatus: unknown;
+    afterStatus: unknown;
+  },
+): void {
+  if (!patientId.trim()) return;
+  const scheduleChanged = planosAplicacaoScheduleSignatureChanged(opts.beforePlano, opts.afterPlano);
+  const statusChanged = statusTratamentoChanged(opts.beforeStatus, opts.afterStatus);
+  if (!scheduleChanged && !statusChanged) return;
+
+  void (async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      const res = await fetch('/api/metaadmin/automacoes/whatsapp-queue/rebuild-patient', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pacienteId: patientId }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        console.warn(
+          '[PacienteService] rebuild fila WhatsApp após mudança de plano/status:',
+          data?.error ?? res.status,
+        );
+      }
+    } catch (error) {
+      console.warn('[PacienteService] rebuild fila WhatsApp após mudança de plano/status:', error);
+    }
+  })();
+}
+
 export class PacienteService {
+  /**
+   * Remove da fila do cron os lembretes de aplicação (WhatsApp) ainda não enviados.
+   * Chamado ao apagar um protocolo, para o envio não continuar com o plano antigo.
+   */
+  static async apagarFilaWhatsappAplicacao(pacienteId: string): Promise<void> {
+    const id = pacienteId.trim();
+    if (!id) return;
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('Sessão expirada. Entre de novo para remover os lembretes de WhatsApp.');
+    }
+    const res = await fetch('/api/metaadmin/automacoes/whatsapp-queue/clear-aplicacao-patient', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pacienteId: id }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(data?.error || 'Não foi possível remover os lembretes de WhatsApp.');
+    }
+  }
+
   // Criar ou atualizar paciente completo
   static async createOrUpdatePaciente(paciente: PacienteCompleto | Omit<PacienteCompleto, 'id'>): Promise<string> {
     try {
@@ -158,6 +278,24 @@ export class PacienteService {
       // Se tem id, atualizar diretamente
       if ('id' in pacienteComImc && pacienteComImc.id) {
         const { id, ...pacienteData } = pacienteComImc;
+
+        let beforePlano: PlanoScheduleSignatureSource | undefined;
+        let beforeStatus: unknown;
+        try {
+          const beforeSnap = await getDoc(doc(db, 'pacientes_completos', id));
+          if (beforeSnap.exists()) {
+            const beforeData = beforeSnap.data() as {
+              planoTerapeutico?: PlanoScheduleSignatureSource;
+              statusTratamento?: unknown;
+            };
+            beforePlano = beforeData.planoTerapeutico;
+            beforeStatus = beforeData.statusTratamento;
+          }
+        } catch {
+          beforePlano = undefined;
+          beforeStatus = undefined;
+        }
+
         // Converter datas para Timestamp do Firestore
         const dataToSave: any = {
           ...pacienteData,
@@ -232,7 +370,8 @@ export class PacienteService {
             if (key !== 'startDate' && key !== 'lastDoseChangeAt' && key !== 'nextReviewDate') {
               const value = (dataToSave.planoTerapeutico as any)[key];
               if (value !== undefined) {
-                plano[key] = value;
+                plano[key] =
+                  key === 'injetaveisAplicacoes' ? mapInjetaveisAplicacoesDates(value) : value;
               }
             }
           });
@@ -240,10 +379,18 @@ export class PacienteService {
           dataToSave.planoTerapeutico = plano;
         }
         
+        applyMedicoResponsavelIdForFirestoreUpdate(dataToSave);
+
         // Remover valores undefined antes de salvar no Firestore
         const cleanedData = removeUndefined(dataToSave);
         
         await updateDoc(doc(db, 'pacientes_completos', id), cleanedData);
+        maybeRebuildWhatsappQueueAfterPatientSave(id, {
+          beforePlano,
+          afterPlano: cleanedData.planoTerapeutico as PlanoScheduleSignatureSource | undefined,
+          beforeStatus,
+          afterStatus: cleanedData.statusTratamento,
+        });
         return id;
       }
       
@@ -254,17 +401,31 @@ export class PacienteService {
       if (!existingSnapshot.empty) {
         // Atualizar paciente existente
         const existingDoc = existingSnapshot.docs[0];
+        const existingData = existingDoc.data() as {
+          planoTerapeutico?: PlanoScheduleSignatureSource;
+          statusTratamento?: unknown;
+        };
+        const beforePlano = existingData.planoTerapeutico;
+        const beforeStatus = existingData.statusTratamento;
         const { id, ...pacienteData } = { ...pacienteComImc, id: existingDoc.id } as PacienteCompleto;
         
         const dataToSave: any = {
           ...pacienteData,
           dataCadastro: pacienteData.dataCadastro || new Date()
         };
+
+        applyMedicoResponsavelIdForFirestoreUpdate(dataToSave);
         
         // Remover valores undefined antes de salvar no Firestore
         const cleanedData = removeUndefined(dataToSave);
         
         await updateDoc(doc(db, 'pacientes_completos', existingDoc.id), cleanedData);
+        maybeRebuildWhatsappQueueAfterPatientSave(existingDoc.id, {
+          beforePlano,
+          afterPlano: cleanedData.planoTerapeutico as PlanoScheduleSignatureSource | undefined,
+          beforeStatus,
+          afterStatus: cleanedData.statusTratamento,
+        });
         return existingDoc.id;
       } else {
         // Criar novo paciente
@@ -282,14 +443,21 @@ export class PacienteService {
           ...shadowOrganizationFields(),
         });
         const novoPacienteId = docRef.id;
+
+        maybeRebuildWhatsappQueueAfterPatientSave(novoPacienteId, {
+          beforePlano: undefined,
+          afterPlano: cleanedData.planoTerapeutico as PlanoScheduleSignatureSource | undefined,
+          beforeStatus: undefined,
+          afterStatus: cleanedData.statusTratamento,
+        });
         
         // Verificar se há indicação pendente com o mesmo telefone
         // Buscar telefone do paciente (pode estar em dadosIdentificacao.telefone)
-        const telefonePaciente = paciente.dadosIdentificacao?.telefone || '';
-        if (telefonePaciente) {
+        const ident = paciente.dadosIdentificacao;
+        if (ident?.telefone || ident?.telefoneDdi) {
           try {
             const { IndicacaoService } = await import('@/services/indicacaoService');
-            const indicacao = await IndicacaoService.getIndicacaoPorTelefone(telefonePaciente);
+            const indicacao = await IndicacaoService.getIndicacaoPorTelefone(ident);
             if (indicacao && (indicacao.status === 'pendente' || indicacao.status === 'visualizada')) {
               // Marcar indicação como venda
               await IndicacaoService.marcarComoVenda(indicacao.id, novoPacienteId);
@@ -307,6 +475,50 @@ export class PacienteService {
       console.error('Erro ao criar/atualizar paciente:', error);
       throw error;
     }
+  }
+
+  static async patchPacienteFields(
+    pacienteId: string,
+    fields: Record<string, unknown>
+  ): Promise<void> {
+    const id = String(pacienteId || '').trim();
+    if (!id) return;
+    const cleaned = removeUndefined(fields);
+    if (!cleaned || Object.keys(cleaned).length === 0) return;
+    await updateDoc(doc(db, 'pacientes_completos', id), cleaned);
+  }
+
+  static async vincularMedicoResponsavel(pacienteId: string, medicoId: string): Promise<void> {
+    const id = String(pacienteId || '').trim();
+    const medico = String(medicoId || '').trim();
+    if (!id || !medico) return;
+    await updateDoc(doc(db, 'pacientes_completos', id), { medicoResponsavelId: medico });
+  }
+
+  static async vincularMedicoResponsavelEm(pacienteIds: string[], medicoId: string): Promise<void> {
+    const medico = String(medicoId || '').trim();
+    if (!medico) return;
+    const unique = [...new Set(pacienteIds.map((id) => String(id || '').trim()).filter(Boolean))];
+    if (unique.length === 0) return;
+    const results = await Promise.allSettled(unique.map((id) => this.vincularMedicoResponsavel(id, medico)));
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (rejected.length === results.length) {
+      throw rejected[0].reason;
+    }
+    if (rejected.length > 0) {
+      console.warn(
+        'Alguns documentos de paciente não receberam medicoResponsavelId:',
+        rejected.map((r) => r.reason)
+      );
+    }
+  }
+
+  static async listPacienteIdsByEmail(email: string): Promise<string[]> {
+    const trimmed = email.trim();
+    if (!trimmed) return [];
+    const pacienteQuery = query(collection(db, 'pacientes_completos'), where('email', '==', trimmed));
+    const snapshot = await getDocs(pacienteQuery);
+    return snapshot.docs.map((d) => d.id);
   }
 
   // Buscar paciente por ID
@@ -329,12 +541,7 @@ export class PacienteService {
       // Converter datas em planoTerapeutico
       let planoTerapeutico = data.planoTerapeutico;
       if (planoTerapeutico) {
-        planoTerapeutico = {
-          ...planoTerapeutico,
-          startDate: toDateSafe(planoTerapeutico.startDate),
-          lastDoseChangeAt: toDateSafe(planoTerapeutico.lastDoseChangeAt),
-          nextReviewDate: toDateSafe(planoTerapeutico.nextReviewDate),
-        };
+        planoTerapeutico = mapPlanoTerapeuticoDates(planoTerapeutico) as typeof planoTerapeutico;
       }
       
       return {
@@ -379,12 +586,7 @@ export class PacienteService {
       // Converter datas em planoTerapeutico
       let planoTerapeutico = data.planoTerapeutico;
       if (planoTerapeutico) {
-        planoTerapeutico = {
-          ...planoTerapeutico,
-          startDate: toDateSafe(planoTerapeutico.startDate),
-          lastDoseChangeAt: toDateSafe(planoTerapeutico.lastDoseChangeAt),
-          nextReviewDate: toDateSafe(planoTerapeutico.nextReviewDate),
-        };
+        planoTerapeutico = mapPlanoTerapeuticoDates(planoTerapeutico) as typeof planoTerapeutico;
       }
       
       return {
@@ -429,12 +631,7 @@ export class PacienteService {
       // Converter datas em planoTerapeutico
       let planoTerapeutico = data.planoTerapeutico;
       if (planoTerapeutico) {
-        planoTerapeutico = {
-          ...planoTerapeutico,
-          startDate: toDateSafe(planoTerapeutico.startDate),
-          lastDoseChangeAt: toDateSafe(planoTerapeutico.lastDoseChangeAt),
-          nextReviewDate: toDateSafe(planoTerapeutico.nextReviewDate),
-        };
+        planoTerapeutico = mapPlanoTerapeuticoDates(planoTerapeutico) as typeof planoTerapeutico;
       }
       
       return {
@@ -591,12 +788,7 @@ export class PacienteService {
         // Converter datas em planoTerapeutico
         let planoTerapeutico = data.planoTerapeutico;
         if (planoTerapeutico) {
-          planoTerapeutico = {
-            ...planoTerapeutico,
-            startDate: toDateSafe(planoTerapeutico.startDate),
-            lastDoseChangeAt: toDateSafe(planoTerapeutico.lastDoseChangeAt),
-            nextReviewDate: toDateSafe(planoTerapeutico.nextReviewDate),
-          };
+          planoTerapeutico = mapPlanoTerapeuticoDates(planoTerapeutico) as typeof planoTerapeutico;
         }
         
         return {
@@ -792,12 +984,7 @@ export class PacienteService {
       // Converter datas em planoTerapeutico
       let planoTerapeutico = data.planoTerapeutico;
       if (planoTerapeutico) {
-        planoTerapeutico = {
-          ...planoTerapeutico,
-          startDate: toDateSafe(planoTerapeutico.startDate),
-          lastDoseChangeAt: toDateSafe(planoTerapeutico.lastDoseChangeAt),
-          nextReviewDate: toDateSafe(planoTerapeutico.nextReviewDate),
-        };
+        planoTerapeutico = mapPlanoTerapeuticoDates(planoTerapeutico) as typeof planoTerapeutico;
       }
       
       return {

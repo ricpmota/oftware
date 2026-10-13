@@ -139,6 +139,38 @@ export class PacienteNutricionistaService {
   }
 
   /**
+   * Lista vínculos ativos de um paciente com nutricionistas (compartilhamentos).
+   */
+  static async listActiveVinculosByPaciente(pacienteId: string): Promise<PacienteNutricionistaDoc[]> {
+    const pid = String(pacienteId || '').trim();
+    if (!pid) return [];
+    try {
+      const q = query(
+        collection(db, COL_PACIENTE_NUTRICIONISTA),
+        where('pacienteId', '==', pid),
+        where('status', '==', 'ativo')
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          pacienteId: data.pacienteId,
+          nutricionistaId: data.nutricionistaId,
+          medicoId: data.medicoId,
+          dataCompartilhamento: data.dataCompartilhamento?.toDate() || new Date(),
+          status: data.status || 'ativo',
+          removidoEm: data.removidoEm?.toDate(),
+          motivoRemocao: data.motivoRemocao,
+        };
+      });
+    } catch (error) {
+      console.error('Erro ao listar vínculos nutri do paciente:', error);
+      return [];
+    }
+  }
+
+  /**
    * Verifica se nutricionista tem acesso a um paciente
    */
   static async hasAccessToPaciente(nutricionistaId: string, pacienteId: string): Promise<boolean> {

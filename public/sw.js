@@ -1,6 +1,6 @@
 // Service Worker — escopo mínimo: ícones/manifest offline; app não interceptada (evita HTML/JS antigo)
-const STATIC_CACHE = 'oftware-static-v1.0.7';
-const DYNAMIC_CACHE = 'oftware-dynamic-v1.0.7';
+const STATIC_CACHE = 'oftware-static-v1.0.8';
+const DYNAMIC_CACHE = 'oftware-dynamic-v1.0.8';
 
 const STATIC_ASSETS = [
   '/icones/metodo-simbolo-17.png',

@@ -10,11 +10,21 @@ import {
 } from '@/lib/meta/perfilMetabolicoV3Chat';
 import {
   CHAT_BOT_TEXTS,
+  META_CHAT_STEP_CIRURGIAS,
+  META_CHAT_STEP_DEPRESSAO,
+  META_CHAT_STEP_IDEACAO_SUICIDA,
+  META_CHAT_STEP_LOCALIZACAO,
+  META_CHAT_STEP_MEDICAMENTOS_DIABETES,
   META_CHAT_STEP_PERFIL_COMPLETO,
   RISK_QUESTIONS,
   type RiskOption,
+  TEXTO_CIRURGIAS,
+  TEXTO_DEPRESSAO,
+  TEXTO_IDEACAO_SUICIDA,
+  TEXTO_LOCALIZACAO_PACIENTE,
   TEXTO_PESQUISA_MEDICO,
 } from './constants';
+import { textoMedicamentosDiabetes } from './medicamentosDiabetes';
 
 export function isIntroSessionDone(introKey: string): boolean {
   if (typeof window === 'undefined') return true;
@@ -98,8 +108,15 @@ export function splitStepText(text: string): { title: string; hint?: string } {
   return { title: parts[0] ?? text, hint: parts[1] };
 }
 
-export function getInitialBotTextForStep(step: number): string | null {
+export function getInitialBotTextForStep(step: number, p?: PacienteCompleto): string | null {
   if (step === 0) return null;
+  if (step === META_CHAT_STEP_LOCALIZACAO) return TEXTO_LOCALIZACAO_PACIENTE;
+  if (step === META_CHAT_STEP_CIRURGIAS) return TEXTO_CIRURGIAS;
+  if (step === META_CHAT_STEP_DEPRESSAO) return TEXTO_DEPRESSAO;
+  if (step === META_CHAT_STEP_IDEACAO_SUICIDA) return TEXTO_IDEACAO_SUICIDA;
+  if (step === META_CHAT_STEP_MEDICAMENTOS_DIABETES) {
+    return p ? textoMedicamentosDiabetes(p) : 'Quais medicamentos você toma para tratar seu diabetes?\n\nPode marcar mais de uma opção.';
+  }
   if (step === META_CHAT_STEP_PERFIL_COMPLETO) return null;
   const perfilText = getPerfilMetabolicoBotText(step);
   if (perfilText) return perfilText;
@@ -129,7 +146,7 @@ export function getMedicoChatDisplayName(medico: Pick<Medico, 'nome' | 'genero'>
 }
 
 export function isMetaChatAnamneseStep(step: number): boolean {
-  return step >= 1 && step <= 14;
+  return (step >= 1 && step <= 14) || step === META_CHAT_STEP_LOCALIZACAO || step === META_CHAT_STEP_CIRURGIAS || step === META_CHAT_STEP_MEDICAMENTOS_DIABETES || step === META_CHAT_STEP_DEPRESSAO || step === META_CHAT_STEP_IDEACAO_SUICIDA;
 }
 
 export function isMetaChatMedicoStep(step: number): boolean {

@@ -3,22 +3,21 @@
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import LeadReferralEditorModal from '@/components/crm/medico/LeadReferralEditorModal';
+import LeadWhatsAppPresetModal from '@/components/crm/medico/LeadWhatsAppPresetModal';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertTriangle, Bell, FileText, GripVertical, Phone, User } from 'lucide-react';
+import { AlertTriangle, Bell, FileText, GripVertical, Phone } from 'lucide-react';
+import LeadPatientAvatar from '@/components/crm/LeadPatientAvatar';
 import { useMedicoLeadsCrmTheme } from '@/components/crm/medico/MedicoLeadsCrmProvider';
 import LeadCardTagManager from '@/components/crm/medico/LeadCardTagManager';
 import Paciente360MiniSummary from '@/components/metaadmin/paciente360/Paciente360MiniSummary';
 import { formatLeadAge, getLeadIdleTone } from '@/lib/crm/leadAge';
 import { getLeadCardAlert } from '@/lib/crm/leadCardAlert';
 import { leadCrmTagStyle } from '@/lib/crm/leadCrmTagUtils';
-import { getLeadPhone, getLeadPhoneDigits, isValidLeadPhone } from '@/lib/crm/leadContactHelpers';
+import { getLeadPhone, getLeadPhoneFields, isValidLeadPhone } from '@/lib/crm/leadContactHelpers';
+import { buildTelHref } from '@/lib/phone/buildTelHref';
 import { formatOrcamentoBrl } from '@/lib/crm/leadMedicoCrmUtils';
 import { getLeadReferralBadge } from '@/lib/crm/resolveLeadReferral';
 import { formatLeadTaskCounter, summarizeLeadTasks } from '@/lib/crm/leadTaskSummary';
-import {
-  buildPaciente360WhatsAppMessage,
-  buildPaciente360WhatsAppUrl,
-} from '@/lib/paciente360/paciente360WhatsAppMessages';
 import type { Paciente360Summary } from '@/types/paciente360';
 import type { LeadMedico, LeadReferralSnapshot } from '@/types/leadMedico';
 import type { Lembrete } from '@/types/lembrete';
@@ -28,6 +27,7 @@ import type { PacienteCompleto } from '@/types/obesidade';
 type Props = {
   lead: LeadMedico;
   paciente?: PacienteCompleto | null;
+  photoUrl?: string | null;
   paciente360Summary?: Paciente360Summary;
   lembretes?: Lembrete[];
   medicoId?: string;
@@ -44,6 +44,7 @@ type Props = {
   userEmail?: string | null;
   pacientes?: PacienteCompleto[];
   onReferralSaved?: (leadId: string, referral: LeadReferralSnapshot) => void;
+  organizationPublicName?: string | null;
 };
 
 const IDLE_TONE_CLASS = {
@@ -52,9 +53,27 @@ const IDLE_TONE_CLASS = {
   danger: 'text-rose-600 dark:text-rose-400',
 };
 
+/** Nome do card: Nome Completo do paciente (cadastro), só primeiro e último. */
+function formatLeadCardDisplayName(
+  paciente: PacienteCompleto | null | undefined,
+  leadName: string
+): string {
+  const raw =
+    paciente?.dadosIdentificacao?.nomeCompleto?.trim() ||
+    paciente?.nome?.trim() ||
+    leadName?.trim() ||
+    '';
+  if (!raw) return 'Lead';
+  const partes = raw.split(/\s+/).filter((p) => p.length > 0);
+  if (partes.length === 0) return 'Lead';
+  if (partes.length === 1) return partes[0];
+  return `${partes[0]} ${partes[partes.length - 1]}`;
+}
+
 export default function LeadsMedicoPipelineCard({
   lead,
   paciente,
+  photoUrl,
   paciente360Summary,
   lembretes,
   medicoId,
@@ -71,9 +90,11 @@ export default function LeadsMedicoPipelineCard({
   userEmail,
   pacientes = [],
   onReferralSaved,
+  organizationPublicName,
 }: Props) {
   const t = useMedicoLeadsCrmTheme();
   const [referralEditorOpen, setReferralEditorOpen] = useState(false);
+  const [whatsAppPresetOpen, setWhatsAppPresetOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead, status: lead.status },
@@ -90,11 +111,10 @@ export default function LeadsMedicoPipelineCard({
   const extraTags = tags.length - visibleTags.length;
 
   const phoneRaw = getLeadPhone(lead, paciente);
-  const telefoneLimpo = getLeadPhoneDigits(lead, paciente);
+  const phoneFields = getLeadPhoneFields(lead, paciente);
+  const telHref = buildTelHref(phoneFields);
   const hasTelefone = isValidLeadPhone(lead, paciente);
-  const waUrl = hasTelefone
-    ? buildPaciente360WhatsAppUrl(phoneRaw, buildPaciente360WhatsAppMessage(paciente360Summary, lead))
-    : null;
+  const canWhatsApp = hasTelefone && Boolean(medicoId);
 
   const pacienteId = paciente360Summary?.pacienteId;
   const canProntuario = Boolean(pacienteId && onOpenProntuario);
@@ -109,7 +129,7 @@ export default function LeadsMedicoPipelineCard({
   const idleTone = getLeadIdleTone(lead.dataStatus);
 
   const iconBtn =
-    'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none';
+    'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-30 lg:h-8 lg:w-8';
 
   const canManageTags = Boolean(
     medicoId &&
@@ -121,12 +141,14 @@ export default function LeadsMedicoPipelineCard({
   );
 
   const referralBadge = getLeadReferralBadge(lead);
+  const displayName = formatLeadCardDisplayName(paciente, lead.name);
+  const secondaryLine = [lead.cidade, lead.estado].filter(Boolean).join(' · ');
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`${t.pipelineCard} min-h-[118px] grid grid-cols-[auto_auto_minmax(0,1fr)] gap-x-2 gap-y-1.5 cursor-pointer group shadow-sm hover:shadow-md transition-shadow`}
+      className={`${t.pipelineCard} min-h-[118px] grid cursor-pointer grid-cols-[auto_auto_minmax(0,1fr)] gap-x-2 gap-y-1.5 shadow-sm transition-shadow hover:shadow-md lg:rounded-2xl lg:shadow-[0_1px_2px_rgba(15,23,42,0.05)]`}
       onClick={() => onOpen(lead)}
     >
       <button
@@ -140,21 +162,28 @@ export default function LeadsMedicoPipelineCard({
         <GripVertical className="w-4 h-4" />
       </button>
 
-      <div className="row-start-1 col-start-2 self-start flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300 overflow-hidden">
-        <User className="w-4 h-4" aria-hidden />
-      </div>
+      <LeadPatientAvatar photoUrl={photoUrl} className="row-start-1 col-start-2 mt-0.5 h-8 w-8 self-start lg:h-10 lg:w-10" />
 
       <div className="row-start-1 col-start-3 min-w-0 flex items-start justify-between gap-1">
-        <p className={`font-semibold text-sm leading-tight truncate ${t.textPrimary}`}>{lead.name}</p>
+        <div className="min-w-0">
+          <p className={`truncate text-sm font-semibold leading-tight lg:text-[15px] ${t.textPrimary}`} title={displayName}>
+            {displayName}
+          </p>
+          {secondaryLine ? (
+            <p className={`mt-0.5 hidden truncate text-[11px] lg:block ${t.textMuted}`} title={secondaryLine}>
+              {secondaryLine}
+            </p>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onOpen(lead);
           }}
-          className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
+          className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold lg:rounded-lg lg:px-2 lg:py-1 lg:text-xs lg:font-bold ${
             orcamento > 0
-              ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30'
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
               : `${t.textMuted} hover:bg-black/5 dark:hover:bg-white/10`
           }`}
         >
@@ -222,24 +251,23 @@ export default function LeadsMedicoPipelineCard({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-0.5">
-          <a
-            href={waUrl ?? undefined}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
             aria-label="WhatsApp"
+            disabled={!canWhatsApp}
             onClick={(e) => {
-              if (!waUrl) e.preventDefault();
               e.stopPropagation();
+              if (canWhatsApp) setWhatsAppPresetOpen(true);
             }}
-            className={`${iconBtn} ${t.btnSecondary} ${!waUrl ? 'opacity-30 pointer-events-none' : ''}`}
+            className={`${iconBtn} ${t.btnSecondary}`}
           >
             <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden>
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
             </svg>
-          </a>
+          </button>
 
           <a
-            href={hasTelefone && telefoneLimpo ? `tel:+${telefoneLimpo}` : undefined}
+            href={hasTelefone && telHref ? telHref : undefined}
             aria-label="Ligar"
             onClick={(e) => {
               if (!hasTelefone) e.preventDefault();
@@ -316,6 +344,19 @@ export default function LeadsMedicoPipelineCard({
             onReferralSaved(lead.id, referral);
             setReferralEditorOpen(false);
           }}
+        />
+      )}
+
+      {whatsAppPresetOpen && medicoId && phoneRaw && (
+        <LeadWhatsAppPresetModal
+          open={whatsAppPresetOpen}
+          lead={lead}
+          phoneRaw={phoneRaw}
+          ident={phoneFields}
+          medicoId={medicoId}
+          organizationName={organizationPublicName}
+          paciente360Summary={paciente360Summary}
+          onClose={() => setWhatsAppPresetOpen(false)}
         />
       )}
     </div>

@@ -35,7 +35,13 @@ export function conclusaoJaRegistrada(paciente: PacienteCompleto): boolean {
   if (!plano) return false;
   const semConcl = semanaIndexConclusao(plano);
   const evolucao = paciente.evolucaoSeguimento || [];
-  if (evolucao.some(ehRegistroConclusaoSeguimento)) return true;
+  if (
+    evolucao.some(
+      (e) => ehRegistroConclusaoSeguimento(e) && (e.weekIndex ?? e.numeroSemana ?? 0) === semConcl
+    )
+  ) {
+    return true;
+  }
   const reg = registroEvolucaoPorSemana(evolucao, semConcl);
   return ehRegistroConclusaoSeguimento(reg);
 }

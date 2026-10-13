@@ -10,6 +10,12 @@ import {
   ProgressPhotosCarouselModal,
   type FotoProgressoCarousel,
 } from '@/components/progressPhotos/ProgressPhotosCarouselModal';
+import { BodyScanModal } from '@/components/bodyscan/BodyScanModal';
+import {
+  backfillBodyScansForMetaAdminPatient,
+  discoverBodyScansForMetaAdminPatient,
+  loadBodyScansFromFirestoreClient,
+} from '@/lib/bodyscan/loadBodyScansClient';
 import { MarcoZeroTimelineCard } from './MarcoZeroTimelineCard';
 import type { EventoTimelineDados } from './prontuarioTypes';
 
@@ -17,6 +23,7 @@ type Props = {
   dados: EventoTimelineDados;
   descricao?: string;
   fotosProgresso?: FotoProgressoCarousel[];
+  pacienteId?: string;
 };
 
 function ChipMedida({
@@ -86,8 +93,14 @@ function scoreTimelineParaCard(
   };
 }
 
-export function AplicacaoTimelineCard({ dados, descricao, fotosProgresso = [] }: Props) {
+export function AplicacaoTimelineCard({
+  dados,
+  descricao,
+  fotosProgresso = [],
+  pacienteId,
+}: Props) {
   const [modalFotosAberto, setModalFotosAberto] = useState(false);
+  const [modalBodyScanAberto, setModalBodyScanAberto] = useState(false);
 
   const checkInItens = dados.checkInSemanal
     ? checkInSemanalParaExibicao(dados.checkInSemanal)
@@ -144,6 +157,17 @@ export function AplicacaoTimelineCard({ dados, descricao, fotosProgresso = [] }:
             <span className="text-[11px] font-semibold">Fotos</span>
           </button>
         )}
+        {pacienteId ? (
+          <button
+            type="button"
+            onClick={() => setModalBodyScanAberto(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+            aria-label="Abrir BodyScan"
+            title="BodyScan — composição corporal estimada por imagem"
+          >
+            <span className="text-[11px] font-semibold">BodyScan</span>
+          </button>
+        ) : null}
       </div>
 
       {dados.medicamento && !dados.dose && (
@@ -214,7 +238,27 @@ export function AplicacaoTimelineCard({ dados, descricao, fotosProgresso = [] }:
         }
         fotos={fotosProgresso}
         semanaFiltro={dados.semana}
+        onOpenBodyScan={
+          pacienteId
+            ? () => {
+                setModalFotosAberto(false);
+                setModalBodyScanAberto(true);
+              }
+            : undefined
+        }
       />
+      {pacienteId ? (
+        <BodyScanModal
+          aberto={modalBodyScanAberto}
+          onFechar={() => setModalBodyScanAberto(false)}
+          viewerLabel="Visão profissional"
+          viewer="profissional"
+          pacienteId={pacienteId}
+          onLoad={() => loadBodyScansFromFirestoreClient(pacienteId)}
+          onDiscoverHistorical={() => discoverBodyScansForMetaAdminPatient(pacienteId)}
+          onBackfillHistorical={() => backfillBodyScansForMetaAdminPatient(pacienteId)}
+        />
+      ) : null}
     </div>
   );
 }

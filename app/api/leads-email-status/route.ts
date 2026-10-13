@@ -6,6 +6,11 @@ import {
   fetchEnviosCampanhaPorLeadIds,
   LEAD_ID_IN_BATCH_SIZE,
 } from '@/lib/leadsEmailStatus/fetchEnviosCampanhaPorLeadIds';
+import {
+  beginEmailEnviosAuditScope,
+  endEmailEnviosAuditScope,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 // Declaração global para adminAuth
 declare global {
@@ -53,6 +58,11 @@ function getFirebaseAdmin(): Auth {
 }
 
 export async function GET(request: NextRequest) {
+  const auditScopeId = beginEmailEnviosAuditScope({
+    siteId: EMAIL_ENVIOS_AUDIT_SITES.API_LEADS_EMAIL_STATUS.id,
+    surface: 'api',
+  });
+
   try {
     console.log('🔍 Buscando leads para gestão de e-mails...');
     
@@ -220,7 +230,8 @@ export async function GET(request: NextRequest) {
     const leadIds = leadsFormatted.map((lead) => lead.id);
     const { enviosPorLead, docsLidos: docsEmailEnviosLidos } = await fetchEnviosCampanhaPorLeadIds(
       adminDb,
-      leadIds
+      leadIds,
+      auditScopeId
     );
     console.log(
       `✅ email_envios: ${leadIds.length === 0 ? 0 : Math.ceil(leadIds.length / LEAD_ID_IN_BATCH_SIZE)} batches, ${docsEmailEnviosLidos} docs lidos (${leadIds.length} leads)`
@@ -324,8 +335,14 @@ export async function GET(request: NextRequest) {
     });
     
     console.log(`✅ ${status.length} status de e-mail calculados`);
+    endEmailEnviosAuditScope(auditScopeId, {
+      leadsCount: leadIds.length,
+      docsEmailEnviosLidos,
+      batchCount: leadIds.length === 0 ? 0 : Math.ceil(leadIds.length / LEAD_ID_IN_BATCH_SIZE),
+    });
     return NextResponse.json(status);
   } catch (error) {
+    endEmailEnviosAuditScope(auditScopeId, { error: true });
     console.error('❌ Erro ao buscar status de e-mails:', error);
     return NextResponse.json(
       { 

@@ -3,6 +3,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import { isValidIdentificacaoPhone } from '@/lib/phone/internationalPhoneValue';
 
 const ESTADOS_BR = [
   { value: '', label: 'Selecione' },
@@ -68,19 +70,14 @@ const PRAZO_OPCOES = [
   { value: 'avaliando', label: 'Só estou avaliando' },
 ];
 
-function maskWhatsApp(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length <= 2) return digits ? `(${digits}` : '';
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
-}
-
 type FormData = {
   nomeCompleto: string;
   cidade: string;
   estado: string;
   email: string;
   whatsapp: string;
+  whatsappDdi: string;
+  whatsappPais: string;
   faturamentoAtual: string;
   objetivoPrincipal: string;
   atendeOnline: string;
@@ -94,6 +91,8 @@ const INITIAL_FORM: FormData = {
   estado: '',
   email: '',
   whatsapp: '',
+  whatsappDdi: '',
+  whatsappPais: '',
   faturamentoAtual: '',
   objetivoPrincipal: '',
   atendeOnline: '',
@@ -127,19 +126,20 @@ export default function MentoriaLeadModal({ isOpen, onClose }: Props) {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
   }, [errors]);
 
-  const handleWhatsAppChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    const masked = maskWhatsApp(raw);
-    update('whatsapp', masked);
-  }, [update]);
-
   const validate = useCallback((): boolean => {
     const e: typeof errors = {};
     if (!form.nomeCompleto.trim()) e.nomeCompleto = 'Obrigatório';
     if (!form.email.trim()) e.email = 'Obrigatório';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'E-mail inválido';
-    if (!form.whatsapp.replace(/\D/g, '').trim() || form.whatsapp.replace(/\D/g, '').length < 10)
+    if (
+      !isValidIdentificacaoPhone({
+        telefone: form.whatsapp,
+        telefoneDdi: form.whatsappDdi,
+        telefonePais: form.whatsappPais,
+      })
+    ) {
       e.whatsapp = 'WhatsApp inválido';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }, [form]);
@@ -159,6 +159,8 @@ export default function MentoriaLeadModal({ isOpen, onClose }: Props) {
             estado: form.estado,
             email: form.email.trim(),
             whatsapp: form.whatsapp,
+            whatsappDdi: form.whatsappDdi || undefined,
+            whatsappPais: form.whatsappPais || undefined,
             faturamentoAtual: formatSelectValue('faturamentoAtual', form.faturamentoAtual) || form.faturamentoAtual || '—',
             objetivoPrincipal: formatSelectValue('objetivoPrincipal', form.objetivoPrincipal) || form.objetivoPrincipal || '—',
             atendeOnline: formatSelectValue('atendeOnline', form.atendeOnline) || form.atendeOnline || '—',
@@ -316,12 +318,23 @@ export default function MentoriaLeadModal({ isOpen, onClose }: Props) {
 
                     <div>
                       <label className={labelClass}>WhatsApp *</label>
-                      <input
-                        type="tel"
-                        value={form.whatsapp}
-                        onChange={handleWhatsAppChange}
-                        className={inputClass}
-                        placeholder="(11) 99999-9999"
+                      <InternationalPhoneInput
+                        id="mentoria-lead-whatsapp"
+                        variant="dark"
+                        value={{
+                          telefone: form.whatsapp,
+                          telefoneDdi: form.whatsappDdi,
+                          telefonePais: form.whatsappPais,
+                        }}
+                        onChange={(next) => {
+                          setForm((f) => ({
+                            ...f,
+                            whatsapp: next.telefone,
+                            whatsappDdi: next.telefoneDdi,
+                            whatsappPais: next.telefonePais,
+                          }));
+                          if (errors.whatsapp) setErrors((e) => ({ ...e, whatsapp: undefined }));
+                        }}
                       />
                       {errors.whatsapp && <p className={errorClass}>{errors.whatsapp}</p>}
                     </div>

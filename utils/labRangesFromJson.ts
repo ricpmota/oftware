@@ -14,6 +14,76 @@ export interface LabRange {
   max: number;
 }
 
+export type LabLimitAgeBandOverride = {
+  min_age: number;
+  max_age: number | null;
+  min?: number;
+  max?: number;
+  label?: string;
+  unit?: string;
+};
+
+export type LabLimitSexBranchOverride = {
+  min?: number;
+  max?: number;
+  label?: string;
+  unit?: string;
+  age_ranges?: LabLimitAgeBandOverride[];
+};
+
+export type LabLimitOverrideEntry = {
+  min?: number;
+  max?: number;
+  label?: string;
+  unit?: string;
+  M?: LabLimitSexBranchOverride;
+  F?: LabLimitSexBranchOverride;
+};
+
+export type LabLimitOverrides = Record<string, LabLimitOverrideEntry>;
+
+function overlayRange(
+  base: LabRange,
+  ov?: { min?: number; max?: number; label?: string; unit?: string }
+): LabRange {
+  if (!ov) return base;
+  return {
+    label: typeof ov.label === 'string' && ov.label.trim() ? ov.label.trim() : base.label,
+    unit: typeof ov.unit === 'string' && ov.unit.trim() ? ov.unit.trim() : base.unit,
+    min: ov.min != null && Number.isFinite(ov.min) ? ov.min : base.min,
+    max: ov.max != null && Number.isFinite(ov.max) ? ov.max : base.max,
+  };
+}
+
+function applyLimitOverride(
+  base: LabRange,
+  ov: LabLimitOverrideEntry | undefined,
+  sex?: Sex | 'Outro' | null,
+  age?: number | null
+): LabRange {
+  if (!ov) return base;
+  if (ov.M || ov.F) {
+    const sexVal = sex === 'M' || sex === 'F' ? sex : undefined;
+    const br = sexVal === 'F' ? ov.F : sexVal === 'M' ? ov.M : ov.M || ov.F;
+    if (!br) return overlayRange(base, ov);
+    if (br.age_ranges?.length && age != null) {
+      const band = resolveAgeRange(br.age_ranges, age);
+      if (band) return overlayRange(base, { label: br.label, unit: br.unit, min: band.min, max: band.max });
+    }
+    return overlayRange(base, br);
+  }
+  return overlayRange(base, ov);
+}
+
+function customRangeFromOverride(ov: LabLimitOverrideEntry | undefined): LabRange | null {
+  if (!ov) return null;
+  const label = typeof ov.label === 'string' ? ov.label.trim() : '';
+  const unit = typeof ov.unit === 'string' ? ov.unit.trim() : '';
+  if (!label || !unit || ov.min == null || ov.max == null) return null;
+  if (!Number.isFinite(ov.min) || !Number.isFinite(ov.max)) return null;
+  return { label, unit, min: ov.min, max: ov.max };
+}
+
 type AgeRange = { min_age: number; max_age: number | null; min?: number; max?: number; note?: string };
 type SexedDef = { label: string; unit: string; min?: number; max?: number; age_ranges?: AgeRange[]; apply_from_age?: number; ideal?: { min?: number; max?: number }; notes?: string[] };
 
@@ -62,11 +132,23 @@ function resolveAgeRange(ageRanges: AgeRange[], age: number): { min: number; max
 
 /**
  * Resolve o range de referência para um exame, considerando sexo e idade.
- * @param key Chave do exame (ex: fastingGlucose, psa, igf1)
- * @param sex Sexo biológico do paciente ('M' | 'F')
- * @param dataNascimento Data de nascimento (Date, Timestamp ou string ISO)
+ * Overrides do patrimônio global (min/max) e exames criados por médicos (definição completa).
  */
 export function getLabRange(
+  key: string,
+  sex?: Sex | 'Outro' | null,
+  dataNascimento?: Date | { toDate?: () => Date } | string | null,
+  overrides?: LabLimitOverrides | null
+): LabRange | null {
+  const ov = overrides?.[key];
+  const fromJson = resolveLabRangeFromJson(key, sex, dataNascimento);
+  if (fromJson) {
+    return applyLimitOverride(fromJson, ov, sex, dataNascimento != null ? calcularIdade(dataNascimento) : null);
+  }
+  return customRangeFromOverride(ov);
+}
+
+function resolveLabRangeFromJson(
   key: string,
   sex?: Sex | 'Outro' | null,
   dataNascimento?: Date | { toDate?: () => Date } | string | null

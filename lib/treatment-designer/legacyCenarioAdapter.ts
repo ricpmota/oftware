@@ -62,7 +62,8 @@ function escalarComposicaoPorMeta(
     composicao.consultasAcompanhamento +
     composicao.bioimpedancia +
     composicao.exames +
-    composicao.outrosCustos;
+    composicao.outrosCustos +
+    (composicao.custoInjetaveis ?? 0);
   const margem =
     Math.round(
       (subtotal * (composicao.margem / Math.max(composicao.subtotal, 1))) * 100

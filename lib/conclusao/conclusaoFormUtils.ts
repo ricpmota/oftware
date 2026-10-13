@@ -3,14 +3,23 @@ import { parseDecimalFormValue } from '@/lib/aplicacao/checkInSemanalFormUtils';
 import { ehRegistroConclusaoSeguimento } from '@/lib/metaadmin/proximoRegistroSeguimento';
 import { CONCLUSAO_QUESTIONS } from '@/lib/conclusao/conclusaoQuestions';
 import type { PacienteCompleto, SeguimentoSemanal } from '@/types/obesidade';
+import { semanaIndexConclusao, semanaInicioCicloDoPlano } from '@/utils/datasAplicacaoSemanaPlano';
 
 export function conclusaoFormFromPaciente(
   paciente: PacienteCompleto,
   registro?: SeguimentoSemanal | null
 ): Record<string, string> {
   const ct = paciente.planoTerapeutico?.conclusaoTratamento as Record<string, unknown> | undefined;
+  const semConcl = paciente.planoTerapeutico
+    ? semanaIndexConclusao(paciente.planoTerapeutico)
+    : 0;
   const reg =
-    registro ?? (paciente.evolucaoSeguimento || []).find((e) => ehRegistroConclusaoSeguimento(e));
+    registro ??
+    (paciente.evolucaoSeguimento || []).find(
+      (e) =>
+        ehRegistroConclusaoSeguimento(e) &&
+        (e.weekIndex ?? e.numeroSemana ?? 0) === semConcl
+    );
 
   const form = Object.fromEntries(CONCLUSAO_QUESTIONS.map((q) => [q.key, '']));
 
@@ -56,7 +65,8 @@ export function calcularMetricasConclusao(
   circunferenciaAbdominalReduzidaCm: number | null;
 } {
   const evolucao = paciente.evolucaoSeguimento || [];
-  const primeiroRegistro = evolucao.find((e) => (e.weekIndex ?? e.numeroSemana) === 1);
+  const week1Ciclo = semanaInicioCicloDoPlano(paciente.planoTerapeutico);
+  const primeiroRegistro = evolucao.find((e) => (e.weekIndex ?? e.numeroSemana) === week1Ciclo);
   const medidasIniciais = paciente.dadosClinicos?.medidasIniciais;
   const pesoInicial = primeiroRegistro?.peso ?? medidasIniciais?.peso ?? null;
   const circInicial =

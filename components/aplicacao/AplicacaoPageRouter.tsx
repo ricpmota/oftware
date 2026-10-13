@@ -12,7 +12,7 @@ export default function AplicacaoPageRouter() {
   const token = params?.token as string;
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [semana, setSemana] = useState<number | null>(null);
+  const [usarMarcoZero, setUsarMarcoZero] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -21,10 +21,21 @@ export default function AplicacaoPageRouter() {
         if (!res.ok) throw new Error('Link inválido ou expirado');
         return res.json();
       })
-      .then((data: { semana?: number }) => {
-        setSemana(data.semana ?? 1);
-        setErro(null);
-      })
+      .then(
+        (data: {
+          semana?: number;
+          semanaNoProtocolo?: number;
+          ehMarcoZero?: boolean;
+          jaPreenchido?: boolean;
+          marcoZero?: unknown;
+        }) => {
+          const relativa = data.semanaNoProtocolo ?? data.semana ?? 1;
+          const primeiraDoProtocolo = relativa === 1 || data.ehMarcoZero === true;
+          const preenchidoComoCheckIn = Boolean(data.jaPreenchido && !data.marcoZero);
+          setUsarMarcoZero(primeiraDoProtocolo && !preenchidoComoCheckIn);
+          setErro(null);
+        }
+      )
       .catch((err) => setErro(formatPublicPatientFetchError(err)))
       .finally(() => setLoading(false));
   }, [token]);
@@ -53,7 +64,7 @@ export default function AplicacaoPageRouter() {
     );
   }
 
-  if (semana === 1) {
+  if (usarMarcoZero) {
     return <AplicacaoMarcoZeroPageClient />;
   }
 

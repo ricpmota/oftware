@@ -12,9 +12,10 @@ import RetinaGuidedReportBuilder from '@/components/oftpay/laudos/retina/RetinaG
 interface LaudoGuiadoWorkspaceProps {
   courseId: string;
   courseName: string;
+  homeHref?: string;
 }
 
-export default function LaudoGuiadoWorkspace({ courseName }: LaudoGuiadoWorkspaceProps) {
+export default function LaudoGuiadoWorkspace({ courseName, homeHref = '/oftpay' }: LaudoGuiadoWorkspaceProps) {
   const [activeExam, setActiveExam] = useState<LaudoGuiadoExamType>('mapeamento_retina');
   const activeOption = getLaudoGuiadoExamOption(activeExam);
 
@@ -23,7 +24,7 @@ export default function LaudoGuiadoWorkspace({ courseName }: LaudoGuiadoWorkspac
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
           <Link
-            href="/oftpay"
+            href={homeHref}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
           >
             <ArrowLeft className="h-4 w-4" />

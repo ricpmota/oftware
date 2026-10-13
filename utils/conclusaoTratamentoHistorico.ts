@@ -19,6 +19,8 @@ export type ConclusaoTratamentoArquivada = {
   pesoAtualKg?: number | null;
   perdaTotalKg?: number | null;
   perdaPercentual?: number | null;
+  /** Ciclo de Tirzepatida a que esta conclusão pertence (1, 2, …). */
+  protocoloIndice?: number;
 };
 
 const CAMPOS_COPIAR: (keyof ConclusaoTratamentoArquivada)[] = [
@@ -27,6 +29,7 @@ const CAMPOS_COPIAR: (keyof ConclusaoTratamentoArquivada)[] = [
   'circunferenciaAbdominalFinalCm',
   'depoimento',
   'ocultarDepoimentoPaginaPublica',
+  'protocoloIndice',
 ];
 
 export function buildEvolucaoSnapshotParaDepoimento(evolucaoRaw: unknown): EvolucaoDepoimentoPonto[] {

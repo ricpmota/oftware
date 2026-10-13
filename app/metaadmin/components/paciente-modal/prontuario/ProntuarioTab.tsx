@@ -7,8 +7,15 @@ import type { PacienteCompleto } from '@/types/obesidade';
 import type { BioImpedanciaRegistro } from '@/types/bioImpedancia';
 import { ProntuarioForm } from './ProntuarioForm';
 import { ProntuarioTimeline } from './ProntuarioTimeline';
-import { criarEventoProntuario, desativarEventoProntuario, listarEventosProntuarioPaginado } from './prontuarioService';
+import { criarEventoProntuario, desativarEventoProntuario, listarEventosProntuarioPaginado, normalizarEventoTimelinePersonal } from './prontuarioService';
 import type { EventoTimelineMock, ProntuarioFormValues } from './prontuarioTypes';
+import { createProntuarioConsultaPsiClient } from '@/lib/metapsi/createProntuarioConsultaPsiClient';
+import {
+  formatDataHoraConsultaPsi,
+  montarDadosConsultaPsi,
+  montarDescricaoConsultaPsi,
+  montarTituloConsultaPsi,
+} from '@/lib/metapsi/prontuarioConsultaPsiquiatra';
 import { LembreteService } from '@/services/lembreteService';
 import type { Lembrete } from '@/types/lembrete';
 import type { Medico } from '@/types/medico';
@@ -34,7 +41,7 @@ import {
   type ProgressPhotoData,
   type SolicitacaoExameData,
 } from './prontuarioEventExtractors';
-import { downloadSolicitacaoExamesPdf, type SolicitacaoExamesSalva } from '@/utils/solicitacaoExamesPdfDownload';
+import { downloadSolicitacaoExamesPdf, mapSolicitacaoExamesFromFirestore, type SolicitacaoExamesSalva } from '@/utils/solicitacaoExamesPdfDownload';
 import { buscarEventosNutricaoProntuario } from './nutricaoProntuarioService';
 import {
   combinarEventosSemDuplicar,
@@ -49,6 +56,23 @@ export type ProntuarioTabProps = {
   medico?: Medico | null;
   onIrParaAba?: (aba: number) => void;
   mobileMode?: boolean;
+  /** Preenche a altura do container pai (modal embutido / tela cheia). */
+  fillHeight?: boolean;
+  /**
+   * Somente leitura: oculta formulário, botão (+) e exclusão.
+   * Usado por portais que visualizam o prontuário sem autoria (legado).
+   * Preferir `canCreateConsulta` quando o portal pode criar mas não gerenciar.
+   */
+  readOnly?: boolean;
+  /**
+   * Permite "Nova Consulta" sem liberar exclusão/edição de timeline.
+   * Combinar com `readOnly` no MetaPsi (create-only).
+   */
+  canCreateConsulta?: boolean;
+  /** Autor da consulta criada via formulário. Default: medico. */
+  consultaAuthorRole?: 'medico' | 'psiquiatra';
+  /** Obrigatório quando consultaAuthorRole === 'psiquiatra' (ACL + autoria). */
+  psiquiatraId?: string;
 };
 
 const TITULO_POR_TIPO_REGISTRO: Record<string, string> = {
@@ -68,6 +92,13 @@ function formatDataHoraAtual(): { data: string; hora: string } {
   const hh = String(now.getHours()).padStart(2, '0');
   const min = String(now.getMinutes()).padStart(2, '0');
   return { data: `${dd}/${mm}/${yyyy}`, hora: `${hh}:${min}` };
+}
+
+function formatMedicoAutorNome(medico: Medico | null | undefined): string | undefined {
+  const nome = String(medico?.nome || '').trim();
+  if (!nome) return undefined;
+  const titulo = medico?.genero === 'F' ? 'Dra.' : 'Dr.';
+  return `${titulo} ${nome}`.replace(/\s+/g, ' ').trim();
 }
 
 function montarDescricao(values: ProntuarioFormValues): string {
@@ -104,8 +135,23 @@ function lembreteParaEvento(lembrete: Lembrete): EventoTimelineMock {
   };
 }
 
-export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrParaAba, mobileMode }: ProntuarioTabProps) {
+export function ProntuarioTab({
+  paciente,
+  pacienteId,
+  medicoId,
+  medico,
+  onIrParaAba,
+  mobileMode,
+  fillHeight = false,
+  readOnly = false,
+  canCreateConsulta = false,
+  consultaAuthorRole = 'medico',
+  psiquiatraId,
+}: ProntuarioTabProps) {
   const id = pacienteId ?? paciente.id;
+  /** Create-only (MetaPsi): form ligado, delete desligado. */
+  const allowCreate = !readOnly || canCreateConsulta;
+  const allowDelete = !readOnly;
   const [eventos, setEventos] = useState<EventoTimelineMock[]>([]);
   const [eventosLembretes, setEventosLembretes] = useState<EventoTimelineMock[]>([]);
   const [eventosAsync, setEventosAsync] = useState<EventoTimelineMock[]>([]);
@@ -275,22 +321,18 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
         if (!cancelado) {
           const map = new Map<string, SolicitacaoExamesSalva>();
           const solicitacoes: SolicitacaoExameData[] = solSnap.docs.map((d) => {
-            const data = d.data();
-            const salva: SolicitacaoExamesSalva = {
-              id: d.id,
-              pacienteId: id,
-              medicoId: (data.medicoId as string) ?? '',
-              exames: (data.exames as string[]) ?? [],
-              hipoteseDiagnostica: (data.hipoteseDiagnostica as string) ?? '',
-              criadoEm: data.criadoEm?.toDate?.() ?? new Date(),
-            };
+            const salva = mapSolicitacaoExamesFromFirestore(
+              d.id,
+              id,
+              d.data() as Record<string, unknown>
+            );
             map.set(d.id, salva);
             return {
               id: d.id,
               medicoId: salva.medicoId,
               exames: salva.exames,
               hipoteseDiagnostica: salva.hipoteseDiagnostica,
-              criadoEm: data.criadoEm,
+              criadoEm: d.data().criadoEm,
             };
           });
           solicitacoesExamesMapRef.current = map;
@@ -326,17 +368,24 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
         setTemMaisTimeline(Boolean(page.nextCursor));
 
         if (eventosFirestore.length > 0) {
-          const eventosConvertidos: EventoTimelineMock[] = eventosFirestore.map((evento) => ({
-            id: evento.id,
-            tipo: evento.tipo,
-            titulo: evento.titulo,
-            descricao: evento.descricao,
-            data: evento.data,
-            hora: evento.hora,
-            origem: evento.origem,
-            destaque: evento.destaque,
-            dados: evento.dados,
-          }));
+          const eventosConvertidos: EventoTimelineMock[] = eventosFirestore.map((evento) =>
+            normalizarEventoTimelinePersonal({
+              id: evento.id,
+              tipo: evento.tipo,
+              titulo: evento.titulo,
+              descricao: evento.descricao,
+              data: evento.data,
+              hora: evento.hora,
+              origem: evento.origem,
+              destaque: evento.destaque,
+              dados: evento.dados,
+              medicoId: evento.medicoId,
+              medicoNome: evento.medicoNome,
+              nutricionistaId: evento.nutricionistaId,
+              psiquiatraId: evento.psiquiatraId,
+              psiquiatraNome: evento.psiquiatraNome,
+            })
+          );
           const idsFirestore = new Set(eventosConvertidos.map((e) => e.id));
           setEventos((prev) => {
             const locaisNaoSincronizados = prev.filter(
@@ -377,17 +426,24 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
         pageSize: 30,
         cursor: timelineCursor,
       });
-      const novosEventos: EventoTimelineMock[] = page.eventos.map((evento) => ({
-        id: evento.id,
-        tipo: evento.tipo,
-        titulo: evento.titulo,
-        descricao: evento.descricao,
-        data: evento.data,
-        hora: evento.hora,
-        origem: evento.origem,
-        destaque: evento.destaque,
-        dados: evento.dados,
-      }));
+      const novosEventos: EventoTimelineMock[] = page.eventos.map((evento) =>
+        normalizarEventoTimelinePersonal({
+          id: evento.id,
+          tipo: evento.tipo,
+          titulo: evento.titulo,
+          descricao: evento.descricao,
+          data: evento.data,
+          hora: evento.hora,
+          origem: evento.origem,
+          destaque: evento.destaque,
+          dados: evento.dados,
+          medicoId: evento.medicoId,
+          medicoNome: evento.medicoNome,
+          nutricionistaId: evento.nutricionistaId,
+          psiquiatraId: evento.psiquiatraId,
+          psiquiatraNome: evento.psiquiatraNome,
+        })
+      );
       setEventos((prev) => {
         const byId = new Map(prev.map((e) => [e.id, e]));
         novosEventos.forEach((e) => byId.set(e.id, e));
@@ -406,6 +462,81 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
 
   const handleSalvarRegistro = useCallback(
     async (values: ProntuarioFormValues) => {
+      if (!allowCreate) return;
+
+      if (consultaAuthorRole === 'psiquiatra') {
+        const psiId = String(psiquiatraId || '').trim();
+        if (!psiId) {
+          throw new Error('psiquiatraId ausente — não é possível registrar a consulta.');
+        }
+        if (!id?.trim()) {
+          throw new Error('pacienteId ausente — não é possível registrar a consulta.');
+        }
+
+        const { data, hora } = formatDataHoraConsultaPsi(values.dataRegistro);
+        const titulo = montarTituloConsultaPsi(values.tipoRegistro);
+        const localId = Date.now().toString();
+        const optimistic: EventoTimelineMock = {
+          id: localId,
+          tipo: 'consulta',
+          titulo,
+          descricao: montarDescricaoConsultaPsi(values),
+          data,
+          hora,
+          origem: 'psiquiatra',
+          ...(values.doseAtual.trim() || values.proximaDose.trim()
+            ? { destaque: 'Ajuste terapêutico registrado' }
+            : {}),
+          dados: montarDadosConsultaPsi(values),
+          psiquiatraId: psiId,
+        };
+
+        idsLocaisRef.current.add(localId);
+        setEventos((prev) => [optimistic, ...prev]);
+
+        try {
+          const saved = await createProntuarioConsultaPsiClient(id, {
+            tipoRegistro: values.tipoRegistro,
+            dataRegistro: values.dataRegistro,
+            evolucao: values.evolucao,
+            sintomas: values.sintomas,
+            conduta: values.conduta,
+            peso: values.peso,
+            cintura: values.cintura,
+            pressao: values.pressao,
+            doseAtual: values.doseAtual,
+            proximaDose: values.proximaDose,
+            meta: values.meta,
+          });
+          idsLocaisRef.current.delete(localId);
+          setEventos((prev) =>
+            prev.map((e) =>
+              e.id === localId
+                ? {
+                    ...e,
+                    id: saved.eventoId,
+                    titulo: saved.titulo,
+                    descricao: saved.descricao,
+                    data: saved.data,
+                    hora: saved.hora,
+                    destaque: saved.destaque,
+                    dados: (saved.dados as EventoTimelineMock['dados']) ?? e.dados,
+                    psiquiatraId: saved.psiquiatraId,
+                    psiquiatraNome: saved.psiquiatraNome,
+                    origem: 'psiquiatra',
+                  }
+                : e
+            )
+          );
+        } catch (error) {
+          console.error('[Prontuário Psi] Falha ao salvar via API:', error);
+          setEventos((prev) => prev.filter((e) => e.id !== localId));
+          idsLocaisRef.current.delete(localId);
+          throw error;
+        }
+        return;
+      }
+
       let data: string;
       let hora: string;
 
@@ -423,6 +554,8 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
       const titulo =
         TITULO_POR_TIPO_REGISTRO[values.tipoRegistro] ?? TITULO_POR_TIPO_REGISTRO.consulta;
       const temAjusteTerapeutico = Boolean(values.doseAtual.trim() || values.proximaDose.trim());
+      const medicoNomeAutor = formatMedicoAutorNome(medico);
+      const medicoIdAutor = medicoId || medico?.id || undefined;
 
       const localId = Date.now().toString();
       const novoEvento: EventoTimelineMock = {
@@ -435,6 +568,8 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
         origem: 'medico',
         ...(temAjusteTerapeutico ? { destaque: 'Ajuste terapêutico registrado' } : {}),
         dados: montarDados(values),
+        ...(medicoIdAutor ? { medicoId: medicoIdAutor } : {}),
+        ...(medicoNomeAutor ? { medicoNome: medicoNomeAutor } : {}),
       };
 
       idsLocaisRef.current.add(localId);
@@ -457,6 +592,8 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
           origem: novoEvento.origem,
           destaque: novoEvento.destaque,
           dados: novoEvento.dados,
+          medicoId: novoEvento.medicoId,
+          medicoNome: novoEvento.medicoNome,
         });
         idsLocaisRef.current.delete(localId);
         setEventos((prev) =>
@@ -480,11 +617,13 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
         throw error;
       }
     },
-    [id]
+    [allowCreate, consultaAuthorRole, id, medico, medicoId, psiquiatraId]
   );
 
   const handleApagarRegistro = useCallback(
     async (eventoId: string) => {
+      if (!allowDelete) return;
+
       setIdsRemovidos((prev) => new Set(prev).add(eventoId));
       setEventos((prev) => prev.filter((e) => e.id !== eventoId));
       setEventosLembretes((prev) => prev.filter((e) => e.id !== eventoId));
@@ -516,7 +655,7 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
         });
       }
     },
-    [id]
+    [allowDelete, id]
   );
 
   const handleDownloadPrescricao = useCallback(
@@ -578,13 +717,14 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
           <p className="text-sm text-amber-700 py-2">{erroCarregamento}</p>
         )}
 
-        <div className="overflow-y-auto pb-16">
+        <div className={`overflow-y-auto ${allowCreate ? 'pb-16' : 'pb-4'}`}>
           <ProntuarioTimeline
             eventos={eventosTimeline}
             prontuarioVazio={!carregando && eventosTimeline.length === 0}
             fotosProgresso={fotosProgresso}
+            pacienteId={id}
             onIrParaAba={onIrParaAba}
-            onApagar={handleApagarRegistro}
+            onApagar={allowDelete ? handleApagarRegistro : undefined}
             onDownloadPrescricao={handleDownloadPrescricao}
             onDownloadSolicitacaoExames={handleDownloadSolicitacaoExames}
           />
@@ -602,59 +742,90 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
           )}
         </div>
 
-        {/* Botão flutuante (+) */}
-        <button
-          type="button"
-          onClick={() => setShowMobileForm(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95"
-          aria-label="Novo registro"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+        {allowCreate && (
+          <>
+            {/* Botão flutuante (+) */}
+            <button
+              type="button"
+              onClick={() => setShowMobileForm(true)}
+              className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-transform active:scale-95"
+              aria-label="Novo registro"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
 
-        {/* Modal do formulário mobile - tela inteira */}
-        {showMobileForm && (
-          <div className="fixed inset-0 bg-white z-[10000] flex flex-col">
-            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900">Novo Registro</h3>
-              <button
-                type="button"
-                onClick={() => setShowMobileForm(false)}
-                className="text-gray-400 hover:text-gray-600 p-2"
-                aria-label="Fechar"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              <ProntuarioForm onSalvar={async (values) => {
-                await handleSalvarRegistro(values);
-                setShowMobileForm(false);
-              }} />
-            </div>
-          </div>
+            {/* Modal do formulário mobile - tela inteira */}
+            {showMobileForm && (
+              <div className="fixed inset-0 bg-white z-[10000] flex flex-col">
+                <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 flex-shrink-0">
+                  <h3 className="text-lg font-semibold text-gray-900">Novo Registro</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileForm(false)}
+                    className="text-gray-400 hover:text-gray-600 p-2"
+                    aria-label="Fechar"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <ProntuarioForm
+                    variant={consultaAuthorRole === 'psiquiatra' ? 'psiquiatra' : 'medico'}
+                    onSalvar={async (values) => {
+                      await handleSalvarRegistro(values);
+                      setShowMobileForm(false);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6" data-paciente-id={id}>
+    <div
+      className={
+        fillHeight
+          ? 'h-full min-h-0 flex flex-col gap-3 max-lg:h-auto'
+          : 'space-y-6'
+      }
+      data-paciente-id={id}
+    >
       {carregando && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Carregando prontuário salvo...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">Carregando prontuário salvo...</p>
       )}
       {!carregando && erroCarregamento && (
-        <p className="text-sm text-amber-700 dark:text-amber-300/90">{erroCarregamento}</p>
+        <p className="text-sm text-amber-700 dark:text-amber-300/90 flex-shrink-0">{erroCarregamento}</p>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 min-h-0">
-        <div className="min-h-0 lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto pr-1">
+      <div
+        className={
+          fillHeight
+            ? allowCreate
+              ? 'grid grid-cols-1 lg:grid-cols-[3fr_2fr] lg:grid-rows-1 gap-6 min-h-0 flex-1'
+              : 'grid grid-cols-1 lg:grid-rows-1 gap-6 min-h-0 flex-1'
+            : allowCreate
+              ? 'grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 min-h-0'
+              : 'grid grid-cols-1 gap-6 min-h-0'
+        }
+      >
+        <div
+          className={
+            fillHeight
+              ? 'min-h-0 lg:overflow-y-auto pr-1'
+              : 'min-h-0 lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto pr-1'
+          }
+        >
           <ProntuarioTimeline
             eventos={eventosTimeline}
             prontuarioVazio={!carregando && eventosTimeline.length === 0}
             fotosProgresso={fotosProgresso}
+            pacienteId={id}
             onIrParaAba={onIrParaAba}
-            onApagar={handleApagarRegistro}
+            onApagar={allowDelete ? handleApagarRegistro : undefined}
             onDownloadPrescricao={handleDownloadPrescricao}
             onDownloadSolicitacaoExames={handleDownloadSolicitacaoExames}
           />
@@ -671,9 +842,20 @@ export function ProntuarioTab({ paciente, pacienteId, medicoId, medico, onIrPara
             </div>
           )}
         </div>
-        <div className="min-h-0 lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto pr-1">
-          <ProntuarioForm onSalvar={handleSalvarRegistro} />
-        </div>
+        {allowCreate && (
+          <div
+            className={
+              fillHeight
+                ? 'min-h-0 lg:overflow-y-auto pr-1'
+                : 'min-h-0 lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto pr-1'
+            }
+          >
+            <ProntuarioForm
+              variant={consultaAuthorRole === 'psiquiatra' ? 'psiquiatra' : 'medico'}
+              onSalvar={handleSalvarRegistro}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

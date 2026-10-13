@@ -8,46 +8,10 @@ import {
   calcularScoreCheckInSemanal,
   type CheckInSemanalScoreResultado,
 } from '@/lib/aplicacao/calcularScoreCheckInSemanal';
+import { pacienteComMedidasIniciaisAtualizadasPelaSemana1 } from '@/lib/aplicacao/pacienteComMedidasIniciaisAtualizadasPelaSemana1';
 import { PacienteService } from '@/services/pacienteService';
-import type { DadosClinicos, PacienteCompleto, SeguimentoSemanal } from '@/types/obesidade';
+import type { PacienteCompleto, SeguimentoSemanal } from '@/types/obesidade';
 import { pacienteComDoseMgSemanaAtualizada } from '@/utils/esquemaDosesSemana';
-
-function pacienteComMedidasIniciaisAtualizadasPelaSemana1(
-  paciente: PacienteCompleto,
-  weekIndex: number,
-  pesoRegistro: number | undefined,
-  circunferenciaRegistro: number | undefined
-): PacienteCompleto {
-  if (weekIndex !== 1) return paciente;
-  const dc = paciente.dadosClinicos || ({} as DadosClinicos);
-  const prev = dc.medidasIniciais;
-  const pesoNovo =
-    pesoRegistro != null && !Number.isNaN(pesoRegistro) && pesoRegistro > 0
-      ? pesoRegistro
-      : prev?.peso ?? 0;
-  const circNova =
-    circunferenciaRegistro != null && !Number.isNaN(circunferenciaRegistro)
-      ? circunferenciaRegistro
-      : prev?.circunferenciaAbdominal ?? 0;
-  const altura = prev?.altura ?? 0;
-  let imc = prev?.imc ?? 0;
-  if (altura > 0 && pesoNovo > 0) {
-    const h = altura / 100;
-    imc = Number((pesoNovo / (h * h)).toFixed(1));
-  }
-  return {
-    ...paciente,
-    dadosClinicos: {
-      ...dc,
-      medidasIniciais: {
-        peso: pesoNovo,
-        altura,
-        imc,
-        circunferenciaAbdominal: circNova,
-      },
-    },
-  };
-}
 
 function scoreParaRegistro(
   resultado: CheckInSemanalScoreResultado,

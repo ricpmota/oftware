@@ -1,8 +1,20 @@
 'use client';
 
+import { Ruler, Scale } from 'lucide-react';
 import type { PacienteCompleto } from '@/types/obesidade';
+import RulerPicker from '@/components/meta/RulerPicker';
+import { kgLossFromPercent, percentLossFromKg, roundMetaTenth } from '@/lib/meta/rulerPickerMath';
 import { META_STEP_CM, META_STEP_KG, roundMetaHalfStep } from '@/utils/metaadminMetasUiSteps';
 import { temCircunferenciaInicialParaMetas } from '@/lib/meta/metaChatInicial';
+
+const META_RULER_STEP_KG = 0.1;
+
+function formatPt(value: number, digits: number): string {
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
 
 type Props = {
   paciente: PacienteCompleto;
@@ -33,9 +45,9 @@ export default function MetaPacienteWizardStepMetas({ paciente, setPaciente }: P
   const kgMaxRaw = peso0 != null && peso0 > 0 ? (peso0 * pctMax) / 100 : 0;
   const kgMin = peso0 != null && peso0 > 0 ? Math.ceil(kgMinRaw * (1 / META_STEP_KG)) * META_STEP_KG : 0;
   const kgMax = peso0 != null && peso0 > 0 ? Math.floor(kgMaxRaw * (1 / META_STEP_KG)) * META_STEP_KG : 0;
-  let kgLoss = peso0 != null && peso0 > 0 ? roundMetaHalfStep((peso0 * pctLoss) / 100) : 0;
+  let kgLoss = peso0 != null && peso0 > 0 ? kgLossFromPercent(pctLoss, peso0) : 0;
   if (peso0 != null && peso0 > 0 && kgMax >= kgMin) {
-    kgLoss = roundMetaHalfStep(Math.min(kgMax, Math.max(kgMin, kgLoss)));
+    kgLoss = roundMetaTenth(Math.min(kgMax, Math.max(kgMin, kgLoss)));
   }
 
   const maxWaistLoss =
@@ -53,7 +65,7 @@ export default function MetaPacienteWizardStepMetas({ paciente, setPaciente }: P
     Math.min(maxWaistLossSlider > 0 ? maxWaistLossSlider : maxWaistLoss, Math.max(0, waistLossCm))
   );
 
-  const pesoMeta = peso0 != null && peso0 > 0 ? roundMetaHalfStep(peso0 - kgLoss) : null;
+  const pesoMeta = peso0 != null && peso0 > 0 ? roundMetaTenth(peso0 - kgLoss) : null;
   const cinturaMeta = temCint && cint0 != null ? roundMetaHalfStep(cint0 - waistLossCm) : null;
 
   const patchMetasPartial = (partial: Record<string, unknown>) => {
@@ -72,38 +84,51 @@ export default function MetaPacienteWizardStepMetas({ paciente, setPaciente }: P
   return (
     <div className="space-y-4">
       {peso0 != null && peso0 > 0 ? (
-        <div className="space-y-2 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-slate-800">Quanto deseja perder (peso)</span>
-            <span className="text-lg font-bold tabular-nums text-emerald-600">{kgLoss} kg</span>
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Scale className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                <span className="text-sm font-semibold text-slate-800">Quanto deseja perder (peso)</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Arraste a régua para definir a meta</p>
+            </div>
+            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+              kg
+            </span>
           </div>
-          <input
-            type="range"
-            min={kgMin}
-            max={kgMax}
-            step={META_STEP_KG}
+          <p className="text-center leading-none">
+            <span className="text-4xl font-bold tabular-nums tracking-tight text-emerald-600">
+              {formatPt(kgLoss, 1)}
+            </span>
+            <span className="ml-1 text-base font-semibold text-emerald-700">kg</span>
+          </p>
+          <RulerPicker
             value={kgLoss}
-            onChange={(e) => {
-              const kg = roundMetaHalfStep(parseFloat(e.target.value));
+            min={kgMin}
+            max={kgMax >= kgMin ? kgMax : kgMin}
+            step={META_RULER_STEP_KG}
+            unit="kg"
+            onChange={(kg) => {
               if (!peso0 || peso0 <= 0) return;
-              let pctNew = (kg / peso0) * 100;
-              pctNew = Math.round(Math.min(pctMax, Math.max(pctMin, pctNew)) * 10) / 10;
               patchMetasPartial({
                 weightLossTargetType: 'PERCENTUAL',
-                weightLossTargetValue: pctNew,
+                weightLossTargetValue: percentLossFromKg(roundMetaTenth(kg), peso0, pctMin, pctMax),
               });
             }}
-            className="metaadmin-metas-range w-full"
-            aria-label="Quilogramas de peso a perder"
           />
-          <div className="flex justify-between text-[10px] text-slate-400">
-            <span>{kgMin} kg</span>
-            <span>{kgMax} kg</span>
+          <div className="rounded-lg bg-emerald-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+            <p>
+              ≈ <span className="font-semibold text-emerald-600">{formatPt(pctLoss, 1)}%</span> do seu peso inicial (
+              {formatPt(peso0, Number.isInteger(peso0) ? 0 : 1)} kg)
+            </p>
+            <p>
+              Peso meta: ~
+              <span className="font-semibold text-emerald-600">
+                {pesoMeta != null ? `${formatPt(pesoMeta, 1)} kg` : '—'}
+              </span>
+            </p>
           </div>
-          <p className="text-xs leading-snug text-slate-600">
-            ≈ <span className="font-semibold text-emerald-700">{pctLoss}%</span> do peso inicial ({peso0} kg).
-            Peso meta ~<span className="font-medium text-slate-900">{pesoMeta}</span> kg.
-          </p>
         </div>
       ) : (
         <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
@@ -112,29 +137,49 @@ export default function MetaPacienteWizardStepMetas({ paciente, setPaciente }: P
       )}
 
       {temCint && cint0 != null && cint0 > 0 ? (
-        <div className="space-y-2 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-slate-800">Circunferência abdominal</span>
-            <span className="text-base font-bold tabular-nums text-teal-700">−{waistLossCm} cm</span>
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Ruler className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                <span className="text-sm font-semibold text-slate-800">Circunferência abdominal</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Arraste a régua para definir a meta</p>
+            </div>
+            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+              cm
+            </span>
           </div>
-          <p className="text-xs text-slate-500">
-            Cintura inicial: {cint0} cm · Meta ~{cinturaMeta} cm
+          <p className="text-center leading-none">
+            <span className="text-4xl font-bold tabular-nums tracking-tight text-emerald-600">
+              −{formatPt(waistLossCm, 1)}
+            </span>
+            <span className="ml-1 text-base font-semibold text-emerald-700">cm</span>
           </p>
-          <input
-            type="range"
+          <RulerPicker
+            value={waistLossCm}
             min={0}
             max={maxWaistLossSlider > 0 ? maxWaistLossSlider : maxWaistLoss}
             step={META_STEP_CM}
-            value={waistLossCm}
-            onChange={(e) => {
-              patchMetasPartial({ waistReductionTargetCm: roundMetaHalfStep(parseFloat(e.target.value)) });
+            unit="cm"
+            ariaLabel={`Meta de redução da circunferência: ${formatPt(waistLossCm, 1)} centímetros`}
+            onChange={(cm) => {
+              patchMetasPartial({ waistReductionTargetCm: roundMetaHalfStep(cm) });
             }}
-            className="metaadmin-metas-range w-full"
-            aria-label="Centímetros de redução na cintura"
           />
-          <div className="flex justify-between text-[10px] text-slate-400">
-            <span>0 cm</span>
-            <span>{maxWaistLossSlider > 0 ? maxWaistLossSlider : maxWaistLoss} cm</span>
+          <div className="rounded-lg bg-emerald-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+            <p>
+              Cintura inicial:{' '}
+              <span className="font-semibold text-emerald-600">
+                {formatPt(cint0, Number.isInteger(cint0) ? 0 : 1)} cm
+              </span>
+            </p>
+            <p>
+              Circunferência meta: ~
+              <span className="font-semibold text-emerald-600">
+                {cinturaMeta != null ? `${formatPt(cinturaMeta, 1)} cm` : '—'}
+              </span>
+            </p>
           </div>
         </div>
       ) : null}
@@ -171,9 +216,9 @@ export function buildPacienteComMetasFinalizadas(p: PacienteCompleto): PacienteC
       : 8;
   waist = roundMetaHalfStep(Math.min(maxWSlider > 0 ? maxWSlider : maxW, Math.max(0, waist)));
 
-  let kgP = peso0 != null && peso0 > 0 ? roundMetaHalfStep((peso0 * pct) / 100) : null;
+  let kgP = peso0 != null && peso0 > 0 ? kgLossFromPercent(pct, peso0) : null;
   if (kgP != null && peso0 != null && peso0 > 0) {
-    pct = Math.round(Math.min(pctMax, Math.max(pctMin, (kgP / peso0) * 100)) * 10) / 10;
+    pct = percentLossFromKg(kgP, peso0, pctMin, pctMax);
   }
 
   const pesoAtivo = peso0 != null && peso0 > 0;

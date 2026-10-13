@@ -21,9 +21,9 @@ const geistMono = Geist_Mono({
 const OFTWARE_ROOT_METADATA: Metadata = {
   metadataBase: new URL('https://www.oftware.com.br'),
   applicationName: "Oftware",
-  title: "Oftware | Plataforma White Label para acompanhamento médico multidisciplinar",
+  title: "Oftware | Estrutura digital de acompanhamento em saúde",
   description:
-    "A Oftware conecta paciente, médico, nutricionista e personal em uma única jornada de acompanhamento, com prontuário compartilhado, protocolos integrados e marca própria.",
+    "A Oftware permite que médicos, nutricionistas, personal trainers, clínicas e equipes multiprofissionais organizem pacientes, parceiros e acompanhamento contínuo com marca própria.",
   manifest: "/manifest.json",
   icons: {
     icon: [{ url: '/logo-icone.png', type: 'image/png' }],
@@ -31,9 +31,9 @@ const OFTWARE_ROOT_METADATA: Metadata = {
     apple: '/logo-icone.png',
   },
   openGraph: {
-    title: "Oftware | Plataforma White Label para acompanhamento médico multidisciplinar",
+    title: "Oftware | Estrutura digital de acompanhamento em saúde",
     description:
-      "A Oftware conecta paciente, médico, nutricionista e personal em uma única jornada de acompanhamento, com prontuário compartilhado, protocolos integrados e marca própria.",
+      "A Oftware permite que médicos, nutricionistas, personal trainers, clínicas e equipes multiprofissionais organizem pacientes, parceiros e acompanhamento contínuo com marca própria.",
     url: "https://www.oftware.com.br",
     siteName: "Oftware",
     images: [
@@ -41,16 +41,16 @@ const OFTWARE_ROOT_METADATA: Metadata = {
         url: '/oftware3.png',
         width: 1200,
         height: 630,
-        alt: 'Oftware — Plataforma White Label para acompanhamento médico multidisciplinar',
+        alt: 'Oftware — Estrutura digital de acompanhamento em saúde',
       },
     ],
     locale: "pt_BR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Oftware | Plataforma White Label para acompanhamento médico multidisciplinar",
+    title: "Oftware | Estrutura digital de acompanhamento em saúde",
     description:
-      "A Oftware conecta paciente, médico, nutricionista e personal em uma única jornada de acompanhamento, com prontuário compartilhado, protocolos integrados e marca própria.",
+      "A Oftware permite que médicos, nutricionistas, personal trainers, clínicas e equipes multiprofissionais organizem pacientes, parceiros e acompanhamento contínuo com marca própria.",
     images: ['/oftware3.png'],
   },
 };
@@ -225,7 +225,7 @@ export default function RootLayout({
               if ('serviceWorker' in navigator) {
                 var swHost = location.hostname || '';
                 var swPath = location.pathname || '';
-                var isPublicPatientPage = /^\\/(aplicacao|conclusao|dr)(\\/|$)/.test(swPath);
+                var isPublicPatientPage = /^\\/(aplicacao|conclusao|dr|hidratacao)(\\/|$)/.test(swPath);
                 if (/ometodoemagrecer\\.com\\.br$/i.test(swHost) || isPublicPatientPage) {
                   navigator.serviceWorker.getRegistrations().then(function (regs) {
                     regs.forEach(function (r) { r.unregister(); });

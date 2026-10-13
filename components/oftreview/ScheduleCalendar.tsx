@@ -1,10 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Calendar, Play, CheckCircle2, PlayCircle, Circle, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
-import { Schedule, ScheduleDay, ScheduleItem, ProgressMap, VideoFile } from '@/types/videoLibrary';
-import { formatBytes } from '@/utils/videoLibraryUtils';
-import { getVideoProgress, getVideoStatus } from '@/utils/videoProgress';
+import { Calendar, Play, CheckCircle2, PlayCircle, Circle, MessageSquare } from 'lucide-react';
+import { Schedule, ScheduleItem, ProgressMap } from '@/types/videoLibrary';
+import { getVideoProgress } from '@/utils/videoProgress';
+import CourseScheduleView from '@/components/oftpay/courseSchedule/CourseScheduleView';
+import {
+  WEEKDAY_NAMES,
+  calculateItemProgress,
+  formatMinutes,
+  formatTime,
+  groupDaysByWeek,
+} from '@/components/oftreview/scheduleMetrics';
 
 interface ScheduleCalendarProps {
   schedule: Schedule | null;
@@ -14,134 +21,14 @@ interface ScheduleCalendarProps {
   onlyUncompleted?: boolean; // Mostrar apenas itens não concluídos
   onOnlyFutureChange?: (checked: boolean) => void;
   onOnlyUncompletedChange?: (checked: boolean) => void;
-}
-
-const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-/**
- * Formata minutos para exibição
- */
-function formatMinutes(minutes: number): string {
-  if (minutes === 0) return '0min';
-  const hours = minutes / 60;
-  if (hours >= 1) {
-    return `${hours.toFixed(1)}h`;
-  }
-  return `${minutes.toFixed(0)}min`;
-}
-
-/**
- * Calcula progresso de um item do cronograma
- */
-function calculateItemProgress(item: ScheduleItem, progressMap: ProgressMap): {
-  watchedMinutes: number;
-  watchedSeconds: number;
-  totalDuration: number;
-  progressPercent: number;
-  percent: number;
-  status: 'not_started' | 'in_progress' | 'watched';
-} {
-  const progress = getVideoProgress(item.videoId, progressMap);
-  
-  let watchedSeconds = 0;
-  let totalDuration = item.durationSec || 0;
-  
-  if (item.isPart && item.part) {
-    // Progresso da parte específica
-    const startSec = item.part.startSec;
-    const endSec = item.part.endSec;
-    totalDuration = endSec - startSec;
-    
-    // watchedSeconds dentro do intervalo da parte
-    if (progress) {
-      watchedSeconds = Math.max(0, Math.min(progress.watchedSeconds - startSec, totalDuration));
-    }
-  } else {
-    // Progresso do vídeo completo
-    if (progress) {
-      watchedSeconds = progress.watchedSeconds;
-      if (progress.duration && progress.duration > 0) {
-        totalDuration = progress.duration;
-      }
-    }
-  }
-  
-  if (!progress || totalDuration === 0) {
-    return { 
-      watchedMinutes: 0, 
-      watchedSeconds: 0,
-      totalDuration: totalDuration,
-      progressPercent: 0, 
-      percent: 0,
-      status: 'not_started' 
-    };
-  }
-  
-  const watchedMinutes = watchedSeconds / 60;
-  const progressPercent = totalDuration > 0 ? (watchedSeconds / totalDuration) * 100 : 0;
-  
-  let status: 'not_started' | 'in_progress' | 'watched';
-  if (progress.watched || progressPercent >= 90) {
-    status = 'watched';
-  } else if (watchedSeconds > 0) {
-    status = 'in_progress';
-  } else {
-    status = 'not_started';
-  }
-  
-  return { 
-    watchedMinutes, 
-    watchedSeconds,
-    totalDuration,
-    progressPercent, 
-    percent: progressPercent,
-    status 
-  };
-}
-
-/**
- * Formata tempo em segundos para formato legível (HH:MM:SS ou MM:SS)
- */
-function formatTime(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-  return `${minutes}:${String(secs).padStart(2, '0')}`;
-}
-
-/**
- * Agrupa dias por semana
- */
-function groupDaysByWeek(days: ScheduleDay[]): Array<{ weekStart: Date; days: ScheduleDay[] }> {
-  const weeks: Map<string, ScheduleDay[]> = new Map();
-  
-  days.forEach(day => {
-    // Parsear data ISO usando UTC para evitar problemas de timezone
-    const [year, month, dayNum] = day.dateISO.split('-').map(Number);
-    const date = new Date(Date.UTC(year, month - 1, dayNum));
-    const weekStart = new Date(date);
-    const dayOfWeek = date.getUTCDay();
-    weekStart.setUTCDate(date.getUTCDate() - dayOfWeek); // Domingo da semana
-    weekStart.setUTCHours(0, 0, 0, 0);
-    
-    const weekKey = weekStart.toISOString();
-    if (!weeks.has(weekKey)) {
-      weeks.set(weekKey, []);
-    }
-    weeks.get(weekKey)!.push(day);
-  });
-  
-  // Converter para array e ordenar
-  return Array.from(weeks.entries())
-    .map(([weekKey, weekDays]) => ({
-      weekStart: new Date(weekKey),
-      days: weekDays.sort((a, b) => a.dateISO.localeCompare(b.dateISO)),
-    }))
-    .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime());
+  onCommentsClick?: (videoId: string, videoName: string) => void;
+  videos?: Array<{ videoId: string; name: string }>;
+  /** Cronograma do curso OftPay. A variante default permanece no /oftreview. */
+  variant?: 'default' | 'course';
+  /** Só estilo: destaca a aula que está no player. */
+  selectedVideoId?: string | null;
+  /** Expandido sem vídeo; compacto com o player aberto. */
+  presentation?: 'expanded' | 'compact';
 }
 
 /**
@@ -157,6 +44,9 @@ export default function ScheduleCalendar({
   onOnlyUncompletedChange,
   onCommentsClick,
   videos = [],
+  variant = 'default',
+  selectedVideoId = null,
+  presentation = 'expanded',
 }: ScheduleCalendarProps) {
   // Calcular progresso de cada dia e aplicar filtros
   const daysWithProgress = useMemo(() => {
@@ -215,7 +105,7 @@ export default function ScheduleCalendar({
   const weeks = useMemo(() => {
     return groupDaysByWeek(daysWithProgress);
   }, [daysWithProgress]);
-  
+
   if (!schedule) {
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
@@ -268,22 +158,19 @@ export default function ScheduleCalendar({
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
   };
   
-  /**
-   * Formata data completa
-   * Usa UTC para evitar problemas de timezone
-   */
-  const formatFullDate = (dateISO: string) => {
-    const [year, month, day] = dateISO.split('-').map(Number);
-    const date = new Date(Date.UTC(year, month - 1, day));
-    return date.toLocaleDateString('pt-BR', { 
-      weekday: 'long',
-      timeZone: 'UTC',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
-  
+  if (variant === 'course') {
+    return (
+      <CourseScheduleView
+        weeks={weeks}
+        progressMap={progressMap}
+        videos={videos}
+        onItemClick={onItemClick}
+        selectedVideoId={selectedVideoId}
+        presentation={presentation}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}

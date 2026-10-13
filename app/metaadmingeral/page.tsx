@@ -23,14 +23,27 @@ import {
   isAnamneseInteligenteAtivoParaMedico,
   isMetaAdminGeralEmail,
 } from '@/lib/meta/anamneseInteligenteGate';
+import { buildWhatsappUrl } from '@/lib/phone/buildWhatsappUrl';
+import { phoneFieldsFromProfessional, professionalPhoneWriteFields } from '@/lib/whatsapp/resolveProfessionalPhone';
+import { phoneFieldsFromLead } from '@/lib/whatsapp/resolveLeadPhone';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
 import { isMetodoImagensAtivo, METODO_IMAGENS_SOURCE_EMAIL, type MetodoImagensTemplate } from '@/lib/metodo/metodoImagens';
 import { NutricionistaService } from '@/services/nutricionistaService';
 import { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import { PacienteNutricionistaService } from '@/services/pacienteNutricionistaService';
 import { PersonalTrainerService } from '@/services/personalTrainerService';
 import { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
+import { PsiquiatraService, formatPsiquiatraRegistroAdmin, psiquiatraMatchesAdminSearch } from '@/services/psiquiatraService';
+import { PsiquiatraDoc } from '@/features/metaPsi/metaPsi.types';
+import { PSIQUIATRA_ESPECIALIDADE } from '@/features/metaPsi/metaPsi.constants';
 import { PacienteService } from '@/services/pacienteService';
 import { PacienteCompleto } from '@/types/obesidade';
+import { PatientLocationFields } from '@/components/localizacao/PatientLocationFields';
+import {
+  interpretPatientLocation,
+  type PatientLocationInterpretation,
+} from '@/lib/localizacao/patientLocationField';
+import { montarPacienteIdentificacaoAdmin } from '@/lib/metaadmingeral/salvarIdentificacaoPaciente';
 import { TirzepatidaService, TirzepatidaPreco } from '@/services/tirzepatidaService';
 import { Stethoscope, CheckCircle, XCircle, Shield, ShieldCheck, Pill, DollarSign, Dumbbell, Star, QrCode, Sparkles } from 'lucide-react';
 import { ClassificacaoProfissionalService, type DetalhamentoClassificacao } from '@/services/classificacaoProfissionalService';
@@ -56,6 +69,8 @@ import { PagamentoPaciente, VendaAvulsa } from '@/types/pagamento';
 import { FileText, BookOpen, Save, ChevronDown, ChevronRight } from 'lucide-react';
 import RelatoriosSection from '@/components/RelatoriosSection';
 import { OFTPAY_COURSES } from '@/app/oftpay/coursesConfig';
+import { generateCarplayCode } from '@/lib/oftpay/carplayCode';
+import { OFTPAY_OWNER_EMAIL } from '@/types/oftpayAccess';
 import TranscribeOftreviewPanel from '@/components/dev/TranscribeOftreviewPanel';
 import TranscribeStatusCard from '@/components/dev/TranscribeStatusCard';
 import type { OftpayLearningInsightsAdminPayload } from '@/lib/oftpay/oftpayLearningInsightsAdmin';
@@ -63,9 +78,13 @@ import SystemColorsTab from '@/components/systemColors/SystemColorsTab';
 import LabExamesLaboratoriaisAdmin from '@/components/metaadmingeral/LabExamesLaboratoriaisAdmin';
 import BioImpedanciaReferenciasAdmin from '@/components/metaadmingeral/BioImpedanciaReferenciasAdmin';
 import ProtocolosPrescricaoAdmin from '@/components/metaadmingeral/ProtocolosPrescricaoAdmin';
+import AlimentosGlobaisAdmin from '@/components/metaadmingeral/AlimentosGlobaisAdmin';
 import MetaBusinessAdminPanel from '@/components/metaadmingeral/MetaBusinessAdminPanel';
 import OrganizationsHubPanel from '@/components/metaadmingeral/OrganizationsHubPanel';
 import PlatformPatrimonioHubPanel from '@/components/metaadmingeral/PlatformPatrimonioHubPanel';
+import CinquentaKgDepoisAdminPanel from '@/components/metaadmingeral/CinquentaKgDepoisAdminPanel';
+import MatchSaudavelAdminPanel from '@/components/metaadmingeral/MatchSaudavelAdminPanel';
+import DisparosAdminPanel from '@/components/metaadmingeral/disparos/DisparosAdminPanel';
 import ContratosAdminPanel from '@/components/metaadmingeral/ContratosAdminPanel';
 import { MedicoPublicUrlQrModal } from '@/components/metaadmingeral/MedicoPublicUrlQrModal';
 import ModalDosesAplicadasPaciente from '@/components/metaadmingeral/ModalDosesAplicadasPaciente';
@@ -76,20 +95,32 @@ import MetaAdminGeralNavShell, {
 } from '@/components/metaadmingeral/MetaAdminGeralNavShell';
 import OrganizationDashboardPanel from '@/components/metaadmingeral/OrganizationDashboardPanel';
 import OrganizationFinanceiroPanel from '@/components/metaadmingeral/OrganizationFinanceiroPanel';
+import OrganizationPacientesPanel from '@/components/metaadmingeral/OrganizationPacientesPanel';
+import NutricionistaEstatisticasPanel from '@/components/metaadmingeral/NutricionistaEstatisticasPanel';
 import { buildOrganizationDashboardMetrics } from '@/lib/metaadmingeral/buildOrganizationDashboardMetrics';
 import { buildOrganizationFinanceMetrics } from '@/lib/metaadmingeral/buildOrganizationFinanceMetrics';
+import { resolvePacienteMedicoId } from '@/lib/metaadmingeral/buildOrganizationPacientesMetrics';
 import { buildOrganizationClinicalOutcomeMetrics } from '@/lib/metaadmingeral/buildOrganizationClinicalOutcomeMetrics';
 import { isOrganizationTeamMember } from '@/lib/organization/isOrganizationTeamMember';
 import OrganizationMetodoPanel from '@/components/metaadmingeral/OrganizationMetodoPanel';
 import OrganizationBrandingPanel from '@/components/metaadmingeral/OrganizationBrandingPanel';
 import OftwareDashboardPanel from '@/components/metaadmingeral/OftwareDashboardPanel';
 import PlatformHealthAuditPanel from '@/components/metaadmingeral/PlatformHealthAuditPanel';
+import AutomacoesDashboardPanel from '@/components/metaadmingeral/automacoes/AutomacoesDashboardPanel';
+import AutomacoesCanalChatPanel from '@/components/metaadmingeral/automacoes/AutomacoesCanalChatPanel';
+import AutomacoesCatalogPanel from '@/components/metaadmingeral/automacoes/AutomacoesCatalogPanel';
+import AutomacoesTemplatesPanel from '@/components/metaadmingeral/automacoes/AutomacoesTemplatesPanel';
+import AutomacoesOrganizacoesPanel from '@/components/metaadmingeral/automacoes/AutomacoesOrganizacoesPanel';
+import AutomacoesLogsPanel from '@/components/metaadmingeral/automacoes/AutomacoesLogsPanel';
+import AutomacoesFerramentasPanel from '@/components/metaadmingeral/automacoes/AutomacoesFerramentasPanel';
+import AutomacoesOpsPanel from '@/components/metaadmingeral/automacoes/AutomacoesOpsPanel';
 import {
   inferNavContextFromMenu,
   listNavOrganizations,
   resolveMetaAdminGeralMenuId,
   type MetaAdminGeralNavContext,
 } from '@/lib/metaadmingeral/metaAdminGeralNavUx';
+import { isDemoOrganization } from '@/lib/organization/isDemoOrganization';
 import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
 import MetaAdminGeralBrandMark, {
   MetaAdminGeralLoadingScreen,
@@ -185,6 +216,7 @@ function MetaAdminGeralContent() {
   const [metodoImagensTemplate, setMetodoImagensTemplate] = useState<MetodoImagensTemplate | null>(null);
   const [loadingMetodoTemplate, setLoadingMetodoTemplate] = useState(false);
   const [togglingMetodoMedicoId, setTogglingMetodoMedicoId] = useState<string | null>(null);
+  const [togglingUploadMentorMedicoId, setTogglingUploadMentorMedicoId] = useState<string | null>(null);
   
   // Estados para nutricionistas
   const [nutricionistas, setNutricionistas] = useState<NutricionistaDoc[]>([]);
@@ -199,6 +231,13 @@ function MetaAdminGeralContent() {
   const [loadingPersonalTrainers, setLoadingPersonalTrainers] = useState(false);
   const [showDetalhesPersonalModal, setShowDetalhesPersonalModal] = useState(false);
   const [personalDetalhes, setPersonalDetalhes] = useState<PersonalTrainerDoc | null>(null);
+
+  // Estados para psiquiatras
+  const [psiquiatras, setPsiquiatras] = useState<PsiquiatraDoc[]>([]);
+  const [loadingPsiquiatras, setLoadingPsiquiatras] = useState(false);
+  const [showDetalhesPsiModal, setShowDetalhesPsiModal] = useState(false);
+  const [psiquiatraDetalhes, setPsiquiatraDetalhes] = useState<PsiquiatraDoc | null>(null);
+  const [buscaPsiquiatraAdmin, setBuscaPsiquiatraAdmin] = useState('');
   const [agregadosMedicos, setAgregadosMedicos] = useState<Record<string, { count: number; media: number }>>({});
   const [agregadosNutri, setAgregadosNutri] = useState<Record<string, { count: number; media: number }>>({});
   const [agregadosPersonal, setAgregadosPersonal] = useState<Record<string, { count: number; media: number }>>({});
@@ -208,13 +247,14 @@ function MetaAdminGeralContent() {
   const [salvandoClassificacaoAdmin, setSalvandoClassificacaoAdmin] = useState(false);
 
   // Estados para OftPay (usuários que entram no OftPay – liberar cursos e vigência)
-  const [oftpayUsers, setOftpayUsers] = useState<{ email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; questoesEnabled?: boolean; accessStartAt?: number | null; accessEndAt?: number | null }[]>([]);
+  const [oftpayUsers, setOftpayUsers] = useState<{ email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; questoesEnabled?: boolean; accessStartAt?: number | null; accessEndAt?: number | null; carplayCode?: string | null }[]>([]);
   const [loadingOftPay, setLoadingOftPay] = useState(false);
   const [oftpayError, setOftpayError] = useState<string | null>(null);
   const [oftpayLocalCourseIds, setOftpayLocalCourseIds] = useState<Record<string, string[]>>({});
   const [oftpayLocalQuestoesEnabled, setOftpayLocalQuestoesEnabled] = useState<Record<string, boolean>>({});
   const [oftpayLocalAccessStart, setOftpayLocalAccessStart] = useState<Record<string, string>>({});
   const [oftpayLocalAccessEnd, setOftpayLocalAccessEnd] = useState<Record<string, string>>({});
+  const [oftpayLocalCarplayCode, setOftpayLocalCarplayCode] = useState<Record<string, string>>({});
   const [oftpaySavingEmail, setOftpaySavingEmail] = useState<string | null>(null);
   const [oftpayNewEmail, setOftpayNewEmail] = useState('');
   const [oftpayAddingUser, setOftpayAddingUser] = useState(false);
@@ -348,6 +388,8 @@ function MetaAdminGeralContent() {
     nome: '',
     email: '',
     telefone: '',
+    telefoneDdi: '',
+    telefonePais: '',
     genero: '' as 'M' | 'F' | '',
     crmNumero: '',
     crmEstado: '',
@@ -372,7 +414,11 @@ function MetaAdminGeralContent() {
     rua: '',
     cidade: '',
     estado: '',
-    cep: ''
+    cep: '',
+    codigoIbge: ''
+  });
+  const [localizacaoPacienteEditando, setLocalizacaoPacienteEditando] = useState<PatientLocationInterpretation>({
+    status: 'empty',
   });
   
   // Estados para Tirzepatida
@@ -445,7 +491,9 @@ function MetaAdminGeralContent() {
         console.warn('[metaadmingeral] falha ao listar organizações', data.error);
         return listNavOrganizations();
       }
-      const orgs = Array.isArray(data.organizations) ? data.organizations : listNavOrganizations();
+      const orgs = (Array.isArray(data.organizations) ? data.organizations : listNavOrganizations()).filter(
+        (org) => !isDemoOrganization(org),
+      );
       setNavOrganizations(orgs);
       return orgs;
     } catch (error) {
@@ -863,6 +911,19 @@ function MetaAdminGeralContent() {
     }
   }, []);
 
+  const loadPsiquiatras = useCallback(async () => {
+    setLoadingPsiquiatras(true);
+    try {
+      const data = await PsiquiatraService.getAllPsiquiatras();
+      setPsiquiatras(data);
+    } catch (error) {
+      console.error('Erro ao carregar psiquiatras:', error);
+      setMessage('Erro ao carregar psiquiatras');
+    } finally {
+      setLoadingPsiquiatras(false);
+    }
+  }, []);
+
   // Carregar agregados de classificação dos médicos
   useEffect(() => {
     if (medicos.length === 0) { setAgregadosMedicos({}); return; }
@@ -1148,6 +1209,8 @@ function MetaAdminGeralContent() {
             temPerfilMedico: !!medico,
             role: firestoreUser?.role,
             telefone: paciente?.dadosIdentificacao?.telefone || medico?.telefone,
+            telefoneDdi: paciente?.dadosIdentificacao?.telefoneDdi || medico?.telefoneDdi,
+            telefonePais: paciente?.dadosIdentificacao?.telefonePais || medico?.telefonePais,
             cidade: paciente?.dadosIdentificacao?.endereco?.cidade || (medico?.cidades && medico.cidades.length > 0 ? medico.cidades[0].cidade : undefined),
             estado: paciente?.dadosIdentificacao?.endereco?.estado || (medico?.cidades && medico.cidades.length > 0 ? medico.cidades[0].estado : undefined)
           };
@@ -1198,6 +1261,8 @@ function MetaAdminGeralContent() {
             email: lead.email,
             name: lead.name,
             telefone: lead.telefone,
+            telefoneDdi: lead.telefoneDdi,
+            telefonePais: lead.telefonePais,
             estrelas: leadExistente.estrelas || 0,
             createdAt: lead.createdAt,
             lastSignInTime: lead.lastSignInTime,
@@ -1213,6 +1278,8 @@ function MetaAdminGeralContent() {
             name: lead.name,
             estrelas: 0,
             telefone: lead.telefone,
+            telefoneDdi: lead.telefoneDdi,
+            telefonePais: lead.telefonePais,
             createdAt: lead.createdAt,
             lastSignInTime: lead.lastSignInTime,
             emailVerified: lead.emailVerified,
@@ -1303,12 +1370,20 @@ function MetaAdminGeralContent() {
     
     try {
       setLoading(true);
+      const phoneWrite = professionalPhoneWriteFields({
+        telefone: dadosMedicoEditando.telefone,
+        telefoneDdi: dadosMedicoEditando.telefoneDdi,
+        telefonePais: dadosMedicoEditando.telefonePais,
+      });
       const { id, ...medicoSemId } = medicoEditando;
       const medicoData = {
         ...medicoSemId,
         nome: dadosMedicoEditando.nome,
         email: dadosMedicoEditando.email,
-        telefone: dadosMedicoEditando.telefone || undefined,
+        telefone: phoneWrite.telefone || undefined,
+        ...(phoneWrite.telefoneDdi
+          ? { telefoneDdi: phoneWrite.telefoneDdi, telefonePais: phoneWrite.telefonePais }
+          : {}),
         genero: dadosMedicoEditando.genero || undefined,
         crm: {
           numero: dadosMedicoEditando.crmNumero,
@@ -1341,30 +1416,16 @@ function MetaAdminGeralContent() {
     
     try {
       setLoading(true);
-      const pacienteData = {
-        ...pacienteEditando,
-        nome: dadosPacienteEditando.nomeCompleto,
-        email: dadosPacienteEditando.email,
-        dadosIdentificacao: {
-          ...pacienteEditando.dadosIdentificacao,
-          nomeCompleto: dadosPacienteEditando.nomeCompleto,
-          email: dadosPacienteEditando.email,
-          telefone: dadosPacienteEditando.telefone || undefined,
-          cpf: dadosPacienteEditando.cpf || undefined,
-          dataNascimento: dadosPacienteEditando.dataNascimento 
-            ? new Date(dadosPacienteEditando.dataNascimento)
-            : undefined,
-          sexoBiologico: dadosPacienteEditando.sexoBiologico || undefined,
-          endereco: {
-            rua: dadosPacienteEditando.rua || undefined,
-            cidade: dadosPacienteEditando.cidade || undefined,
-            estado: dadosPacienteEditando.estado || undefined,
-            cep: dadosPacienteEditando.cep || undefined
-          },
-          dataCadastro: pacienteEditando.dadosIdentificacao?.dataCadastro || new Date()
-        }
-      };
-      
+      const pacienteData = montarPacienteIdentificacaoAdmin(
+        pacienteEditando,
+        dadosPacienteEditando,
+        localizacaoPacienteEditando
+      );
+      if ('erro' in pacienteData) {
+        setMessage(pacienteData.erro);
+        return;
+      }
+
       await PacienteService.createOrUpdatePaciente(pacienteData);
       await loadPacientes();
       setShowEditarPacienteModal(false);
@@ -1613,6 +1674,39 @@ function MetaAdminGeralContent() {
     }
   };
 
+  const handleToggleUploadMentorMedico = async (medicoId: string, ativo: boolean) => {
+    if (!user) return;
+    const previous = medicos.find((m) => m.id === medicoId)?.uploadMentor === true;
+    setTogglingUploadMentorMedicoId(medicoId);
+    setMedicos((prev) =>
+      prev.map((m) => (m.id === medicoId ? { ...m, uploadMentor: !ativo } : m))
+    );
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/metaadmingeral/medicos/upload-mentor', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ medicoId, ativo: !ativo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      setMessage('Permissão atualizada.');
+    } catch (error) {
+      console.error('Erro ao alterar Upload Mentor:', error);
+      setMedicos((prev) =>
+        prev.map((m) => (m.id === medicoId ? { ...m, uploadMentor: previous } : m))
+      );
+      setMessage(
+        error instanceof Error ? error.message : 'Erro ao alterar a permissão Upload Mentor'
+      );
+    } finally {
+      setTogglingUploadMentorMedicoId(null);
+    }
+  };
+
   // Função para verificar/desverificar médico
   const handleToggleVerificacaoMedico = async (medicoId: string, isVerificado: boolean) => {
     try {
@@ -1830,6 +1924,7 @@ function MetaAdminGeralContent() {
       activeMenu === 'estatisticas' ||
       activeMenu === 'org-dashboard' ||
       activeMenu === 'org-financeiro-overview' ||
+      activeMenu === 'org-negocio-pacientes' ||
       activeMenu === 'dashboard-oftware'
     ) {
       loadMedicos();
@@ -1837,6 +1932,7 @@ function MetaAdminGeralContent() {
       loadSolicitacoesPendentes();
       loadNutricionistas();
       loadPersonalTrainers();
+      loadPsiquiatras();
       loadTotalPacientesCompartilhados();
       loadLeads();
     }
@@ -1847,6 +1943,7 @@ function MetaAdminGeralContent() {
     loadSolicitacoesPendentes,
     loadNutricionistas,
     loadPersonalTrainers,
+    loadPsiquiatras,
     loadTotalPacientesCompartilhados,
     loadLeads,
   ]);
@@ -1898,6 +1995,12 @@ function MetaAdminGeralContent() {
     }
   }, [activeMenu, loadPersonalTrainers]);
 
+  useEffect(() => {
+    if (activeMenu === 'psiquiatras') {
+      loadPsiquiatras();
+    }
+  }, [activeMenu, loadPsiquiatras]);
+
   // Carregar usuários OftPay quando a página oftpay for ativada
   const loadOftPayUsers = useCallback(async () => {
     if (!user) return;
@@ -1908,22 +2011,25 @@ function MetaAdminGeralContent() {
       const res = await fetch('/api/metaadmingeral/oftpay/users', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || res.statusText);
-      const list = (data.users || []) as { email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; questoesEnabled?: boolean; accessStartAt?: number | null; accessEndAt?: number | null }[];
+      const list = (data.users || []) as { email: string; displayName?: string | null; lastLoginAt?: number; courseIds: string[]; questoesEnabled?: boolean; accessStartAt?: number | null; accessEndAt?: number | null; carplayCode?: string | null }[];
       setOftpayUsers(list);
       const initial: Record<string, string[]> = {};
       const initialQuestoes: Record<string, boolean> = {};
       const initialStart: Record<string, string> = {};
       const initialEnd: Record<string, string> = {};
+      const initialCarplay: Record<string, string> = {};
       list.forEach((u) => {
         initial[u.email] = [...(u.courseIds || [])];
         initialQuestoes[u.email] = Boolean(u.questoesEnabled);
         initialStart[u.email] = u.accessStartAt ? new Date(u.accessStartAt).toISOString().slice(0, 10) : '';
         initialEnd[u.email] = u.accessEndAt ? new Date(u.accessEndAt).toISOString().slice(0, 10) : '';
+        initialCarplay[u.email] = u.carplayCode ?? '';
       });
       setOftpayLocalCourseIds(initial);
       setOftpayLocalQuestoesEnabled(initialQuestoes);
       setOftpayLocalAccessStart(initialStart);
       setOftpayLocalAccessEnd(initialEnd);
+      setOftpayLocalCarplayCode(initialCarplay);
     } catch (e) {
       setOftpayError(e instanceof Error ? e.message : 'Erro ao carregar usuários');
       setOftpayUsers([]);
@@ -2750,6 +2856,27 @@ function MetaAdminGeralContent() {
     [personalTrainers, activeOrganizationId],
   );
 
+  const organizationPsiquiatras = useMemo(
+    () =>
+      psiquiatras.filter((psiquiatra) =>
+        isOrganizationTeamMember(psiquiatra, activeOrganizationId),
+      ),
+    [psiquiatras, activeOrganizationId],
+  );
+
+  const psiquiatrasFiltradosAdmin = useMemo(
+    () =>
+      [...psiquiatras]
+        .filter((psi) => psiquiatraMatchesAdminSearch(psi, buscaPsiquiatraAdmin))
+        .sort((a, b) => {
+          if (Boolean(a.isVerificado) !== Boolean(b.isVerificado)) {
+            return a.isVerificado ? 1 : -1;
+          }
+          return String(a.nome || '').localeCompare(String(b.nome || ''));
+        }),
+    [psiquiatras, buscaPsiquiatraAdmin],
+  );
+
   const organizationMedicoIds = useMemo(
     () => new Set(organizationMedicos.map((medico) => medico.id)),
     [organizationMedicos],
@@ -2765,12 +2892,23 @@ function MetaAdminGeralContent() {
     [pacientes, organizationMedicoIds],
   );
 
+  /** Inclui abandonos atribuídos ao médico anterior da organização. */
+  const organizationPacientesMonitor = useMemo(
+    () =>
+      pacientes.filter((paciente) => {
+        const medicoId = resolvePacienteMedicoId(paciente);
+        return Boolean(medicoId && organizationMedicoIds.has(medicoId));
+      }),
+    [pacientes, organizationMedicoIds],
+  );
+
   const organizationDashboardMetrics = useMemo(
     () =>
       buildOrganizationDashboardMetrics({
         medicos: organizationMedicos,
         nutricionistas: organizationNutricionistas,
         personalTrainers: organizationPersonalTrainers,
+        psiquiatras: organizationPsiquiatras,
         pacientes: organizationPacientes,
         leadsByStatus,
         npsEstatisticas,
@@ -2781,6 +2919,7 @@ function MetaAdminGeralContent() {
       organizationMedicos,
       organizationNutricionistas,
       organizationPersonalTrainers,
+      organizationPsiquiatras,
       organizationPacientes,
       leadsByStatus,
       npsEstatisticas,
@@ -2800,6 +2939,7 @@ function MetaAdminGeralContent() {
         medicos,
         nutricionistas,
         personalTrainers,
+        psiquiatras,
         pacientes,
         leadsByStatus,
         npsEstatisticas,
@@ -2808,6 +2948,7 @@ function MetaAdminGeralContent() {
       }),
     [
       medicos,
+      psiquiatras,
       nutricionistas,
       personalTrainers,
       pacientes,
@@ -2923,6 +3064,18 @@ function MetaAdminGeralContent() {
             loading={loadingMedicos || loadingPacientes || loadingPagamentos}
           />
         );
+      case 'org-negocio-pacientes':
+        return (
+          <OrganizationPacientesPanel
+            organization={
+              navOrganizations.find((o) => o.id === activeOrganizationId) ??
+              navOrganizations[0]
+            }
+            medicos={organizationMedicos}
+            pacientes={organizationPacientesMonitor}
+            loading={loadingMedicos || loadingPacientes}
+          />
+        );
       case 'organizacao-metodo':
         return <OrganizationMetodoPanel />;
       case 'organizacao-metodo-branding':
@@ -2931,10 +3084,35 @@ function MetaAdminGeralContent() {
         ) : null;
       case 'platform-health':
         return user ? <PlatformHealthAuditPanel user={user} /> : null;
+      case 'platform-automacoes':
+      case 'automacoes-dashboard':
+        return user ? <AutomacoesDashboardPanel user={user} /> : null;
+      case 'automacoes-canal-chat':
+        return user ? <AutomacoesCanalChatPanel user={user} /> : null;
+      case 'automacoes-catalogo':
+        return <AutomacoesCatalogPanel />;
+      case 'automacoes-templates':
+        return user ? <AutomacoesTemplatesPanel user={user} /> : null;
+      case 'automacoes-organizacoes':
+        return user ? <AutomacoesOrganizacoesPanel user={user} /> : null;
+      case 'automacoes-logs':
+        return user ? <AutomacoesLogsPanel user={user} /> : null;
+      case 'automacoes-ferramentas':
+        return user ? <AutomacoesFerramentasPanel user={user} /> : null;
+      case 'automation-ops':
+        return user ? <AutomacoesOpsPanel user={user} /> : null;
       case 'meta-business':
         return <MetaBusinessAdminPanel />;
       case 'exames-laboratoriais':
         return <LabExamesLaboratoriaisAdmin />;
+      case 'alimentos-globais':
+        return <AlimentosGlobaisAdmin />;
+      case '50kg-depois':
+        return user ? <CinquentaKgDepoisAdminPanel user={user} /> : null;
+      case 'match-saudavel':
+        return user ? <MatchSaudavelAdminPanel user={user} /> : null;
+      case 'disparos':
+        return user ? <DisparosAdminPanel getAuthToken={() => user.getIdToken()} /> : null;
       case 'bio-impedancia':
         return <BioImpedanciaReferenciasAdmin />;
       case 'protocolos-prescricao':
@@ -3051,6 +3229,9 @@ function MetaAdminGeralContent() {
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Verificação
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Upload Mentor
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
                           Docs enviados
@@ -3224,6 +3405,46 @@ function MetaAdminGeralContent() {
                             </span>
                           )}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={medico.uploadMentor === true}
+                              aria-label={`Upload Mentor ${medico.uploadMentor === true ? 'ativo' : 'inativo'} para ${medico.nome}`}
+                              disabled={togglingUploadMentorMedicoId === medico.id}
+                              title={
+                                medico.uploadMentor === true
+                                  ? 'Desativar Upload Mentor'
+                                  : 'Ativar Upload Mentor'
+                              }
+                              onClick={() =>
+                                handleToggleUploadMentorMedico(
+                                  medico.id,
+                                  medico.uploadMentor === true
+                                )
+                              }
+                              className={`relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
+                                medico.uploadMentor === true
+                                  ? 'bg-emerald-600'
+                                  : 'bg-gray-500/60'
+                              } ${
+                                togglingUploadMentorMedicoId === medico.id
+                                  ? 'cursor-not-allowed opacity-60'
+                                  : 'cursor-pointer hover:opacity-90'
+                              }`}
+                            >
+                              <span
+                                className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                  medico.uploadMentor === true ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                            <span className="inline-flex items-center text-xs text-[#E8EDED]/80">
+                              {medico.uploadMentor === true ? 'ON' : 'OFF'}
+                            </span>
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
                           <div className="flex flex-wrap gap-x-2 gap-y-1">
                             {medico.docVerificacaoCnhUrl ? (
@@ -3290,6 +3511,8 @@ function MetaAdminGeralContent() {
                                   nome: medico.nome,
                                   email: medico.email,
                                   telefone: medico.telefone || '',
+                                  telefoneDdi: medico.telefoneDdi || '',
+                                  telefonePais: medico.telefonePais || '',
                                   genero: medico.genero || '',
                                   crmNumero: medico.crm.numero,
                                   crmEstado: medico.crm.estado,
@@ -3454,7 +3677,7 @@ function MetaAdminGeralContent() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {nutri.telefone ? (
                             <a
-                              href={`https://wa.me/55${nutri.telefone.replace(/\D/g, '')}`}
+                              href={buildWhatsappUrl(phoneFieldsFromProfessional(nutri)) ?? '#'}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline inline-flex items-center gap-1"
@@ -3630,6 +3853,15 @@ function MetaAdminGeralContent() {
                 )}
               </div>
             )}
+            {!loadingNutricionistas ? (
+              <NutricionistaEstatisticasPanel
+                nutricionistas={
+                  organizationNutricionistas.length > 0
+                    ? organizationNutricionistas
+                    : nutricionistas
+                }
+              />
+            ) : null}
           </div>
         );
 
@@ -3733,7 +3965,7 @@ function MetaAdminGeralContent() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {personal.telefone ? (
                             <a
-                              href={`https://wa.me/55${personal.telefone.replace(/\D/g, '')}`}
+                              href={buildWhatsappUrl(phoneFieldsFromProfessional(personal)) ?? '#'}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline inline-flex items-center gap-1"
@@ -3905,6 +4137,294 @@ function MetaAdminGeralContent() {
                 {personalTrainers.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <p>Nenhum personal trainer encontrado</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'psiquiatras':
+        return (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+              <h2 className="text-2xl font-bold text-[#E8EDED]">Psiquiatras</h2>
+              <input
+                type="search"
+                value={buscaPsiquiatraAdmin}
+                onChange={(e) => setBuscaPsiquiatraAdmin(e.target.value)}
+                placeholder="Buscar por nome, e-mail ou CRM…"
+                className="w-full sm:w-80 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40 focus:outline-none focus:border-[#4CCB7A]/50"
+              />
+            </div>
+            {loadingPsiquiatras ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CCB7A] mx-auto"></div>
+                  <p className="mt-4 text-[#E8EDED]/70">Carregando psiquiatras...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-[#4CCB7A]/30 transition-colors">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-white/10">
+                    <thead className="bg-white/10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider w-12">
+                          #
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Nome
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Especialidade
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          CRM / UF
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          RQE
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Telefone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Cidades
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Verificado
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Docs enviados
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Data Cadastro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                    {psiquiatrasFiltradosAdmin.map((psi, index) => (
+                      <tr key={psi.id || psi.userId}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#E8EDED]">
+                          {psi.nome}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#E8EDED]/70">
+                          {psi.especialidade || PSIQUIATRA_ESPECIALIDADE}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {psi.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatPsiquiatraRegistroAdmin(psi)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {psi.rqe || '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {psi.telefone ? (
+                            <a
+                              href={buildWhatsappUrl(phoneFieldsFromProfessional(psi)) ?? '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                              title={`WhatsApp: ${psi.telefone}`}
+                            >
+                              <Phone size={14} />
+                              {psi.telefone}
+                            </a>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <span>{(psi.cidades || []).length} cidade{(psi.cidades || []).length !== 1 ? 's' : ''}</span>
+                            {(psi.cidades || []).length > 0 && (
+                              <div className="ml-2 group relative">
+                                <Eye size={16} className="text-gray-400 cursor-pointer" />
+                                <div className="hidden group-hover:block absolute left-0 bottom-full mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                                  {psi.cidades.map((cidade, idx) => (
+                                    <div key={idx}>{cidade.cidade}, {cidade.estado}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {psi.isVerificado ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center">
+                              <ShieldCheck className="w-3 h-3 mr-1" />
+                              Verificado
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center">
+                              <Shield className="w-3 h-3 mr-1" />
+                              Não Verificado
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
+                          <div className="flex flex-wrap gap-x-2 gap-y-1">
+                            {psi.docVerificacaoCnhUrl ? (
+                              <a
+                                href={psi.docVerificacaoCnhUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CNH
+                              </a>
+                            ) : null}
+                            {psi.docVerificacaoSelfieUrl ? (
+                              <a
+                                href={psi.docVerificacaoSelfieUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                Selfie
+                              </a>
+                            ) : null}
+                            {psi.docVerificacaoRegistroUrl ? (
+                              <a
+                                href={psi.docVerificacaoRegistroUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                CRM
+                              </a>
+                            ) : null}
+                            {psi.fotoPerfilUrl ? (
+                              <a
+                                href={psi.fotoPerfilUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sky-400 hover:underline text-xs"
+                              >
+                                Perfil
+                              </a>
+                            ) : null}
+                            {!psi.docVerificacaoCnhUrl && !psi.docVerificacaoSelfieUrl && !psi.docVerificacaoRegistroUrl && !psi.fotoPerfilUrl ? (
+                              <span className="text-gray-500">—</span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            psi.status === 'ativo'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {psi.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {psi.dataCadastro ? new Date(psi.dataCadastro).toLocaleDateString('pt-BR') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                setPsiquiatraDetalhes(psi);
+                                setShowDetalhesPsiModal(true);
+                              }}
+                              className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center"
+                              title="Ver detalhes"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            {!psi.isVerificado && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await PsiquiatraService.verifyPsiquiatra(psi.userId);
+                                    await loadPsiquiatras();
+                                    setMessage('Psiquiatra verificado com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao verificar psiquiatra:', error);
+                                    setMessage(
+                                      error instanceof Error
+                                        ? error.message
+                                        : 'Erro ao verificar psiquiatra'
+                                    );
+                                  }
+                                }}
+                                className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                                title="Verificar"
+                              >
+                                <ShieldCheck size={16} />
+                              </button>
+                            )}
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await PsiquiatraService.toggleStatus(psi.userId, psi.status);
+                                  await loadPsiquiatras();
+                                  setMessage(`Psiquiatra ${psi.status === 'ativo' ? 'inativado' : 'ativado'} com sucesso!`);
+                                } catch (error) {
+                                  console.error('Erro ao alternar status:', error);
+                                  setMessage('Erro ao alternar status');
+                                }
+                              }}
+                              className={`p-2 rounded-md transition-colors flex items-center justify-center ${
+                                psi.status === 'ativo'
+                                  ? 'bg-orange-600 text-white hover:bg-orange-700'
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}
+                              title={psi.status === 'ativo' ? 'Inativar' : 'Ativar'}
+                            >
+                              {psi.status === 'ativo' ? (
+                                <XCircle size={16} />
+                              ) : (
+                                <CheckCircle size={16} />
+                              )}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Tem certeza que deseja excluir o psiquiatra ${psi.nome}? Esta ação não pode ser desfeita.`)) {
+                                  try {
+                                    await PsiquiatraService.deletePsiquiatra(psi.userId);
+                                    await loadPsiquiatras();
+                                    setMessage('Psiquiatra excluído com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao excluir psiquiatra:', error);
+                                    setMessage('Erro ao excluir psiquiatra');
+                                  }
+                                }
+                              }}
+                              className="p-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    </tbody>
+                  </table>
+                </div>
+                {psiquiatrasFiltradosAdmin.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>
+                      {buscaPsiquiatraAdmin.trim()
+                        ? 'Nenhum psiquiatra encontrado para a busca'
+                        : 'Nenhum psiquiatra encontrado'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -4272,8 +4792,16 @@ function MetaAdminGeralContent() {
                                   rua: dadosId.endereco?.rua || '',
                                   cidade: dadosId.endereco?.cidade || '',
                                   estado: dadosId.endereco?.estado || '',
-                                  cep: dadosId.endereco?.cep || ''
+                                  cep: dadosId.endereco?.cep || '',
+                                  codigoIbge: dadosId.endereco?.codigoIbge || ''
                                 });
+                                setLocalizacaoPacienteEditando(
+                                  interpretPatientLocation({
+                                    estado: dadosId.endereco?.estado,
+                                    cidade: dadosId.endereco?.cidade,
+                                    codigoIbge: dadosId.endereco?.codigoIbge,
+                                  })
+                                );
                                 setShowEditarPacienteModal(true);
                               }}
                               className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors flex items-center"
@@ -4562,7 +5090,7 @@ function MetaAdminGeralContent() {
                                           </div>
                                           {lead.telefone && (
                                             <a
-                                              href={`https://wa.me/${lead.telefone.replace(/\D/g, '').startsWith('55') ? lead.telefone.replace(/\D/g, '') : `55${lead.telefone.replace(/\D/g, '')}`}`}
+                                              href={buildWhatsappUrl(phoneFieldsFromLead(lead)) ?? '#'}
                                               target="_blank"
                                               rel="noopener noreferrer"
                                               className="ml-2 inline-flex items-center justify-center p-1.5 rounded-md bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 transition-colors"
@@ -8577,7 +9105,7 @@ function MetaAdminGeralContent() {
             <div className="flex justify-between items-center flex-wrap gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-[#E8EDED]">OftPay</h2>
-                <p className="text-sm text-[#E8EDED]/70 mt-1">Usuários que entraram no OftPay. Libere cursos e o Banco de Questões para cada um.</p>
+                <p className="text-sm text-[#E8EDED]/70 mt-1">Usuários que entraram no OftPay. Libere cursos, o Banco de Questões e o código do CarPlay.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -8656,6 +9184,7 @@ function MetaAdminGeralContent() {
                           <th key={c.id} className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">{c.name}</th>
                         ))}
                         <th className="px-6 py-3 text-center text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Banco de Questões</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">CarPlay</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-[#E8EDED]/70 uppercase tracking-wider">Ações</th>
                       </tr>
                     </thead>
@@ -8771,6 +9300,27 @@ function MetaAdminGeralContent() {
                               className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                             />
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={oftpayLocalCarplayCode[u.email] ?? ''}
+                                onChange={(e) => setOftpayLocalCarplayCode((prev) => ({ ...prev, [u.email]: e.target.value.toUpperCase() }))}
+                                placeholder="Código"
+                                maxLength={12}
+                                autoCapitalize="characters"
+                                spellCheck={false}
+                                className="px-2 py-1.5 border border-gray-200 rounded text-sm w-28 uppercase tracking-wide bg-white text-zinc-950 caret-zinc-950 placeholder:text-zinc-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setOftpayLocalCarplayCode((prev) => ({ ...prev, [u.email]: generateCarplayCode() }))}
+                                className="px-2 py-1.5 text-xs rounded-md border border-white/20 text-[#E8EDED] hover:bg-white/10"
+                              >
+                                Gerar
+                              </button>
+                            </div>
+                          </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button
@@ -8786,14 +9336,15 @@ function MetaAdminGeralContent() {
                                     const endStr = oftpayLocalAccessEnd[u.email]?.trim();
                                     const accessStartAt = startStr ? new Date(startStr).getTime() : null;
                                     const accessEndAt = endStr ? new Date(endStr + 'T23:59:59.999').getTime() : null;
+                                    const carplayCode = oftpayLocalCarplayCode[u.email] ?? '';
                                     const res = await fetch('/api/metaadmingeral/oftpay/users', {
                                       method: 'PATCH',
                                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                      body: JSON.stringify({ email: u.email, courseIds, questoesEnabled, accessStartAt, accessEndAt }),
+                                      body: JSON.stringify({ email: u.email, courseIds, questoesEnabled, accessStartAt, accessEndAt, carplayCode }),
                                     });
                                     const data = await res.json().catch(() => ({}));
                                     if (!res.ok) throw new Error(data.error || res.statusText);
-                                    setMessage('Cursos, Banco de Questões e vigência atualizados.');
+                                    setMessage('Cursos, Banco de Questões, vigência e código CarPlay atualizados.');
                                   } catch (e) {
                                     setOftpayError(e instanceof Error ? e.message : 'Erro ao salvar');
                                   } finally {
@@ -8810,6 +9361,7 @@ function MetaAdminGeralContent() {
                                 )}
                                 Salvar
                               </button>
+                              {u.email.trim().toLowerCase() !== OFTPAY_OWNER_EMAIL.trim().toLowerCase() && (
                               <button
                                 type="button"
                                 title="Excluir usuário"
@@ -8848,6 +9400,11 @@ function MetaAdminGeralContent() {
                                       delete next[u.email];
                                       return next;
                                     });
+                                    setOftpayLocalCarplayCode((prev) => {
+                                      const next = { ...prev };
+                                      delete next[u.email];
+                                      return next;
+                                    });
                                     setMessage('Usuário excluído.');
                                   } catch (e) {
                                     setOftpayError(e instanceof Error ? e.message : 'Erro ao excluir');
@@ -8864,12 +9421,13 @@ function MetaAdminGeralContent() {
                                   <Trash2 className="w-4 h-4" />
                                 )}
                               </button>
+                              )}
                             </div>
                           </td>
                         </tr>
                         {isExpanded && (
                           <tr className="bg-white/5">
-                            <td colSpan={6 + OFTPAY_COURSES.length + 2} className="px-6 py-4">
+                            <td colSpan={7 + OFTPAY_COURSES.length + 2} className="px-6 py-4">
                               <div className="space-y-3 text-sm">
                                 {details ? (
                                   <>
@@ -9728,10 +10286,21 @@ function MetaAdminGeralContent() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Telefone</label>
-                    <input
-                      type="tel"
-                      value={dadosMedicoEditando.telefone}
-                      onChange={(e) => setDadosMedicoEditando({ ...dadosMedicoEditando, telefone: e.target.value })}
+                    <InternationalPhoneInput
+                      id="metaadmingeral-medico-telefone"
+                      value={{
+                        telefone: dadosMedicoEditando.telefone,
+                        telefoneDdi: dadosMedicoEditando.telefoneDdi,
+                        telefonePais: dadosMedicoEditando.telefonePais,
+                      }}
+                      onChange={(next) =>
+                        setDadosMedicoEditando({
+                          ...dadosMedicoEditando,
+                          telefone: next.telefone,
+                          telefoneDdi: next.telefoneDdi,
+                          telefonePais: next.telefonePais,
+                        })
+                      }
                       className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                     />
                   </div>
@@ -9910,22 +10479,23 @@ function MetaAdminGeralContent() {
                       className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Cidade</label>
-                    <input
-                      type="text"
-                      value={dadosPacienteEditando.cidade}
-                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, cidade: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#E8EDED]/90 mb-1">Estado</label>
-                    <input
-                      type="text"
-                      value={dadosPacienteEditando.estado}
-                      onChange={(e) => setDadosPacienteEditando({ ...dadosPacienteEditando, estado: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  <div className="md:col-span-2">
+                    <PatientLocationFields
+                      id="metaadmingeral-paciente-localizacao"
+                      value={{
+                        estado: dadosPacienteEditando.estado,
+                        cidade: dadosPacienteEditando.cidade,
+                        codigoIbge: dadosPacienteEditando.codigoIbge,
+                      }}
+                      onChange={(next) =>
+                        setDadosPacienteEditando({
+                          ...dadosPacienteEditando,
+                          estado: next?.estado ?? '',
+                          cidade: next?.cidade ?? '',
+                          codigoIbge: next?.codigoIbge ?? '',
+                        })
+                      }
+                      onInterpretationChange={setLocalizacaoPacienteEditando}
                     />
                   </div>
                   <div>
@@ -10323,7 +10893,7 @@ function MetaAdminGeralContent() {
                   <p className="mt-1 text-sm text-gray-900">
                     {nutriDetalhes.telefone ? (
                       <a
-                        href={`https://wa.me/55${nutriDetalhes.telefone.replace(/\D/g, '')}`}
+                        href={buildWhatsappUrl(phoneFieldsFromProfessional(nutriDetalhes)) ?? '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline inline-flex items-center gap-1"
@@ -10464,7 +11034,7 @@ function MetaAdminGeralContent() {
                   <p className="mt-1 text-sm text-gray-900">
                     {personalDetalhes.telefone ? (
                       <a
-                        href={`https://wa.me/55${personalDetalhes.telefone.replace(/\D/g, '')}`}
+                        href={buildWhatsappUrl(phoneFieldsFromProfessional(personalDetalhes)) ?? '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline inline-flex items-center gap-1"
@@ -10550,6 +11120,231 @@ function MetaAdminGeralContent() {
                   onClick={() => {
                     setShowDetalhesPersonalModal(false);
                     setPersonalDetalhes(null);
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDetalhesPsiModal && psiquiatraDetalhes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl hover:border-[#4CCB7A]/30 transition-colors-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-[#E8EDED]">Detalhes do Psiquiatra</h2>
+                <button
+                  onClick={() => {
+                    setShowDetalhesPsiModal(false);
+                    setPsiquiatraDetalhes(null);
+                  }}
+                  className="text-gray-400 hover:text-[#E8EDED]/70"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Nome</label>
+                  <p className="mt-1 text-sm text-gray-900">{psiquiatraDetalhes.nome}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Email</label>
+                  <p className="mt-1 text-sm text-gray-900">{psiquiatraDetalhes.email}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">User ID</label>
+                  <p className="mt-1 text-sm text-gray-900 font-mono">{psiquiatraDetalhes.userId}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Especialidade</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {psiquiatraDetalhes.especialidade || PSIQUIATRA_ESPECIALIDADE}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">CRM / UF</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {formatPsiquiatraRegistroAdmin(psiquiatraDetalhes)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">RQE</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {psiquiatraDetalhes.rqe || 'Não informado'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Telefone para contato</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {psiquiatraDetalhes.telefone ? (
+                      <a
+                        href={buildWhatsappUrl(phoneFieldsFromProfessional(psiquiatraDetalhes)) ?? '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                        title={`WhatsApp: ${psiquiatraDetalhes.telefone}`}
+                      >
+                        <Phone size={16} />
+                        {psiquiatraDetalhes.telefone}
+                      </a>
+                    ) : (
+                      'Não informado'
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Cidades Atendidas</label>
+                  {(psiquiatraDetalhes.cidades || []).length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {psiquiatraDetalhes.cidades.map((cidade, idx) => (
+                        <p key={idx} className="text-sm text-gray-900">
+                          {cidade.cidade}, {cidade.estado}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-500">Nenhuma cidade cadastrada</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Documentos de verificação</label>
+                  <div className="mt-1 flex flex-wrap gap-3">
+                    {psiquiatraDetalhes.docVerificacaoCnhUrl ? (
+                      <a
+                        href={psiquiatraDetalhes.docVerificacaoCnhUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-400 hover:underline text-sm"
+                      >
+                        CNH
+                      </a>
+                    ) : null}
+                    {psiquiatraDetalhes.docVerificacaoSelfieUrl ? (
+                      <a
+                        href={psiquiatraDetalhes.docVerificacaoSelfieUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-400 hover:underline text-sm"
+                      >
+                        Selfie
+                      </a>
+                    ) : null}
+                    {psiquiatraDetalhes.docVerificacaoRegistroUrl ? (
+                      <a
+                        href={psiquiatraDetalhes.docVerificacaoRegistroUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-400 hover:underline text-sm"
+                      >
+                        Foto do CRM
+                      </a>
+                    ) : null}
+                    {psiquiatraDetalhes.fotoPerfilUrl ? (
+                      <a
+                        href={psiquiatraDetalhes.fotoPerfilUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-400 hover:underline text-sm"
+                      >
+                        Foto de perfil
+                      </a>
+                    ) : null}
+                    {!psiquiatraDetalhes.docVerificacaoCnhUrl &&
+                    !psiquiatraDetalhes.docVerificacaoSelfieUrl &&
+                    !psiquiatraDetalhes.docVerificacaoRegistroUrl &&
+                    !psiquiatraDetalhes.fotoPerfilUrl ? (
+                      <span className="text-sm text-gray-500">Nenhum documento enviado</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Status de Verificação</label>
+                  <p className="mt-1">
+                    {psiquiatraDetalhes.isVerificado ? (
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center w-fit">
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Verificado
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center w-fit">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Não Verificado
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Status</label>
+                  <p className="mt-1">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      psiquiatraDetalhes.status === 'ativo'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {psiquiatraDetalhes.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#E8EDED]/90">Data de Cadastro</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {psiquiatraDetalhes.dataCadastro ? new Date(psiquiatraDetalhes.dataCadastro).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap justify-end gap-2">
+                {!psiquiatraDetalhes.isVerificado && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await PsiquiatraService.verifyPsiquiatra(psiquiatraDetalhes.userId);
+                        await loadPsiquiatras();
+                        setShowDetalhesPsiModal(false);
+                        setPsiquiatraDetalhes(null);
+                        setMessage('Psiquiatra verificado com sucesso!');
+                      } catch (error) {
+                        console.error('Erro ao verificar psiquiatra:', error);
+                        setMessage(
+                          error instanceof Error
+                            ? error.message
+                            : 'Erro ao verificar psiquiatra'
+                        );
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors inline-flex items-center gap-2"
+                  >
+                    <ShieldCheck size={16} />
+                    Aprovar
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowDetalhesPsiModal(false);
+                    setPsiquiatraDetalhes(null);
                   }}
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
                 >

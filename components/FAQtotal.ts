@@ -131,8 +131,8 @@ export const nutriFaqItems: FAQItem[] = [
     answer: "O plano nutricional é gerado automaticamente após você responder um questionário sobre seus hábitos, preferências e restrições alimentares. O sistema calcula sua meta de proteína diária baseada no seu IMC, determina o estilo alimentar mais adequado (digestiva, rica em proteína, mediterrânea, etc.) e cria um cardápio personalizado com opções para cada refeição do dia."
   },
   {
-    question: "Como fazer o check-in diário?",
-    answer: "Na aba Nutri, clique no botão 'Check-in Diário' no topo da página. Você pode registrar o check-in para hoje ou até 3 dias atrás. O check-in inclui perguntas sobre alimentação, suplementos, sintomas gastrointestinais, sono, energia e aderência ao plano. Um score de 0 a 100 é calculado automaticamente para acompanhar sua evolução."
+    question: "Como fazer o check-in semanal?",
+    answer: "Na aba Nutri, clique em 'Check-in Semanal'. O questionário cobre alimentação, hidratação, como o corpo respondeu, rotina e um recado opcional ao nutricionista. Um score de 0 a 100 é calculado automaticamente. Check-ins diários antigos, se existirem, ficam em Histórico anterior."
   },
   {
     question: "Posso personalizar meu cardápio?",

@@ -27,6 +27,7 @@ import {
 } from '@/lib/signature/bryPrescriptionReconnect';
 
 import type { PrescriptionSignedPrintResult } from '@/lib/signature/runPrescriptionSignedPrint';
+import type { PrescriptionPrintLanguage } from '@/types/prescriptionPrintLanguage';
 
 import type { DoctorSignatureProviderConfig } from '@/types/doctorSignatureProvider';
 
@@ -49,7 +50,7 @@ export type PrescriptionPrintModeModalProps = {
 
   providerConfig?: DoctorSignatureProviderConfig | null;
 
-  /** Quando true, desabilita assinatura digital (ex.: recibo). */
+  /** Recibo médico: prioriza assinatura digital (sem espaço manual no PDF). */
 
   isRecibo?: boolean;
 
@@ -57,13 +58,18 @@ export type PrescriptionPrintModeModalProps = {
 
   modalTitle?: string;
 
-  onPrintUnsigned: () => Promise<void> | void;
+  onPrintUnsigned: (language?: PrescriptionPrintLanguage) => Promise<void> | void;
 
   onPrintSigned: (
 
-    onProgress?: (phase: 'generating_pdf' | 'submitting_signature') => void
+    onProgress?: (phase: 'translating' | 'generating_pdf' | 'submitting_signature') => void,
+
+    language?: PrescriptionPrintLanguage
 
   ) => Promise<PrescriptionSignedPrintResult | void> | PrescriptionSignedPrintResult | void;
+
+  /** Requisição de exames: escolha Português/Inglês antes de gerar o PDF. */
+  showLanguageSwitch?: boolean;
 
   /** ID do médico (reconexão BRy após sessão expirada). */
 
@@ -98,6 +104,8 @@ export default function PrescriptionPrintModeModal({
 
   portalZIndex = SIGNATURE_PRINT_PORTAL_Z_INDEX,
 
+  showLanguageSwitch = false,
+
 }: PrescriptionPrintModeModalProps) {
 
   const [loadingUnsigned, setLoadingUnsigned] = useState(false);
@@ -112,11 +120,13 @@ export default function PrescriptionPrintModeModal({
 
   const [sessionReconnectOpen, setSessionReconnectOpen] = useState(false);
 
+  const [language, setLanguage] = useState<PrescriptionPrintLanguage>('pt');
 
 
-  const signedEligibility = getPrescriptionSignedPrintEligibility(providerConfig, { isRecibo });
 
-  const signedButtonEnabled = isPrescriptionSignedPrintButtonEnabled(providerConfig, { isRecibo });
+  const signedEligibility = getPrescriptionSignedPrintEligibility(providerConfig);
+
+  const signedButtonEnabled = isPrescriptionSignedPrintButtonEnabled(providerConfig);
 
   const signedButtonDisabledMessage = PRESCRIPTION_PRINT_PROFILE_SETUP_MESSAGE;
 
@@ -136,6 +146,7 @@ export default function PrescriptionPrintModeModal({
       setLoadingSigned(false);
       setSignedLoadingLabel('Gerando PDF com assinatura digital...');
       setSessionReconnectOpen(false);
+      setLanguage('pt');
       return;
     }
     if (brySessionReconnectRecommended) {
@@ -188,7 +199,7 @@ export default function PrescriptionPrintModeModal({
 
     try {
 
-      await onPrintUnsigned();
+      await onPrintUnsigned(showLanguageSwitch ? language : 'pt');
 
       onClose();
 
@@ -204,7 +215,7 @@ export default function PrescriptionPrintModeModal({
 
     }
 
-  }, [onPrintUnsigned, onClose]);
+  }, [onPrintUnsigned, onClose, showLanguageSwitch, language]);
 
 
 
@@ -237,11 +248,12 @@ export default function PrescriptionPrintModeModal({
 
       const result = await onPrintSigned((phase) => {
 
+        if (phase === 'translating') setSignedLoadingLabel('Traduzindo para inglês...');
         if (phase === 'generating_pdf') setSignedLoadingLabel('Gerando PDF...');
 
         if (phase === 'submitting_signature') setSignedLoadingLabel('Enviando para assinatura digital...');
 
-      });
+      }, showLanguageSwitch ? language : 'pt');
 
       if (result?.outcome === 'pending') {
 
@@ -266,6 +278,10 @@ export default function PrescriptionPrintModeModal({
     }
   }, [
     onPrintSigned,
+
+    showLanguageSwitch,
+
+    language,
     onClose,
     signedEligibility,
     providerConfig,
@@ -368,6 +384,41 @@ export default function PrescriptionPrintModeModal({
 
           </p>
 
+          {showLanguageSwitch ? (
+            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center justify-between gap-3">
+                <span className={`text-sm ${language === 'pt' ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-500'}`}>
+                  Português
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={language === 'en'}
+                  aria-label={language === 'en' ? 'Idioma da requisição: inglês' : 'Idioma da requisição: português'}
+                  disabled={busy}
+                  onClick={() => setLanguage((current) => (current === 'pt' ? 'en' : 'pt'))}
+                  className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                    language === 'en' ? 'bg-teal-700' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                      language === 'en' ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm ${language === 'en' ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-500'}`}>
+                  Inglês
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                {language === 'en'
+                  ? 'A requisição será traduzida e impressa em inglês.'
+                  : 'A requisição será impressa em português.'}
+              </p>
+            </div>
+          ) : null}
+
 
 
           {showSandboxHint && (
@@ -382,7 +433,7 @@ export default function PrescriptionPrintModeModal({
 
 
 
-          {!signedButtonEnabled && !isRecibo && providerConfig?.provider && providerConfig.provider !== 'none' && (
+          {!signedButtonEnabled && providerConfig?.provider && providerConfig.provider !== 'none' && (
 
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">{signedButtonDisabledMessage}</p>
 
@@ -428,59 +479,127 @@ export default function PrescriptionPrintModeModal({
 
           <div className="flex flex-col gap-2">
 
-            <button
+            {isRecibo ? (
 
-              type="button"
+              <>
 
-              disabled={busy}
+                <button
 
-              onClick={() => void runUnsigned()}
+                  type="button"
 
-              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  disabled={busy || !signedButtonEnabled}
 
-            >
+                  onClick={() => void runSigned()}
 
-              {loadingUnsigned ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  title={!signedButtonEnabled ? signedButtonDisabledMessage : undefined}
 
-              Gerar PDF sem assinatura
+                  className="w-full px-4 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
 
-            </button>
+                >
+
+                  <span className="inline-flex items-center gap-2">
+
+                    {loadingSigned ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+
+                    {loadingSigned ? signedLoadingLabel : 'Gerar PDF com assinatura digital'}
+
+                  </span>
+
+                  {!loadingSigned && showSandboxHint && (
+
+                    <span className="text-[10px] font-normal opacity-90">
+
+                      Ambiente de teste — sem validade jurídica.
+
+                    </span>
+
+                  )}
+
+                </button>
 
 
 
-            <button
+                <button
 
-              type="button"
+                  type="button"
 
-              disabled={busy || !signedButtonEnabled}
+                  disabled={busy}
 
-              onClick={() => void runSigned()}
+                  onClick={() => void runUnsigned()}
 
-              title={!signedButtonEnabled ? signedButtonDisabledMessage : undefined}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 flex items-center justify-center gap-2"
 
-              className="w-full px-4 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
+                >
 
-            >
+                  {loadingUnsigned ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
 
-              <span className="inline-flex items-center gap-2">
+                  Gerar PDF sem assinatura
 
-                {loadingSigned ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                </button>
 
-                {loadingSigned ? signedLoadingLabel : 'Gerar PDF com assinatura digital'}
+              </>
 
-              </span>
+            ) : (
 
-              {!loadingSigned && showSandboxHint && (
+              <>
 
-                <span className="text-[10px] font-normal opacity-90">
+                <button
 
-                  Ambiente de teste — sem validade jurídica.
+                  type="button"
 
-                </span>
+                  disabled={busy}
 
-              )}
+                  onClick={() => void runUnsigned()}
 
-            </button>
+                  className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 flex items-center justify-center gap-2"
+
+                >
+
+                  {loadingUnsigned ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+
+                  Gerar PDF sem assinatura
+
+                </button>
+
+
+
+                <button
+
+                  type="button"
+
+                  disabled={busy || !signedButtonEnabled}
+
+                  onClick={() => void runSigned()}
+
+                  title={!signedButtonEnabled ? signedButtonDisabledMessage : undefined}
+
+                  className="w-full px-4 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
+
+                >
+
+                  <span className="inline-flex items-center gap-2">
+
+                    {loadingSigned ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+
+                    {loadingSigned ? signedLoadingLabel : 'Gerar PDF com assinatura digital'}
+
+                  </span>
+
+                  {!loadingSigned && showSandboxHint && (
+
+                    <span className="text-[10px] font-normal opacity-90">
+
+                      Ambiente de teste — sem validade jurídica.
+
+                    </span>
+
+                  )}
+
+                </button>
+
+              </>
+
+            )}
 
 
 

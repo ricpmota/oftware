@@ -15,8 +15,12 @@ export type MetaadminMetasTratamentoBlockProps = {
   setPaciente: Dispatch<SetStateAction<PacienteCompleto | null>>;
   /** Quando true, omite o texto introdutório sob o título da secção. */
   hideMetaHeading?: boolean;
-  /** Título da secção (ex.: "5.3 Metas do Tratamento" no metaadmin desktop). */
+  /** Título da secção (ex.: "Metas do Tratamento"). */
   sectionHeading?: string;
+  /** Somente visualização: switches readonly, ranges desabilitados, sem botões ±. */
+  readOnly?: boolean;
+  /** Dentro de outro card: sem borda/gradiente externo. */
+  embedded?: boolean;
 };
 
 export function MetaadminMetasTratamentoBlock({
@@ -24,6 +28,8 @@ export function MetaadminMetasTratamentoBlock({
   setPaciente,
   hideMetaHeading = false,
   sectionHeading = 'Metas do Tratamento',
+  readOnly = false,
+  embedded = false,
 }: MetaadminMetasTratamentoBlockProps) {
   const p = paciente;
   const mi = p.dadosClinicos?.medidasIniciais;
@@ -129,6 +135,7 @@ export function MetaadminMetasTratamentoBlock({
       : null;
 
   const patchMetas = (partial: Record<string, unknown>) => {
+    if (readOnly) return;
     setPaciente({
       ...p,
       planoTerapeutico: {
@@ -142,7 +149,7 @@ export function MetaadminMetasTratamentoBlock({
   };
 
   const bumpKgPerda = (delta: number) => {
-    if (peso0 == null || peso0 <= 0) return;
+    if (readOnly || peso0 == null || peso0 <= 0) return;
     const cur =
       kgPerda != null ? kgPerda : roundMetaHalfStep((peso0 * 12) / 100);
     const next = roundMetaHalfStep(Math.min(kgMax, Math.max(kgMin, cur + delta)));
@@ -153,6 +160,7 @@ export function MetaadminMetasTratamentoBlock({
   };
 
   const bumpWaistLossCm = (delta: number) => {
+    if (readOnly) return;
     const next = roundMetaHalfStep(
       Math.min(maxWaistLoss, Math.max(0, waistLossCm + delta))
     );
@@ -216,11 +224,17 @@ export function MetaadminMetasTratamentoBlock({
   );
 
   return (
-    <div className="border border-gray-200 dark:border-gray-600 rounded-xl p-5 bg-gradient-to-br from-slate-50/80 to-white dark:from-gray-900/50 dark:to-gray-900/80 shadow-sm">
+    <div
+      className={
+        embedded
+          ? 'border-t border-gray-200 dark:border-gray-700 pt-4'
+          : 'border border-gray-200 dark:border-gray-600 rounded-xl p-5 bg-gradient-to-br from-slate-50/80 to-white dark:from-gray-900/50 dark:to-gray-900/80 shadow-sm'
+      }
+    >
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div className="min-w-0">
           <h4 className="font-semibold text-gray-800 dark:text-gray-100 mb-1">{sectionHeading}</h4>
-          {!hideMetaHeading && (
+          {!hideMetaHeading && !readOnly && (
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Ajuste as metas com as barras. Os valores iniciais vêm de{' '}
               <span className="font-medium">Dados clínicos → Medidas iniciais</span>.
@@ -250,17 +264,19 @@ export function MetaadminMetasTratamentoBlock({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                {renderMetaToggle(
-                  'Ativar meta de perda de peso',
-                  pesoMetaSwitchOn,
-                  () => {
-                    const next = !pesoMetaSwitchOn;
-                    patchMetas({
-                      metaPerdaPesoAtiva: next,
-                      metasTratamentoModuloAtivo: next || cinturaMetaSwitchOn,
-                    });
-                  }
-                )}
+                {readOnly
+                  ? renderMetaSwitchReadonly('Meta de perda de peso', pesoMetaSwitchOn)
+                  : renderMetaToggle(
+                      'Ativar meta de perda de peso',
+                      pesoMetaSwitchOn,
+                      () => {
+                        const next = !pesoMetaSwitchOn;
+                        patchMetas({
+                          metaPerdaPesoAtiva: next,
+                          metasTratamentoModuloAtivo: next || cinturaMetaSwitchOn,
+                        });
+                      }
+                    )}
                 <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Perda de Peso
                 </h5>
@@ -295,8 +311,9 @@ export function MetaadminMetasTratamentoBlock({
                   max={kgMax}
                   step={META_STEP_KG}
                   value={kgPerda ?? kgMin}
-                  disabled={!pesoMetaSwitchOn}
+                  disabled={readOnly || !pesoMetaSwitchOn}
                   onChange={(e) => {
+                    if (readOnly) return;
                     const kg = roundMetaHalfStep(parseFloat(e.target.value));
                     patchMetas({
                       weightLossTargetType: 'PESO_ABSOLUTO',
@@ -321,26 +338,28 @@ export function MetaadminMetasTratamentoBlock({
                       {kgPerda} kg
                     </div>
                   </div>
-                  <div className="flex flex-col shrink-0 gap-0.5">
-                    <button
-                      type="button"
-                      disabled={!pesoMetaSwitchOn || (kgPerda ?? kgMin) >= kgMax}
-                      onClick={() => bumpKgPerda(META_STEP_KG)}
-                      className="p-0.5 rounded border border-emerald-200/80 bg-white/90 text-emerald-800 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-emerald-800 dark:bg-gray-900/80 dark:text-emerald-200 dark:hover:bg-emerald-950"
-                      aria-label="Aumentar meta de perda em 0,5 kg"
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!pesoMetaSwitchOn || (kgPerda ?? kgMin) <= kgMin}
-                      onClick={() => bumpKgPerda(-META_STEP_KG)}
-                      className="p-0.5 rounded border border-emerald-200/80 bg-white/90 text-emerald-800 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-emerald-800 dark:bg-gray-900/80 dark:text-emerald-200 dark:hover:bg-emerald-950"
-                      aria-label="Diminuir meta de perda em 0,5 kg"
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {!readOnly && (
+                    <div className="flex flex-col shrink-0 gap-0.5">
+                      <button
+                        type="button"
+                        disabled={!pesoMetaSwitchOn || (kgPerda ?? kgMin) >= kgMax}
+                        onClick={() => bumpKgPerda(META_STEP_KG)}
+                        className="p-0.5 rounded border border-emerald-200/80 bg-white/90 text-emerald-800 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-emerald-800 dark:bg-gray-900/80 dark:text-emerald-200 dark:hover:bg-emerald-950"
+                        aria-label="Aumentar meta de perda em 0,5 kg"
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!pesoMetaSwitchOn || (kgPerda ?? kgMin) <= kgMin}
+                        onClick={() => bumpKgPerda(-META_STEP_KG)}
+                        className="p-0.5 rounded border border-emerald-200/80 bg-white/90 text-emerald-800 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-emerald-800 dark:bg-gray-900/80 dark:text-emerald-200 dark:hover:bg-emerald-950"
+                        aria-label="Diminuir meta de perda em 0,5 kg"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="rounded-md bg-slate-50 dark:bg-gray-900/80 px-3 py-2 border border-gray-200 dark:border-gray-600">
                   <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -388,18 +407,23 @@ export function MetaadminMetasTratamentoBlock({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                {renderMetaToggle(
-                  'Ativar meta de redução de circunferência abdominal',
-                  cinturaMetaSwitchOn,
-                  () => {
-                    const next = !cinturaMetaSwitchOn;
-                    patchMetas({
-                      metaReducaoCinturaAtiva: next,
-                      metasTratamentoModuloAtivo: pesoMetaSwitchOn || next,
-                    });
-                  },
-                  !temCint0
-                )}
+                {readOnly
+                  ? renderMetaSwitchReadonly(
+                      'Meta de redução de circunferência abdominal',
+                      cinturaMetaSwitchOn
+                    )
+                  : renderMetaToggle(
+                      'Ativar meta de redução de circunferência abdominal',
+                      cinturaMetaSwitchOn,
+                      () => {
+                        const next = !cinturaMetaSwitchOn;
+                        patchMetas({
+                          metaReducaoCinturaAtiva: next,
+                          metasTratamentoModuloAtivo: pesoMetaSwitchOn || next,
+                        });
+                      },
+                      !temCint0
+                    )}
                 <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Circ. Abdominal
                 </h5>
@@ -434,8 +458,9 @@ export function MetaadminMetasTratamentoBlock({
                   max={maxWaistLoss}
                   step={META_STEP_CM}
                   value={waistLossCm}
-                  disabled={!cinturaMetaSwitchOn}
+                  disabled={readOnly || !cinturaMetaSwitchOn}
                   onChange={(e) => {
+                    if (readOnly) return;
                     const v = roundMetaHalfStep(parseFloat(e.target.value));
                     patchMetas({ waistReductionTargetCm: v });
                   }}
@@ -457,26 +482,28 @@ export function MetaadminMetasTratamentoBlock({
                       {waistLossCm} cm
                     </div>
                   </div>
-                  <div className="flex flex-col shrink-0 gap-0.5">
-                    <button
-                      type="button"
-                      disabled={!cinturaMetaSwitchOn || waistLossCm >= maxWaistLoss}
-                      onClick={() => bumpWaistLossCm(META_STEP_CM)}
-                      className="p-0.5 rounded border border-sky-200/80 bg-white/90 text-sky-800 hover:bg-sky-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-sky-800 dark:bg-gray-900/80 dark:text-sky-200 dark:hover:bg-sky-950"
-                      aria-label="Aumentar redução alvo em 0,5 cm"
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!cinturaMetaSwitchOn || waistLossCm <= 0}
-                      onClick={() => bumpWaistLossCm(-META_STEP_CM)}
-                      className="p-0.5 rounded border border-sky-200/80 bg-white/90 text-sky-800 hover:bg-sky-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-sky-800 dark:bg-gray-900/80 dark:text-sky-200 dark:hover:bg-sky-950"
-                      aria-label="Diminuir redução alvo em 0,5 cm"
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {!readOnly && (
+                    <div className="flex flex-col shrink-0 gap-0.5">
+                      <button
+                        type="button"
+                        disabled={!cinturaMetaSwitchOn || waistLossCm >= maxWaistLoss}
+                        onClick={() => bumpWaistLossCm(META_STEP_CM)}
+                        className="p-0.5 rounded border border-sky-200/80 bg-white/90 text-sky-800 hover:bg-sky-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-sky-800 dark:bg-gray-900/80 dark:text-sky-200 dark:hover:bg-sky-950"
+                        aria-label="Aumentar redução alvo em 0,5 cm"
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!cinturaMetaSwitchOn || waistLossCm <= 0}
+                        onClick={() => bumpWaistLossCm(-META_STEP_CM)}
+                        className="p-0.5 rounded border border-sky-200/80 bg-white/90 text-sky-800 hover:bg-sky-100 disabled:opacity-40 disabled:cursor-not-allowed dark:border-sky-800 dark:bg-gray-900/80 dark:text-sky-200 dark:hover:bg-sky-950"
+                        aria-label="Diminuir redução alvo em 0,5 cm"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="rounded-md bg-slate-50 dark:bg-gray-900/80 px-3 py-2 border border-gray-200 dark:border-gray-600">
                   <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">

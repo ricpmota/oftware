@@ -1,9 +1,10 @@
-import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoMatchable } from '@/types/oftpayQuestaoCatalog';
 import {
   computeSubjectGroupsFromPublicadas,
-  countAvailableForSubjectAndDifficulty,
-  countAvailableForTopicAndDifficulty,
+  countFromSubjectGroup,
+  countFromTopicOption,
   type OftpaySimuladoSelection,
+  type SimuladoSubjectGroup,
 } from '@/types/oftpaySimulados';
 import type { QuestaoDificuldade } from '@/types/oftpayQuestoes';
 
@@ -11,6 +12,9 @@ export interface TopicRowConfig {
   key: string;
   label: string;
   totalPublicadas: number;
+  facil: number;
+  medio: number;
+  dificil: number;
   included: boolean;
   dificuldade: QuestaoDificuldade;
   quantidade: number;
@@ -27,7 +31,9 @@ export interface SubjectGroupConfig {
   quantidade: number;
 }
 
-export function buildSubjectGroupConfigs(publicadas: OftpayQuestaoDoc[]): SubjectGroupConfig[] {
+export function buildSubjectGroupConfigs(
+  publicadas: OftpayQuestaoMatchable[]
+): SubjectGroupConfig[] {
   return computeSubjectGroupsFromPublicadas(publicadas).map((group) => ({
     key: group.key,
     label: group.label,
@@ -35,16 +41,34 @@ export function buildSubjectGroupConfigs(publicadas: OftpayQuestaoDoc[]): Subjec
     expanded: false,
     included: false,
     dificuldade: 'medio' as QuestaoDificuldade,
-    quantidade: Math.min(5, group.totalPublicadas || 1),
+    quantidade: Math.min(5, countFromSubjectGroup(group, 'medio') || group.totalPublicadas || 1),
     topics: group.topics.map((topic) => ({
       key: topic.key,
       label: topic.label,
       totalPublicadas: topic.totalPublicadas,
+      facil: topic.facil,
+      medio: topic.medio,
+      dificil: topic.dificil,
       included: false,
       dificuldade: 'medio' as QuestaoDificuldade,
       quantidade: Math.min(5, topic.medio || topic.totalPublicadas || 1),
     })),
   }));
+}
+
+/** Disponíveis do assunto na dificuldade atual (soma dos tópicos pré-agregados). */
+export function subjectDisponiveisFromConfig(
+  group: SubjectGroupConfig,
+  dificuldade: QuestaoDificuldade = group.dificuldade
+): number {
+  return group.topics.reduce((sum, t) => sum + (t[dificuldade] ?? 0), 0);
+}
+
+export function topicDisponiveisFromConfig(
+  topic: TopicRowConfig,
+  dificuldade: QuestaoDificuldade = topic.dificuldade
+): number {
+  return countFromTopicOption(topic, dificuldade);
 }
 
 export function selectionsFromSubjectGroups(groups: SubjectGroupConfig[]): OftpaySimuladoSelection[] {
@@ -99,4 +123,5 @@ export function parseQuantidadeInput(raw: string, max: number): number {
   return Math.min(max, n);
 }
 
-export { countAvailableForSubjectAndDifficulty, countAvailableForTopicAndDifficulty };
+export type { SimuladoSubjectGroup };
+export { countFromSubjectGroup, countFromTopicOption };

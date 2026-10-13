@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { auth } from '@/lib/firebase';
 import { maxSimuladoQuantidade } from '@/lib/oftpay/simuladoSubjectListPicker';
-import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoMatchable } from '@/types/oftpayQuestaoCatalog';
 import type { OftpaySimuladoSelection } from '@/types/oftpaySimulados';
 import {
   countAvailableForTopicAndDifficulty,
@@ -30,7 +30,7 @@ const ACCEPT_IMAGE_TYPES = 'image/jpeg,image/png,image/webp';
 function applyDificuldadeToSelections(
   selections: OftpaySimuladoSelection[],
   dificuldade: QuestaoDificuldade,
-  publicadas: OftpayQuestaoDoc[]
+  publicadas: OftpayQuestaoMatchable[]
 ): OftpaySimuladoSelection[] {
   return selections
     .map((sel) => {
@@ -61,7 +61,7 @@ function applyDificuldadeToSelections(
 
 function pickDefaultDificuldade(
   selections: OftpaySimuladoSelection[],
-  publicadas: OftpayQuestaoDoc[]
+  publicadas: OftpayQuestaoMatchable[]
 ): QuestaoDificuldade | null {
   for (const diff of DIFFICULTIES) {
     if (applyDificuldadeToSelections(selections, diff, publicadas).length > 0) {
@@ -100,7 +100,7 @@ export interface ChatDuvidasSimuladoSuggestion {
 }
 
 interface SimuladoChatDuvidasPanelProps {
-  publicadas: OftpayQuestaoDoc[];
+  publicadas: OftpayQuestaoMatchable[];
   onCreateSimulado: (
     selections: OftpaySimuladoSelection[],
     title: string
@@ -118,7 +118,7 @@ export default function SimuladoChatDuvidasPanel({
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá! Tire dúvidas sobre qualquer tema das apostilas ou envie uma imagem (exame, fundo de olho, OCT). Vou interpretar, buscar base nos tópicos mapeados e sugerir um simulado quando houver questões.',
+        'Olá! Tire dúvidas sobre qualquer tema das apostilas ou envie uma imagem (exame, fundo de olho, OCT). Vou explicar com base no conteúdo das apostilas e, quando houver questões publicadas, sugerir um simulado para você praticar.',
     },
   ]);
   const [input, setInput] = useState('');

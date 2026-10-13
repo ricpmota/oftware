@@ -38,6 +38,8 @@ export type ComposicaoPlanoComercial = {
   bioimpedancia: number;
   exames: number;
   outrosCustos: number;
+  /** Protocolos injetáveis negociados (ausente em planos legados). */
+  custoInjetaveis?: number;
   subtotal: number;
   margem: number;
   descontoManual: number;
@@ -83,6 +85,10 @@ export type NegociacaoTerapeuticaSalva = {
   nomePlano: string;
   descricaoCurta: string;
   parametros: ParametrosPlanoPersonalizadoEditavel;
+  /** Total apresentado na mesa no momento de salvar — a página do paciente usa este valor. */
+  valorTotal?: number;
+  /** Composição apresentada na mesa no momento de salvar. */
+  composicao?: ComposicaoPlanoComercial;
   mensagemPaciente?: string;
   vistaProposta?: VistaPropostaNegociacao;
 };

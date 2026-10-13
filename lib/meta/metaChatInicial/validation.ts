@@ -10,19 +10,40 @@ import {
   shouldSkipExpectativaPerdaPesoStep,
   STEP_PERFIL_METABOLICO_BARREIRAS,
 } from '@/lib/meta/perfilMetabolicoV3Chat';
+import { PATIENT_LOCATION_MESSAGES } from '@/lib/localizacao/patientLocationField';
 import {
+  META_CHAT_STEP_CIRURGIAS,
+  META_CHAT_STEP_DATA_NASCIMENTO,
+  META_CHAT_STEP_DEPRESSAO,
+  META_CHAT_STEP_DIAGNOSTICO,
+  META_CHAT_STEP_IDEACAO_SUICIDA,
   META_CHAT_STEP_INTRO,
+  META_CHAT_STEP_LOCALIZACAO,
+  META_CHAT_STEP_MEDICAMENTOS_DIABETES,
   META_CHAT_STEP_MEDICO_LISTA,
   META_CHAT_STEP_MEDICO_UF,
   META_CHAT_STEP_METAS,
   META_CHAT_STEP_RISCOS,
+  META_CHAT_STEP_SINTOMAS_GI,
+  META_CHAT_STEP_TELEFONE,
 } from './constants';
+import { localizacaoResidencialOficial } from './localizacaoResidencial';
+import { temDiabetesSelecionado } from './medicamentosDiabetes';
+import { respostaDepressao, respostaIdeacao } from './triagemHumor';
+
+function isPassoHumor(step: number): boolean {
+  return step === META_CHAT_STEP_DEPRESSAO || step === META_CHAT_STEP_IDEACAO_SUICIDA;
+}
 import { filterRiskQuestionsForSexo, getFirstUnansweredRiskIndex } from './helpers';
 import {
   getFirstIncompleteStep,
   metasTratamentoPasso14Ok,
   motivacaoPreenchida,
 } from './resume';
+import {
+  IDENTIFICACAO_PHONE_ERROR,
+  isValidIdentificacaoPhone,
+} from '@/lib/phone/internationalPhoneValue';
 
 export type MetaChatMedicoUiState = {
   selectedEstado?: string;
@@ -44,8 +65,7 @@ export function validateMetaChatStep(
   if (step === META_CHAT_STEP_INTRO) return null;
 
   if (step === 1) {
-    const tel = (p.dadosIdentificacao?.telefone || '').replace(/\D/g, '');
-    if (tel.length < 10) return 'Informe um telefone válido com DDD.';
+    if (!isValidIdentificacaoPhone(p.dadosIdentificacao)) return IDENTIFICACAO_PHONE_ERROR;
     return null;
   }
 
@@ -109,6 +129,16 @@ export function validateMetaChatStep(
     return null;
   }
 
+  if (step === META_CHAT_STEP_MEDICAMENTOS_DIABETES) {
+    const meds = p.dadosClinicos?.medicamentosDiabetes as Record<string, unknown> | undefined;
+    const marcada = meds && Object.keys(meds).some((k) => k !== 'outrosDescricao' && meds[k]);
+    if (!marcada) return 'Selecione ao menos uma opção.';
+    if (meds?.outros && !(typeof meds.outrosDescricao === 'string' && meds.outrosDescricao.trim())) {
+      return 'Descreva a opção "Outros".';
+    }
+    return null;
+  }
+
   if (step === 10) {
     const comb = p.dadosClinicos?.comorbidades as Record<string, unknown> | undefined;
     const marcada = comb && Object.keys(comb).some((k) => k !== 'outraDescricao' && comb[k]);
@@ -116,6 +146,13 @@ export function validateMetaChatStep(
     if (comb?.outra && !(comb.outraDescricao as string)?.trim()) {
       return 'Descreva a opção "Outra".';
     }
+    return null;
+  }
+
+  if (step === META_CHAT_STEP_CIRURGIAS) {
+    const cirurgias = p.dadosClinicos?.cirurgiasRealizadas as Record<string, unknown> | undefined;
+    const marcada = cirurgias && Object.keys(cirurgias).some((k) => cirurgias[k]);
+    if (!marcada) return 'Selecione ao menos uma opção.';
     return null;
   }
 
@@ -146,6 +183,16 @@ export function validateMetaChatStep(
     return null;
   }
 
+  if (step === META_CHAT_STEP_DEPRESSAO) {
+    if (!respostaDepressao(p.dadosClinicos)) return 'Selecione Sim ou Não.';
+    return null;
+  }
+
+  if (step === META_CHAT_STEP_IDEACAO_SUICIDA) {
+    if (!respostaIdeacao(p.dadosClinicos)) return 'Selecione Sim ou Não.';
+    return null;
+  }
+
   if (step === META_CHAT_STEP_METAS) {
     if (!metasTratamentoPasso14Ok(p)) return 'Defina suas metas de tratamento antes de continuar.';
     return null;
@@ -154,6 +201,11 @@ export function validateMetaChatStep(
   if (isPerfilMetabolicoChatStep(step)) {
     const pendente = getFirstIncompletePerfilMetabolicoStep(p);
     if (pendente === step) return 'Complete esta etapa antes de continuar.';
+    return null;
+  }
+
+  if (step === META_CHAT_STEP_LOCALIZACAO) {
+    if (!localizacaoResidencialOficial(p)) return PATIENT_LOCATION_MESSAGES.required;
     return null;
   }
 
@@ -210,6 +262,10 @@ export function getNextStepAfter(currentStep: number, p: PacienteCompleto): numb
     return 12;
   }
 
+  if (currentStep === META_CHAT_STEP_SINTOMAS_GI) return META_CHAT_STEP_DEPRESSAO;
+  if (currentStep === META_CHAT_STEP_DEPRESSAO) return META_CHAT_STEP_IDEACAO_SUICIDA;
+  if (currentStep === META_CHAT_STEP_IDEACAO_SUICIDA) return META_CHAT_STEP_METAS;
+
   return currentStep + 1;
 }
 
@@ -234,8 +290,63 @@ export function getPreviousStep(currentStep: number, p: PacienteCompleto, riskQu
   if (currentStep === 12) {
     const sexo = p.dadosIdentificacao?.sexoBiologico;
     const riskList = filterRiskQuestionsForSexo(sexo);
-    return riskList.length > 0 ? META_CHAT_STEP_RISCOS : 10;
+    return riskList.length > 0 ? META_CHAT_STEP_RISCOS : META_CHAT_STEP_CIRURGIAS;
   }
 
+  if (currentStep === META_CHAT_STEP_DEPRESSAO) return META_CHAT_STEP_SINTOMAS_GI;
+  if (currentStep === META_CHAT_STEP_IDEACAO_SUICIDA) return META_CHAT_STEP_DEPRESSAO;
+  if (currentStep === META_CHAT_STEP_METAS) return META_CHAT_STEP_IDEACAO_SUICIDA;
+
   return currentStep - 1;
+}
+
+/** Navegação do wizard /meta: localização do paciente entre telefone e nascimento. */
+export function getNextMetaPacienteWizardStep(currentStep: number, p: PacienteCompleto): number {
+  if (currentStep === META_CHAT_STEP_TELEFONE) return META_CHAT_STEP_LOCALIZACAO;
+  if (currentStep === META_CHAT_STEP_LOCALIZACAO) return META_CHAT_STEP_DATA_NASCIMENTO;
+  if (currentStep === META_CHAT_STEP_DIAGNOSTICO) {
+    return temDiabetesSelecionado(p) ? META_CHAT_STEP_MEDICAMENTOS_DIABETES : 10;
+  }
+  if (currentStep === META_CHAT_STEP_MEDICAMENTOS_DIABETES) {
+    const next = getFirstIncompleteStep(p);
+    if (
+      next === META_CHAT_STEP_MEDICAMENTOS_DIABETES ||
+      next === META_CHAT_STEP_LOCALIZACAO ||
+      next <= META_CHAT_STEP_DIAGNOSTICO
+    ) {
+      return 10;
+    }
+    if (next >= 15 && !isPassoHumor(next)) return getNextStepAfter(META_CHAT_STEP_METAS, p);
+    return next;
+  }
+  if (currentStep === 10) return META_CHAT_STEP_CIRURGIAS;
+  if (currentStep === META_CHAT_STEP_CIRURGIAS) {
+    const next = getFirstIncompleteStep(p);
+    if (
+      next === META_CHAT_STEP_CIRURGIAS ||
+      next === META_CHAT_STEP_LOCALIZACAO ||
+      next === META_CHAT_STEP_MEDICAMENTOS_DIABETES ||
+      next <= 10
+    ) {
+      return META_CHAT_STEP_RISCOS;
+    }
+    if (next >= 15 && !isPassoHumor(next)) return getNextStepAfter(META_CHAT_STEP_METAS, p);
+    return next;
+  }
+  return getNextStepAfter(currentStep, p);
+}
+
+/** Volta do wizard /meta. Do nascimento retorna à localização, não ao telefone. */
+export function getPreviousMetaPacienteWizardStep(
+  currentStep: number,
+  p: PacienteCompleto,
+  riskQuestionIndex = 0
+): number | null {
+  if (currentStep === META_CHAT_STEP_LOCALIZACAO) return META_CHAT_STEP_TELEFONE;
+  if (currentStep === META_CHAT_STEP_DATA_NASCIMENTO) return META_CHAT_STEP_LOCALIZACAO;
+  if (currentStep === META_CHAT_STEP_MEDICAMENTOS_DIABETES) return META_CHAT_STEP_DIAGNOSTICO;
+  if (currentStep === 10 && temDiabetesSelecionado(p)) return META_CHAT_STEP_MEDICAMENTOS_DIABETES;
+  if (currentStep === META_CHAT_STEP_CIRURGIAS) return 10;
+  if (currentStep === META_CHAT_STEP_RISCOS && riskQuestionIndex === 0) return META_CHAT_STEP_CIRURGIAS;
+  return getPreviousStep(currentStep, p, riskQuestionIndex);
 }

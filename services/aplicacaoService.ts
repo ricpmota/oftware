@@ -1,8 +1,8 @@
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { calcularDoseTitulacaoMg, DOSE_INICIAL_PADRAO_MG } from '@/lib/tirzepatida/doseTitulacao';
 import { PacienteCompleto } from '@/types/obesidade';
 import { AplicacaoAgendada, FiltroAplicacao, AplicacaoRealizada } from '@/types/calendario';
+import { criarCalendarioDoses as criarCalendarioDosesPlano } from '@/lib/aplicacao/criarCalendarioDoses';
 import {
   auditEmailEnviosQuery,
   EMAIL_ENVIOS_AUDIT_SITES,
@@ -33,158 +33,13 @@ export class AplicacaoService {
     dosePlanejada: number;
     status: 'tomada' | 'perdida' | 'hoje' | 'futura';
   }> {
-    const planoTerapeutico = paciente.planoTerapeutico;
-    if (!planoTerapeutico?.startDate || !planoTerapeutico?.injectionDayOfWeek) {
-      return [];
-    }
-
-    const diasSemana: { [key: string]: number } = {
-      dom: 0,
-      seg: 1,
-      ter: 2,
-      qua: 3,
-      qui: 4,
-      sex: 5,
-      sab: 6
-    };
-
-    const diaDesejado = diasSemana[planoTerapeutico.injectionDayOfWeek];
-
-    // Ajustar primeira dose para o dia da semana correto
-    const startDateValue = planoTerapeutico.startDate;
-    const primeiraDose = startDateValue instanceof Date 
-      ? new Date(startDateValue)
-      : new Date(startDateValue as any);
-    primeiraDose.setHours(0, 0, 0, 0);
-    while (primeiraDose.getDay() !== diaDesejado) {
-      primeiraDose.setDate(primeiraDose.getDate() + 1);
-    }
-
-    // Obter dose inicial do plano
-    const doseInicial = planoTerapeutico.currentDoseMg || DOSE_INICIAL_PADRAO_MG;
-
-    // Obter número de semanas do tratamento (padrão: 18)
-    const numeroSemanas = planoTerapeutico.numeroSemanasTratamento || 18;
-
-    const calendario = [];
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    
-    // Obter evolução do paciente
-    const evolucao = (paciente.evolucaoSeguimento || []).map((e: any) => ({
-      ...e,
-      dataRegistro: e.dataRegistro instanceof Date 
-        ? new Date(e.dataRegistro)
-        : e.dataRegistro?.toDate ? e.dataRegistro.toDate() : new Date(e.dataRegistro as any)
+    return criarCalendarioDosesPlano(
+      paciente.planoTerapeutico,
+      paciente.evolucaoSeguimento || []
+    ).map((item) => ({
+      ...item,
+      dosePlanejada: item.dose,
     }));
-
-    // Função para calcular dose considerando atrasos de 4+ dias (reinicia ciclo)
-    const calcularDoseComAtrasos = (semanaIndex: number) => {
-      let semanasDesdeUltimoCiclo = semanaIndex;
-
-      // Verificar se houve atraso de 4+ dias em aplicações anteriores
-      for (let s = 0; s < semanaIndex; s++) {
-        const dataPrevista = new Date(primeiraDose);
-        dataPrevista.setDate(primeiraDose.getDate() + (s * 7));
-    
-        // Buscar registro correspondente
-        const registro = evolucao.find((e: any) => {
-          if (!e.dataRegistro) return false;
-          const dataRegistro = e.dataRegistro instanceof Date 
-            ? new Date(e.dataRegistro)
-            : new Date(e.dataRegistro as any);
-          if (isNaN(dataRegistro.getTime())) return false;
-          dataRegistro.setHours(0, 0, 0, 0);
-          const diffDias = Math.abs((dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24));
-          return diffDias <= 1; // Tolerância de 1 dia
-        });
-        
-        // Se encontrou registro e houve atraso de 4+ dias
-        if (registro && registro.dataRegistro) {
-          const dataRegistro = registro.dataRegistro instanceof Date 
-            ? new Date(registro.dataRegistro)
-            : new Date(registro.dataRegistro as any);
-          dataRegistro.setHours(0, 0, 0, 0);
-          const diffDias = (dataRegistro.getTime() - dataPrevista.getTime()) / (1000 * 60 * 60 * 24);
-          
-          // Se atraso de 4 dias ou mais, reiniciar ciclo a partir dessa semana
-          if (diffDias >= 4) {
-            semanasDesdeUltimoCiclo = semanaIndex - s - 1;
-            break; // Usar o primeiro atraso encontrado como referência
-          }
-        }
-    }
-
-      // Calcular dose: aumento de 2.5mg a cada 4 semanas desde o último ciclo
-      return calcularDoseTitulacaoMg(doseInicial, semanasDesdeUltimoCiclo);
-    };
-
-    // Obter semanas canceladas
-    const semanasCanceladas = planoTerapeutico.semanasCanceladas || [];
-    
-    // Criar calendário baseado no número de semanas definido
-    for (let semana = 0; semana < numeroSemanas; semana++) {
-      const semanaNum = semana + 1;
-      
-      // Pular semanas canceladas
-      if (semanasCanceladas.includes(semanaNum)) {
-        continue;
-      }
-      
-      // Calcular data da dose como primeiraDose + (semana * 7 dias)
-      const dataDose = new Date(primeiraDose);
-      dataDose.setDate(primeiraDose.getDate() + (semana * 7));
-    
-      // Calcular dose planejada considerando atrasos (reinicia ciclo se atraso >= 4 dias)
-      const dosePlanejada = calcularDoseComAtrasos(semana);
-
-      // Encontrar registro de evolução para esta data (com tolerância de ±1 dia)
-      const registroEvolucao = evolucao.find((e: any) => {
-        if (!e.dataRegistro) return false;
-        const dataRegistro = e.dataRegistro instanceof Date 
-          ? new Date(e.dataRegistro)
-          : new Date(e.dataRegistro as any);
-        if (isNaN(dataRegistro.getTime())) return false;
-        dataRegistro.setHours(0, 0, 0, 0);
-        const diffDias = Math.abs((dataRegistro.getTime() - dataDose.getTime()) / (1000 * 60 * 60 * 24));
-        return diffDias <= 1; // Tolerância de 1 dia
-      });
-
-      // Determinar dose real (customizada > registro > planejada)
-      let doseReal = dosePlanejada;
-      // Primeiro, verificar se há dose customizada para esta semana
-      if (planoTerapeutico.esquemaDosesCustomizado && planoTerapeutico.esquemaDosesCustomizado[semana + 1]) {
-        doseReal = planoTerapeutico.esquemaDosesCustomizado[semana + 1];
-      } else if (registroEvolucao?.doseAplicada) {
-        // Se não houver customizada, usar a do registro (aplicada)
-        doseReal = registroEvolucao.doseAplicada.quantidade || dosePlanejada;
-      }
-
-      // Determinar status baseado em data e adesão
-      let status: 'tomada' | 'perdida' | 'hoje' | 'futura';
-      if (dataDose.getTime() === hoje.getTime()) {
-        status = 'hoje';
-      } else if (dataDose < hoje) {
-        // Dose no passado
-        if (registroEvolucao && registroEvolucao.adherence && registroEvolucao.adherence !== 'MISSED') {
-          status = 'tomada';
-        } else {
-          status = 'perdida';
-        }
-      } else {
-        status = 'futura';
-      }
-
-      calendario.push({
-        data: dataDose,
-        semana: semana + 1,
-        dose: doseReal,
-        dosePlanejada,
-        status,
-      });
-    }
-
-    return calendario;
   }
 
   /**

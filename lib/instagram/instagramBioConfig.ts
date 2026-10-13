@@ -1,4 +1,5 @@
 import type { MedicoInstagramBio, MedicoInstagramBioFormState } from '@/types/medicoInstagramBio';
+import { resolveWhatsappCanonicalDigits } from '@/lib/phone/buildWhatsappUrl';
 import {
   buildOrganizacaoPublicUrl,
   ORGANIZACAO_METODO_PUBLIC_ORIGIN,
@@ -25,11 +26,9 @@ export function buildInstagramBioPublicUrl(crmEstado: string, crmNumero: string)
   return buildOrganizacaoPublicUrl(`/instagram/${uf}${numero}`);
 }
 
+/** Médico ainda sem DDI estruturado — fallback legado BR via resolver central. */
 export function normalizeInstagramBioWhatsApp(input: string): string {
-  const digits = input.replace(/\D/g, '');
-  if (digits.length < 10) return '';
-  if (digits.startsWith('55')) return digits;
-  return `55${digits}`;
+  return resolveWhatsappCanonicalDigits({ telefone: input }) ?? '';
 }
 
 export function validateInstagramBioHttpsUrl(url: string): boolean {

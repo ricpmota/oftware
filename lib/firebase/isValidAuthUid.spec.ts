@@ -13,4 +13,8 @@ describe('isValidFirebaseAuthUid', () => {
   it('rejeita email puro', () => {
     expect(isValidFirebaseAuthUid('user@example.com')).toBe(false);
   });
+
+  it('rejeita userId temporário criado pelo médico (uid_timestamp)', () => {
+    expect(isValidFirebaseAuthUid('xY7kL2mN9pQ4rS8tU1vW3zA5_1734123456789')).toBe(false);
+  });
 });

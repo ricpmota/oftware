@@ -11,22 +11,25 @@ import {
 } from '@/lib/treatment-negotiation/doseSemanalUtils';
 import {
   calcularTotalBio,
+  calcularTotalConsultas,
   calcularTotalExames,
   calcularValorFinalBaseNegociado,
-  calcularValorFinalNegociado,
   custoKitsNegociado,
   descontoPorValorFinalManual,
   prepararParametrosNegociado,
   totalMgDoses,
 } from '@/lib/treatment-negotiation/investimentoAuto';
+import { calcularTotalInjetaveis, cliparProtocolosNaDuracao } from '@/lib/treatment-negotiation/protocolosInjetaveis';
 import { LABEL_ANALISE_EXAMES } from '@/lib/treatment-negotiation/constants';
 import type { ParametrosPlanoPersonalizadoEditavel } from '@/lib/treatment-negotiation/types';
 import { formatarMoedaBRL } from '@/lib/metaadmin/orcamentoTerapeuticoUtils';
 import type { OrcamentoTerapeuticoConfig } from '@/types/orcamentoTerapeuticoConfig';
+import ProtocolosInjetaveisNegociacaoEditor from '@/components/metaadmin/mesaNegociacao/ProtocolosInjetaveisNegociacaoEditor';
 
 type Props = {
   parametros: ParametrosPlanoPersonalizadoEditavel;
   configuracaoComercial: OrcamentoTerapeuticoConfig;
+  medicoId?: string;
   onChange: (parametros: ParametrosPlanoPersonalizadoEditavel) => void;
 };
 
@@ -189,6 +192,7 @@ function CampoTexto({
 export default function PlanoPersonalizadoEditorCompleto({
   parametros,
   configuracaoComercial,
+  medicoId,
   onChange,
 }: Props) {
   const aplicar = (patch: Partial<ParametrosPlanoPersonalizadoEditavel>) => {
@@ -200,6 +204,16 @@ export default function PlanoPersonalizadoEditorCompleto({
         descontoReais: patch.descontoManual,
       };
     }
+    // Qualquer alteração estrutural do plano libera o valor final para recalcular a soma.
+    if (patch.investimento == null) {
+      const tinhaOverrideFinal = parametros.investimento.valorFinalManual != null;
+      next.investimento = {
+        ...next.investimento,
+        valorFinalManual: null,
+        ...(tinhaOverrideFinal ? { descontoReais: 0 } : {}),
+      };
+      if (tinhaOverrideFinal) next.descontoManual = 0;
+    }
     onChange(prepararParametrosNegociado(next, configuracaoComercial));
   };
 
@@ -208,6 +222,21 @@ export default function PlanoPersonalizadoEditorCompleto({
   const setInv = (patch: Partial<ParametrosPlanoPersonalizadoEditavel['investimento']>) => {
     let investimento = { ...parametros.investimento, ...patch };
     let descontoManual = patch.descontoReais ?? parametros.descontoManual;
+
+    // Mudanças em linhas de custo (exceto o próprio valor final) recalculam o total.
+    if (patch.valorFinalManual === undefined) {
+      const tinhaOverrideFinal = parametros.investimento.valorFinalManual != null;
+      investimento = {
+        ...investimento,
+        valorFinalManual: null,
+        ...(tinhaOverrideFinal && patch.descontoReais === undefined
+          ? { descontoReais: 0 }
+          : {}),
+      };
+      if (tinhaOverrideFinal && patch.descontoReais === undefined) {
+        descontoManual = 0;
+      }
+    }
 
     if (patch.valorFinalManual !== undefined) {
       const valorBase = calcularValorFinalBaseNegociado(
@@ -218,13 +247,14 @@ export default function PlanoPersonalizadoEditorCompleto({
         configuracaoComercial
       );
       const manual = patch.valorFinalManual;
-      if (manual != null) {
-        const desconto = descontoPorValorFinalManual(manual, valorBase);
-        investimento = { ...investimento, descontoReais: desconto };
-        descontoManual = desconto;
-      } else {
-        investimento = { ...investimento, descontoReais: 0 };
+      // Igual ao calculado → sem override (evita “travar” o total só com medicação após blur).
+      if (manual == null || Math.abs(manual - valorBase) < 0.009) {
+        investimento = { ...investimento, valorFinalManual: null, descontoReais: 0 };
         descontoManual = 0;
+      } else {
+        const desconto = descontoPorValorFinalManual(manual, valorBase);
+        investimento = { ...investimento, valorFinalManual: manual, descontoReais: desconto };
+        descontoManual = desconto;
       }
     }
 
@@ -245,12 +275,21 @@ export default function PlanoPersonalizadoEditorCompleto({
     () => calcularTotalExames(parametros, configuracaoComercial),
     [parametros, configuracaoComercial]
   );
+  const consultasTotalAuto = useMemo(
+    () => calcularTotalConsultas(parametros, configuracaoComercial),
+    [parametros, configuracaoComercial]
+  );
   const custoKits = useMemo(
     () => custoKitsNegociado(parametros, configuracaoComercial),
     [parametros, configuracaoComercial]
   );
+  const totalInjetaveis = useMemo(
+    () => calcularTotalInjetaveis(parametros),
+    [parametros]
+  );
+  /** Soma real (medicação + kits + consultas + bio + exames + outros − desconto), sem override. */
   const valorFinalCalculado = useMemo(
-    () => calcularValorFinalNegociado(parametros, configuracaoComercial),
+    () => calcularValorFinalBaseNegociado(parametros, configuracaoComercial),
     [parametros, configuracaoComercial]
   );
 
@@ -258,7 +297,7 @@ export default function PlanoPersonalizadoEditorCompleto({
 
   return (
     <div className="space-y-4">
-      <Secao titulo="1. Identificação do plano">
+      <Secao titulo="1. Identificação do plano" defaultOpen={false}>
         <CampoTexto
           label="Nome do plano"
           value={parametros.nomePlano}
@@ -277,7 +316,7 @@ export default function PlanoPersonalizadoEditorCompleto({
         />
       </Secao>
 
-      <Secao titulo="2. Objetivo">
+      <Secao titulo="2. Objetivo" defaultOpen={false}>
         <div className="grid grid-cols-2 gap-3">
           <CampoNum
             label="Peso atual (kg)"
@@ -327,6 +366,10 @@ export default function PlanoPersonalizadoEditorCompleto({
                 dosesSemanais,
                 aplicacoesTotal: semanasPrazo,
                 bioValorTotalManual: null,
+                protocolosInjetaveis: cliparProtocolosNaDuracao(
+                  parametros.protocolosInjetaveis,
+                  semanasPrazo
+                ),
               });
             }}
             min={1}
@@ -343,6 +386,10 @@ export default function PlanoPersonalizadoEditorCompleto({
                 dosesSemanais: sincronizarSemanasComDuracao(parametros.dosesSemanais, semanas),
                 aplicacoesTotal: semanas,
                 bioValorTotalManual: null,
+                protocolosInjetaveis: cliparProtocolosNaDuracao(
+                  parametros.protocolosInjetaveis,
+                  semanas
+                ),
               });
             }}
             min={1}
@@ -368,7 +415,15 @@ export default function PlanoPersonalizadoEditorCompleto({
         </div>
       </Secao>
 
-      <Secao titulo="4. Doses semanais">
+      {medicoId ? (
+        <ProtocolosInjetaveisNegociacaoEditor
+          parametros={parametros}
+          medicoId={medicoId}
+          onChange={(next) => set({ protocolosInjetaveis: next.protocolosInjetaveis ?? [] })}
+        />
+      ) : null}
+
+      <Secao titulo="4. Doses semanais" defaultOpen={false}>
         <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-3 space-y-2">
           <p className="text-xs font-medium text-amber-900">Aplicar dose em intervalo</p>
           <div className="grid grid-cols-4 gap-2 items-end">
@@ -515,7 +570,16 @@ export default function PlanoPersonalizadoEditorCompleto({
           <CampoNum
             label="Valor total manual (R$)"
             value={parametros.consultasValorTotalManual}
-            onChange={(consultasValorTotalManual) => set({ consultasValorTotalManual })}
+            onChange={(consultasValorTotalManual) => {
+              if (
+                consultasValorTotalManual == null ||
+                Math.abs(consultasValorTotalManual - consultasTotalAuto) < 0.009
+              ) {
+                set({ consultasValorTotalManual: null });
+                return;
+              }
+              set({ consultasValorTotalManual });
+            }}
             step={0.01}
             min={0}
           />
@@ -549,7 +613,16 @@ export default function PlanoPersonalizadoEditorCompleto({
           <CampoNum
             label={`Valor total (R$) — calculado: ${formatarMoedaBRL(bioTotalAuto)}`}
             value={parametros.bioValorTotalManual ?? bioTotalAuto}
-            onChange={(bioValorTotalManual) => set({ bioValorTotalManual })}
+            onChange={(bioValorTotalManual) => {
+              if (
+                bioValorTotalManual == null ||
+                Math.abs(bioValorTotalManual - bioTotalAuto) < 0.009
+              ) {
+                set({ bioValorTotalManual: null });
+                return;
+              }
+              set({ bioValorTotalManual });
+            }}
             step={0.01}
             min={0}
           />
@@ -576,7 +649,16 @@ export default function PlanoPersonalizadoEditorCompleto({
           <CampoNum
             label={`Valor total (R$) — calculado: ${formatarMoedaBRL(examesTotalAuto)}`}
             value={parametros.examesValorTotalManual ?? examesTotalAuto}
-            onChange={(examesValorTotalManual) => set({ examesValorTotalManual })}
+            onChange={(examesValorTotalManual) => {
+              if (
+                examesValorTotalManual == null ||
+                Math.abs(examesValorTotalManual - examesTotalAuto) < 0.009
+              ) {
+                set({ examesValorTotalManual: null });
+                return;
+              }
+              set({ examesValorTotalManual });
+            }}
             step={0.01}
             min={0}
           />
@@ -631,6 +713,12 @@ export default function PlanoPersonalizadoEditorCompleto({
               {formatarMoedaBRL(custoKits)}
             </p>
           </label>
+          <label className="block">
+            <span className="text-xs font-medium text-slate-600">Injetáveis (R$)</span>
+            <p className="mt-1 rounded-lg border border-violet-100 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-950 tabular-nums">
+              {formatarMoedaBRL(totalInjetaveis)}
+            </p>
+          </label>
           <CampoNum
             label="Outros custos (R$)"
             value={parametros.investimento.outrosCustos}
@@ -670,8 +758,9 @@ export default function PlanoPersonalizadoEditorCompleto({
           min={0}
         />
         <p className="text-[11px] text-slate-500">
-          O valor final é calculado automaticamente. Se digitar um valor menor que o calculado, o
-          desconto em reais é preenchido automaticamente.
+          O valor calculado soma medicação, aplicações/kits, protocolos injetáveis, consultas,
+          bioimpedâncias, {LABEL_ANALISE_EXAMES.toLowerCase()} e outros custos (menos descontos). Se
+          digitar um valor menor, o desconto em reais é preenchido automaticamente.
         </p>
       </Secao>
     </div>

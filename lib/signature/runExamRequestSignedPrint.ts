@@ -12,8 +12,9 @@ import {
 import type { DoctorSignatureProvider } from '@/types/doctorSignatureProvider';
 import type { Medico } from '@/types/medico';
 import type { SolicitacaoExamesPdfContext } from '@/utils/solicitacaoExamesPdfDownload';
+import type { PrescriptionPrintLanguage } from '@/types/prescriptionPrintLanguage';
 
-export type ExamRequestSignedPrintProgressPhase = 'generating_pdf' | 'submitting_signature';
+export type ExamRequestSignedPrintProgressPhase = 'translating' | 'generating_pdf' | 'submitting_signature';
 
 export type ExamRequestSignedPrintResult =
   | { outcome: 'opened'; signedPdfUrl: string }
@@ -26,6 +27,7 @@ export type RunExamRequestSignedPrintParams = {
   medico: Medico | null;
   ctx: SolicitacaoExamesPdfContext;
   providerConfig?: DoctorSignatureProvider | null;
+  language?: PrescriptionPrintLanguage;
   onProgress?: (phase: ExamRequestSignedPrintProgressPhase) => void;
 };
 
@@ -46,7 +48,7 @@ async function buildOriginalPdfBase64(
       medico: params.medico,
       ctx: params.ctx,
     },
-    { omitManualSignatureBlock }
+    { omitManualSignatureBlock, language: params.language }
   );
   const ab = doc.output('arraybuffer') as ArrayBuffer;
   return arrayBufferToBase64(ab);

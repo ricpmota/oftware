@@ -1,98 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMedicoMetaadmin } from '@/lib/server/metaadminExamesImagemGate';
 import {
+  getBrasilDateTimeParts,
+  horarioConfiguradoJaPassou,
+  DEFAULT_AUTO_APLICACAO_HORARIO,
+} from '@/lib/time/brasilTimezone';
+import { syncWhatsappConnectionWithProvider } from '@/services/whatsappConnectionSyncService';
+import { maybeNotifyDoctorWhatsappDisconnected } from '@/services/whatsappDisconnectNotifyService';
+import {
   getWhatsappConnectionByDoctor,
   serializeWhatsappConnection,
-  updateWhatsappConnectionStatus,
 } from '@/services/whatsappConnectionService';
-import {
-  getMockConnectedProfile,
-  getSessionStatus,
-  isWhatsappMockMode,
-  MOCK_QR_AUTO_CONNECT_MS,
-} from '@/services/whatsappProviderClient';
-import type { WhatsappConnection } from '@/types/whatsappConnection';
+import { countTodayUnsentWhatsappItemsForDoctor } from '@/services/whatsappTodayResendService';
 
 export const runtime = 'nodejs';
 
-async function syncConnectionWithProvider(connection: WhatsappConnection): Promise<WhatsappConnection> {
-  const now = new Date();
-
-  if (connection.status === 'qr_pending' && isWhatsappMockMode()) {
-    const elapsed = now.getTime() - connection.updatedAt.getTime();
-    if (elapsed >= MOCK_QR_AUTO_CONNECT_MS) {
-      const mock = getMockConnectedProfile(connection.sessionId);
-      return updateWhatsappConnectionStatus(connection.doctorId, 'connected', {
-        sessionId: connection.sessionId,
-        phone: mock.phone,
-        profileName: mock.profileName,
-        qrCode: undefined,
-        connectedAt: now,
-        lastCheckAt: now,
-        errorMessage: undefined,
-      });
-    }
-    return updateWhatsappConnectionStatus(connection.doctorId, 'qr_pending', {
-      sessionId: connection.sessionId,
-      lastCheckAt: now,
-    });
-  }
-
-  if (connection.status !== 'qr_pending') {
-    return updateWhatsappConnectionStatus(connection.doctorId, connection.status, {
-      sessionId: connection.sessionId,
-      lastCheckAt: now,
-    });
-  }
-
-  try {
-    const providerStatus = await getSessionStatus(connection.sessionId);
-
-    if (providerStatus.status === 'connected') {
-      return updateWhatsappConnectionStatus(connection.doctorId, 'connected', {
-        sessionId: connection.sessionId,
-        phone: providerStatus.phone,
-        profileName: providerStatus.profileName,
-        qrCode: undefined,
-        connectedAt: now,
-        lastCheckAt: now,
-        errorMessage: undefined,
-      });
-    }
-
-    if (providerStatus.status === 'error') {
-      return updateWhatsappConnectionStatus(connection.doctorId, 'error', {
-        sessionId: connection.sessionId,
-        errorMessage: providerStatus.errorMessage ?? 'Erro na conexão WhatsApp.',
-        lastCheckAt: now,
-      });
-    }
-
-    if (providerStatus.status === 'disconnected') {
-      return updateWhatsappConnectionStatus(connection.doctorId, 'disconnected', {
-        sessionId: connection.sessionId,
-        qrCode: undefined,
-        lastCheckAt: now,
-      });
-    }
-
-    return updateWhatsappConnectionStatus(connection.doctorId, 'qr_pending', {
-      sessionId: connection.sessionId,
-      qrCode: providerStatus.qrCode ?? connection.qrCode,
-      lastCheckAt: now,
-    });
-  } catch (error) {
-    console.warn('[metaadmin/whatsapp/status] provider sync:', error);
-    return updateWhatsappConnectionStatus(connection.doctorId, connection.status, {
-      sessionId: connection.sessionId,
-      lastCheckAt: now,
-    });
-  }
+function buildBrasilClock(configuredHorario?: string) {
+  const brasil = getBrasilDateTimeParts();
+  const horario = configuredHorario?.trim() || DEFAULT_AUTO_APLICACAO_HORARIO;
+  return {
+    timezone: 'America/Sao_Paulo',
+    timezoneLabel: 'Horário de Brasília',
+    dateKey: brasil.dateKey,
+    hhmm: brasil.hhmm,
+    configuredHorario: horario,
+    envioLiberado: horarioConfiguradoJaPassou(brasil.hhmm, horario),
+    cronVerifica: 'a cada 1 minuto (produção)',
+  };
 }
 
 /**
  * GET /api/metaadmin/whatsapp/status
- * Etapa 2 — retorna status da conexão do médico logado (sem conversas/contatos).
+ * Retorna status da conexão do médico logado (sem conversas/contatos).
  */
 export async function GET(request: NextRequest) {
   const auth = await requireMedicoMetaadmin(request);
@@ -106,22 +45,46 @@ export async function GET(request: NextRequest) {
         ok: true,
         status: 'disconnected' as const,
         connection: null,
+        brasilClock: buildBrasilClock(),
       });
     }
 
-    if (connection.status === 'qr_pending' || connection.status === 'connected') {
-      connection = await syncConnectionWithProvider(connection);
-    } else if (connection.status !== 'error') {
-      connection = await updateWhatsappConnectionStatus(connection.doctorId, connection.status, {
-        sessionId: connection.sessionId,
-        lastCheckAt: new Date(),
-      });
+    const previousStatus = connection.status;
+    let justConnected = false;
+    let unsentTodayCount = 0;
+
+    if (
+      connection.status === 'qr_pending' ||
+      connection.status === 'connected' ||
+      connection.status === 'error'
+    ) {
+      const sync = await syncWhatsappConnectionWithProvider(connection);
+      connection = sync.connection;
+      justConnected = sync.justConnected;
+
+      if (previousStatus === 'connected' && connection.status !== 'connected') {
+        void maybeNotifyDoctorWhatsappDisconnected({
+          doctorId: auth.medicoDocId,
+          previousStatus,
+          currentStatus: connection.status,
+        }).catch((error) => {
+          console.warn('[metaadmin/whatsapp/status] disconnect notify:', error);
+        });
+      }
+
+      if (justConnected) {
+        const counts = await countTodayUnsentWhatsappItemsForDoctor(auth.medicoDocId);
+        unsentTodayCount = counts.total;
+      }
     }
 
     return NextResponse.json({
       ok: true,
       status: connection.status,
       connection: serializeWhatsappConnection(connection),
+      brasilClock: buildBrasilClock(connection.autoAplicacaoHorario),
+      justConnected,
+      unsentTodayCount,
     });
   } catch (error) {
     console.error('[metaadmin/whatsapp/status]', error);

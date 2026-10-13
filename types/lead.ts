@@ -8,6 +8,9 @@ export interface Lead {
   /** Classificação manual do lead (0-5). 0/undefined = sem classificação. */
   estrelas?: number;
   telefone?: string;
+  /** DDI sem "+". Ausente = Brasil (legado). */
+  telefoneDdi?: string;
+  telefonePais?: string;
   createdAt?: Date;
   lastSignInTime?: string;
   emailVerified?: boolean;

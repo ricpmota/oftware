@@ -1,4 +1,6 @@
 import PlanoTerapeuticoInterativoClient from '@/components/planoTerapeutico/PlanoTerapeuticoInterativoClient';
+import { resolverAcessoPublicoPlano } from '@/lib/server/planoTerapeuticoInterativoStore';
+import { normalizePublicLinkToken } from '@/lib/publicLinks/publicLinkToken';
 
 type Props = {
   params: Promise<{ orcamentoId: string }>;
@@ -6,9 +8,25 @@ type Props = {
 };
 
 export default async function PlanoPage({ params, searchParams }: Props) {
-  const { orcamentoId } = await params;
+  const { orcamentoId: pathId } = await params;
   const { t } = await searchParams;
-  const token = t?.trim() ?? '';
+  const queryToken = t?.trim() ?? '';
 
-  return <PlanoTerapeuticoInterativoClient orcamentoId={orcamentoId} token={token} />;
+  if (queryToken) {
+    return (
+      <PlanoTerapeuticoInterativoClient
+        orcamentoId={pathId}
+        token={normalizePublicLinkToken(queryToken)}
+      />
+    );
+  }
+
+  const acesso = await resolverAcessoPublicoPlano(pathId, null);
+
+  return (
+    <PlanoTerapeuticoInterativoClient
+      orcamentoId={acesso?.orcamentoId ?? ''}
+      token={acesso?.token ?? ''}
+    />
+  );
 }

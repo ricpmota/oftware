@@ -234,7 +234,11 @@ export function BioImpedanciaDisplay({
       <div className={`space-y-4 ${isMobile ? 'pb-24' : ''}`}>
         <BioEmptyState
           title="Nenhum exame registrado"
-          description="Importe um laudo ou preencha os dados manualmente para começar o acompanhamento."
+          description={
+            onSalvo
+              ? 'Importe um laudo ou preencha os dados manualmente para começar o acompanhamento.'
+              : 'Ainda não há exame de bioimpedância registrado. O médico lança os exames no prontuário.'
+          }
           action={
             paciente && onSalvo && (
               <button
@@ -285,7 +289,7 @@ export function BioImpedanciaDisplay({
 
       {modoNutricionista && registrosView.length >= 1 && (
         <div className="mt-4 flex items-center gap-2 flex-wrap">
-          {registrosView.length > 1 && (
+          {registrosView.length > 1 ? (
             <>
               <button type="button" disabled={idxSel >= registrosView.length - 1} onClick={() => setIndiceRegistroSelecionado((i) => i + 1)} className="p-2 rounded-xl border border-gray-200 bg-white disabled:opacity-40" aria-label="Exame anterior">
                 <ChevronLeft size={18} />
@@ -293,7 +297,7 @@ export function BioImpedanciaDisplay({
               <select
                 value={idxSel}
                 onChange={(e) => setIndiceRegistroSelecionado(parseInt(e.target.value, 10))}
-                className="flex-1 min-w-[140px] rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm"
+                className="w-auto rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm"
               >
                 {registrosView.map((r, i) => (
                   <option key={r.id ?? i} value={i}>{formatBioRegistroPtBr(r.dataRegistro)}</option>
@@ -303,6 +307,10 @@ export function BioImpedanciaDisplay({
                 <ChevronRight size={18} />
               </button>
             </>
+          ) : (
+            <span className="inline-flex items-center rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm">
+              {formatBioRegistroPtBr(registrosView[0].dataRegistro)}
+            </span>
           )}
           {permitirEdicaoRegistro && (
             <button

@@ -11,6 +11,12 @@ import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate'
 import { criarCalendarioDoses } from '@/lib/aplicacao/criarCalendarioDoses';
 import { ensureAplicacaoPublicUrl } from '@/lib/aplicacao/ensureAplicacaoPublicLink';
 import { zeptoEnvioFields } from '@/lib/email/emailEnvioLog';
+import {
+  auditEmailEnviosQuery,
+  beginEmailEnviosAuditScope,
+  endEmailEnviosAuditScope,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 // Função para obter Firebase Admin
 function getFirebaseAdmin() {
@@ -168,6 +174,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(envGate.body, { status: envGate.status });
   }
 
+  const auditScopeId = beginEmailEnviosAuditScope({
+    siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_SEND_EMAIL_APLICACAO.id,
+    surface: 'cron',
+  });
+
   try {
     console.log('--- Iniciando Cron Job de E-mails de Aplicação ---');
     const zeptoGate = assertCronZeptoConfigured();
@@ -223,10 +234,30 @@ export async function GET(request: NextRequest) {
         const leadIdParaVerificacao = paciente.userId || pacienteDoc.id;
         
         // Verificar se já foi enviado e-mail para esta aplicação
+        auditEmailEnviosQuery({
+          scopeId: auditScopeId,
+          siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_SEND_EMAIL_APLICACAO.id,
+          surface: 'cron',
+          queryPattern: 'leadId_eq_emailTipo_in',
+          leadId: leadIdParaVerificacao,
+          emailTipos: ['aplicacao_aplicacao_antes', 'aplicacao_aplicacao_dia'],
+          note: `paciente=${pacienteDoc.id} aplicacao=#${numeroAplicacao}`,
+        });
+
         const enviosSnapshot = await db.collection('email_envios')
           .where('leadId', '==', leadIdParaVerificacao)
           .where('emailTipo', 'in', ['aplicacao_aplicacao_antes', 'aplicacao_aplicacao_dia'])
           .get();
+
+        auditEmailEnviosQuery({
+          scopeId: auditScopeId,
+          siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_SEND_EMAIL_APLICACAO.id,
+          surface: 'cron',
+          queryPattern: 'leadId_eq_emailTipo_in',
+          leadId: leadIdParaVerificacao,
+          emailTipos: ['aplicacao_aplicacao_antes', 'aplicacao_aplicacao_dia'],
+          docsReturned: enviosSnapshot.size,
+        });
         
         const enviosExistentes = enviosSnapshot.docs.map(doc => doc.data());
         const jaEnviouAntes = enviosExistentes.some(
@@ -300,6 +331,8 @@ export async function GET(request: NextRequest) {
       { error: 'Erro interno do servidor', details: (error as Error).message },
       { status: 500 }
     );
+  } finally {
+    endEmailEnviosAuditScope(auditScopeId, { cron: 'send-email-aplicacao' });
   }
 }
 

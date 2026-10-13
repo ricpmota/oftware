@@ -209,6 +209,62 @@ export async function listQuestoesPublicadas(): Promise<OftpayQuestaoDoc[]> {
   return sortQuestoesByCreatedAtDesc(items);
 }
 
+/**
+ * Catálogo leve via API Admin (select de campos) — use no aluno/simulado.
+ * Evita baixar enunciado/explicação de dezenas de milhares de docs.
+ */
+export async function listQuestoesPublicadasCatalog(
+  getIdToken: () => Promise<string>,
+  options?: { forceRefresh?: boolean }
+): Promise<import('@/types/oftpayQuestaoCatalog').OftpayQuestaoCatalogItem[]> {
+  const token = await getIdToken();
+  const qs = options?.forceRefresh ? '?refresh=1' : '';
+  const res = await fetch(`/api/oftpay/questoes/catalog${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof data.error === 'string' ? data.error : 'Falha ao carregar catálogo de questões.'
+    );
+  }
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+/** Questões completas por ID (para rodar o simulado). */
+export async function getQuestoesByIds(
+  ids: string[],
+  getIdToken: () => Promise<string>
+): Promise<OftpayQuestaoDoc[]> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return [];
+  const token = await getIdToken();
+  const out: OftpayQuestaoDoc[] = [];
+  const CHUNK = 200;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const chunk = unique.slice(i, i + CHUNK);
+    const res = await fetch('/api/oftpay/questoes/by-ids', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids: chunk }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        typeof data.error === 'string' ? data.error : 'Falha ao carregar questões do simulado.'
+      );
+    }
+    if (Array.isArray(data.items)) {
+      out.push(...(data.items as OftpayQuestaoDoc[]));
+    }
+  }
+  const byId = new Map(out.map((q) => [q.id, q]));
+  return unique.map((id) => byId.get(id)).filter(Boolean) as OftpayQuestaoDoc[];
+}
+
 export async function listQuestoesAdmin(currentUserEmail: string): Promise<OftpayQuestaoDoc[]> {
   assertAdmin(currentUserEmail);
   const snap = await getDocs(collection(db, COLLECTION_NAME));

@@ -118,14 +118,14 @@ export default function ClientesWhiteLabelSection() {
       <div className="w-full max-w-[1280px] mx-auto px-6 sm:px-8 lg:px-12">
         <div className="max-w-3xl mb-12 md:mb-14">
           <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.22em] text-[#16A34A] mb-5">
-            Clientes
+            Estruturas criadas com a Oftware
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#1D1D1D] leading-[1.1] tracking-tight mb-5">
-            Operações White Label na Oftware.
+            Diferentes profissionais. Diferentes marcas. A mesma infraestrutura.
           </h2>
           <p className="text-lg md:text-xl text-[#5A5A5A] leading-relaxed">
-            Médicos verificados que constroem seus programas de acompanhamento sobre a infraestrutura Oftware — com
-            pacientes, jornadas concluídas e monitoramento clínico em operação.
+            Médicos, nutricionistas, personal trainers, clínicas e programas de saúde podem construir experiências
+            próprias sobre a tecnologia Oftware.
           </p>
         </div>
 
@@ -147,8 +147,8 @@ export default function ClientesWhiteLabelSection() {
         )}
 
         <p className="mt-8 text-xs text-[#9CA3AF] text-center max-w-2xl mx-auto leading-relaxed">
-          Métricas consolidadas por operação médica na plataforma. Dados agregados de uso — não representam promessa de
-          resultado clínico individual.
+          Métricas consolidadas por operação na plataforma. Dados agregados de uso — não representam promessa de
+          resultado individual.
         </p>
       </div>
     </section>

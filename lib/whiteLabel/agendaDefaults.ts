@@ -12,4 +12,11 @@ export const DEFAULT_WHITELABEL_AGENDA_SETTINGS: WhiteLabelAgendaSettings = {
   maxAdvanceDays: 30,
   allowedDaysMode: 'mon_fri',
   slotGenerationEnabled: true,
+  whatsappConfirmacaoEnabled: true,
+  whatsappSenderDoctorEmail: 'ricpmota.med@gmail.com',
+  whatsappNotifyLead: true,
+  whatsappNotifyResponsavel: true,
+  whatsappResponsavelNome: 'Ricardo Mota',
+  whatsappResponsavelEmail: 'ricpmota.med@gmail.com',
+  whatsappResponsavelPhone: '83988192848',
 };

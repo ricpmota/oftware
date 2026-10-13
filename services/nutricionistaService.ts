@@ -7,6 +7,7 @@ import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationI
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import { COL_NUTRICIONISTAS, NUTRI_STATUS } from '@/features/metaNutri/metaNutri.constants';
+import { optionalProfessionalDdiPais } from '@/lib/whatsapp/resolveProfessionalPhone';
 
 export class NutricionistaService {
   /**
@@ -31,6 +32,7 @@ export class NutricionistaService {
         nome: data.nome,
         registroNumero: data.registroNumero || '',
         telefone: data.telefone || '',
+        ...optionalProfessionalDdiPais(data as Record<string, unknown>),
         cidades: data.cidades || [],
         isVerificado: data.isVerificado || false,
         status: data.status || NUTRI_STATUS.INATIVO,
@@ -39,6 +41,17 @@ export class NutricionistaService {
         docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
         docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
         docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
+        genero: data.genero || '',
+        instagramUsuario: data.instagramUsuario || '',
+        cep: data.cep || '',
+        nomeLocal: data.nomeLocal || '',
+        endereco: data.endereco || '',
+        numero: data.numero || '',
+        pontoReferencia: data.pontoReferencia || '',
+        googleMapsUrl: data.googleMapsUrl || '',
+        fotoPerfilUrl: data.fotoPerfilUrl || null,
+        organizationId: data.organizationId ?? null,
+        metodoImagensAtivo: data.metodoImagensAtivo ?? null,
       };
     } catch (error) {
       console.error('Erro ao buscar nutricionista:', error);
@@ -131,6 +144,7 @@ export class NutricionistaService {
           nome: data.nome || nome,
           registroNumero: data.registroNumero || '',
           telefone: data.telefone || '',
+        ...optionalProfessionalDdiPais(data as Record<string, unknown>),
           cidades: data.cidades || [],
           isVerificado: data.isVerificado || false,
           status: data.status || NUTRI_STATUS.INATIVO,
@@ -154,19 +168,45 @@ export class NutricionistaService {
     userId: string,
     registroNumero: string,
     telefone: string,
-    cidades: { estado: string; cidade: string }[]
+    cidades: { estado: string; cidade: string }[],
+    extra?: {
+      genero?: 'M' | 'F' | '';
+      instagramUsuario?: string;
+      cep?: string;
+      nomeLocal?: string;
+      endereco?: string;
+      numero?: string;
+      pontoReferencia?: string;
+      googleMapsUrl?: string;
+      fotoPerfilUrl?: string | null;
+      telefoneDdi?: string;
+      telefonePais?: string;
+    }
   ): Promise<void> {
     try {
       const docRef = doc(db, COL_NUTRICIONISTAS, userId);
+      const extraRest = extra ? { ...extra } : {};
+      const ddi = extraRest.telefoneDdi?.trim();
+      const pais = extraRest.telefonePais?.trim();
+      delete extraRest.telefoneDdi;
+      delete extraRest.telefonePais;
       await updateDoc(docRef, {
         registroNumero,
         telefone,
         cidades,
+        ...extraRest,
+        ...(ddi ? { telefoneDdi: ddi, telefonePais: pais || null } : {}),
       });
     } catch (error) {
       console.error('Erro ao atualizar perfil do nutricionista:', error);
       throw error;
     }
+  }
+
+  /** Persiste só a foto de perfil (upload no Meu Perfil → link /dr). */
+  static async updateFotoPerfil(userId: string, fotoPerfilUrl: string | null): Promise<void> {
+    const docRef = doc(db, COL_NUTRICIONISTAS, userId);
+    await updateDoc(docRef, { fotoPerfilUrl: fotoPerfilUrl?.trim() || null });
   }
 
   /** Atualiza dados cadastrais e documentos de verificação (fluxo de chat / bloqueio). */
@@ -180,6 +220,8 @@ export class NutricionistaService {
       docVerificacaoCnhUrl?: string | null;
       docVerificacaoSelfieUrl?: string | null;
       docVerificacaoRegistroUrl?: string | null;
+      telefoneDdi?: string;
+      telefonePais?: string;
     }
   ): Promise<void> {
     try {
@@ -192,6 +234,9 @@ export class NutricionistaService {
         docVerificacaoCnhUrl: data.docVerificacaoCnhUrl ?? null,
         docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl ?? null,
         docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl ?? null,
+        ...(data.telefoneDdi?.trim()
+          ? { telefoneDdi: data.telefoneDdi.trim(), telefonePais: data.telefonePais?.trim() || null }
+          : {}),
       });
     } catch (error) {
       console.error('Erro ao atualizar cadastro de verificação do nutricionista:', error);
@@ -200,41 +245,64 @@ export class NutricionistaService {
   }
 
   /**
-   * Lista nutricionistas vinculados a um médico específico
+   * Lista nutricionistas vinculados a um médico específico.
+   * Sem orderBy no Firestore: docs sem dataCadastro seriam omitidos.
    */
   static async getNutricionistasVinculadosAoMedico(medicoId: string): Promise<NutricionistaDoc[]> {
+    const medicoIdNorm = String(medicoId || '').trim();
+    if (!medicoIdNorm) return [];
+
     try {
-      const q = query(
-        collection(db, COL_NUTRICIONISTAS),
-        orderBy('dataCadastro', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
+      let querySnapshot;
+      try {
+        querySnapshot = await getDocs(collection(db, COL_NUTRICIONISTAS));
+      } catch (e) {
+        console.warn('[getNutricionistasVinculadosAoMedico] fallback query', e);
+        const q = query(collection(db, COL_NUTRICIONISTAS), orderBy('dataCadastro', 'desc'));
+        querySnapshot = await getDocs(q);
+      }
 
       return querySnapshot.docs
         .map((docSnap) => {
           const data = docSnap.data();
+          const finalUserId = String(data.userId || docSnap.id || '').trim();
+          const medicoVinculadoIds = Array.isArray(data.medicoVinculadoIds)
+            ? data.medicoVinculadoIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+            : [];
           return {
             id: docSnap.id,
-            userId: data.userId,
+            userId: finalUserId,
             email: data.email,
             nome: data.nome,
             registroNumero: data.registroNumero || '',
             telefone: data.telefone || '',
+        ...optionalProfessionalDdiPais(data as Record<string, unknown>),
             cidades: data.cidades || [],
             isVerificado: data.isVerificado || false,
             status: data.status || NUTRI_STATUS.INATIVO,
-            medicoVinculadoIds: data.medicoVinculadoIds || [],
-            dataCadastro: data.dataCadastro?.toDate() || new Date(),
+            medicoVinculadoIds,
+            dataCadastro: data.dataCadastro?.toDate?.() || data.dataCadastro || new Date(0),
             docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
             docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
             docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
-          };
+            organizationId: data.organizationId ?? null,
+            metodoImagensAtivo: data.metodoImagensAtivo ?? null,
+            fotoPerfilUrl: data.fotoPerfilUrl || null,
+          } as NutricionistaDoc;
         })
-        .filter((nutri) => 
-          nutri.isVerificado && 
-          nutri.status === NUTRI_STATUS.ATIVO &&
-          nutri.medicoVinculadoIds.includes(medicoId)
-        );
+        .filter((nutri) => {
+          if (!nutri.userId && !nutri.id) return false;
+          const ids = Array.isArray(nutri.medicoVinculadoIds) ? nutri.medicoVinculadoIds : [];
+          if (!ids.includes(medicoIdNorm)) return false;
+          if (nutri.status && String(nutri.status) !== NUTRI_STATUS.ATIVO) return false;
+          if (!nutri.isVerificado) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          const da = a.dataCadastro instanceof Date ? a.dataCadastro.getTime() : 0;
+          const db_ = b.dataCadastro instanceof Date ? b.dataCadastro.getTime() : 0;
+          return db_ - da;
+        });
     } catch (error) {
       console.error('Erro ao buscar nutricionistas vinculados ao médico:', error);
       throw error;
@@ -245,35 +313,61 @@ export class NutricionistaService {
    * Lista todos os nutricionistas
    */
   static async getAllNutricionistas(): Promise<NutricionistaDoc[]> {
+    const mapDoc = (docSnap: { id: string; data: () => Record<string, any> }): NutricionistaDoc => {
+      const data = docSnap.data();
+      const finalUserId = data.userId || docSnap.id;
+      return {
+        id: docSnap.id,
+        userId: finalUserId,
+        email: data.email,
+        nome: data.nome,
+        registroNumero: data.registroNumero || '',
+        telefone: data.telefone || '',
+        ...optionalProfessionalDdiPais(data as Record<string, unknown>),
+        cidades: data.cidades || [],
+        isVerificado: data.isVerificado || false,
+        status: data.status || NUTRI_STATUS.INATIVO,
+        medicoVinculadoIds: data.medicoVinculadoIds || [],
+        dataCadastro: data.dataCadastro?.toDate?.() || data.dataCadastro || new Date(0),
+        docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
+        docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
+        docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
+        organizationId: data.organizationId ?? null,
+        metodoImagensAtivo: data.metodoImagensAtivo ?? null,
+        fotoPerfilUrl: data.fotoPerfilUrl || null,
+      } as NutricionistaDoc;
+    };
+
     try {
-      const q = query(collection(db, COL_NUTRICIONISTAS), orderBy('dataCadastro', 'desc'));
-      const querySnapshot = await getDocs(q);
-      
-      return querySnapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        // Garantir que userId seja o mesmo que o id do documento (o documento é criado com userId como ID)
-        const finalUserId = data.userId || docSnap.id;
-        return {
-          id: docSnap.id,
-          userId: finalUserId,
-          email: data.email,
-          nome: data.nome,
-          registroNumero: data.registroNumero || '',
-          telefone: data.telefone || '',
-          cidades: data.cidades || [],
-          isVerificado: data.isVerificado || false,
-          status: data.status || NUTRI_STATUS.INATIVO,
-          medicoVinculadoIds: data.medicoVinculadoIds || [],
-          dataCadastro: data.dataCadastro?.toDate() || new Date(),
-          docVerificacaoCnhUrl: data.docVerificacaoCnhUrl || '',
-          docVerificacaoSelfieUrl: data.docVerificacaoSelfieUrl || '',
-          docVerificacaoRegistroUrl: data.docVerificacaoRegistroUrl || '',
-        };
-      });
+      try {
+        const q = query(collection(db, COL_NUTRICIONISTAS), orderBy('dataCadastro', 'desc'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(mapDoc);
+      } catch (e) {
+        console.warn('[getAllNutricionistas] fallback sem orderBy', e);
+        const snap = await getDocs(collection(db, COL_NUTRICIONISTAS));
+        return snap.docs.map(mapDoc);
+      }
     } catch (error) {
       console.error('Erro ao listar nutricionistas:', error);
       throw error;
     }
+  }
+
+  /** IDs (doc + userId) de todos os nutris — para exclusão da lista de médicos. */
+  static async listAllProfileKeys(): Promise<string[]> {
+    const list = await this.getAllNutricionistas().catch(() => [] as NutricionistaDoc[]);
+    const keys: string[] = [];
+    const seen = new Set<string>();
+    for (const n of list) {
+      for (const raw of [n.id, n.userId]) {
+        const id = String(raw || '').trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        keys.push(id);
+      }
+    }
+    return keys;
   }
 
   /**

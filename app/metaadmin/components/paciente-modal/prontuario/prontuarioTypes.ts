@@ -19,7 +19,14 @@ export type EventoTimelineTipo =
   | 'sistema_importante'
   | 'lembrete';
 
-export type EventoTimelineOrigem = 'medico' | 'paciente' | 'sistema' | 'nutri' | 'personal' | 'admin';
+export type EventoTimelineOrigem =
+  | 'medico'
+  | 'paciente'
+  | 'sistema'
+  | 'nutri'
+  | 'personal'
+  | 'admin'
+  | 'psiquiatra';
 
 import type { MarcoZero } from '@/types/obesidade';
 
@@ -96,6 +103,13 @@ export type EventoTimelineMock = {
   origem?: EventoTimelineOrigem;
   destaque?: string;
   dados?: EventoTimelineDados;
+  /** Médico que registrou (inclui compartilhamento por Comunicação). */
+  medicoId?: string;
+  medicoNome?: string;
+  nutricionistaId?: string;
+  /** Psiquiatra autor (MetaPsi → timeline transversal). */
+  psiquiatraId?: string;
+  psiquiatraNome?: string;
 };
 
 /** Labels padrão para badges/filtros da timeline (compatível com novos tipos automáticos). */

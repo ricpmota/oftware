@@ -86,7 +86,8 @@ export function desenharHipoteseDiagnosticaSolicitacaoPdf(
   yPos: number,
   hipoteseTexto: string,
   darkColor: [number, number, number],
-  yMaxBottom: number
+  yMaxBottom: number,
+  titulo = 'Hipótese Diagnóstica'
 ): number {
   const margem = 20;
   const largura = 170;
@@ -118,7 +119,7 @@ export function desenharHipoteseDiagnosticaSolicitacaoPdf(
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...darkColor);
-  doc.text('Hipótese Diagnóstica', margem + pad, yPos + alturaTitulo);
+  doc.text(titulo, margem + pad, yPos + alturaTitulo);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   let ly = yPos + alturaTitulo + pad + 4;
@@ -135,7 +136,8 @@ export function desenharRodapeManualSolicitacaoExamesPdf(
   doc: JsPDFDoc,
   darkColor: [number, number, number],
   local: string,
-  dataExibicao: string
+  dataExibicao: string,
+  labels?: { signature: string; location: string; date: string; page: (current: number, total: number) => string }
 ): void {
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
@@ -146,21 +148,29 @@ export function desenharRodapeManualSolicitacaoExamesPdf(
     doc.setDrawColor(...darkColor);
     doc.setLineWidth(0.5);
     doc.line(70, footerY, 140, footerY);
-    doc.text('Assinatura do Médico', 105, footerY + 6, { align: 'center' });
-    doc.text(`Local: ${local}`, 105, footerY + 12, { align: 'center' });
-    doc.text(`Data: ${dataExibicao}`, 105, footerY + 18, { align: 'center' });
+    doc.text(labels?.signature ?? 'Assinatura do Médico', 105, footerY + 6, { align: 'center' });
+    doc.text(`${labels?.location ?? 'Local'}: ${local}`, 105, footerY + 12, { align: 'center' });
+    doc.text(`${labels?.date ?? 'Data'}: ${dataExibicao}`, 105, footerY + 18, { align: 'center' });
     doc.setFontSize(8);
     doc.setTextColor(128, 128, 128);
-    doc.text(`Página ${i} de ${pageCount}`, 105, footerY + 26, { align: 'center' });
+    doc.text(
+      labels?.page(i, pageCount) ?? `Página ${i} de ${pageCount}`,
+      105,
+      footerY + 26,
+      { align: 'center' }
+    );
   }
 }
 
-export function desenharNumeracaoPaginasSolicitacaoExamesPdf(doc: JsPDFDoc): void {
+export function desenharNumeracaoPaginasSolicitacaoExamesPdf(
+  doc: JsPDFDoc,
+  pageLabel?: (current: number, total: number) => string
+): void {
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(128, 128, 128);
-    doc.text(`Página ${i} de ${pageCount}`, 105, 287, { align: 'center' });
+    doc.text(pageLabel?.(i, pageCount) ?? `Página ${i} de ${pageCount}`, 105, 287, { align: 'center' });
   }
 }

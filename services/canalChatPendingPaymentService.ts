@@ -66,6 +66,7 @@ export async function requestCanalChatConfirmationForPaymentCharge(
     const { result: sent } = await withWhatsappProviderAuth(CANAL_CHAT_OWNER_ID, prepared.sessionId, (token) =>
       sendTestMessage(prepared.sessionId, token, prepared.phone, message, {
         connectedPhone: prepared.connectedPhone ?? undefined,
+        phoneIsResolved: true,
       }),
     );
     sentChatId = sent.chatId;
