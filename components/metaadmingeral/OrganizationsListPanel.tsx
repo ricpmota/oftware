@@ -207,7 +207,7 @@ export default function OrganizationsListPanel({
                       setOrganizationId(suggestOrganizationSlugFromName(next));
                     }
                   }}
-                  placeholder="Ex.: Endocrino Kamilla Montenegro"
+                  placeholder="Ex.: Clínica Saúde Total"
                   className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40 focus:border-[#4CCB7A]/50 focus:outline-none focus:ring-1 focus:ring-[#4CCB7A]/30"
                 />
               </div>
@@ -223,7 +223,7 @@ export default function OrganizationsListPanel({
                     setSlugTouched(true);
                     setOrganizationId(e.target.value.toLowerCase().trim());
                   }}
-                  placeholder="ex.: endocrino-kamilla-montenegro"
+                  placeholder="ex.: saude-total"
                   className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 font-mono text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40 focus:border-[#4CCB7A]/50 focus:outline-none focus:ring-1 focus:ring-[#4CCB7A]/30"
                 />
                 <p className="mt-1 text-xs text-[#E8EDED]/45">
@@ -239,7 +239,7 @@ export default function OrganizationsListPanel({
                   required
                   value={domain}
                   onChange={(e) => setDomain(e.target.value)}
-                  placeholder="www.endocrinokamillamontenegro.com"
+                  placeholder="www.clinicasaudetotal.com.br"
                   className="w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm text-[#E8EDED] placeholder:text-[#E8EDED]/40 focus:border-[#4CCB7A]/50 focus:outline-none focus:ring-1 focus:ring-[#4CCB7A]/30"
                 />
               </div>

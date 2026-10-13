@@ -29,6 +29,7 @@ import {
   UtensilsCrossed,
   Wrench,
 } from 'lucide-react';
+import { isDemoOrganization } from '@/lib/organization/isDemoOrganization';
 import { listOrganizations, METODO_ORGANIZATION } from '@/lib/organization/organizationRegistry';
 import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
 
@@ -272,11 +273,13 @@ export function inferNavContextFromMenu(menuId: string): MetaAdminGeralNavContex
 }
 
 export function listNavOrganizations(): OrganizationDefinition[] {
-  return listOrganizations();
+  return listOrganizations().filter((org) => !isDemoOrganization(org));
 }
 
 export function getNavOrganizationById(id: string): OrganizationDefinition | null {
-  return listOrganizations().find((o) => o.id === id) ?? null;
+  const org = listOrganizations().find((item) => item.id === id) ?? null;
+  if (!org || isDemoOrganization(org)) return null;
+  return org;
 }
 
 export function defaultActiveOrganizationId(): string {

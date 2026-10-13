@@ -4,6 +4,7 @@ import type { OrganizationDefinition } from './organizationTypes';
 const DEMO_ORGANIZATION_IDS = new Set([
   'clinica-exemplo',
   'clinica-exemplo-wl',
+  'clinica_exemplo_wl',
   'exemplo-wl',
   'exemplo',
   'whitelabel-x',

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { METODO_ORGANIZATION } from './organizationRegistry';
+import { buildNewOrganizationBrandingSeed } from './buildNewOrganizationBrandingSeed';
 import {
   buildOrganizationBrandingSeedPayload,
   organizationBrandingLayerFromMetodoImagens,
@@ -140,6 +141,42 @@ describe('organizationBrandingMerge', () => {
     expect(seed.siteUrl).toBe('https://www.ometodoemagrecer.com.br');
     expect(seed.instagramBioDefaults.headline).toContain('acompanhamento');
     expect(seed.seedVersion).toBe('11.1.0');
+  });
+
+  it('organização nova não herda assets do Método', () => {
+    const organization = {
+      id: 'clinica-saude-total',
+      name: 'Clínica Saúde Total',
+      kind: 'organization' as const,
+      primaryOrigin: 'https://www.clinicasaudetotal.com.br',
+      hosts: ['www.clinicasaudetotal.com.br'],
+    };
+    const seed = buildNewOrganizationBrandingSeed(organization);
+    const merged = resolveOrganizationBrandingFromSources({
+      organization,
+      firestoreBranding: seed,
+      metodoImagens: {
+        ogImageUrl: 'https://cdn.example/og-metodo.png',
+        faviconUrl: '/metodo-simbolo-17.png',
+        pdfLogoUrl: null,
+        drPageLogoUrl: '/metodo-emagrecer-logotipo-28.png',
+        aplicacaoPageLogoUrl: null,
+        conclusaoPageLogoUrl: null,
+      },
+      sourceWhiteLabel: {
+        brandName: 'Dr. Ricardo Mota',
+        drPageLogoUrl: '/simbolo-metodo.png',
+      },
+    });
+
+    expect(merged.publicName).toBe('Clínica Saúde Total');
+    expect(merged.logoMainUrl).toBeNull();
+    expect(merged.faviconUrl).toBeNull();
+    expect(merged.ogImageUrl).toBeNull();
+    expect(merged.publicPages.dr.logoUrl).toBeNull();
+    expect(JSON.stringify(merged)).not.toMatch(
+      /metodo-simbolo|simbolo-metodo|og-metodo|metodo-emagrecer-logotipo/,
+    );
   });
 
   it('sourceMedico layer retorna null sem whiteLabel', () => {

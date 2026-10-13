@@ -8,12 +8,12 @@ import {
   DEFAULT_DR_PAGE_TEXT,
 } from '@/lib/whiteLabel/publicPagesTheme';
 import { DEFAULT_WHITE_LABEL_DESCRIPTION } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
-import {
-  ORGANIZATION_BRANDING_SEED_VERSION,
-  ORGANIZATION_METODO_ACCENT_COLOR,
-  ORGANIZATION_METODO_PRIMARY_COLOR,
-  ORGANIZATION_METODO_SECONDARY_COLOR,
-} from './organizationBrandingDefaults';
+import { ORGANIZATION_BRANDING_SEED_VERSION } from './organizationBrandingDefaults';
+
+/** Paleta inicial neutra — não copia verde/navy nem arquivos do Método Emagrecer. */
+const NEW_ORGANIZATION_PRIMARY_COLOR = '#0F766E';
+const NEW_ORGANIZATION_SECONDARY_COLOR = '#111827';
+const NEW_ORGANIZATION_ACCENT_COLOR = '#14B8A6';
 import type { OrganizationBrandingStored } from './organizationBrandingTypes';
 import type { OrganizationDefinition } from './organizationTypes';
 
@@ -38,15 +38,15 @@ export function buildNewOrganizationBrandingSeed(
     ogImageUrl: null,
     pdfLogoUrl: null,
     watermarkUrl: null,
-    primaryColor: ORGANIZATION_METODO_PRIMARY_COLOR,
-    secondaryColor: ORGANIZATION_METODO_SECONDARY_COLOR,
-    accentColor: ORGANIZATION_METODO_ACCENT_COLOR,
-    backgroundColor: ORGANIZATION_METODO_SECONDARY_COLOR,
+    primaryColor: NEW_ORGANIZATION_PRIMARY_COLOR,
+    secondaryColor: NEW_ORGANIZATION_SECONDARY_COLOR,
+    accentColor: NEW_ORGANIZATION_ACCENT_COLOR,
+    backgroundColor: NEW_ORGANIZATION_SECONDARY_COLOR,
     surfaceColor: DEFAULT_APLICACAO_PAGE_BACKGROUND,
     textColor: DEFAULT_DR_PAGE_TEXT,
     mutedTextColor: DEFAULT_APLICACAO_PAGE_TEXT,
     borderColor: '#E5E7EB',
-    successColor: ORGANIZATION_METODO_PRIMARY_COLOR,
+    successColor: NEW_ORGANIZATION_PRIMARY_COLOR,
     warningColor: '#D97706',
     errorColor: '#DC2626',
     publicPages: {
@@ -77,7 +77,7 @@ export function buildNewOrganizationBrandingSeed(
     },
     instagramUrl: null,
     siteUrl: organization.primaryOrigin,
-    showPoweredByOftware: true,
+    showPoweredByOftware: false,
     seedVersion: ORGANIZATION_BRANDING_SEED_VERSION,
     seededAt: now,
     updatedAt: now,

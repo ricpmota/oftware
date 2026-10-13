@@ -3,12 +3,14 @@ import type { MetodoImagensTemplate } from '@/lib/metodo/metodoImagens';
 import { publicPagesFormFromStored } from '@/lib/whiteLabel/publicPagesTheme';
 import type { OrganizationDefinition } from './organizationTypes';
 import type { OrganizationBrandingStored } from './organizationBrandingTypes';
+import { buildNewOrganizationBrandingSeed } from './buildNewOrganizationBrandingSeed';
 import {
   buildHardcodedOrganizationBranding,
   mergeOrganizationBrandingLayers,
   pickColor,
   pickUrl,
 } from './organizationBrandingDefaults';
+import { METODO_ORGANIZATION_ID } from './organizationRegistry';
 
 /** Camada 3 — extrai branding parcial do whiteLabel da conta fonte. */
 export function organizationBrandingLayerFromSourceMedicoWhiteLabel(
@@ -138,16 +140,21 @@ export function resolveOrganizationBrandingFromSources(input: {
   metodoImagens?: MetodoImagensTemplate | null;
   sourceWhiteLabel?: MedicoWhiteLabelStored | null;
 }): OrganizationBrandingStored {
-  const hardcoded = buildHardcodedOrganizationBranding(input.organization);
-  const fromMedico = organizationBrandingLayerFromSourceMedicoWhiteLabel(
-    input.organization,
-    input.sourceWhiteLabel,
-  );
-  const fromPlatform = organizationBrandingLayerFromMetodoImagens(input.metodoImagens);
+  const isMetodo = input.organization.id === METODO_ORGANIZATION_ID;
+  const base = isMetodo
+    ? buildHardcodedOrganizationBranding(input.organization)
+    : buildNewOrganizationBrandingSeed(input.organization);
 
-  const layers: Partial<OrganizationBrandingStored>[] = [hardcoded];
-  if (fromMedico) layers.push(fromMedico);
-  if (fromPlatform) layers.push(fromPlatform);
+  const layers: Partial<OrganizationBrandingStored>[] = [base];
+  if (isMetodo) {
+    const fromMedico = organizationBrandingLayerFromSourceMedicoWhiteLabel(
+      input.organization,
+      input.sourceWhiteLabel,
+    );
+    const fromPlatform = organizationBrandingLayerFromMetodoImagens(input.metodoImagens);
+    if (fromMedico) layers.push(fromMedico);
+    if (fromPlatform) layers.push(fromPlatform);
+  }
   if (input.firestoreBranding) layers.push(input.firestoreBranding);
 
   return mergeOrganizationBrandingLayers(layers);

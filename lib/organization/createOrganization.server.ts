@@ -7,6 +7,7 @@ import {
   normalizeOrganizationSlug,
   suggestOrganizationSlugFromName,
 } from './normalizeOrganizationSlug';
+import { isDoctorStylePublicName } from './organizationBrandingPublicNameRepair';
 import { getOrganizationById, METODO_ORGANIZATION_ID } from './organizationRegistry';
 import { writeOrganizationBrandingSeed } from './organizationBrandingFirestore.server';
 import type { OrganizationDefinition } from './organizationTypes';
@@ -36,6 +37,13 @@ export function validateCreateOrganizationInput(input: CreateOrganizationInput):
   if (name.length > 120) {
     return { ok: false, error: 'Nome da organização muito longo.' };
   }
+  if (isDoctorStylePublicName(name)) {
+    return {
+      ok: false,
+      error:
+        'O nome público da organização não pode ser o nome de um médico. Use o nome da clínica ou do programa.',
+    };
+  }
 
   const slugRaw = (input.organizationId || '').trim() || suggestOrganizationSlugFromName(name);
   const organizationId = normalizeOrganizationSlug(slugRaw);
@@ -53,7 +61,7 @@ export function validateCreateOrganizationInput(input: CreateOrganizationInput):
   if (!origin) {
     return {
       ok: false,
-      error: 'Domínio inválido. Ex.: www.endocrinokamillamontenegro.com',
+      error: 'Domínio inválido. Ex.: www.clinicasaudetotal.com.br',
     };
   }
 

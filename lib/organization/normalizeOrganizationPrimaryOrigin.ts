@@ -7,7 +7,7 @@ export type NormalizedOrganizationOrigin = {
 
 /**
  * Normaliza domínio/URL informados no cadastro de Nova Organização.
- * Aceita: www.endocrinokamillamontenegro.com | endocrinokamillamontenegro.com | https://...
+ * Aceita: www.clinicasaudetotal.com.br | clinicasaudetotal.com.br | https://...
  */
 export function normalizeOrganizationPrimaryOrigin(raw: string): NormalizedOrganizationOrigin | null {
   const trimmed = (raw || '').trim();
