@@ -1,6 +1,10 @@
 import type { ContratoTratamentoDocumentoRecord } from '@/lib/documentos/contrato-tratamento/contratoTratamentoTypes';
 import type { ContratoTratamentoStatusAssinatura } from '@/lib/documentos/contrato-tratamento/contratoTratamentoTypes';
-import { contratoTemAssinaturaMedica } from '@/lib/documentos/contrato-tratamento/contratoTratamentoFluxoAssinatura';
+import {
+  contratoPacienteJaAssinou,
+  contratoTemAssinaturaMedica,
+  normalizarStatusAssinaturaPaciente,
+} from '@/lib/documentos/contrato-tratamento/contratoTratamentoFluxoAssinatura';
 
 /** Rótulos curtos para badge na lista (Base do Tratamento). */
 export const CONTRATO_TRATAMENTO_STATUS_BADGE_LABELS: Record<ContratoTratamentoStatusAssinatura, string> = {
@@ -42,4 +46,32 @@ export function medicoJaAssinouContrato(
 
 export function pacienteAssinaturaPendente(status: ContratoTratamentoStatusAssinatura): boolean {
   return status === 'aguardando_paciente' || status === 'assinado_medico';
+}
+
+/** Cor do ícone de contrato na lista de pacientes (mobile). */
+export type ContratoListaIconState =
+  | 'nao_gerado'
+  | 'paciente_pendente'
+  | 'paciente_assinou'
+  | 'completo';
+
+export const CONTRATO_LISTA_ICON_LABELS: Record<ContratoListaIconState, string> = {
+  nao_gerado: 'Contrato não gerado',
+  paciente_pendente: 'Aguardando assinatura do paciente',
+  paciente_assinou: 'Paciente assinou — aguardando médico',
+  completo: 'Contrato assinado por médico e paciente',
+};
+
+export function resolveContratoListaIconState(
+  documento: ContratoTratamentoDocumentoRecord | null | undefined
+): ContratoListaIconState {
+  if (!documento || documento.statusAssinatura === 'rascunho') return 'nao_gerado';
+
+  const status = normalizarStatusAssinaturaPaciente(documento.statusAssinatura, documento);
+  const pacienteAssinou = contratoPacienteJaAssinou(documento);
+  const medicoAssinou = medicoJaAssinouContrato(status, documento);
+
+  if (status === 'assinado_completo' || (pacienteAssinou && medicoAssinou)) return 'completo';
+  if (pacienteAssinou) return 'paciente_assinou';
+  return 'paciente_pendente';
 }

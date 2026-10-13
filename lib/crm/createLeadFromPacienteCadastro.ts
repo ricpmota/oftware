@@ -11,6 +11,8 @@ type Params = {
   email: string;
   name: string;
   telefone?: string;
+  telefoneDdi?: string;
+  telefonePais?: string;
   atualizadoPor?: string;
 };
 
@@ -19,7 +21,7 @@ type Params = {
  * Se já existir lead para o mesmo e-mail/médico, retorna o id existente sem duplicar.
  */
 export async function createLeadFromPacienteCadastro(params: Params): Promise<string | null> {
-  const { medicoId, medicoNome, pacienteId, email, name, telefone, atualizadoPor } = params;
+  const { medicoId, medicoNome, pacienteId, email, name, telefone, telefoneDdi, telefonePais, atualizadoPor } = params;
 
   const existing = await LeadMedicoService.findLeadByEmailAndMedico(medicoId, email);
   if (existing) return existing.id;
@@ -34,6 +36,12 @@ export async function createLeadFromPacienteCadastro(params: Params): Promise<st
     email: email.trim().toLowerCase(),
     name: name.trim(),
     telefone: telefone?.trim() || undefined,
+    ...(telefoneDdi?.trim()
+      ? {
+          telefoneDdi: telefoneDdi.trim(),
+          ...(telefonePais?.trim() ? { telefonePais: telefonePais.trim() } : {}),
+        }
+      : {}),
     medicoId,
     status: (isDefaultFirst ? firstStageKey : 'nao_qualificado') as LeadMedicoStatus,
     crmStageKey: isDefaultFirst ? undefined : firstStageKey,

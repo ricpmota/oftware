@@ -3,28 +3,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, Loader2 } from 'lucide-react';
-import { WHITELABEL_LEAD_QUESTIONS } from '@/lib/whiteLabel/leadWhiteLabelQuestions';
-import { formatLeadWhiteLabelWhatsAppDisplay } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
+import {
+  getWhiteLabelLeadQuestions,
+  mapProfissaoChoiceToValue,
+  mapProfissaoValueToChoice,
+} from '@/lib/whiteLabel/leadWhiteLabelQuestions';
 import { createClientEvent } from '@/lib/whiteLabel/clientTrackingEvents';
+import {
+  whiteLabelExperienciaNoun,
+  type WhiteLabelProfissao,
+} from '@/lib/whiteLabel/profissao';
 import WhiteLabelMeetingScheduler from '@/components/whitelabel/WhiteLabelMeetingScheduler';
 import WhiteLabelMeetingReview from '@/components/whitelabel/WhiteLabelMeetingReview';
 import WhiteLabelMeetingSuccess from '@/components/whitelabel/WhiteLabelMeetingSuccess';
+import WhiteLabelInstagramWhatsAppSuccess from '@/components/whitelabel/WhiteLabelInstagramWhatsAppSuccess';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import { isValidIdentificacaoPhone } from '@/lib/phone/internationalPhoneValue';
+import type { WhiteLabelLeadFlowMode } from '@/lib/whiteLabel/whiteLabelInstagramFlow';
 import type { WhiteLabelClientEvent } from '@/types/whiteLabelClientEvents';
 import type { WhiteLabelAvailabilityApiRow } from '@/types/whiteLabelAvailability';
 
-const QUESTION_STEPS = WHITELABEL_LEAD_QUESTIONS.length;
-const SCHEDULER_STEP = QUESTION_STEPS;
-const REVIEW_STEP = QUESTION_STEPS + 1;
-const TOTAL_STEPS = REVIEW_STEP + 1;
-
 const SLOT_UNAVAILABLE_MSG =
-  'Esse horário acabou de ser reservado por outro médico. Escolha outro horário disponível.';
+  'Esse horário acabou de ser reservado. Escolha outro horário disponível.';
 
 type FormState = Record<string, string>;
-
-const INITIAL_FORM: FormState = Object.fromEntries(
-  WHITELABEL_LEAD_QUESTIONS.map((q) => [q.key, ''])
-);
 
 type MeetingInfo = {
   date: string;
@@ -34,14 +36,31 @@ type MeetingInfo = {
   status: 'scheduled' | 'error';
 };
 
-function maskWhatsApp(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  return formatLeadWhiteLabelWhatsAppDisplay(digits);
+function buildInitialForm(profissao: WhiteLabelProfissao | null): FormState {
+  const questions = getWhiteLabelLeadQuestions(profissao, {
+    includeProfissaoQuestion: !profissao,
+  });
+  const form = Object.fromEntries(questions.map((q) => [q.key, '']));
+  if (profissao) {
+    form.profissao = mapProfissaoValueToChoice(profissao);
+  }
+  return form;
 }
 
-export default function WhiteLabelLeadPageClient() {
+export type WhiteLabelLeadPageClientProps = {
+  /** Quando informado (ex.: rota dedicada), pula a pergunta de profissão. */
+  initialProfissao?: WhiteLabelProfissao;
+  /** Fluxo vindo do Instagram: só questionário + WhatsApp no final. */
+  flowMode?: WhiteLabelLeadFlowMode;
+};
+
+export default function WhiteLabelLeadPageClient({
+  initialProfissao = undefined,
+  flowMode = 'default',
+}: WhiteLabelLeadPageClientProps) {
+  const isInstagramFlow = flowMode === 'instagram';
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [form, setForm] = useState<FormState>(() => buildInitialForm(initialProfissao ?? null));
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -51,16 +70,31 @@ export default function WhiteLabelLeadPageClient() {
   const [schedulerReloadKey, setSchedulerReloadKey] = useState(0);
   const [schedulerViewTracked, setSchedulerViewTracked] = useState(false);
 
-  const isSchedulerStep = step === SCHEDULER_STEP;
-  const isReviewStep = step === REVIEW_STEP;
-  const currentQuestion = step < SCHEDULER_STEP ? WHITELABEL_LEAD_QUESTIONS[step] : null;
-  const progress = ((step + 1) / TOTAL_STEPS) * 100;
+  const resolvedProfissao: WhiteLabelProfissao | null =
+    initialProfissao ?? mapProfissaoChoiceToValue(form.profissao || '');
+
+  const questions = useMemo(
+    () =>
+      getWhiteLabelLeadQuestions(resolvedProfissao, {
+        includeProfissaoQuestion: !initialProfissao,
+      }),
+    [resolvedProfissao, initialProfissao]
+  );
+
+  const questionSteps = questions.length;
+  const schedulerStep = isInstagramFlow ? -1 : questionSteps;
+  const reviewStep = isInstagramFlow ? -1 : questionSteps + 1;
+  const totalSteps = isInstagramFlow ? questionSteps : reviewStep + 1;
+
+  const isSchedulerStep = !isInstagramFlow && step === schedulerStep;
+  const isReviewStep = !isInstagramFlow && step === reviewStep;
+  const currentQuestion = step < questionSteps ? questions[step] : null;
+  const progress = ((step + 1) / totalSteps) * 100;
+  const isLastQuestionStep = step === questionSteps - 1;
 
   const appendClientEvent = useCallback((event: WhiteLabelClientEvent) => {
     setClientEvents((prev) => {
-      const exists = prev.some(
-        (e) => e.type === event.type && e.createdAt === event.createdAt
-      );
+      const exists = prev.some((e) => e.type === event.type && e.createdAt === event.createdAt);
       if (exists) return prev;
       return [...prev, event];
     });
@@ -79,7 +113,27 @@ export default function WhiteLabelLeadPageClient() {
   }, [isSchedulerStep, trackSchedulerViewed]);
 
   const updateField = useCallback((key: string, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === 'profissao') {
+        // Limpa respostas de escolha ao trocar profissão (opções mudam).
+        const choiceKeys = [
+          'situacaoProfissional',
+          'objetivo3Anos',
+          'interesseReduzirPlantao',
+          'interessePlataformaMarca',
+          'pacientesMes',
+          'realidadeAtual',
+          'interesseExperienciaDigital',
+          'familiaridadeTecnologia',
+          'investimentoDisponivel',
+          'prazoInicio',
+          'faturamentoEsperado',
+        ];
+        for (const k of choiceKeys) next[k] = '';
+      }
+      return next;
+    });
     setError('');
   }, []);
 
@@ -110,11 +164,17 @@ export default function WhiteLabelLeadPageClient() {
       return true;
     }
 
-    const q = WHITELABEL_LEAD_QUESTIONS[step];
+    const q = questions[step];
+    if (!q) return false;
     const value = (form[q.key] || '').trim();
 
     if (!value) {
       setError('Este campo é obrigatório.');
+      return false;
+    }
+
+    if (q.key === 'profissao' && !mapProfissaoChoiceToValue(value)) {
+      setError('Selecione uma opção válida.');
       return false;
     }
 
@@ -124,8 +184,13 @@ export default function WhiteLabelLeadPageClient() {
     }
 
     if (q.type === 'tel') {
-      const digits = value.replace(/\D/g, '');
-      if (digits.length < 10) {
+      if (
+        !isValidIdentificacaoPhone({
+          telefone: form.whatsapp,
+          telefoneDdi: form.whatsappDdi,
+          telefonePais: form.whatsappPais,
+        })
+      ) {
         setError('Informe um WhatsApp válido.');
         return false;
       }
@@ -133,7 +198,30 @@ export default function WhiteLabelLeadPageClient() {
 
     setError('');
     return true;
-  }, [form, step, isSchedulerStep, isReviewStep, selectedSlot]);
+  }, [form, step, isSchedulerStep, isReviewStep, selectedSlot, questions]);
+
+  const submitLeadOnly = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/whitelabel/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          profissao: resolvedProfissao || mapProfissaoChoiceToValue(form.profissao || ''),
+          origemCampanha: 'instagram',
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || 'Erro ao enviar questionário.');
+      setSuccess(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [form, resolvedProfissao]);
 
   const submitForm = useCallback(async () => {
     if (!selectedSlot) return;
@@ -165,7 +253,7 @@ export default function WhiteLabelLeadPageClient() {
       if (!res.ok) {
         if (data.code === 'SLOT_UNAVAILABLE') {
           setSelectedSlot(null);
-          setStep(SCHEDULER_STEP);
+          setStep(schedulerStep);
           setSchedulerReloadKey((k) => k + 1);
           setError(SLOT_UNAVAILABLE_MSG);
           return;
@@ -182,18 +270,23 @@ export default function WhiteLabelLeadPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [form, selectedSlot, clientEvents]);
+  }, [form, selectedSlot, clientEvents, schedulerStep]);
 
   const handleNext = useCallback(async () => {
     if (!validateCurrentStep()) return;
 
-    if (step < SCHEDULER_STEP) {
+    if (isInstagramFlow && isLastQuestionStep) {
+      await submitLeadOnly();
+      return;
+    }
+
+    if (step < questionSteps) {
       setStep((s) => s + 1);
       return;
     }
 
     if (isSchedulerStep) {
-      setStep(REVIEW_STEP);
+      setStep(reviewStep);
       setError('');
       return;
     }
@@ -201,7 +294,18 @@ export default function WhiteLabelLeadPageClient() {
     if (isReviewStep) {
       await submitForm();
     }
-  }, [validateCurrentStep, step, isSchedulerStep, isReviewStep, submitForm]);
+  }, [
+    validateCurrentStep,
+    step,
+    questionSteps,
+    isInstagramFlow,
+    isLastQuestionStep,
+    submitLeadOnly,
+    isSchedulerStep,
+    isReviewStep,
+    reviewStep,
+    submitForm,
+  ]);
 
   const handleBack = useCallback(() => {
     if (step > 0) {
@@ -210,7 +314,17 @@ export default function WhiteLabelLeadPageClient() {
     }
   }, [step]);
 
-  const stepLabel = useMemo(() => `${step + 1} de ${TOTAL_STEPS}`, [step]);
+  const stepLabel = useMemo(() => `${step + 1} de ${totalSteps}`, [step, totalSteps]);
+  const experiencia = whiteLabelExperienciaNoun(resolvedProfissao || 'medico');
+
+  if (success && isInstagramFlow) {
+    return (
+      <WhiteLabelInstagramWhatsAppSuccess
+        profissao={resolvedProfissao || 'medico'}
+        nome={form.nome}
+      />
+    );
+  }
 
   if (success) {
     const resolvedMeeting: MeetingInfo | null =
@@ -255,8 +369,8 @@ export default function WhiteLabelLeadPageClient() {
                 Mentoria White Label Oftware
               </h1>
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                Descubra se você tem perfil para transformar sua experiência médica em uma operação
-                digital escalável com sua própria marca.
+                Descubra se você tem perfil para transformar sua {experiencia} em uma operação digital
+                escalável com sua própria marca.
               </p>
             </>
           )}
@@ -264,7 +378,7 @@ export default function WhiteLabelLeadPageClient() {
 
         <AnimatePresence mode="wait">
           <motion.div
-            key={step}
+            key={`${step}-${resolvedProfissao || 'none'}`}
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
@@ -288,7 +402,11 @@ export default function WhiteLabelLeadPageClient() {
                 />
               </>
             ) : isReviewStep && selectedSlot ? (
-              <WhiteLabelMeetingReview form={form} slot={selectedSlot} />
+              <WhiteLabelMeetingReview
+                form={form}
+                slot={selectedSlot}
+                profissao={resolvedProfissao || 'medico'}
+              />
             ) : currentQuestion ? (
               <>
                 <label className="block text-lg sm:text-xl font-semibold text-slate-900 mb-4 leading-snug">
@@ -315,25 +433,32 @@ export default function WhiteLabelLeadPageClient() {
                       );
                     })}
                   </div>
+                ) : currentQuestion.type === 'tel' ? (
+                  <InternationalPhoneInput
+                    id="whitelabel-lead-whatsapp"
+                    value={{
+                      telefone: form.whatsapp,
+                      telefoneDdi: form.whatsappDdi,
+                      telefonePais: form.whatsappPais,
+                    }}
+                    onChange={(next) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        whatsapp: next.telefone,
+                        whatsappDdi: next.telefoneDdi,
+                        whatsappPais: next.telefonePais,
+                      }));
+                    }}
+                  />
                 ) : (
                   <input
-                    type={currentQuestion.type === 'tel' ? 'tel' : currentQuestion.type}
+                    type={currentQuestion.type}
                     value={form[currentQuestion.key] || ''}
-                    onChange={(e) => {
-                      const val =
-                        currentQuestion.type === 'tel'
-                          ? maskWhatsApp(e.target.value)
-                          : e.target.value;
-                      updateField(currentQuestion.key, val);
-                    }}
+                    onChange={(e) => updateField(currentQuestion.key, e.target.value)}
                     placeholder={currentQuestion.placeholder}
                     className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
                     autoComplete={
-                      currentQuestion.type === 'email'
-                        ? 'email'
-                        : currentQuestion.type === 'tel'
-                          ? 'tel'
-                          : 'name'
+                      currentQuestion.type === 'email' ? 'email' : 'name'
                     }
                   />
                 )}
@@ -370,13 +495,15 @@ export default function WhiteLabelLeadPageClient() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Confirmando...
+                  {isInstagramFlow ? 'Enviando...' : 'Confirmando...'}
                 </>
               ) : isReviewStep ? (
                 'Confirmar agendamento'
               ) : isSchedulerStep ? (
                 'Revisar agendamento'
-              ) : step === QUESTION_STEPS - 1 ? (
+              ) : isInstagramFlow && isLastQuestionStep ? (
+                'Enviar respostas'
+              ) : step === questionSteps - 1 && !isInstagramFlow ? (
                 'Próximo: agendar reunião'
               ) : (
                 'Responder'

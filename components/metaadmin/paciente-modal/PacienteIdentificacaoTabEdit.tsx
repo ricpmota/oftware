@@ -1,6 +1,6 @@
 'use client';
 
-import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useState, type Dispatch, SetStateAction } from 'react';
 import {
   Calendar,
   Hash,
@@ -11,6 +11,21 @@ import {
 } from 'lucide-react';
 import type { PacienteCompleto } from '@/types/obesidade';
 import type { Medico } from '@/types/medico';
+import { isValidFirebaseAuthUid } from '@/lib/firebase/isValidAuthUid';
+import { validarEmailGmailPaciente } from '@/lib/metaadmin/buildNovoPacienteCompleto';
+import { PatientLocationFields } from '@/components/localizacao/PatientLocationFields';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import { aplicarLocalizacaoResidencial } from '@/lib/meta/metaChatInicial/localizacaoResidencial';
+import {
+  patientLocationSignature,
+  type PatientLocationInput,
+  type PatientLocationInterpretation,
+} from '@/lib/localizacao/patientLocationField';
+import {
+  VIA_CEP_CIDADE_NAO_RESOLVIDA,
+  aplicarViaCepNoEndereco,
+} from '@/lib/localizacao/viaCepLocalizacao';
+import { limitesInputDataNascimento } from '@/utils/dataNascimentoLocal';
 
 const INPUT =
   'w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100';
@@ -93,6 +108,8 @@ export type PacienteIdentificacaoTabEditProps = {
   setPaciente: Dispatch<SetStateAction<PacienteCompleto | null>>;
   medicoPerfil?: Medico | null;
   isAbandono?: boolean;
+  /** Rascunho da localização, inclusive texto ainda não selecionado. Não grava Firestore. */
+  onInterpretacaoLocalizacao?: (interpretation: PatientLocationInterpretation) => void;
 };
 
 function FieldCard({
@@ -134,14 +151,35 @@ export function PacienteIdentificacaoTabEdit({
   setPaciente,
   medicoPerfil,
   isAbandono = false,
+  onInterpretacaoLocalizacao,
 }: PacienteIdentificacaoTabEditProps) {
   const id = paciente.dadosIdentificacao;
+  const exigeEmailGmail = !isValidFirebaseAuthUid(paciente.userId);
+  const emailAtual = (id?.email || paciente.email || '').trim();
+  const emailGmailErro = exigeEmailGmail ? validarEmailGmailPaciente(emailAtual) : null;
   const disabled = isAbandono;
   const inputClass = disabled ? `${INPUT} bg-gray-100 cursor-not-allowed` : INPUT;
 
   const idade = calcIdade(id?.dataNascimento);
   const statusKey = paciente.statusTratamento || 'pendente';
   const statusBadge = STATUS_TRATAMENTO[statusKey] ?? STATUS_TRATAMENTO.pendente;
+  const dataNascLimites = limitesInputDataNascimento();
+  const [avisoCep, setAvisoCep] = useState<string | null>(null);
+  const enderecoAtual = id?.endereco;
+  const assinaturaEndereco = patientLocationSignature(enderecoAtual);
+  const [valorLocalizacao, setValorLocalizacao] = useState<PatientLocationInput | null>(() => ({
+    estado: enderecoAtual?.estado,
+    cidade: enderecoAtual?.cidade,
+    codigoIbge: enderecoAtual?.codigoIbge,
+  }));
+
+  useEffect(() => {
+    setValorLocalizacao({
+      estado: enderecoAtual?.estado,
+      cidade: enderecoAtual?.cidade,
+      codigoIbge: enderecoAtual?.codigoIbge,
+    });
+  }, [assinaturaEndereco, enderecoAtual?.estado, enderecoAtual?.cidade, enderecoAtual?.codigoIbge]);
 
   const medicoLabel = (() => {
     if (!medicoPerfil) return '';
@@ -155,19 +193,15 @@ export function PacienteIdentificacaoTabEdit({
     localidade?: string;
     uf?: string;
   }) => {
+    const aplicado = aplicarViaCepNoEndereco(paciente.dadosIdentificacao?.endereco, data);
     setPaciente({
       ...paciente,
       dadosIdentificacao: {
         ...paciente.dadosIdentificacao,
-        endereco: {
-          ...paciente.dadosIdentificacao?.endereco,
-          cep: data.cep?.replace(/\D/g, '') || paciente.dadosIdentificacao?.endereco?.cep,
-          rua: data.logradouro || '',
-          cidade: data.localidade || '',
-          estado: data.uf || '',
-        },
+        endereco: aplicado.endereco,
       },
     });
+    setAvisoCep(aplicado.localizacaoResolvida ? null : VIA_CEP_CIDADE_NAO_RESOLVIDA);
   };
 
   const handleBuscarCep = async () => {
@@ -220,6 +254,7 @@ export function PacienteIdentificacaoTabEdit({
               onChange={(e) =>
                 setPaciente({
                   ...paciente,
+                  nome: e.target.value,
                   dadosIdentificacao: {
                     ...paciente.dadosIdentificacao,
                     nomeCompleto: e.target.value,
@@ -253,6 +288,8 @@ export function PacienteIdentificacaoTabEdit({
               <FieldLabel>Data de nascimento</FieldLabel>
               <input
                 type="date"
+                min={dataNascLimites.min}
+                max={dataNascLimites.max}
                 value={formatDateInputValue(id?.dataNascimento)}
                 disabled={disabled}
                 readOnly={disabled}
@@ -300,41 +337,61 @@ export function PacienteIdentificacaoTabEdit({
 
         <FieldCard icon={Mail} title="Contato">
           <div>
-            <FieldLabel>E-mail</FieldLabel>
+            <FieldLabel>{exigeEmailGmail ? 'E-mail * (apenas @gmail.com)' : 'E-mail'}</FieldLabel>
             <input
               type="email"
               value={id?.email || ''}
               disabled={disabled}
               readOnly={disabled}
+              required={exigeEmailGmail}
+              pattern={exigeEmailGmail ? '.*@gmail\\.com$' : undefined}
+              placeholder={exigeEmailGmail ? 'exemplo@gmail.com' : undefined}
+              title={exigeEmailGmail ? 'Apenas e-mails @gmail.com são permitidos' : undefined}
               onChange={(e) =>
                 setPaciente({
                   ...paciente,
+                  email: e.target.value,
                   dadosIdentificacao: {
                     ...paciente.dadosIdentificacao,
                     email: e.target.value,
                   },
                 })
               }
-              className={inputClass}
+              className={
+                exigeEmailGmail && emailAtual && emailGmailErro
+                  ? `${inputClass} border-red-400 focus:border-red-500 focus:ring-red-500`
+                  : inputClass
+              }
             />
+            {exigeEmailGmail ? (
+              <p className={`mt-1 text-xs ${emailAtual && emailGmailErro ? 'text-red-600' : 'text-gray-500 dark:text-gray-400'}`}>
+                {emailAtual && emailGmailErro
+                  ? emailGmailErro
+                  : 'O paciente fará login com o Google neste mesmo e-mail.'}
+              </p>
+            ) : null}
           </div>
           <div>
             <FieldLabel>Telefone</FieldLabel>
-            <input
-              type="tel"
-              value={id?.telefone || ''}
+            <InternationalPhoneInput
+              value={{
+                telefone: id?.telefone,
+                telefoneDdi: id?.telefoneDdi,
+                telefonePais: id?.telefonePais,
+              }}
               disabled={disabled}
               readOnly={disabled}
-              onChange={(e) =>
+              onChange={(next) =>
                 setPaciente({
                   ...paciente,
                   dadosIdentificacao: {
                     ...paciente.dadosIdentificacao,
-                    telefone: e.target.value,
+                    telefone: next.telefone,
+                    telefoneDdi: next.telefoneDdi,
+                    telefonePais: next.telefonePais,
                   },
                 })
               }
-              className={inputClass}
             />
           </div>
         </FieldCard>
@@ -401,50 +458,27 @@ export function PacienteIdentificacaoTabEdit({
                 placeholder="Rua, número, complemento"
               />
             </div>
-            <div>
-              <FieldLabel>Cidade</FieldLabel>
-              <input
-                type="text"
-                value={id?.endereco?.cidade || ''}
+            <div className="md:col-span-3">
+              <PatientLocationFields
+                id="metaadmin-identificacao-localizacao"
                 disabled={disabled}
-                readOnly={disabled}
-                onChange={(e) =>
-                  setPaciente({
-                    ...paciente,
-                    dadosIdentificacao: {
-                      ...paciente.dadosIdentificacao,
-                      endereco: {
-                        ...paciente.dadosIdentificacao?.endereco,
-                        cidade: e.target.value,
-                      },
-                    },
-                  })
-                }
-                className={inputClass}
+                value={valorLocalizacao}
+                onChange={(next) => {
+                  setAvisoCep(null);
+                  setValorLocalizacao(next);
+                  if (next) setPaciente(aplicarLocalizacaoResidencial(paciente, next));
+                }}
+                onInterpretationChange={(interpretation) => {
+                  onInterpretacaoLocalizacao?.(interpretation);
+                  if (interpretation.status === 'empty') {
+                    setValorLocalizacao(null);
+                    setPaciente(aplicarLocalizacaoResidencial(paciente, null));
+                  }
+                }}
               />
-            </div>
-            <div>
-              <FieldLabel>Estado (UF)</FieldLabel>
-              <input
-                type="text"
-                value={id?.endereco?.estado || ''}
-                disabled={disabled}
-                readOnly={disabled}
-                onChange={(e) =>
-                  setPaciente({
-                    ...paciente,
-                    dadosIdentificacao: {
-                      ...paciente.dadosIdentificacao,
-                      endereco: {
-                        ...paciente.dadosIdentificacao?.endereco,
-                        estado: e.target.value,
-                      },
-                    },
-                  })
-                }
-                className={inputClass}
-                placeholder="UF"
-              />
+              {avisoCep ? (
+                <p className="mt-1.5 text-sm text-amber-700 dark:text-amber-300">{avisoCep}</p>
+              ) : null}
             </div>
           </div>
         </FieldCard>

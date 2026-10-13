@@ -3,9 +3,6 @@
 #
 # Estratégia Docker: usar wppconnect/wppconnect-server (oficial) em vez de compilar o repo.
 # Ref: https://hub.docker.com/r/wppconnect/wppconnect-server
-#
-# Overlays (oftware-preload / inbound hook / outbound sendText patch) existem em
-# ../wppconnect/overlays/ mas NÃO são montados nem carregados (sem NODE_OPTIONS).
 
 services:
   wppconnect:

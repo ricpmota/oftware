@@ -188,16 +188,16 @@ describe('getPrescriptionSignedPrintEligibility', () => {
     }
   });
 
-  it('recibo → assinatura desabilitada', () => {
-    const r = getPrescriptionSignedPrintEligibility(
-      {
-        provider: 'sandbox_mock',
-        providerLabel: 'Sandbox',
-        providerCategory: 'sandbox',
-        status: 'connected',
-      },
-      { isRecibo: true }
-    );
-    expect(r.allowed).toBe(false);
+  it('recibo com provedor conectado → assinatura digital permitida', () => {
+    const config = {
+      provider: 'sandbox_mock' as const,
+      providerLabel: 'Sandbox',
+      providerCategory: 'sandbox' as const,
+      status: 'connected' as const,
+    };
+    expect(isPrescriptionSignedPrintButtonEnabled(config)).toBe(true);
+    const r = getPrescriptionSignedPrintEligibility(config);
+    expect(r.allowed).toBe(true);
+    if (r.allowed) expect(r.mode).toBe('sandbox');
   });
 });

@@ -1,5 +1,5 @@
 import type { QuestaoDificuldade } from '@/types/oftpayQuestoes';
-import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoMatchable } from '@/types/oftpayQuestaoCatalog';
 import {
   computeSubjectGroupsFromPublicadas,
   type OftpaySimuladoSelection,
@@ -26,7 +26,9 @@ export interface SmartSearchRow {
   quantidade: number;
 }
 
-export function buildPublishedTopicIndex(publicadas: OftpayQuestaoDoc[]): PublishedTopicMatch[] {
+export function buildPublishedTopicIndex(
+  publicadas: OftpayQuestaoMatchable[]
+): PublishedTopicMatch[] {
   return computeSubjectGroupsFromPublicadas(publicadas).flatMap((group) =>
     group.topics.map((topic) => ({
       subjectKey: group.key,

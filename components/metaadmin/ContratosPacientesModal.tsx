@@ -31,6 +31,7 @@ import ContratoTratamentoStatusBadge from '@/components/metaadmin/ContratoTratam
 
 export type ContratosPacientesModalProps = {
   open: boolean;
+  /** No desktop, fechamento via menu/navegação; no mobile, via botão X. */
   onClose: () => void;
   pacientes: PacienteCompleto[];
   medico: Medico;
@@ -214,7 +215,7 @@ export default function ContratosPacientesModal({
 
   const providerConfig = sanitizeDoctorSignatureProviderForClient(medico?.doctorSignatureProvider);
 
-  const desktopPanelOffset = sidebarCollapsed ? 'lg:left-16' : 'lg:left-64';
+  const desktopPanelOffset = `md:left-16 ${sidebarCollapsed ? 'xl:left-16' : 'xl:left-64'}`;
 
   const carregarContratos = useCallback(async () => {
     const loadId = ++loadIdRef.current;
@@ -267,15 +268,10 @@ export default function ContratosPacientesModal({
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !bulkAction) onClose();
-    };
-    window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose, bulkAction]);
+  }, [open]);
 
   const resumo = useMemo(() => {
     let semContrato = 0;
@@ -477,9 +473,6 @@ export default function ContratosPacientesModal({
       <div
         className={`fixed inset-0 z-[10039] bg-black/40 ${desktopPanelOffset}`}
         role="presentation"
-        onClick={() => {
-          if (!bulkAction) onClose();
-        }}
         aria-hidden
       />
 
@@ -489,24 +482,26 @@ export default function ContratosPacientesModal({
         aria-modal="true"
         aria-labelledby="contratos-pacientes-titulo"
       >
-        <header className="flex-shrink-0 flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50/90 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <div className="min-w-0">
-            <h2 id="contratos-pacientes-titulo" className="text-lg sm:text-xl font-bold text-gray-900">
-              Contratos de Tratamento
-            </h2>
-            <p className="text-sm text-gray-600 mt-0.5">
-              Acompanhe assinaturas de pacientes e médico. Use os filtros para ações em lote.
-            </p>
+        <header className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-gray-50/90 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id="contratos-pacientes-titulo" className="text-lg sm:text-xl font-bold text-gray-900">
+                Contratos de Tratamento
+              </h2>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Acompanhe assinaturas de pacientes e médico. Use os filtros para ações em lote.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={Boolean(bulkAction)}
+              className="lg:hidden flex-shrink-0 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors disabled:opacity-50"
+              aria-label="Fechar"
+            >
+              <X size={24} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={Boolean(bulkAction)}
-            className="p-2 rounded-lg text-gray-600 hover:bg-gray-200 disabled:opacity-50"
-            aria-label="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </header>
 
         <div className="flex-shrink-0 px-4 py-3 border-b border-gray-100 bg-white space-y-3">

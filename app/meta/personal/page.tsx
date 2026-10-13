@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { deleteDoc, doc, updateDoc, deleteField } from 'firebase/firestore';
+import { deleteDoc, doc, updateDoc, deleteField, collection, getDocs, query, where } from 'firebase/firestore';
 import {
   Dumbbell,
-  ArrowLeft,
   Calendar,
   Plus,
   History,
@@ -21,24 +21,45 @@ import {
   Trash2,
   Edit,
   Save,
-  Search,
   X,
   Stethoscope,
   Shield,
   ShieldCheck,
   Loader2,
+  Info,
+  Video,
+  ArrowLeft,
+  ArrowRight,
+  ClipboardList,
   Play,
   Pause,
   Volume2,
   VolumeX,
+  Star,
+  Pill,
+  Settings,
+  Printer,
+  Home,
 } from 'lucide-react';
 import Link from 'next/link';
 import { trainingSessionService } from '@/services/trainingSessionService';
+import { TrainingExerciseExecutionService } from '@/services/trainingExerciseExecutionService';
+import { isTrainingSessionActive } from '@/lib/personal/trainingSessionActive';
+import { WorkoutRunSeriesPanel } from '@/components/personal/run/WorkoutRunSeriesPanel';
+import { WorkoutRunRestTimer } from '@/components/personal/run/WorkoutRunRestTimer';
+import { WorkoutRunNotesSheet } from '@/components/personal/run/WorkoutRunNotesSheet';
+import { WorkoutRunGymMediaSheet } from '@/components/personal/run/WorkoutRunGymMediaSheet';
+import { GymMediaLoopVideo } from '@/components/personal/run/GymMediaLoopVideo';
+import { AvaliacaoAtividadeFisicaGate } from '@/components/avaliacaoAtividadeFisica/AvaliacaoAtividadeFisicaGate';
+import { ProfessionalPersonalToolsBar } from '@/components/avaliacaoAtividadeFisica/ProfessionalPersonalToolsBar';
+import { MetapersonalPersonalPatientTabBar } from '@/components/metapersonal/shell/MetapersonalPersonalPatientTabs';
 import type {
   TrainingSession,
   TrainingSessionExercise,
   TrainingReminderPrefs,
 } from '@/types/trainingSession';
+import { ClassificacaoProfissionalService } from '@/services/classificacaoProfissionalService';
+import { COL_PACIENTE_PERSONAL_TRAINER } from '@/features/metaPersonal/metaPersonal.constants';
 import type { Exercise } from '@/types/exercise';
 import { PacientePersonalTrainerService } from '@/services/pacientePersonalTrainerService';
 import { PersonalTrainerService } from '@/services/personalTrainerService';
@@ -50,18 +71,190 @@ import {
   translateTarget,
   translateEquipment,
 } from '@/data/exerciseTranslations';
+import {
+  buildMuscleGroupImageUrl,
+  muscleGroupsFromSessionExercises,
+} from '@/lib/muscleGroupImage/exerciseDbMuscleMap';
+import { listarInjetaveisPlanejadosNoPeriodo } from '@/utils/injetaveisCalendario';
+import { ExerciseSeriesEditor } from '@/components/personal/ExerciseSeriesEditor';
+import { ExerciseTrainerNoteField } from '@/components/personal/ExerciseTrainerNoteField';
+import { ExerciseCatalogPanel } from '@/components/personal/create/ExerciseCatalogPanel';
+import { PersonalCreateWorkoutDesktop } from '@/components/personal/create/PersonalCreateWorkoutDesktop';
+import { PersonalWorkoutTemplatesPanel } from '@/components/personal/templates/PersonalWorkoutTemplatesPanel';
+import { ImportWorkoutTemplateModal } from '@/components/personal/templates/ImportWorkoutTemplateModal';
+import { SaveWorkoutAsTemplateModal } from '@/components/personal/templates/SaveWorkoutAsTemplateModal';
+import { WorkoutLibraryDraftActions } from '@/components/personal/templates/WorkoutLibraryDraftActions';
+import { WorkoutPrintModal } from '@/components/personal/print/WorkoutPrintModal';
+import { PersonalTrainingStatsPanel } from '@/components/personal/stats/PersonalTrainingStatsPanel';
+import { PatientTrainingStats } from '@/components/personal/patient/PatientTrainingStats';
+import { SessionExerciseExecutionDetail } from '@/components/personal/stats/SessionExerciseExecutionDetail';
+import { WorkoutSequencePreview } from '@/components/personal/WorkoutSequencePreview';
+import { buildWorkoutPrintData, type WorkoutPrintData } from '@/lib/personal/workoutPrint';
+import {
+  createDefaultTrainingSeries,
+  formatTrainingSeriesSummary,
+  getEffectiveRestSec,
+  normalizeTrainingExercisePrescription,
+  sanitizeIntercalations,
+  serializeTrainingPrescription,
+  validateTrainingPrescription,
+  type TrainingExerciseSeries,
+  type TrainingIntercalatedOccurrence,
+} from '@/lib/personal/trainingExerciseSeries';
+import {
+  importWorkoutTemplateToDraft,
+  mergeClonedDraftsIntoWorkout,
+  suggestedSessionTitleFromTemplate,
+  type ImportWorkoutMode,
+  type PersonalWorkoutTemplate,
+} from '@/lib/personal/planosTreino';
+import {
+  completeExecutedSeries,
+  createExerciseExecutionFromPrescription,
+  getMarkExerciseStatusFromExecution,
+  skipExecutedSeries,
+  updatePendingExecutedSeriesPrescription,
+  type TrainingExerciseExecution,
+} from '@/lib/personal/trainingExecutionSeries';
+import {
+  createIntercalatedOccurrence,
+  insertIntercalatedOccurrence,
+  repeatIntercalatedOccurrence,
+  shouldStartRestTimer,
+} from '@/lib/personal/trainingIntercalation';
+import {
+  createIntercalationExecution,
+  getHostQueueMarkStatus,
+  getHostQueuePendingStep,
+  resetHostQueueExecutions,
+  skipRemainingHostQueue,
+  stepExecution,
+  buildHostRunQueueForExercise,
+  type HostRunStep,
+} from '@/lib/personal/trainingHostRun';
+import {
+  buildSeriesPrescriptionTarget,
+  type SeriesPrescriptionPatch,
+} from '@/lib/personal/propagateSeriesPrescription';
+import { readOrganizationShellBrandingResponse } from '@/lib/organization/readOrganizationShellBrandingResponse';
+import {
+  PLATFORM_SHELL_LOGO_SRC,
+  resolveOrganizationShellLogoUrl,
+} from '@/lib/organization/resolveOrganizationShellLogoUrl';
+import { metaPacienteAuthFetch } from '@/lib/meta/metaPacienteAuthFetch';
+import { DEFAULT_PUBLIC_PAGE_LOGO_SRC } from '@/lib/whiteLabel/publicPagesTheme';
+import {
+  catalogExerciseIsAdded,
+  clonePrescriptionWithNewIds,
+  insertDuplicatedExercise,
+  reorderSelectedExercises,
+  sanitizeTrainerNote,
+  toSelectedExerciseDraft,
+  type SelectedExerciseDraft,
+} from '@/lib/personal/workoutDraft';
+import { getMetaHomeFirstName } from '@/components/meta/home/MetaPatientHeader';
+import {
+  PersonalPatientHeaderActions,
+  type PersonalVinculadoPerfil,
+} from '@/components/personal/patient/PersonalPatientHeaderActions';
+import {
+  PersonalEditWorkoutCard,
+  PersonalExerciseListHeader,
+  PersonalNotesHeader,
+  PersonalTodayHeroCard,
+} from '@/components/personal/patient/PersonalHojeMobileCards';
+import { PatientTrainingHistory } from '@/components/personal/patient/PatientTrainingHistory';
+import { notifyPacienteTreinoPersonalClient } from '@/lib/personal/notifyPacienteTreinoPersonalClient';
+import { generateSessionDates as generateTrainingSessionDates } from '@/lib/personal/trainingRecurrence';
+import { inferRecurringConfigFromSessions as inferRecurringConfigFromSessionsShared } from '@/lib/personal/inferRecurringConfig';
+import { exerciseGymMediaService } from '@/services/exerciseGymMediaService';
+import {
+  deleteExerciseGymMediaClient,
+  uploadExerciseGymMediaClient,
+} from '@/lib/personal/uploadExerciseGymMediaClient';
+import type { ExerciseGymMedia } from '@/lib/personal/exerciseGymMedia';
 
 type Tab = 'hoje' | 'cronograma' | 'criar' | 'historico' | 'estatisticas' | 'config';
 const EXERCISE_FETCH_LIMIT = 300;
-const EXERCISE_GIF_RESOLUTION: '180' | '360' | '720' | '1080' = '1080';
+/** 360 = bom equilíbrio (1080 é ~1.7MB/GIF e falha mais em rede lenta). */
+const EXERCISE_GIF_RESOLUTION: '180' | '360' | '720' | '1080' = '360';
+const EXERCISE_GIF_THUMB_RESOLUTION: '180' | '360' | '720' | '1080' = '180';
 
 /**
- * Constrói a URL do GIF do exercício usando nossa rota proxy
- * A API ExerciseDB não retorna gifUrl diretamente, mas fornece via endpoint /image
- * Usamos nossa rota proxy para autenticar com a RapidAPI key
+ * Constrói a URL do GIF do exercício usando nossa rota proxy.
+ * Sempre use o ID da ExerciseDB (não o id do documento Firestore).
  */
-function getExerciseGifUrl(exerciseId: string, resolution: '180' | '360' | '720' | '1080' = EXERCISE_GIF_RESOLUTION): string {
-  return `/api/exercisedb/image?exerciseId=${exerciseId}&resolution=${resolution}`;
+function getExerciseGifUrl(
+  exerciseDbId: string,
+  resolution: '180' | '360' | '720' | '1080' = EXERCISE_GIF_RESOLUTION
+): string {
+  const id = String(exerciseDbId || '').trim();
+  if (!id) return '';
+  return `/api/exercisedb/image?exerciseId=${encodeURIComponent(id)}&resolution=${resolution}`;
+}
+
+/** Resolve o ID ExerciseDB a partir de um exercício da API ou da sessão. */
+function resolveExerciseDbId(ex: {
+  id?: string;
+  exerciseId?: string;
+  source?: string;
+}): string {
+  const fromSession = String(ex.exerciseId || '').trim();
+  if (fromSession) return fromSession;
+  const fromApi = String(ex.id || '').trim();
+  // IDs ExerciseDB são tipicamente numéricos curtos ("0025"); docs Firestore são longos.
+  // Se só temos id e parece Firestore, não use.
+  if (fromApi && /^\d{1,6}$/.test(fromApi)) return fromApi;
+  if (fromApi && !fromApi.includes('/') && fromApi.length <= 8) return fromApi;
+  return fromApi && fromApi.length < 28 ? fromApi : '';
+}
+
+function resolveExerciseGifUrl(
+  ex: { id?: string; exerciseId?: string; gifUrl?: string | null },
+  resolution: '180' | '360' | '720' | '1080' = EXERCISE_GIF_RESOLUTION
+): string {
+  const dbId = resolveExerciseDbId(ex);
+  if (dbId) return getExerciseGifUrl(dbId, resolution);
+  const existing = String(ex.gifUrl || '').trim();
+  // Só reutiliza gifUrl salvo se já apontar para nosso proxy com exerciseId
+  if (existing.includes('/api/exercisedb/image?') && existing.includes('exerciseId=')) {
+    return existing;
+  }
+  return '';
+}
+
+function withResolvedGifUrls<T extends { id?: string; exerciseId?: string; gifUrl?: string | null }>(
+  exercises: T[],
+  resolution: '180' | '360' | '720' | '1080' = EXERCISE_GIF_RESOLUTION
+): T[] {
+  return exercises.map((ex) => ({
+    ...ex,
+    gifUrl: resolveExerciseGifUrl(ex, resolution) || ex.gifUrl || undefined,
+  }));
+}
+
+function translateDifficulty(value?: string): string | null {
+  if (!value) return null;
+  const map: Record<string, string> = {
+    beginner: 'Iniciante',
+    intermediate: 'Intermediário',
+    advanced: 'Avançado',
+  };
+  return map[value.toLowerCase()] || value;
+}
+
+function translateCategory(value?: string): string | null {
+  if (!value) return null;
+  const map: Record<string, string> = {
+    strength: 'Força',
+    cardio: 'Cardio',
+    mobility: 'Mobilidade',
+    balance: 'Equilíbrio',
+    stretching: 'Alongamento',
+    plyometrics: 'Pliometria',
+    rehabilitation: 'Reabilitação',
+  };
+  return map[value.toLowerCase()] || value;
 }
 
 /** YYYY-MM-DD em horário local (scheduledDate no Firestore é local). */
@@ -70,6 +263,152 @@ function toLocalYYYYMMDD(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** Iniciais Seg–Dom (X = sexta, para não colidir com Sábado/Segunda). */
+const WEEKDAY_LETTERS = ['S', 'T', 'Q', 'Q', 'X', 'S', 'D'] as const;
+/** Letras do calendário circular (esboço: sexta e sábado compartilham S; o nome completo fica no aria-label). */
+const WEEKDAY_CIRCLE_LETTERS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'] as const;
+const WEEKDAY_LABELS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'] as const;
+const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] as const;
+
+/** Saudação pelo horário local do aparelho. 05–11 dia, 12–17 tarde, 18–04 noite. */
+function greetingLabelForHour(hour: number): string {
+  if (hour >= 5 && hour < 12) return 'Bom dia,';
+  if (hour >= 12 && hour < 18) return 'Boa tarde,';
+  return 'Boa noite,';
+}
+
+function msUntilNextGreetingBoundary(now = new Date()): number {
+  const hour = now.getHours();
+  const next = [5, 12, 18].find((boundary) => boundary > hour);
+  const target = new Date(now);
+  if (next == null) {
+    target.setDate(target.getDate() + 1);
+    target.setHours(5, 0, 0, 0);
+  } else {
+    target.setHours(next, 0, 0, 0);
+  }
+  return Math.max(1000, target.getTime() - now.getTime() + 250);
+}
+
+function weekDayStatusLabel(temTreino: boolean, progresso: number): string {
+  if (progresso >= 100) return ', treino realizado';
+  if (progresso > 0) return `, treino em andamento, ${progresso}% concluído`;
+  if (temTreino) return ', treino agendado';
+  return '';
+}
+
+function weekDayDotClass(temTreino: boolean, progresso: number): string {
+  if (progresso >= 100) return 'bg-[#4CCB7A]';
+  if (progresso > 0) return 'bg-orange-400';
+  if (temTreino) return 'bg-[#7EB6E8]';
+  return 'bg-white/25';
+}
+
+/** Borda neon laranja de progresso do treino (inset da borda verde quando selecionado). */
+function CalendarDayProgressBorder({
+  percent,
+  selected = false,
+  dense = false,
+  circular = false,
+}: {
+  percent: number;
+  selected?: boolean;
+  dense?: boolean;
+  circular?: boolean;
+}) {
+  if (percent <= 0) return null;
+  const inset = selected ? (dense ? 'inset-[3px]' : 'inset-[4px]') : dense ? 'inset-[2px]' : 'inset-[2.5px]';
+  return (
+    <span
+      aria-hidden
+      className={`pointer-events-none absolute ${circular ? 'rounded-full' : 'rounded-[10px]'} ${inset}`}
+      style={{
+        padding: dense ? 1.5 : 2,
+        background: `conic-gradient(from -90deg, #F97316 ${percent}%, transparent 0)`,
+        WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        WebkitMaskComposite: 'xor',
+        maskComposite: 'exclude',
+        boxShadow:
+          percent >= 100
+            ? '0 0 12px rgba(249, 115, 22, 0.55)'
+            : '0 0 8px rgba(249, 115, 22, 0.3)',
+      }}
+    />
+  );
+}
+
+function sameCalendarDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/** Item de injetável no calendário Personal (Cronograma). */
+type CalendarioInjetavelItem = {
+  data: Date;
+  protocoloNome: string;
+  semana: number;
+  observacao?: string;
+  realizado: boolean;
+  aplicacaoId: string;
+};
+
+function statusInjetavelNoDia(item: { data: Date; realizado: boolean }): 'aplicado' | 'hoje' | 'pendente' | 'futura' {
+  if (item.realizado) return 'aplicado';
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const d = new Date(item.data);
+  d.setHours(0, 0, 0, 0);
+  if (d.getTime() === hoje.getTime()) return 'hoje';
+  if (d.getTime() < hoje.getTime()) return 'pendente';
+  return 'futura';
+}
+
+function CalendarioInjetavelBadge({
+  items,
+  dense = false,
+}: {
+  items: CalendarioInjetavelItem[];
+  dense?: boolean;
+}) {
+  if (items.length === 0) return null;
+  const allDone = items.every((i) => i.realizado);
+  return (
+    <span
+      className={`${dense ? 'w-4 h-4' : 'w-5 h-5'} rounded-full flex items-center justify-center ${
+        allDone
+          ? 'bg-[#4CCB7A]/25 ring-1 ring-[#4CCB7A]/80 text-[#4CCB7A] shadow-[0_0_8px_rgba(76,203,122,0.5)]'
+          : 'bg-[#F97316]/20 ring-1 ring-[#F97316]/80 text-[#F97316] shadow-[0_0_8px_rgba(249,115,22,0.55)]'
+      }`}
+      title={items
+        .map(
+          (i) =>
+            `${i.protocoloNome} · Semana ${i.semana}${i.realizado ? ' (aplicado)' : ''}`
+        )
+        .join(', ')}
+    >
+      <Pill className={dense ? 'w-2.5 h-2.5' : 'w-3 h-3'} aria-hidden />
+    </span>
+  );
+}
+
+/** Semana atual com início na segunda-feira. */
+function getCurrentWeekDates(ref: Date = new Date()): Date[] {
+  const base = new Date(ref);
+  base.setHours(0, 0, 0, 0);
+  const dow = base.getDay(); // 0 = domingo
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(base);
+  monday.setDate(base.getDate() + mondayOffset);
+  return Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + i);
+    return day;
+  });
 }
 
 /** ETAPA 0 v2 — Mini design system local (tokens + componentes) */
@@ -138,11 +477,41 @@ export function PersonalPageContent({
   embedded = false,
   pacienteProp,
   fromMetapersonalEmbedded = false,
+  fromMetaadminEmbedded = false,
+  metaadminFullscreen = false,
+  suppressAppHeader = false,
+  professionalReadOnly = false,
+  professionalViewerRole,
+  onCloseMetaadmin,
+  metaadminHeaderExtra,
+  patientBrowserTabs,
 }: {
   embedded?: boolean;
   pacienteProp?: any;
   /** Quando true, aberto dentro do Metapersonal (mesma página, menu inferior visível); header só "Aluno: nome" */
   fromMetapersonalEmbedded?: boolean;
+  /** Aberto no Personal do metaadmin (médico): espelha abas do paciente; vínculo fica no container. */
+  fromMetaadminEmbedded?: boolean;
+  /** Mobile metaadmin: mesma tela cheia do metapersonal. */
+  metaadminFullscreen?: boolean;
+  /** Cabeçalho do paciente já renderizado pelo container (ex.: PacienteModalHeader). */
+  suppressAppHeader?: boolean;
+  /** Médico: visualiza sem criar/editar/apagar treinos. */
+  professionalReadOnly?: boolean;
+  /** Papel na anamnese / plano gerado. Default: personal_trainer (metapersonal) ou doctor (metaadmin). */
+  professionalViewerRole?: 'doctor' | 'personal_trainer';
+  onCloseMetaadmin?: () => void;
+  /** Controles de vínculo personal no header (tela cheia do médico). */
+  metaadminHeaderExtra?: React.ReactNode;
+  /** Mobile metapersonal: abas de pacientes no header, como um navegador. */
+  patientBrowserTabs?: {
+    tabs: Array<{ id: string; nome: string }>;
+    activeId: string;
+    onSelect: (id: string) => void;
+    onClose: (id: string) => void;
+    onAdd: () => void;
+    onCloseAll: () => void;
+  } | null;
 } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -159,7 +528,14 @@ export function PersonalPageContent({
   const [todaySessions, setTodaySessions] = useState<TrainingSession[]>([]);
   const [selectedTodaySessionId, setSelectedTodaySessionId] = useState<string | null>(null);
   const [todayExercises, setTodayExercises] = useState<TrainingSessionExercise[]>([]);
+  const [muscleImageFailed, setMuscleImageFailed] = useState(false);
   const [loadingToday, setLoadingToday] = useState(false);
+  /** Data selecionada na faixa Seg–Dom (YYYY-MM-DD). Default = hoje. */
+  const [selectedHojeDate, setSelectedHojeDate] = useState(() => toLocalYYYYMMDD(new Date()));
+  /** Datas da semana atual que já têm treino gravado (indicador nas bolinhas). */
+  const [weekDatesWithSessions, setWeekDatesWithSessions] = useState<Set<string>>(() => new Set());
+  /** Progresso % do treino por dia (YYYY-MM-DD) para a borda laranja nos retângulos Seg–Dom. */
+  const [weekProgressByDate, setWeekProgressByDate] = useState<Record<string, number>>({});
   const [patientNotes, setPatientNotes] = useState('');
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
@@ -172,12 +548,64 @@ export function PersonalPageContent({
   const [showAllCalendarExercises, setShowAllCalendarExercises] = useState(false);
   const [showAllHistoricoExercises, setShowAllHistoricoExercises] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [dayGreeting, setDayGreeting] = useState<string | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [notesSheetOpen, setNotesSheetOpen] = useState(false);
   const [isWorkoutRunning, setIsWorkoutRunning] = useState(false);
   const [activeRunSession, setActiveRunSession] = useState<TrainingSession | null>(null);
   const [activeRunExerciseId, setActiveRunExerciseId] = useState<string | null>(null);
+  const activeRunExerciseIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeRunExerciseIdRef.current = activeRunExerciseId;
+  }, [activeRunExerciseId]);
+  const [runExerciseDetails, setRunExerciseDetails] = useState<Exercise | null>(null);
+  const [loadingRunDetails, setLoadingRunDetails] = useState(false);
+  const runExerciseDetailsCacheRef = useRef<Map<string, Exercise>>(new Map());
+  const [runDetailsSheetOpen, setRunDetailsSheetOpen] = useState(false);
+  const [runNotesSheetOpen, setRunNotesSheetOpen] = useState(false);
+  const [runGymMediaSheetOpen, setRunGymMediaSheetOpen] = useState(false);
+  const [runGymMedia, setRunGymMedia] = useState<ExerciseGymMedia | null>(null);
+  const [showRunGymMediaPreview, setShowRunGymMediaPreview] = useState(false);
+  const [gymMediaUploading, setGymMediaUploading] = useState(false);
+  const [gymMediaError, setGymMediaError] = useState<string | null>(null);
+  const [runDetailsTranslated, setRunDetailsTranslated] = useState<{
+    descriptionPt: string | null;
+    instructionsPt: string[];
+  } | null>(null);
+  const [loadingRunDetailsTranslate, setLoadingRunDetailsTranslate] = useState(false);
+  const runDetailsTranslateCacheRef = useRef<
+    Map<string, { descriptionPt: string | null; instructionsPt: string[] }>
+  >(new Map());
   const [restSecondsLeft, setRestSecondsLeft] = useState<number | null>(null);
+  const [restTotalSec, setRestTotalSec] = useState<number | null>(null);
+  const [organizationShellBranding, setOrganizationShellBranding] = useState<{
+    logoDarkUrl?: string | null;
+    logoLightUrl?: string | null;
+    logoMainUrl?: string | null;
+    iconUrl?: string | null;
+    publicName?: string | null;
+  } | null>(null);
+  const [organizationShellContext, setOrganizationShellContext] = useState<{
+    organizationId: string | null;
+    organizationMatch: boolean;
+  }>({ organizationId: null, organizationMatch: true });
+  const persistSeriesPrescriptionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistSeriesPrescriptionPendingRef = useRef<{
+    seriesId: string;
+    patch: SeriesPrescriptionPatch;
+  } | null>(null);
+  const persistingPrescriptionRef = useRef(false);
   const [isRestRunning, setIsRestRunning] = useState(false);
+  const [restAdvanceMode, setRestAdvanceMode] = useState<'series' | 'exercise'>('series');
+  const restAdvanceModeRef = useRef<'series' | 'exercise'>('series');
+  const [runExecution, setRunExecution] = useState<TrainingExerciseExecution | null>(null);
+  const [runIntercalationExecutions, setRunIntercalationExecutions] = useState<
+    Record<string, TrainingExerciseExecution>
+  >({});
+  const [loadingRunExecution, setLoadingRunExecution] = useState(false);
+  const [runExecutionError, setRunExecutionError] = useState(false);
+  const [savingRunSeries, setSavingRunSeries] = useState(false);
+  const savingRunSeriesRef = useRef(false);
   const [workoutElapsedSec, setWorkoutElapsedSec] = useState(0);
   const [workoutPaused, setWorkoutPaused] = useState(false);
   const [restDefaultSec, setRestDefaultSec] = useState(60);
@@ -198,11 +626,20 @@ export function PersonalPageContent({
   const [sessoesCalendario, setSessoesCalendario] = useState<TrainingSession[]>([]);
   const [showTreinosToggle, setShowTreinosToggle] = useState(true);
   const [showAplicacoesToggle, setShowAplicacoesToggle] = useState(true);
+  const [showInjetaveisToggle, setShowInjetaveisToggle] = useState(true);
   const [showPagamentosToggle, setShowPagamentosToggle] = useState(true);
   const [aplicacoesCalendario, setAplicacoesCalendario] = useState<Array<{ data: Date; semana: number; dose: number; status: string }>>([]);
+  const [injetaveisCalendario, setInjetaveisCalendario] = useState<CalendarioInjetavelItem[]>([]);
   const [pagamentosCalendario, setPagamentosCalendario] = useState<Array<{ data: Date; tipo: 'nutri' | 'personal'; valor: number; parcela?: number }>>([]);
   const [paciente, setPaciente] = useState<any>(null);
   const [medicoResponsavel, setMedicoResponsavel] = useState<Medico | null>(null);
+  /** Personal vinculado ao paciente (modo cliente / app fullscreen). */
+  const [personalVinculado, setPersonalVinculado] = useState<PersonalVinculadoPerfil | null>(null);
+  const [agregadoPersonalVinculado, setAgregadoPersonalVinculado] = useState<{
+    count: number;
+    media: number;
+  } | null>(null);
+  const [libraryPersonalTrainerId, setLibraryPersonalTrainerId] = useState<string | null>(null);
   const [aplicacaoSelecionada, setAplicacaoSelecionada] = useState<Date | null>(null);
   const [pagamentoSelecionado, setPagamentoSelecionado] = useState<Date | null>(null);
 
@@ -218,9 +655,7 @@ export function PersonalPageContent({
   const [bodyPartCatalogExercises, setBodyPartCatalogExercises] = useState<Exercise[]>([]);
   const [exercisesResults, setExercisesResults] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
-  const [selectedExercises, setSelectedExercises] = useState<
-    Array<Exercise & { sets: number; reps: number; restSec: number }>
-  >([]);
+  const [selectedExercises, setSelectedExercises] = useState<SelectedExerciseDraft[]>([]);
   const [newSessionTitle, setNewSessionTitle] = useState('');
   const [newSessionDate, setNewSessionDate] = useState('');
   const [sessionType, setSessionType] = useState<'single' | 'recurring'>('single');
@@ -229,11 +664,23 @@ export function PersonalPageContent({
   const [timesPerWeek, setTimesPerWeek] = useState(3);
   const [selectedDaysOfWeek, setSelectedDaysOfWeek] = useState<number[]>([]);
   const [creatingSession, setCreatingSession] = useState(false);
-  const [criarTab, setCriarTab] = useState<'novo' | 'salvos'>('novo');
+  const [criarTab, setCriarTab] = useState<'novo' | 'salvos' | 'biblioteca'>('novo');
+  const [criarTreinoSheetOpen, setCriarTreinoSheetOpen] = useState(false);
+  const [criarPortalReady, setCriarPortalReady] = useState(false);
   const [editingSessionIds, setEditingSessionIds] = useState<string[]>([]);
   const [editingRecurrenceGroupId, setEditingRecurrenceGroupId] = useState<string | null>(null);
+  const [isWorkoutDraftDirty, setIsWorkoutDraftDirty] = useState(false);
+  const [isLibraryDraftDirty, setIsLibraryDraftDirty] = useState(false);
+  const [importTemplateOpen, setImportTemplateOpen] = useState(false);
+  const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
+  const [expandedExerciseIds, setExpandedExerciseIds] = useState<string[]>([]);
+  const [intercalationPick, setIntercalationPick] = useState<{
+    draftId: string;
+    afterSeriesId: string;
+  } | null>(null);
   const [savedSessionsCriar, setSavedSessionsCriar] = useState<TrainingSession[]>([]);
   const [loadingSavedSessionsCriar, setLoadingSavedSessionsCriar] = useState(false);
+  const [togglingSavedGroupKey, setTogglingSavedGroupKey] = useState<string | null>(null);
 
   // Estados do Histórico
   const [historicoSessions, setHistoricoSessions] = useState<TrainingSession[]>([]);
@@ -243,17 +690,19 @@ export function PersonalPageContent({
   const [selectedSessionExercises, setSelectedSessionExercises] = useState<
     TrainingSessionExercise[]
   >([]);
+  const [selectedHistoricoExecutions, setSelectedHistoricoExecutions] = useState<
+    Record<string, TrainingExerciseExecution>
+  >({});
+  const [workoutPrintOpen, setWorkoutPrintOpen] = useState(false);
+  const [workoutPrintData, setWorkoutPrintData] = useState<WorkoutPrintData | null>(null);
+  const [loadingWorkoutPrint, setLoadingWorkoutPrint] = useState(false);
+  const [loggedPersonalName, setLoggedPersonalName] = useState<string | null>(null);
   const [mesHistoricoCalendario, setMesHistoricoCalendario] = useState(new Date());
   const [semanaHistoricoCalendario, setSemanaHistoricoCalendario] = useState(new Date());
   const [visualizacaoHistoricoCalendario, setVisualizacaoHistoricoCalendario] = useState<'mes' | 'semana'>('semana');
   const [diaHistoricoSelecionado, setDiaHistoricoSelecionado] = useState<Date | null>(new Date());
   const [historicoAplicacaoSelecionada, setHistoricoAplicacaoSelecionada] = useState<Date | null>(null);
   const [historicoPagamentoSelecionado, setHistoricoPagamentoSelecionado] = useState<Date | null>(null);
-
-  // Estados de Estatísticas
-  const [adherence7d, setAdherence7d] = useState(0);
-  const [adherence30d, setAdherence30d] = useState(0);
-  const [treinosPorSemana, setTreinosPorSemana] = useState<number[]>([]);
 
   // Estados de Lembretes
   const [reminderPrefs, setReminderPrefs] = useState<TrainingReminderPrefs | null>(null);
@@ -294,30 +743,71 @@ export function PersonalPageContent({
 
   // from=metapersonal ou fromMetapersonalEmbedded: header só "Aluno: nome"
   const fromMetapersonal = searchParams.get('from') === 'metapersonal' || fromMetapersonalEmbedded;
+  const isProfessionalEmbed = fromMetapersonal || fromMetaadminEmbedded;
+  const restLogoSrc = useMemo(
+    () =>
+      resolveOrganizationShellLogoUrl(organizationShellBranding, {
+        darkBackground: true,
+        fallbackSrc:
+          organizationShellContext.organizationId &&
+          organizationShellContext.organizationId !== 'metodo'
+            ? PLATFORM_SHELL_LOGO_SRC
+            : DEFAULT_PUBLIC_PAGE_LOGO_SRC,
+      }),
+    [organizationShellBranding, organizationShellContext.organizationId]
+  );
+  const restLogoAlt = organizationShellBranding?.publicName?.trim() || 'Organização';
+  const resolvedProfessionalRole: 'doctor' | 'personal_trainer' =
+    professionalViewerRole || (fromMetaadminEmbedded ? 'doctor' : 'personal_trainer');
+  const blockProfessionalMutations = professionalReadOnly || fromMetaadminEmbedded;
 
-  // Ler pacienteId da query string e verificar autorização
+  // Ler pacienteId da query string e verificar autorização.
+  // Embedded (metapersonal / metaadmin / metanutri): ativa modo PT com o pacienteProp.
   useEffect(() => {
     const pacienteId = searchParams.get('pacienteId');
-    console.log('[useEffect] pacienteId da query:', pacienteId);
+    const embeddedPacienteId =
+      (fromMetapersonalEmbedded || fromMetaadminEmbedded) && pacienteProp
+        ? String(pacienteProp.id || pacienteProp.userId || '')
+        : '';
+    console.log('[useEffect] pacienteId da query:', pacienteId, 'embeddedPacienteId:', embeddedPacienteId || null);
     if (pacienteId) {
       setPacienteIdFromQuery(pacienteId);
       setIsPersonalTrainerMode(true);
       console.log('[useEffect] Modo personal trainer ativado, pacienteId:', pacienteId);
+    } else if (embeddedPacienteId) {
+      setPacienteIdFromQuery(embeddedPacienteId);
+      setIsPersonalTrainerMode(true);
+      setAuthorizationError(null);
+      console.log('[useEffect] Modo personal trainer (embedded profissional), pacienteId:', embeddedPacienteId);
     } else {
       setPacienteIdFromQuery(null);
       setIsPersonalTrainerMode(false);
       setAuthorizationError(null);
       console.log('[useEffect] Modo paciente normal');
     }
-  }, [searchParams]);
+  }, [
+    searchParams,
+    fromMetapersonalEmbedded,
+    fromMetaadminEmbedded,
+    pacienteProp?.id,
+    pacienteProp?.userId,
+  ]);
 
   // Verificar autorização quando houver pacienteId e user
   // Se veio do /metapersonal (com pacienteId na query), confiar que já tem acesso
   // pois o paciente só aparece na lista se o Personal Trainer tiver acesso
+  // Embeds de médico/nutri (fromMetaadminEmbedded): só visualização — não exige PT
   useEffect(() => {
     const verifyAuthorization = async () => {
       if (!pacienteIdFromQuery || !user) {
         setAuthorizationError(null);
+        setLoggedPersonalName(null);
+        return;
+      }
+
+      if (fromMetaadminEmbedded || professionalReadOnly) {
+        setAuthorizationError(null);
+        setLoggedPersonalName(null);
         return;
       }
       
@@ -325,9 +815,11 @@ export function PersonalPageContent({
         // Verificar se o usuário é um personal trainer
         const personalTrainer = await PersonalTrainerService.getPersonalTrainerByUserId(user.uid);
         if (!personalTrainer) {
+          setLoggedPersonalName(null);
           setAuthorizationError('Acesso negado: você não é um Personal Trainer.');
           return;
         }
+        setLoggedPersonalName(String(personalTrainer.nome || '').trim() || null);
 
         // Se veio através do /metapersonal, confiar que tem acesso
         // Verificar de forma silenciosa apenas para logging, mas sempre permitir acesso
@@ -368,7 +860,50 @@ export function PersonalPageContent({
     };
 
     verifyAuthorization();
-  }, [pacienteIdFromQuery, user, paciente]);
+  }, [pacienteIdFromQuery, user, paciente, fromMetaadminEmbedded, professionalReadOnly]);
+
+  useEffect(() => {
+    if (!user) {
+      setOrganizationShellBranding(null);
+      setOrganizationShellContext({ organizationId: null, organizationMatch: true });
+      return;
+    }
+    const endpoint =
+      fromMetapersonalEmbedded || fromMetapersonal
+        ? '/api/metapersonal/organization-branding'
+        : fromMetaadminEmbedded
+          ? '/api/metaadmin/organization-branding'
+          : '/api/meta/organization-branding';
+    let cancelled = false;
+    setOrganizationShellBranding(null);
+    setOrganizationShellContext({ organizationId: null, organizationMatch: true });
+    void (async () => {
+      try {
+        const res =
+          endpoint === '/api/meta/organization-branding'
+            ? await metaPacienteAuthFetch(endpoint)
+            : await fetch(endpoint, {
+                headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+              });
+        const parsed = readOrganizationShellBrandingResponse(res.ok ? await res.json() : null);
+        if (!cancelled) {
+          setOrganizationShellContext({
+            organizationId: parsed.organizationId,
+            organizationMatch: parsed.organizationMatch,
+          });
+          setOrganizationShellBranding(parsed.branding);
+        }
+      } catch {
+        if (!cancelled) {
+          setOrganizationShellBranding(null);
+          setOrganizationShellContext({ organizationId: null, organizationMatch: true });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, fromMetapersonalEmbedded, fromMetapersonal, fromMetaadminEmbedded]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -389,6 +924,93 @@ export function PersonalPageContent({
     mq.addEventListener('change', handle);
     return () => mq.removeEventListener('change', handle);
   }, []);
+
+  useEffect(() => {
+    let timer = 0;
+    const tick = () => {
+      setDayGreeting(greetingLabelForHour(new Date().getHours()));
+      timer = window.setTimeout(tick, msUntilNextGreetingBoundary());
+    };
+    tick();
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const sync = () => {
+      setKeyboardOpen(window.innerHeight - viewport.height > 140);
+    };
+    sync();
+    viewport.addEventListener('resize', sync);
+    viewport.addEventListener('scroll', sync);
+    return () => {
+      viewport.removeEventListener('resize', sync);
+      viewport.removeEventListener('scroll', sync);
+    };
+  }, []);
+
+  // Paciente em desktop: Personal fica no shell do /meta (sidebar), como o /metapersonal.
+  useEffect(() => {
+    if (embedded || metaadminFullscreen || fromMetapersonalEmbedded || fromMetaadminEmbedded) return;
+    if (searchParams.get('pacienteId') || searchParams.get('from') === 'metapersonal') return;
+    if (typeof window === 'undefined') return;
+    if (window.innerWidth >= 1024) {
+      router.replace('/meta?menu=personal');
+    }
+  }, [
+    embedded,
+    metaadminFullscreen,
+    fromMetapersonalEmbedded,
+    fromMetaadminEmbedded,
+    searchParams,
+    router,
+  ]);
+
+  useEffect(() => {
+    setCriarPortalReady(true);
+  }, []);
+
+  // App fullscreen (standalone ou embutido com overlay): trava scroll do body
+  useEffect(() => {
+    if (embedded) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [embedded]);
+
+  // Modais portados (Salvar / Iniciar treino): trava overscroll e scroll por baixo
+  const isOverlayModalOpen =
+    criarTreinoSheetOpen ||
+    importTemplateOpen ||
+    saveAsTemplateOpen ||
+    (isWorkoutRunning && !selectedSessionForDetail);
+  useEffect(() => {
+    if (!isOverlayModalOpen) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      htmlOverscroll: html.style.overscrollBehavior,
+      bodyOverscroll: body.style.overscrollBehavior,
+      bodyTouchAction: body.style.touchAction,
+    };
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    html.style.overscrollBehavior = 'none';
+    body.style.overscrollBehavior = 'none';
+    body.style.touchAction = 'none';
+    return () => {
+      html.style.overflow = prev.htmlOverflow;
+      body.style.overflow = prev.bodyOverflow;
+      html.style.overscrollBehavior = prev.htmlOverscroll;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
+      body.style.touchAction = prev.bodyTouchAction;
+    };
+  }, [isOverlayModalOpen]);
 
   useEffect(() => {
     try {
@@ -419,6 +1041,10 @@ export function PersonalPageContent({
   }, [activeRunSession, selectedTodaySessionId, todayExercises, selectedSessionExercisesDetail]);
 
   useEffect(() => {
+    if (restSecondsLeft == null) setRestTotalSec(null);
+  }, [restSecondsLeft]);
+
+  useEffect(() => {
     if (!isRestRunning || restSecondsLeft == null) return;
     const t = setInterval(() => {
       setRestSecondsLeft((prev) => {
@@ -439,9 +1065,13 @@ export function PersonalPageContent({
             } catch (_) {}
           }
           setTimeout(() => setRestFinishedBadge(false), 2000);
-          const list = runExercisesRef.current;
-          const next = list?.find((ex) => ex.status !== 'done' && ex.status !== 'skipped');
-          setActiveRunExerciseId(next?.id ?? null);
+          if (restAdvanceModeRef.current === 'exercise') {
+            const list = runExercisesRef.current ?? [];
+            const currentId = activeRunExerciseIdRef.current;
+            const currentIdx = list.findIndex((ex) => ex.id === currentId);
+            const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % Math.max(list.length, 1);
+            setActiveRunExerciseId(list[nextIdx]?.id ?? currentId ?? null);
+          }
           return null;
         }
         return prev - 1;
@@ -457,6 +1087,10 @@ export function PersonalPageContent({
   }, [isWorkoutRunning, workoutPaused]);
 
   const startWorkout = useCallback((session: TrainingSession | null, exerciseId: string | null) => {
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem iniciar o treino por aqui.');
+      return;
+    }
     if (!session || !exerciseId) return;
     setActiveRunSession(session);
     setActiveRunExerciseId(exerciseId);
@@ -465,8 +1099,12 @@ export function PersonalPageContent({
     setWorkoutPaused(false);
     setRestSecondsLeft(null);
     setIsRestRunning(false);
+    setRunExecution(null);
+    setRunIntercalationExecutions({});
+    setLoadingRunExecution(false);
+    setSavingRunSeries(false);
     workoutStartAtRef.current = Date.now();
-  }, []);
+  }, [blockProfessionalMutations]);
 
   // Definir todas as funções useCallback antes dos useEffect que as usam
   const loadPaciente = useCallback(async () => {
@@ -534,18 +1172,9 @@ export function PersonalPageContent({
 
   const loadCalendarSessions = useCallback(async () => {
     // Usar userId do paciente se disponível (sessões são criadas com userId)
-    let patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
+    const patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
     if (!patientId) return;
-    
-    // Se userId tem formato "uid_timestamp", tentar também apenas o uid base
-    let patientIdBase = patientId;
-    if (patientId.includes('_') && paciente?.userId) {
-      const parts = paciente.userId.split('_');
-      if (parts.length > 1) {
-        patientIdBase = parts[0];
-      }
-    }
-    
+
     try {
       console.log('[loadCalendarSessions] Buscando sessões para patientId:', patientId);
       let startDate: string;
@@ -573,20 +1202,12 @@ export function PersonalPageContent({
         endDate = toLocalYYYYMMDD(ultimoDia);
       }
 
-      let sessions = await trainingSessionService.getPatientSessions(patientId, {
+      const sessions = await trainingSessionService.getPatientSessions(patientId, {
         startDate,
         endDate,
+        activeOnly: true,
       });
-      
-      // Se não encontrou e tem formato com timestamp, tentar com UID base
-      if (sessions.length === 0 && patientIdBase !== patientId) {
-        console.log('[loadCalendarSessions] Tentando buscar com UID base:', patientIdBase);
-        sessions = await trainingSessionService.getPatientSessions(patientIdBase, {
-          startDate,
-          endDate,
-        });
-      }
-      
+
       setSessoesCalendario(sessions);
     } catch (error) {
       console.error('Erro ao carregar sessões do calendário:', error);
@@ -595,18 +1216,9 @@ export function PersonalPageContent({
 
   const loadHistorico = useCallback(async () => {
     // Usar userId do paciente se disponível (sessões são criadas com userId)
-    let patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
+    const patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
     if (!patientId) return;
-    
-    // Se userId tem formato "uid_timestamp", tentar também apenas o uid base
-    let patientIdBase = patientId;
-    if (patientId.includes('_') && paciente?.userId) {
-      const parts = paciente.userId.split('_');
-      if (parts.length > 1) {
-        patientIdBase = parts[0];
-      }
-    }
-    
+
     setLoadingHistorico(true);
     setHistoricoExerciseStatusMap({});
     try {
@@ -617,20 +1229,11 @@ export function PersonalPageContent({
       const startDate = umAnoAtras.toISOString().split('T')[0];
       const endDate = hoje.toISOString().split('T')[0];
 
-      let sessions = await trainingSessionService.getPatientSessions(patientId, {
+      const sessions = await trainingSessionService.getPatientSessions(patientId, {
         startDate,
         endDate,
       });
-      
-      // Se não encontrou e tem formato com timestamp, tentar com UID base
-      if (sessions.length === 0 && patientIdBase !== patientId) {
-        console.log('[loadHistorico] Tentando buscar com UID base:', patientIdBase);
-        sessions = await trainingSessionService.getPatientSessions(patientIdBase, {
-          startDate,
-          endDate,
-        });
-      }
-      
+
       setHistoricoSessions(sessions);
       const sessionStatusMap: Record<string, boolean> = {};
       await Promise.all(
@@ -659,14 +1262,8 @@ export function PersonalPageContent({
   }, [pacienteIdFromQuery, user, paciente]);
 
   const loadSavedSessionsCriar = useCallback(async () => {
-    let patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
+    const patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
     if (!patientId) return;
-
-    let patientIdBase = patientId;
-    if (patientId.includes('_') && paciente?.userId) {
-      const parts = paciente.userId.split('_');
-      if (parts.length > 1) patientIdBase = parts[0];
-    }
 
     setLoadingSavedSessionsCriar(true);
     try {
@@ -678,132 +1275,16 @@ export function PersonalPageContent({
       const startDate = umAnoAtras.toISOString().split('T')[0];
       const endDate = umAnoFrente.toISOString().split('T')[0];
 
-      let sessions = await trainingSessionService.getPatientSessions(patientId, {
+      const sessions = await trainingSessionService.getPatientSessions(patientId, {
         startDate,
         endDate,
       });
-
-      if (sessions.length === 0 && patientIdBase !== patientId) {
-        sessions = await trainingSessionService.getPatientSessions(patientIdBase, {
-          startDate,
-          endDate,
-        });
-      }
 
       setSavedSessionsCriar(sessions);
     } catch (error) {
       console.error('Erro ao carregar treinos salvos:', error);
     } finally {
       setLoadingSavedSessionsCriar(false);
-    }
-  }, [pacienteIdFromQuery, user, paciente]);
-
-  const loadEstatisticas = useCallback(async () => {
-    // Usar userId do paciente se disponível (sessões são criadas com userId)
-    let patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
-    if (!patientId) return;
-    
-    // Se userId tem formato "uid_timestamp", tentar também apenas o uid base
-    let patientIdBase = patientId;
-    if (patientId.includes('_') && paciente?.userId) {
-      const parts = paciente.userId.split('_');
-      if (parts.length > 1) {
-        patientIdBase = parts[0];
-      }
-    }
-    
-    try {
-      console.log('[loadEstatisticas] Buscando sessões para patientId:', patientId);
-      const hoje = new Date();
-
-      // Aderência baseada em exercícios feitos (não sessões)
-      const seteDiasAtras = new Date(hoje);
-      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-      const trintaDiasAtras = new Date(hoje);
-      trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
-
-      // Buscar todas as sessões do período
-      let sessions7d = await trainingSessionService.getPatientSessions(patientId, {
-        startDate: seteDiasAtras.toISOString().split('T')[0],
-        endDate: hoje.toISOString().split('T')[0],
-      });
-      let sessions30d = await trainingSessionService.getPatientSessions(patientId, {
-        startDate: trintaDiasAtras.toISOString().split('T')[0],
-        endDate: hoje.toISOString().split('T')[0],
-      });
-      
-      // Se não encontrou e tem formato com timestamp, tentar com UID base
-      if (sessions7d.length === 0 && patientIdBase !== patientId) {
-        console.log('[loadEstatisticas] Tentando buscar com UID base:', patientIdBase);
-        sessions7d = await trainingSessionService.getPatientSessions(patientIdBase, {
-          startDate: seteDiasAtras.toISOString().split('T')[0],
-          endDate: hoje.toISOString().split('T')[0],
-        });
-        sessions30d = await trainingSessionService.getPatientSessions(patientIdBase, {
-          startDate: trintaDiasAtras.toISOString().split('T')[0],
-          endDate: hoje.toISOString().split('T')[0],
-        });
-      }
-
-      // Calcular aderência baseada em exercícios
-      let totalExercises7d = 0;
-      let doneExercises7d = 0;
-      for (const session of sessions7d) {
-        if (session.id) {
-          const exercises = await trainingSessionService.getSessionExercises(session.id);
-          totalExercises7d += exercises.length;
-          doneExercises7d += exercises.filter((ex) => ex.status === 'done').length;
-        }
-      }
-      const adherence7 = totalExercises7d > 0 ? (doneExercises7d / totalExercises7d) * 100 : 0;
-      setAdherence7d(adherence7);
-
-      let totalExercises30d = 0;
-      let doneExercises30d = 0;
-      for (const session of sessions30d) {
-        if (session.id) {
-          const exercises = await trainingSessionService.getSessionExercises(session.id);
-          totalExercises30d += exercises.length;
-          doneExercises30d += exercises.filter((ex) => ex.status === 'done').length;
-        }
-      }
-      const adherence30 = totalExercises30d > 0 ? (doneExercises30d / totalExercises30d) * 100 : 0;
-      setAdherence30d(adherence30);
-
-      // Treinos por semana (últimas 4 semanas) - baseado em exercícios feitos
-      const semanas: number[] = [];
-      for (let i = 3; i >= 0; i--) {
-        const inicioSemana = new Date(hoje);
-        inicioSemana.setDate(inicioSemana.getDate() - (i * 7 + 6));
-        const fimSemana = new Date(hoje);
-        fimSemana.setDate(fimSemana.getDate() - i * 7);
-
-        let sessions = await trainingSessionService.getPatientSessions(patientId, {
-          startDate: inicioSemana.toISOString().split('T')[0],
-          endDate: fimSemana.toISOString().split('T')[0],
-        });
-        
-        // Se não encontrou e tem formato com timestamp, tentar com UID base
-        if (sessions.length === 0 && patientIdBase !== patientId) {
-          sessions = await trainingSessionService.getPatientSessions(patientIdBase, {
-            startDate: inicioSemana.toISOString().split('T')[0],
-            endDate: fimSemana.toISOString().split('T')[0],
-          });
-        }
-        
-        // Contar exercícios feitos na semana
-        let exercisesDone = 0;
-        for (const session of sessions) {
-          if (session.id) {
-            const exercises = await trainingSessionService.getSessionExercises(session.id);
-            exercisesDone += exercises.filter((ex) => ex.status === 'done').length;
-          }
-        }
-        semanas.push(exercisesDone);
-      }
-      setTreinosPorSemana(semanas);
-    } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
     }
   }, [pacienteIdFromQuery, user, paciente]);
 
@@ -823,33 +1304,16 @@ export function PersonalPageContent({
   const loadTodaySession = useCallback(async () => {
     // Usar userId do paciente se disponível (sessões são criadas com userId)
     // Caso contrário, usar pacienteIdFromQuery ou user.uid
-    let patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
+    const patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
     if (!patientId) return;
-    
-    // Se userId tem formato "uid_timestamp", tentar também apenas o uid base
-    // pois as sessões podem ter sido criadas com o UID base
-    let patientIdBase = patientId;
-    if (patientId.includes('_') && paciente?.userId) {
-      // Extrair o UID base (antes do primeiro underscore)
-      const parts = paciente.userId.split('_');
-      if (parts.length > 1) {
-        patientIdBase = parts[0];
-        console.log('[loadTodaySession] userId tem timestamp, tentando também UID base:', patientIdBase);
-      }
-    }
+
+    const dateStr = selectedHojeDate || toLocalYYYYMMDD(new Date());
     
     setLoadingToday(true);
     try {
-      console.log('[loadTodaySession] Buscando sessões para patientId:', patientId);
-      let sessions = await trainingSessionService.getTodaySessions(patientId);
+      console.log('[loadTodaySession] Buscando sessões para patientId:', patientId, 'date:', dateStr);
+      const sessions = await trainingSessionService.getSessionsForDate(patientId, dateStr);
       console.log('[loadTodaySession] Sessões encontradas com userId completo:', sessions.length);
-      
-      // Se não encontrou e tem formato com timestamp, tentar com UID base
-      if (sessions.length === 0 && patientIdBase !== patientId) {
-        console.log('[loadTodaySession] Tentando buscar com UID base:', patientIdBase);
-        sessions = await trainingSessionService.getTodaySessions(patientIdBase);
-        console.log('[loadTodaySession] Sessões encontradas com UID base:', sessions.length);
-      }
       if (sessions.length > 0) {
         setTodaySessions(sessions);
         const firstSession = sessions[0];
@@ -857,7 +1321,7 @@ export function PersonalPageContent({
         setPatientNotes(firstSession.patientNotes || '');
         if (firstSession.id) {
           const exercises = await trainingSessionService.getSessionExercises(firstSession.id);
-          setTodayExercises(exercises);
+          setTodayExercises(withResolvedGifUrls(exercises));
         } else {
           setTodayExercises([]);
         }
@@ -868,7 +1332,7 @@ export function PersonalPageContent({
         setPatientNotes('');
       }
     } catch (error) {
-      console.error('Erro ao carregar sessão de hoje:', error);
+      console.error('Erro ao carregar sessão do dia:', error);
       setTodaySessions([]);
       setSelectedTodaySessionId(null);
       setTodayExercises([]);
@@ -876,21 +1340,79 @@ export function PersonalPageContent({
     } finally {
       setLoadingToday(false);
     }
+  }, [pacienteIdFromQuery, user, paciente, selectedHojeDate]);
+
+  const loadWeekSessionMarkers = useCallback(async () => {
+    const patientId = paciente?.userId || pacienteIdFromQuery || user?.uid || null;
+    if (!patientId) return;
+
+    const week = getCurrentWeekDates();
+    const startDate = toLocalYYYYMMDD(week[0]);
+    const endDate = toLocalYYYYMMDD(week[6]);
+
+    try {
+      const sessions = await trainingSessionService.getPatientSessions(patientId, {
+        startDate,
+        endDate,
+        activeOnly: true,
+      });
+      setWeekDatesWithSessions(new Set(sessions.map((s) => s.scheduledDate).filter(Boolean)));
+
+      const byDate = new Map<string, TrainingSession[]>();
+      for (const session of sessions) {
+        if (!session.scheduledDate) continue;
+        const list = byDate.get(session.scheduledDate) ?? [];
+        list.push(session);
+        byDate.set(session.scheduledDate, list);
+      }
+
+      const progressos: Record<string, number> = {};
+      await Promise.all(
+        [...byDate.entries()].map(async ([dateStr, daySessions]) => {
+          let totalExercises = 0;
+          let doneExercises = 0;
+          for (const session of daySessions) {
+            if (!session.id) continue;
+            try {
+              const exercises = await trainingSessionService.getSessionExercises(session.id);
+              totalExercises += exercises.length;
+              doneExercises += exercises.filter((ex) => ex.status === 'done').length;
+            } catch {
+              // Ignorar sessão individual com falha
+            }
+          }
+          progressos[dateStr] =
+            totalExercises > 0 ? Math.round((doneExercises / totalExercises) * 100) : 0;
+        })
+      );
+      setWeekProgressByDate(progressos);
+    } catch (error) {
+      console.error('Erro ao carregar marcadores da semana:', error);
+      setWeekDatesWithSessions(new Set());
+      setWeekProgressByDate({});
+    }
   }, [pacienteIdFromQuery, user, paciente]);
 
-  // Carregar sessão de hoje ao montar e ao mudar para a tab "Hoje"
+  // Carregar sessão do dia selecionado ao montar e ao mudar para a tab "Hoje"
   // IMPORTANTE: Aguardar paciente estar carregado em modo personal trainer
   useEffect(() => {
     if (activeTab !== 'hoje') return;
     
     // Em modo personal trainer, aguardar paciente estar carregado
     if (isPersonalTrainerMode && !paciente) {
-      console.log('[useEffect] Aguardando paciente carregar antes de buscar treinos de hoje...');
+      console.log('[useEffect] Aguardando paciente carregar antes de buscar treinos do dia...');
       return;
     }
     
     loadTodaySession();
   }, [activeTab, loadTodaySession, isPersonalTrainerMode, paciente]);
+
+  // Marcadores Seg–Dom: quais dias da semana atual têm treino
+  useEffect(() => {
+    if (isPersonalTrainerMode && !paciente) return;
+    if (!paciente?.userId && !pacienteIdFromQuery && !user?.uid) return;
+    loadWeekSessionMarkers();
+  }, [loadWeekSessionMarkers, isPersonalTrainerMode, paciente, pacienteIdFromQuery, user]);
 
   // Recarregar treinos quando o paciente for carregado (importante para modo personal trainer)
   useEffect(() => {
@@ -922,12 +1444,7 @@ export function PersonalPageContent({
       console.log('[useEffect] Recarregando histórico com userId:', paciente.userId);
       loadHistorico();
     }
-    // Recarregar estatísticas se estiver na tab "Estatísticas"
-    if (activeTab === 'estatisticas') {
-      console.log('[useEffect] Recarregando estatísticas com userId:', paciente.userId);
-      loadEstatisticas();
-    }
-  }, [paciente, activeTab, loadTodaySession, loadCalendarSessions, loadHistorico, loadEstatisticas, pacienteIdFromQuery]);
+  }, [paciente, activeTab, loadTodaySession, loadCalendarSessions, loadHistorico, pacienteIdFromQuery]);
 
   // Quando embedded com pacienteProp, usar o paciente passado (não carregar)
   useEffect(() => {
@@ -960,6 +1477,115 @@ export function PersonalPageContent({
     }
   }, [isPersonalTrainerMode, paciente?.id, paciente?.medicoResponsavelId]);
 
+  // Modo cliente: carregar personal vinculado + avaliação (header do app fullscreen)
+  useEffect(() => {
+    if (isPersonalTrainerMode || isProfessionalEmbed || embedded) {
+      setPersonalVinculado(null);
+      setAgregadoPersonalVinculado(null);
+      return;
+    }
+    if (!paciente?.id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const vinculoSnap = await getDocs(
+          query(
+            collection(db, COL_PACIENTE_PERSONAL_TRAINER),
+            where('pacienteId', '==', paciente.id),
+            where('status', '==', 'ativo')
+          )
+        );
+        if (cancelled) return;
+        if (vinculoSnap.empty) {
+          setPersonalVinculado(null);
+          setAgregadoPersonalVinculado(null);
+          return;
+        }
+        const personalTrainerId = String(vinculoSnap.docs[0].data().personalTrainerId || '');
+        if (!personalTrainerId) {
+          setPersonalVinculado(null);
+          setAgregadoPersonalVinculado(null);
+          return;
+        }
+        const personal = await PersonalTrainerService.getPersonalTrainerByUserId(personalTrainerId);
+        if (cancelled) return;
+        if (!personal) {
+          setPersonalVinculado(null);
+          setAgregadoPersonalVinculado(null);
+          return;
+        }
+        const id = personal.id || personal.userId || personalTrainerId;
+        setPersonalVinculado({
+          id,
+          nome: personal.nome || 'Personal',
+          isVerificado: personal.isVerificado,
+          fotoPerfilUrl: personal.fotoPerfilUrl,
+          instagramUsuario: personal.instagramUsuario,
+          telefone: personal.telefone,
+          telefoneDdi: personal.telefoneDdi,
+          registroNumero: personal.registroNumero,
+          cidades: personal.cidades,
+          nomeLocal: personal.nomeLocal,
+          endereco: personal.endereco,
+          numero: personal.numero,
+        });
+        const agregado = await ClassificacaoProfissionalService.getAgregado('personal', id);
+        if (!cancelled) setAgregadoPersonalVinculado(agregado);
+      } catch (error) {
+        console.error('Erro ao carregar personal vinculado:', error);
+        if (!cancelled) {
+          setPersonalVinculado(null);
+          setAgregadoPersonalVinculado(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPersonalTrainerMode, isProfessionalEmbed, embedded, paciente?.id]);
+
+  useEffect(() => {
+    const needsLinkedLibrary =
+      fromMetaadminEmbedded || professionalReadOnly;
+    if (!needsLinkedLibrary) {
+      setLibraryPersonalTrainerId(null);
+      return;
+    }
+    const pacienteId = String(paciente?.id || pacienteProp?.id || '').trim();
+    if (!pacienteId) {
+      setLibraryPersonalTrainerId(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const vinculoSnap = await getDocs(
+          query(
+            collection(db, COL_PACIENTE_PERSONAL_TRAINER),
+            where('pacienteId', '==', pacienteId),
+            where('status', '==', 'ativo')
+          )
+        );
+        if (cancelled) return;
+        const personalTrainerId = String(vinculoSnap.docs[0]?.data()?.personalTrainerId || '').trim();
+        setLibraryPersonalTrainerId(personalTrainerId || null);
+      } catch (error) {
+        console.error('Erro ao carregar personal da biblioteca:', error);
+        if (!cancelled) setLibraryPersonalTrainerId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    fromMetaadminEmbedded,
+    professionalReadOnly,
+    paciente?.id,
+    pacienteProp?.id,
+  ]);
+
   // Carregar sessões do calendário
   useEffect(() => {
     if (activeTab !== 'cronograma') return;
@@ -973,6 +1599,7 @@ export function PersonalPageContent({
     loadCalendarSessions();
     if (paciente) {
       loadAplicacoesCalendario();
+      loadInjetaveisCalendario();
       loadPagamentosCalendario();
     }
   }, [activeTab, mesCalendario, semanaCalendario, visualizacaoCalendario, paciente, loadCalendarSessions, isPersonalTrainerMode]);
@@ -982,12 +1609,6 @@ export function PersonalPageContent({
     if (activeTab !== 'historico') return;
     loadHistorico();
   }, [activeTab, loadHistorico]);
-
-  // Carregar estatísticas
-  useEffect(() => {
-    if (activeTab !== 'estatisticas') return;
-    loadEstatisticas();
-  }, [activeTab, loadEstatisticas]);
 
   // Carregar preferências de lembrete
   useEffect(() => {
@@ -1064,7 +1685,7 @@ export function PersonalPageContent({
     if (session) {
       setPatientNotes(session.patientNotes || '');
       const exercises = await trainingSessionService.getSessionExercises(sessionId);
-      setTodayExercises(exercises);
+      setTodayExercises(withResolvedGifUrls(exercises));
     }
   };
 
@@ -1152,6 +1773,42 @@ export function PersonalPageContent({
     }
 
     setAplicacoesCalendario(aplicacoes);
+  };
+
+  const loadInjetaveisCalendario = () => {
+    if (!paciente?.planoTerapeutico?.injetaveisAplicacoes?.length) {
+      setInjetaveisCalendario([]);
+      return;
+    }
+
+    let dataInicio: Date;
+    let dataFim: Date;
+
+    if (visualizacaoCalendario === 'semana') {
+      dataInicio = new Date(semanaCalendario);
+      dataInicio.setDate(semanaCalendario.getDate() - semanaCalendario.getDay());
+      dataInicio.setHours(0, 0, 0, 0);
+
+      dataFim = new Date(dataInicio);
+      dataFim.setDate(dataInicio.getDate() + 6);
+      dataFim.setHours(23, 59, 59, 999);
+    } else {
+      const ano = mesCalendario.getFullYear();
+      const mes = mesCalendario.getMonth();
+      dataInicio = new Date(ano, mes, 1);
+      dataFim = new Date(ano, mes + 1, 0);
+      dataFim.setHours(23, 59, 59, 999);
+    }
+
+    const items = listarInjetaveisPlanejadosNoPeriodo(paciente, dataInicio, dataFim).map((item) => ({
+      data: item.data,
+      protocoloNome: item.protocoloNome,
+      semana: item.semana,
+      observacao: item.observacao,
+      realizado: item.realizado,
+      aplicacaoId: item.aplicacaoId,
+    }));
+    setInjetaveisCalendario(items);
   };
 
   const loadPagamentosCalendario = async () => {
@@ -1288,7 +1945,7 @@ export function PersonalPageContent({
         // A API não retorna gifUrl diretamente, então construímos a URL
         const normalizedExercises = exercises.map((ex: any) => ({
           ...ex,
-          gifUrl: getExerciseGifUrl(ex.id, EXERCISE_GIF_RESOLUTION), // Construir URL do GIF
+          gifUrl: getExerciseGifUrl(ex.id, EXERCISE_GIF_RESOLUTION),
         }));
         const queryNorm = normFilterValue(searchQuery);
         const filteredExercises = normalizedExercises.filter((ex: any) => {
@@ -1309,10 +1966,8 @@ export function PersonalPageContent({
 
   const handleMarkExercise = async (exerciseId: string, status: 'done' | 'skipped' | null) => {
     if (!selectedTodaySessionId) return;
-    
-    // Em modo personal trainer, não permitir marcar exercícios como feito/pulado
-    if (isPersonalTrainerMode) {
-      alert('Personal Trainers não podem marcar exercícios como feito/pulado. Apenas o paciente pode fazer isso.');
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem registrar a execução.');
       return;
     }
 
@@ -1352,7 +2007,7 @@ export function PersonalPageContent({
   };
 
   const handleMarkCalendarExercise = async (sessionId: string, exerciseId: string, status: 'done' | 'skipped' | null) => {
-    if (isPersonalTrainerMode) return;
+    if (blockProfessionalMutations) return;
     setSavingStatus(true);
     try {
       if (status === null) {
@@ -1391,10 +2046,38 @@ export function PersonalPageContent({
 
   const progress = useMemo(() => calculateDailyProgress(), [todayExercises]);
 
+  // Mantém a borda laranja do dia selecionado em sync ao marcar exercícios
+  useEffect(() => {
+    if (!selectedHojeDate) return;
+    if (todayExercises.length === 0) return;
+    const pct = progress.percentage;
+    setWeekProgressByDate((prev) =>
+      prev[selectedHojeDate] === pct ? prev : { ...prev, [selectedHojeDate]: pct }
+    );
+  }, [selectedHojeDate, todayExercises.length, progress.percentage]);
+
   const nextExercise = useMemo(() => {
     const next = todayExercises.find((ex) => ex.status !== 'done' && ex.status !== 'skipped');
     return next ?? null;
   }, [todayExercises]);
+
+  const todayMuscleGroups = useMemo(
+    () => muscleGroupsFromSessionExercises(todayExercises, 4),
+    [todayExercises]
+  );
+  const todayMuscleImageUrl = useMemo(() => {
+    if (todayMuscleGroups.length === 0) return '';
+    return buildMuscleGroupImageUrl({
+      muscles: todayMuscleGroups,
+      color: '4CCB7A',
+      backgroundColor: '0A1F44',
+      transparent: true,
+      size: 'medium',
+    });
+  }, [todayMuscleGroups]);
+  useEffect(() => {
+    setMuscleImageFailed(false);
+  }, [todayMuscleImageUrl]);
 
   // ETAPA 2 cronograma: progresso e próximo exercício da sessão selecionada no calendário
   const selectedProgress = useMemo(() => {
@@ -1548,9 +2231,11 @@ export function PersonalPageContent({
           isRecurring: count > 1,
           dateLabel,
           status: strongestStatus,
+          active: sessions.some(isTrainingSessionActive),
         };
       })
       .sort((a, b) => {
+        if (a.active !== b.active) return a.active ? -1 : 1;
         const aDate = a.sessions[a.sessions.length - 1]?.scheduledDate || '';
         const bDate = b.sessions[b.sessions.length - 1]?.scheduledDate || '';
         return bDate.localeCompare(aDate);
@@ -1562,175 +2247,770 @@ export function PersonalPageContent({
     return activeRunSession.id === selectedTodaySessionId ? todayExercises : selectedSessionExercisesDetail;
   }, [activeRunSession, selectedTodaySessionId, todayExercises, selectedSessionExercisesDetail]);
   const currentRunExercise = useMemo(() => runExercisesList.find((ex) => ex.id === activeRunExerciseId) ?? null, [runExercisesList, activeRunExerciseId]);
+  const hostRunQueue = useMemo(
+    () => (currentRunExercise ? buildHostRunQueueForExercise(currentRunExercise) : []),
+    [currentRunExercise]
+  );
+  const currentHostStep = useMemo(
+    () => getHostQueuePendingStep(hostRunQueue, runExecution, runIntercalationExecutions),
+    [hostRunQueue, runExecution, runIntercalationExecutions]
+  );
+  const currentIntercalation = useMemo(() => {
+    if (currentHostStep?.kind !== 'intercalated' || !currentRunExercise) return null;
+    return (
+      (currentRunExercise.prescription?.intercalations || []).find(
+        (item) => item.id === currentHostStep.intercalationId
+      ) ?? null
+    );
+  }, [currentHostStep, currentRunExercise]);
+  const runDisplayExercise = currentIntercalation
+    ? {
+        name: currentIntercalation.name,
+        gifUrl: currentIntercalation.gifUrl,
+        exerciseId: currentIntercalation.exerciseId,
+        target: currentIntercalation.target,
+        bodyPart: currentIntercalation.bodyPart,
+        equipment: currentIntercalation.equipment,
+        trainerNote: currentIntercalation.trainerNote,
+        id: currentIntercalation.id,
+      }
+    : currentRunExercise;
+  const runTrainerNote =
+    currentIntercalation?.trainerNote ||
+    (runExecution && currentRunExercise && runExecution.exerciseDocId === currentRunExercise.id
+      ? runExecution.prescribedTrainerNote
+      : undefined) ||
+    currentRunExercise?.trainerNote;
+  const gymMediaPatientUserId =
+    String(paciente?.userId || (!isPersonalTrainerMode ? user?.uid : '') || '').trim();
+  const gymMediaPacienteId = String(paciente?.id || pacienteIdFromQuery || user?.uid || '').trim();
+  const gymMediaExerciseId = String(
+    runDisplayExercise?.exerciseId || currentRunExercise?.exerciseId || ''
+  ).trim();
 
-  const advanceRunToNext = useCallback(() => {
-    const next = runExercisesRef.current?.find((ex) => ex.status !== 'done' && ex.status !== 'skipped');
-    setActiveRunExerciseId(next?.id ?? null);
+  useEffect(() => {
+    if (!isWorkoutRunning || !gymMediaPatientUserId || !gymMediaExerciseId) {
+      setRunGymMedia(null);
+      return;
+    }
+    return exerciseGymMediaService.subscribe(
+      gymMediaPatientUserId,
+      gymMediaExerciseId,
+      setRunGymMedia
+    );
+  }, [isWorkoutRunning, gymMediaPatientUserId, gymMediaExerciseId]);
+
+  const handleGymMediaFile = useCallback(
+    async (file: File) => {
+      if (blockProfessionalMutations || !gymMediaPacienteId || !gymMediaExerciseId) return;
+      setGymMediaUploading(true);
+      setGymMediaError(null);
+      try {
+        const media = await uploadExerciseGymMediaClient({
+          file,
+          pacienteId: gymMediaPacienteId,
+          exerciseId: gymMediaExerciseId,
+        });
+        setRunGymMedia(media);
+      } catch (error) {
+        setGymMediaError(
+          error instanceof Error ? error.message : 'Não foi possível salvar a foto real.'
+        );
+      } finally {
+        setGymMediaUploading(false);
+      }
+    },
+    [blockProfessionalMutations, gymMediaExerciseId, gymMediaPacienteId]
+  );
+
+  const handleGymMediaRemove = useCallback(async () => {
+    if (blockProfessionalMutations || !gymMediaPacienteId || !gymMediaExerciseId) return;
+    setGymMediaError(null);
+    try {
+      await deleteExerciseGymMediaClient({
+        pacienteId: gymMediaPacienteId,
+        exerciseId: gymMediaExerciseId,
+      });
+      setRunGymMedia(null);
+    } catch (error) {
+      setGymMediaError(
+        error instanceof Error ? error.message : 'Não foi possível remover a foto real.'
+      );
+      throw error;
+    }
+  }, [blockProfessionalMutations, gymMediaExerciseId, gymMediaPacienteId]);
+  const hostRunVisualSteps = useMemo(() => {
+    return hostRunQueue.map((step) => {
+      const execution = stepExecution(step, runExecution, runIntercalationExecutions);
+      const series = execution?.series.find((item) => item.seriesId === step.seriesId);
+      return {
+        key: step.kind === 'main' ? `main-${step.seriesId}` : `int-${step.intercalationId}`,
+        label: step.kind === 'main' ? `S${step.seriesOrder}` : `⇄${step.labelOrder}`,
+        status: (series?.status ?? 'pending') as 'pending' | 'done' | 'skipped',
+        isCurrent: currentHostStep === step,
+        accent: step.kind === 'intercalated',
+      };
+    });
+  }, [hostRunQueue, runExecution, runIntercalationExecutions, currentHostStep]);
+
+  // Detalhes ricos: só busca quando o paciente abre "Detalhes"
+  useEffect(() => {
+    if (!runDetailsSheetOpen || !currentRunExercise?.exerciseId) return;
+    const exerciseId = currentRunExercise.exerciseId;
+    const cached = runExerciseDetailsCacheRef.current.get(exerciseId);
+    if (cached) {
+      setRunExerciseDetails(cached);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRunDetails(true);
+    setRunExerciseDetails(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/exercisedb/exercise?id=${encodeURIComponent(exerciseId)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as Exercise;
+        if (cancelled || !data?.id) return;
+        runExerciseDetailsCacheRef.current.set(exerciseId, data);
+        setRunExerciseDetails(data);
+      } catch {
+        // silencioso
+      } finally {
+        if (!cancelled) setLoadingRunDetails(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [runDetailsSheetOpen, currentRunExercise?.exerciseId]);
+
+  // Traduz descrição/instruções para PT quando os detalhes EN chegam
+  useEffect(() => {
+    if (!runDetailsSheetOpen || !runExerciseDetails?.id) return;
+    const exerciseId = runExerciseDetails.id;
+    const cached = runDetailsTranslateCacheRef.current.get(exerciseId);
+    if (cached) {
+      setRunDetailsTranslated(cached);
+      return;
+    }
+    const description = runExerciseDetails.description?.trim() || '';
+    const instructions = (runExerciseDetails.instructions || []).filter((s) => s.trim());
+    if (!description && instructions.length === 0) {
+      setRunDetailsTranslated({ descriptionPt: null, instructionsPt: [] });
+      return;
+    }
+    let cancelled = false;
+    setLoadingRunDetailsTranslate(true);
+    setRunDetailsTranslated(null);
+    (async () => {
+      try {
+        const res = await fetch('/api/exercisedb/translate-details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description, instructions }),
+        });
+        if (!res.ok) throw new Error('translate failed');
+        const data = (await res.json()) as {
+          descriptionPt?: string | null;
+          instructionsPt?: string[];
+        };
+        if (cancelled) return;
+        const payload = {
+          descriptionPt: data.descriptionPt || null,
+          instructionsPt: Array.isArray(data.instructionsPt) ? data.instructionsPt : [],
+        };
+        runDetailsTranslateCacheRef.current.set(exerciseId, payload);
+        setRunDetailsTranslated(payload);
+      } catch {
+        if (cancelled) return;
+        // Fallback: mostra original se a tradução falhar
+        const fallback = {
+          descriptionPt: description || null,
+          instructionsPt: instructions,
+        };
+        setRunDetailsTranslated(fallback);
+      } finally {
+        if (!cancelled) setLoadingRunDetailsTranslate(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [runDetailsSheetOpen, runExerciseDetails?.id, runExerciseDetails?.description, runExerciseDetails?.instructions]);
+
+  // Ao trocar de exercício no carrossel, fecha o sheet de detalhes
+  useEffect(() => {
+    setRunDetailsSheetOpen(false);
+    setRunNotesSheetOpen(false);
+    setRunGymMediaSheetOpen(false);
+    setRunDetailsTranslated(null);
+    setGymMediaError(null);
+    setShowRunGymMediaPreview(false);
+  }, [activeRunExerciseId, gymMediaExerciseId]);
+
+  // Personal (metapersonal) executa junto com o paciente; médico/nutri no embed ficam só leitura.
+  const runExecutionReadOnly = blockProfessionalMutations;
+
+  useEffect(() => {
+    if (!isWorkoutRunning || !activeRunSession?.id || !currentRunExercise?.id) {
+      setRunExecution(null);
+      setRunIntercalationExecutions({});
+      setLoadingRunExecution(false);
+      setRunExecutionError(false);
+      return;
+    }
+    const sessionId = activeRunSession.id;
+    const exercise = currentRunExercise;
+    const exerciseDocId = String(exercise.id || '').trim();
+    const occurrences = exercise.prescription?.intercalations || [];
+    let cancelled = false;
+    setRunExecution(null);
+    setRunIntercalationExecutions({});
+    setRunExecutionError(false);
+    setLoadingRunExecution(true);
+    (async () => {
+      try {
+        let execution: TrainingExerciseExecution | null = null;
+        if (runExecutionReadOnly) {
+          execution = await TrainingExerciseExecutionService.get(sessionId, exerciseDocId);
+          if (!execution) {
+            execution = createExerciseExecutionFromPrescription({
+              exerciseDocId,
+              exerciseId: exercise.exerciseId,
+              prescription: exercise.prescription,
+              trainerNote: exercise.trainerNote,
+            });
+          }
+        } else {
+          execution = await TrainingExerciseExecutionService.getOrCreate(sessionId, exercise);
+        }
+        const intercalations: Record<string, TrainingExerciseExecution> = {};
+        for (const occurrence of occurrences) {
+          const seed = createIntercalationExecution(occurrence);
+          intercalations[occurrence.id] = runExecutionReadOnly
+            ? (await TrainingExerciseExecutionService.get(sessionId, occurrence.id)) ?? seed
+            : await TrainingExerciseExecutionService.getOrCreateFromSeed(sessionId, seed);
+        }
+        if (!cancelled) {
+          setRunExecution(execution);
+          setRunIntercalationExecutions(intercalations);
+          setRunExecutionError(false);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar execução do exercício:', error);
+        if (!cancelled) {
+          setRunExecution(null);
+          setRunIntercalationExecutions({});
+          setRunExecutionError(true);
+        }
+      } finally {
+        if (!cancelled) setLoadingRunExecution(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isWorkoutRunning,
+    activeRunSession?.id,
+    currentRunExercise?.id,
+    currentRunExercise?.exerciseId,
+    runExecutionReadOnly,
+  ]);
+
+  useEffect(() => {
+    if (!isWorkoutRunning || !activeRunSession?.id) return;
+    const sessionId = activeRunSession.id;
+    return TrainingExerciseExecutionService.subscribeBySession(sessionId, (items) => {
+      if (savingRunSeriesRef.current || persistingPrescriptionRef.current) return;
+      const exercise = runExercisesRef.current.find(
+        (item) => item.id === activeRunExerciseIdRef.current
+      );
+      if (!exercise?.id) return;
+      const byId = Object.fromEntries(items.map((item) => [item.exerciseDocId, item]));
+      const host = byId[exercise.id];
+      if (host) setRunExecution(host);
+      setRunIntercalationExecutions((prev) => {
+        const next = { ...prev };
+        for (const occurrence of exercise.prescription?.intercalations || []) {
+          if (byId[occurrence.id]) next[occurrence.id] = byId[occurrence.id];
+        }
+        return next;
+      });
+    });
+  }, [isWorkoutRunning, activeRunSession?.id]);
+
+  useEffect(() => {
+    if (!isWorkoutRunning || !activeRunSession?.id) return;
+    const sessionId = activeRunSession.id;
+    return trainingSessionService.subscribeSessionExercises(sessionId, (exercises) => {
+      if (sessionId === selectedTodaySessionId) {
+        setTodayExercises(exercises);
+        return;
+      }
+      setSelectedSessionExercisesDetail(exercises);
+    });
+  }, [isWorkoutRunning, activeRunSession?.id, selectedTodaySessionId]);
+
+  const persistRunExerciseStatus = useCallback(
+    async (exerciseDocId: string, status: 'done' | 'skipped') => {
+      const sessionId = activeRunSession?.id;
+      if (!sessionId) return;
+      await trainingSessionService.markExercise(sessionId, exerciseDocId, status);
+      const now = new Date().toISOString();
+      const patch = (ex: TrainingSessionExercise) =>
+        ex.id === exerciseDocId ? { ...ex, status, completedAt: now } : ex;
+      if (sessionId === selectedTodaySessionId) {
+        setTodayExercises((prev) => prev.map(patch));
+      } else {
+        setSelectedSessionExercisesDetail((prev) => prev.map(patch));
+      }
+    },
+    [activeRunSession?.id, selectedTodaySessionId]
+  );
+
+  const applyLocalExercisePrescription = useCallback((exercise: TrainingSessionExercise) => {
+    const exerciseDocId = String(exercise.id || '').trim();
+    if (!exerciseDocId) return;
+    const apply = (list: TrainingSessionExercise[]) =>
+      list.map((item) =>
+        item.id === exerciseDocId ? { ...item, prescription: exercise.prescription } : item
+      );
+    setTodayExercises(apply);
+    setSelectedSessionExercisesDetail(apply);
   }, []);
 
-  const handleRunFeito = useCallback(async () => {
-    if (!activeRunSession?.id || !activeRunExerciseId || isPersonalTrainerMode) return;
-    const isToday = activeRunSession.id === selectedTodaySessionId;
-    setSavingStatus(true);
-    try {
-      if (isToday) {
-        await trainingSessionService.markExercise(activeRunSession.id, activeRunExerciseId, 'done');
-        const now = new Date().toISOString();
-        setTodayExercises((prev) => prev.map((ex) => (ex.id === activeRunExerciseId ? { ...ex, status: 'done' as const, completedAt: now } : ex)));
-      } else {
-        await trainingSessionService.markExercise(activeRunSession.id, activeRunExerciseId, 'done');
-        const updated = await trainingSessionService.getSessionExercises(activeRunSession.id);
-        setSelectedSessionExercisesDetail(updated);
+  const persistRunSeriesPrescription = useCallback(
+    async (
+      patch: SeriesPrescriptionPatch,
+      seriesId?: string,
+      stepOverride?: HostRunStep | null,
+      options?: { skipExecution?: boolean }
+    ) => {
+      if (!activeRunSession?.id || !currentRunExercise || runExecutionReadOnly) return;
+      const queue = buildHostRunQueueForExercise(currentRunExercise);
+      const resolvedSeriesId =
+        String(seriesId || stepOverride?.seriesId || currentHostStep?.seriesId || '').trim();
+      if (!resolvedSeriesId) return;
+      const step =
+        stepOverride ||
+        queue.find((item) => item.seriesId === resolvedSeriesId) ||
+        currentHostStep;
+      persistingPrescriptionRef.current = true;
+      try {
+        const currentSaved = await trainingSessionService.updateCurrentSessionSeriesPrescription({
+          sessionId: activeRunSession.id,
+          exercise: currentRunExercise,
+          seriesId: resolvedSeriesId,
+          patch,
+        });
+        if (currentSaved) applyLocalExercisePrescription(currentSaved);
+
+        const skipExecution = options?.skipExecution || savingRunSeriesRef.current;
+        const intercalationId = step?.kind === 'intercalated' ? step.intercalationId : null;
+        const currentExecution = intercalationId
+          ? runIntercalationExecutions[intercalationId] || null
+          : runExecution?.series.some((item) => item.seriesId === resolvedSeriesId)
+            ? runExecution
+            : null;
+        if (!skipExecution && currentExecution && !savingRunSeriesRef.current) {
+          const latest = await TrainingExerciseExecutionService.get(
+            activeRunSession.id,
+            currentExecution.exerciseDocId
+          );
+          const source = latest || currentExecution;
+          const nextExecution = updatePendingExecutedSeriesPrescription(
+            source,
+            resolvedSeriesId,
+            {
+              prescribedReps: patch.reps,
+              prescribedLoadKg: patch.loadKg,
+              prescribedRestSec: patch.restSec,
+            }
+          );
+          if (nextExecution && !savingRunSeriesRef.current) {
+            if (intercalationId) {
+              setRunIntercalationExecutions((prev) => ({
+                ...prev,
+                [intercalationId]: nextExecution,
+              }));
+            } else {
+              setRunExecution(nextExecution);
+            }
+            await TrainingExerciseExecutionService.save(activeRunSession.id, nextExecution);
+          }
+        }
+
+        const target = step ? buildSeriesPrescriptionTarget(currentRunExercise, step) : null;
+        if (!target) return;
+        const result = await trainingSessionService.propagateSeriesPrescriptionToUpcoming({
+          patientId: activeRunSession.patientId,
+          currentSessionId: activeRunSession.id,
+          currentScheduledDate: activeRunSession.scheduledDate,
+          recurrenceGroupId: activeRunSession.recurrenceGroupId,
+          target,
+          patch,
+        });
+        if (result.currentExercise) {
+          applyLocalExercisePrescription(result.currentExercise);
+        }
+      } catch (error) {
+        console.error('Erro ao gravar prescrição da série:', error);
+      } finally {
+        persistingPrescriptionRef.current = false;
       }
-      const ex = runExercisesList.find((e) => e.id === activeRunExerciseId);
-      const restSec = ex?.prescription?.restSec ?? 60;
-      setRestSecondsLeft(restSec);
-      setIsRestRunning(true);
-    } catch (error) {
-      console.error('Erro ao marcar exercício:', error);
-      alert('Erro ao salvar. Tente novamente.');
-    } finally {
-      setSavingStatus(false);
+    },
+    [
+      activeRunSession,
+      applyLocalExercisePrescription,
+      currentHostStep,
+      currentRunExercise,
+      runExecution,
+      runExecutionReadOnly,
+      runIntercalationExecutions,
+    ]
+  );
+
+  const handleRunSeriesPrescriptionChange = useCallback(
+    (seriesId: string, reps: number, loadKg: number | null, restSec: number) => {
+      if (runExecutionReadOnly) return;
+      const patch = { reps, loadKg, restSec };
+      persistSeriesPrescriptionPendingRef.current = { seriesId, patch };
+      if (persistSeriesPrescriptionTimerRef.current) {
+        clearTimeout(persistSeriesPrescriptionTimerRef.current);
+      }
+      persistSeriesPrescriptionTimerRef.current = setTimeout(() => {
+        persistSeriesPrescriptionTimerRef.current = null;
+        const pending = persistSeriesPrescriptionPendingRef.current;
+        persistSeriesPrescriptionPendingRef.current = null;
+        if (!pending) return;
+        void persistRunSeriesPrescription(pending.patch, pending.seriesId);
+      }, 180);
+    },
+    [persistRunSeriesPrescription, runExecutionReadOnly]
+  );
+
+  const advanceRunToNext = useCallback(() => {
+    const list = runExercisesRef.current ?? [];
+    if (list.length === 0) {
+      setActiveRunExerciseId(null);
+      return;
     }
-  }, [activeRunSession, activeRunExerciseId, selectedTodaySessionId, runExercisesList]);
+    const currentIdx = list.findIndex((ex) => ex.id === activeRunExerciseId);
+    const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % list.length;
+    setActiveRunExerciseId(list[nextIdx]?.id ?? null);
+    setRestSecondsLeft(null);
+    setIsRestRunning(false);
+  }, [activeRunExerciseId]);
+
+  const selectRunExercise = useCallback((exerciseId: string) => {
+    setActiveRunExerciseId(exerciseId);
+    setRestSecondsLeft(null);
+    setIsRestRunning(false);
+  }, []);
+
+  const handleCompleteRunSeries = useCallback(
+    async (
+      seriesId: string,
+      actualReps: number,
+      actualLoadKg: number | null,
+      actualRestSec = 0
+    ) => {
+      if (
+        !activeRunSession?.id ||
+        !currentRunExercise?.id ||
+        !runExecution ||
+        runExecutionReadOnly ||
+        savingRunSeriesRef.current
+      ) {
+        return;
+      }
+      const exerciseDocId = currentRunExercise.id;
+      const queue = buildHostRunQueueForExercise(currentRunExercise);
+      const step = getHostQueuePendingStep(queue, runExecution, runIntercalationExecutions);
+      savingRunSeriesRef.current = true;
+      setSavingRunSeries(true);
+      try {
+        let nextHost = runExecution;
+        let nextIntercalations = runIntercalationExecutions;
+        if (step?.kind === 'intercalated') {
+          const occ = (currentRunExercise.prescription?.intercalations || []).find(
+            (item) => item.id === step.intercalationId
+          );
+          const current =
+            runIntercalationExecutions[step.intercalationId] ||
+            (occ ? createIntercalationExecution(occ) : null);
+          if (!current) {
+            alert('Exercício intercalado não encontrado.');
+            return;
+          }
+          const result = completeExecutedSeries(current, seriesId, {
+            actualReps,
+            actualLoadKg,
+          });
+          if (!result.ok) {
+            alert(result.message);
+            return;
+          }
+          await TrainingExerciseExecutionService.save(activeRunSession.id, result.execution);
+          nextIntercalations = {
+            ...runIntercalationExecutions,
+            [step.intercalationId]: result.execution,
+          };
+          if (activeRunExerciseIdRef.current === exerciseDocId) {
+            setRunIntercalationExecutions(nextIntercalations);
+          }
+        } else {
+          const result = completeExecutedSeries(runExecution, seriesId, {
+            actualReps,
+            actualLoadKg,
+          });
+          if (!result.ok) {
+            alert(result.message);
+            return;
+          }
+          await TrainingExerciseExecutionService.save(activeRunSession.id, result.execution);
+          nextHost = result.execution;
+          if (activeRunExerciseIdRef.current === exerciseDocId) {
+            setRunExecution(result.execution);
+          }
+        }
+        const markStatus = getHostQueueMarkStatus(queue, nextHost, nextIntercalations);
+        if (markStatus) {
+          await persistRunExerciseStatus(exerciseDocId, markStatus);
+        } else if (queue.every((item) => item.kind === 'main')) {
+          const mark = getMarkExerciseStatusFromExecution(nextHost);
+          if (mark) await persistRunExerciseStatus(exerciseDocId, mark);
+        }
+        const nextPending = getHostQueuePendingStep(queue, nextHost, nextIntercalations);
+        const restSec = Number.isFinite(actualRestSec)
+          ? Math.min(600, Math.max(0, Math.round(actualRestSec)))
+          : 0;
+        if (persistSeriesPrescriptionTimerRef.current) {
+          clearTimeout(persistSeriesPrescriptionTimerRef.current);
+          persistSeriesPrescriptionTimerRef.current = null;
+        }
+        persistSeriesPrescriptionPendingRef.current = null;
+        if (shouldStartRestTimer(restSec, Boolean(nextPending))) {
+          restAdvanceModeRef.current = 'series';
+          setRestAdvanceMode('series');
+          setRestTotalSec(restSec);
+          setRestSecondsLeft(restSec);
+          setIsRestRunning(true);
+        }
+        void persistRunSeriesPrescription(
+          { reps: actualReps, loadKg: actualLoadKg, restSec },
+          seriesId,
+          step,
+          { skipExecution: true }
+        );
+      } catch (error) {
+        console.error('Erro ao registrar série:', error);
+        alert('Não foi possível registrar esta série. Tente novamente.');
+      } finally {
+        savingRunSeriesRef.current = false;
+        setSavingRunSeries(false);
+      }
+    },
+    [
+      activeRunSession?.id,
+      currentRunExercise,
+      persistRunExerciseStatus,
+      persistRunSeriesPrescription,
+      runExecution,
+      runExecutionReadOnly,
+      runIntercalationExecutions,
+    ]
+  );
+
+  const handleSkipRunSeries = useCallback(
+    async (seriesId: string) => {
+      if (
+        !activeRunSession?.id ||
+        !currentRunExercise?.id ||
+        !runExecution ||
+        runExecutionReadOnly ||
+        savingRunSeriesRef.current
+      ) {
+        return;
+      }
+      const exerciseDocId = currentRunExercise.id;
+      const queue = buildHostRunQueueForExercise(currentRunExercise);
+      const step = getHostQueuePendingStep(queue, runExecution, runIntercalationExecutions);
+      savingRunSeriesRef.current = true;
+      setSavingRunSeries(true);
+      try {
+        let nextHost = runExecution;
+        let nextIntercalations = runIntercalationExecutions;
+        if (step?.kind === 'intercalated') {
+          const current = runIntercalationExecutions[step.intercalationId];
+          if (!current) return;
+          const next = skipExecutedSeries(current, seriesId);
+          await TrainingExerciseExecutionService.save(activeRunSession.id, next);
+          nextIntercalations = { ...runIntercalationExecutions, [step.intercalationId]: next };
+          if (activeRunExerciseIdRef.current === exerciseDocId) {
+            setRunIntercalationExecutions(nextIntercalations);
+          }
+        } else {
+          const next = skipExecutedSeries(runExecution, seriesId);
+          await TrainingExerciseExecutionService.save(activeRunSession.id, next);
+          nextHost = next;
+          if (activeRunExerciseIdRef.current === exerciseDocId) {
+            setRunExecution(next);
+          }
+        }
+        const markStatus = getHostQueueMarkStatus(queue, nextHost, nextIntercalations);
+        if (markStatus) {
+          await persistRunExerciseStatus(exerciseDocId, markStatus);
+        } else if (queue.every((item) => item.kind === 'main')) {
+          const mark = getMarkExerciseStatusFromExecution(nextHost);
+          if (mark) await persistRunExerciseStatus(exerciseDocId, mark);
+        }
+      } catch (error) {
+        console.error('Erro ao pular série:', error);
+        alert('Não foi possível registrar esta série. Tente novamente.');
+      } finally {
+        savingRunSeriesRef.current = false;
+        setSavingRunSeries(false);
+      }
+    },
+    [
+      activeRunSession?.id,
+      currentRunExercise,
+      persistRunExerciseStatus,
+      runExecution,
+      runExecutionReadOnly,
+      runIntercalationExecutions,
+    ]
+  );
+
+  const handleRedoRunExercise = useCallback(async () => {
+    if (
+      !activeRunSession?.id ||
+      !currentRunExercise?.id ||
+      !runExecution ||
+      runExecutionReadOnly ||
+      savingRunSeriesRef.current
+    ) {
+      return;
+    }
+    const exerciseDocId = currentRunExercise.id;
+    savingRunSeriesRef.current = true;
+    setSavingRunSeries(true);
+    try {
+      const next = resetHostQueueExecutions(
+        runExecution,
+        runIntercalationExecutions,
+        currentRunExercise.prescription?.intercalations || []
+      );
+      await TrainingExerciseExecutionService.save(activeRunSession.id, next.host);
+      for (const execution of Object.values(next.intercalations)) {
+        await TrainingExerciseExecutionService.save(activeRunSession.id, execution);
+      }
+      await trainingSessionService.unmarkExercise(activeRunSession.id, exerciseDocId);
+      const patch = (ex: TrainingSessionExercise) =>
+        ex.id === exerciseDocId ? { ...ex, status: undefined, completedAt: undefined } : ex;
+      if (activeRunSession.id === selectedTodaySessionId) {
+        setTodayExercises((prev) => prev.map(patch));
+      } else {
+        setSelectedSessionExercisesDetail((prev) => prev.map(patch));
+      }
+      if (activeRunExerciseIdRef.current === exerciseDocId) {
+        setRunExecution(next.host);
+        setRunIntercalationExecutions(next.intercalations);
+      }
+      setRestSecondsLeft(null);
+      setIsRestRunning(false);
+    } catch (error) {
+      console.error('Erro ao refazer exercício:', error);
+      alert('Não foi possível refazer este exercício. Tente novamente.');
+    } finally {
+      savingRunSeriesRef.current = false;
+      setSavingRunSeries(false);
+    }
+  }, [
+    activeRunSession?.id,
+    currentRunExercise,
+    runExecution,
+    runExecutionReadOnly,
+    runIntercalationExecutions,
+    selectedTodaySessionId,
+  ]);
 
   const handleRunPulei = useCallback(async () => {
-    if (!activeRunSession?.id || !activeRunExerciseId || isPersonalTrainerMode) return;
-    const isToday = activeRunSession.id === selectedTodaySessionId;
+    if (!activeRunSession?.id || !activeRunExerciseId || runExecutionReadOnly) return;
+    const exerciseDocId = activeRunExerciseId;
     setSavingStatus(true);
     try {
-      if (isToday) {
-        await trainingSessionService.markExercise(activeRunSession.id, activeRunExerciseId, 'skipped');
-        const now = new Date().toISOString();
-        setTodayExercises((prev) => prev.map((ex) => (ex.id === activeRunExerciseId ? { ...ex, status: 'skipped' as const, completedAt: now } : ex)));
-      } else {
-        await trainingSessionService.markExercise(activeRunSession.id, activeRunExerciseId, 'skipped');
-        const updated = await trainingSessionService.getSessionExercises(activeRunSession.id);
-        setSelectedSessionExercisesDetail(updated);
+      let execution = runExecution;
+      if (!execution || execution.exerciseDocId !== exerciseDocId) {
+        const exercise = runExercisesList.find((ex) => ex.id === exerciseDocId);
+        if (exercise) {
+          execution = await TrainingExerciseExecutionService.getOrCreate(
+            activeRunSession.id,
+            exercise
+          );
+        }
       }
-      const next = runExercisesList.filter((ex) => ex.id !== activeRunExerciseId && ex.status !== 'done' && ex.status !== 'skipped')[0];
-      setActiveRunExerciseId(next?.id ?? null);
+      if (execution) {
+        const exercise = runExercisesList.find((ex) => ex.id === exerciseDocId);
+        const queue = exercise ? buildHostRunQueueForExercise(exercise) : [];
+        const skipped = skipRemainingHostQueue(queue, execution, runIntercalationExecutions);
+        await TrainingExerciseExecutionService.save(activeRunSession.id, skipped.host);
+        for (const item of Object.values(skipped.intercalations)) {
+          await TrainingExerciseExecutionService.save(activeRunSession.id, item);
+        }
+        if (activeRunExerciseIdRef.current === exerciseDocId) {
+          setRunExecution(skipped.host);
+          setRunIntercalationExecutions(skipped.intercalations);
+        }
+        const markStatus =
+          getHostQueueMarkStatus(queue, skipped.host, skipped.intercalations) ?? 'skipped';
+        await persistRunExerciseStatus(exerciseDocId, markStatus);
+      } else {
+        await persistRunExerciseStatus(exerciseDocId, 'skipped');
+      }
+      setRestSecondsLeft(null);
+      setIsRestRunning(false);
     } catch (error) {
       console.error('Erro ao marcar exercício:', error);
       alert('Erro ao salvar. Tente novamente.');
     } finally {
       setSavingStatus(false);
     }
-  }, [activeRunSession, activeRunExerciseId, selectedTodaySessionId, runExercisesList]);
+  }, [
+    activeRunSession?.id,
+    activeRunExerciseId,
+    persistRunExerciseStatus,
+    runExecution,
+    runExecutionReadOnly,
+    runIntercalationExecutions,
+    runExercisesList,
+  ]);
 
-  const nextExerciseSectionRef = useRef<HTMLDivElement>(null);
   const notesSectionRef = useRef<HTMLDivElement>(null);
   const sessionDetailRef = useRef<HTMLDivElement>(null);
   const historicoDetailRef = useRef<HTMLDivElement>(null);
   const scrollToSessionDetail = () => sessionDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const scrollToHistoricoDetail = () => historicoDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const runExercisesRef = useRef<TrainingSessionExercise[]>([]);
-  const inferRecurringConfigFromSessions = useCallback((sessions: TrainingSession[]) => {
-    const sortedDates = sessions
-      .map((session) => new Date(`${session.scheduledDate}T00:00:00`))
-      .sort((a, b) => a.getTime() - b.getTime());
-    if (sortedDates.length <= 1) {
-      return {
-        sessionType: 'single' as const,
-        recurrenceFrequency: 'weekly' as const,
-        weeksCount: 4,
-        timesPerWeek: 1,
-        selectedDaysOfWeek: [] as number[],
-      };
-    }
-
-    const dayDiffs = sortedDates.slice(1).map((date, index) => {
-      const prev = sortedDates[index];
-      return Math.round((date.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
-    });
-
-    const minDate = sortedDates[0];
-    const maxDate = sortedDates[sortedDates.length - 1];
-    const spanDays = Math.max(1, Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    const inferredWeeks = Math.max(1, Math.ceil(spanDays / 7));
-    const uniqueDays = Array.from(new Set(sortedDates.map((date) => date.getDay()))).sort((a, b) => a - b);
-    const allDaily = dayDiffs.every((diff) => diff === 1);
-    const allWeekly = dayDiffs.every((diff) => diff === 7) && uniqueDays.length === 1;
-
-    if (allDaily) {
-      return {
-        sessionType: 'recurring' as const,
-        recurrenceFrequency: 'daily' as const,
-        weeksCount: inferredWeeks,
-        timesPerWeek: 7,
-        selectedDaysOfWeek: [] as number[],
-      };
-    }
-
-    if (allWeekly) {
-      return {
-        sessionType: 'recurring' as const,
-        recurrenceFrequency: 'weekly' as const,
-        weeksCount: inferredWeeks,
-        timesPerWeek: 1,
-        selectedDaysOfWeek: [] as number[],
-      };
-    }
-
-    const averagePerWeek = Math.max(1, Math.min(7, Math.round(sortedDates.length / inferredWeeks)));
-    return {
-      sessionType: 'recurring' as const,
-      recurrenceFrequency: 'custom' as const,
-      weeksCount: inferredWeeks,
-      timesPerWeek: averagePerWeek,
-      selectedDaysOfWeek: uniqueDays,
-    };
-  }, []);
-  // Função auxiliar para gerar datas baseado na recorrência
-  const generateSessionDates = (startDate: string): string[] => {
-    const dates: string[] = [];
-    const start = new Date(startDate + 'T00:00:00'); // Evitar problemas de timezone
-    const endDate = new Date(start);
-    endDate.setDate(endDate.getDate() + (weeksCount * 7) - 1);
-
-    if (sessionType === 'single') {
-      return [startDate];
-    }
-
-    if (recurrenceFrequency === 'daily') {
-      const current = new Date(start);
-      while (current <= endDate) {
-        dates.push(toLocalYYYYMMDD(current));
-        current.setDate(current.getDate() + 1);
-      }
-    } else if (recurrenceFrequency === 'weekly') {
-      const intervals = {
-        1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 5],
-        5: [0, 1, 2, 3, 4], 6: [0, 1, 2, 3, 4, 5], 7: [0, 1, 2, 3, 4, 5, 6],
-      };
-      const dayOffsets = intervals[timesPerWeek as keyof typeof intervals] || intervals[3];
-      const startDayOfWeek = start.getDay();
-      for (let week = 0; week < weeksCount; week++) {
-        dayOffsets.forEach((offset) => {
-          const sessionDate = new Date(start);
-          sessionDate.setDate(sessionDate.getDate() + offset + (week * 7));
-          if (sessionDate <= endDate) dates.push(toLocalYYYYMMDD(sessionDate));
-        });
-      }
-      dates.sort();
-    } else if (recurrenceFrequency === 'custom' && selectedDaysOfWeek.length > 0) {
-      const startDayOfWeek = start.getDay();
-      for (let week = 0; week < weeksCount; week++) {
-        selectedDaysOfWeek.forEach((targetDay) => {
-          const daysToAdd = (targetDay - startDayOfWeek + 7) % 7 + (week * 7);
-          const sessionDate = new Date(start);
-          sessionDate.setDate(sessionDate.getDate() + daysToAdd);
-          if (sessionDate >= start && sessionDate <= endDate) {
-            const dateStr = toLocalYYYYMMDD(sessionDate);
-            if (!dates.includes(dateStr)) dates.push(dateStr);
-          }
-        });
-      }
-      dates.sort();
-    }
-
-    return dates;
+  const scrollToHistoricoDetail = () => {
+    const nodes = document.querySelectorAll<HTMLElement>('[data-historico-detail]');
+    const visible = Array.from(nodes).find((node) => node.getClientRects().length > 0);
+    (visible || historicoDetailRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  const runExercisesRef = useRef<TrainingSessionExercise[]>([]);
+  const inferRecurringConfigFromSessions = useCallback(
+    (sessions: TrainingSession[]) => inferRecurringConfigFromSessionsShared(sessions),
+    []
+  );
+  const generateSessionDates = (startDate: string): string[] =>
+    generateTrainingSessionDates({
+      startDate,
+      sessionType,
+      recurrenceFrequency,
+      weeksCount,
+      timesPerWeek,
+      selectedDaysOfWeek,
+    });
 
   const handleCreateSession = async () => {
     // Usar userId do paciente se disponível (sessões são criadas com userId)
@@ -1743,6 +3023,14 @@ export function PersonalPageContent({
     // Em modo personal trainer, permitir criar treinos
     if (isPersonalTrainerMode && authorizationError) {
       alert('Você não tem permissão para criar treinos para este paciente.');
+      return;
+    }
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem criar ou editar treinos.');
+      return;
+    }
+    if (selectedExercises.some((ex) => validateTrainingPrescription(ex.prescription).ok === false)) {
+      alert('Cada exercício precisa de pelo menos uma série com repetições válidas.');
       return;
     }
 
@@ -1762,23 +3050,29 @@ export function PersonalPageContent({
 
     setCreatingSession(true);
     try {
-      const exercisesData = selectedExercises.map((ex) => {
-        const exerciseData: any = {
-          source: 'exercisedb' as const,
-          exerciseId: ex.id,
-          name: ex.name,
-          bodyPart: ex.bodyPart,
-          target: ex.target,
-          equipment: ex.equipment,
-          prescription: {
-            sets: ex.sets,
-            reps: ex.reps,
-            restSec: ex.restSec,
-          },
-        };
-        exerciseData.gifUrl = getExerciseGifUrl(ex.id, EXERCISE_GIF_RESOLUTION);
-        return exerciseData;
-      });
+      const exercisesDataForDate = () =>
+        selectedExercises.map((ex) => {
+          const exerciseDbId = resolveExerciseDbId(ex);
+          const cloned = clonePrescriptionWithNewIds(
+            normalizeTrainingExercisePrescription(ex.prescription)
+          );
+          const exerciseData: any = {
+            source: 'exercisedb' as const,
+            exerciseId: exerciseDbId || ex.id,
+            name: ex.name,
+            bodyPart: ex.bodyPart,
+            target: ex.target,
+            equipment: ex.equipment,
+            prescription: serializeTrainingPrescription(cloned),
+          };
+          const trainerNote = sanitizeTrainerNote(ex.trainerNote);
+          if (trainerNote) exerciseData.trainerNote = trainerNote;
+          exerciseData.gifUrl = resolveExerciseGifUrl(
+            { id: exerciseDbId || ex.id, exerciseId: exerciseDbId, gifUrl: ex.gifUrl },
+            EXERCISE_GIF_RESOLUTION
+          );
+          return exerciseData;
+        });
 
       // Gerar datas das sessões
       const sessionDates = generateSessionDates(newSessionDate);
@@ -1800,15 +3094,16 @@ export function PersonalPageContent({
         await trainingSessionService.createSessionWithExercises(
           {
             patientId: patientId,
-            createdBy: isPersonalTrainerMode ? 'personal_trainer' : 'patient',
+            createdBy: isPersonalTrainerMode || fromMetapersonal ? 'personal_trainer' : 'patient',
             createdById: user?.uid || '',
             scheduledDate: date,
             title: newSessionTitle,
             status: 'scheduled',
             published: true,
+            active: true,
             ...(recurrenceGroupId ? { recurrenceGroupId } : {}),
           },
-          exercisesData
+          exercisesDataForDate()
         );
       }
 
@@ -1819,6 +3114,16 @@ export function PersonalPageContent({
       }
       
       console.log('[DEBUG] Sessão criada com sucesso');
+
+      const pacienteDocId = String(paciente?.id || pacienteProp?.id || '').trim();
+      if (
+        pacienteDocId &&
+        !fromMetaadminEmbedded &&
+        !professionalReadOnly &&
+        (fromMetapersonalEmbedded || isPersonalTrainerMode || fromMetapersonal)
+      ) {
+        notifyPacienteTreinoPersonalClient(pacienteDocId);
+      }
 
       // Limpar formulário
       setNewSessionTitle('');
@@ -1835,6 +3140,9 @@ export function PersonalPageContent({
       setSelectedBodyPart('');
       setEditingSessionIds([]);
       setEditingRecurrenceGroupId(null);
+      setIsWorkoutDraftDirty(false);
+      setExpandedExerciseIds([]);
+      setIntercalationPick(null);
 
       alert(
         editingSessionIds.length > 0
@@ -1842,15 +3150,19 @@ export function PersonalPageContent({
           : `Treino criado com sucesso! ${sessionDates.length} ${sessionDates.length === 1 ? 'sessão' : 'sessões'} ${sessionType === 'recurring' ? 'agendadas' : 'criada'}.`
       );
       
-      // Recarregar treino de hoje se alguma data criada for hoje
+      // Recarregar treino do dia selecionado se alguma data criada for a selecionada
       const hojeStr = toLocalYYYYMMDD(new Date());
-      if (sessionDates.includes(hojeStr)) {
+      if (sessionDates.includes(selectedHojeDate) || sessionDates.includes(hojeStr)) {
         await loadTodaySession();
       }
+      await loadWeekSessionMarkers();
       await loadSavedSessionsCriar();
+      setCriarTreinoSheetOpen(false);
       
-      setActiveTab('cronograma');
-      loadCalendarSessions();
+      const pacienteNoApp =
+        !embedded && !isPersonalTrainerMode && !isProfessionalEmbed;
+      setActiveTab(pacienteNoApp ? 'historico' : 'cronograma');
+      if (!pacienteNoApp) loadCalendarSessions();
     } catch (error) {
       console.error('Erro ao criar sessão:', error);
       alert('Erro ao criar treino. Tente novamente.');
@@ -1877,13 +3189,28 @@ export function PersonalPageContent({
   const handleViewHistoricoSession = async (session: TrainingSession) => {
     setSelectedSessionDetail(session);
     if (session.id) {
-      const exercises = await trainingSessionService.getSessionExercises(session.id);
+      const [exercises, executions] = await Promise.all([
+        trainingSessionService.getSessionExercises(session.id),
+        TrainingExerciseExecutionService.listBySession(session.id),
+      ]);
       setSelectedSessionExercises(exercises);
+      const byDoc: Record<string, TrainingExerciseExecution> = {};
+      for (const item of executions) {
+        byDoc[item.exerciseDocId] = item;
+      }
+      setSelectedHistoricoExecutions(byDoc);
+    } else {
+      setSelectedSessionExercises([]);
+      setSelectedHistoricoExecutions({});
     }
     scrollToHistoricoDetail();
   };
 
   const handleDeleteSession = async (sessionId: string) => {
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem cancelar treinos.');
+      return;
+    }
     if (!confirm('Tem certeza que deseja cancelar este treino? Esta ação não pode ser desfeita.')) {
       return;
     }
@@ -1892,8 +3219,13 @@ export function PersonalPageContent({
       await trainingSessionService.deleteSession(sessionId);
       await loadCalendarSessions();
       await loadTodaySession();
+      await loadWeekSessionMarkers();
+      await loadSavedSessionsCriar();
       setSelectedSessionForDetail(null);
       setSelectedSessionExercisesDetail([]);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('oftware:patient-training-calendar-changed'));
+      }
       alert('Treino cancelado com sucesso!');
     } catch (error) {
       console.error('Erro ao deletar sessão:', error);
@@ -1904,6 +3236,10 @@ export function PersonalPageContent({
   };
 
   const handleEditSavedSession = async (session: TrainingSession, allSessionsInGroup?: TrainingSession[]) => {
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem editar treinos.');
+      return;
+    }
     if (!session.id) return;
     try {
       const exercises = await trainingSessionService.getSessionExercises(session.id);
@@ -1918,15 +3254,24 @@ export function PersonalPageContent({
       const startDate = [...sessionsForInference]
         .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))[0]?.scheduledDate || session.scheduledDate || '';
       setNewSessionDate(startDate);
-      setSelectedExercises(
-        exercises.map((exercise) => ({
-          ...exercise,
-          gifUrl: exercise.gifUrl || getExerciseGifUrl(exercise.exerciseId, EXERCISE_GIF_RESOLUTION),
-          sets: exercise.prescription?.sets ?? 3,
-          reps: exercise.prescription?.reps ?? 10,
-          restSec: exercise.prescription?.restSec ?? 60,
-        }))
-      );
+      const drafts = exercises.map((exercise) => {
+        const exerciseDbId = resolveExerciseDbId(exercise);
+        return toSelectedExerciseDraft({
+          id: exerciseDbId,
+          name: exercise.name,
+          bodyPart: exercise.bodyPart,
+          target: exercise.target,
+          equipment: exercise.equipment,
+          secondaryMuscles: [],
+          instructions: [],
+          gifUrl: resolveExerciseGifUrl(exercise, EXERCISE_GIF_RESOLUTION),
+          prescription: normalizeTrainingExercisePrescription(exercise.prescription),
+          trainerNote: exercise.trainerNote,
+        });
+      });
+      setSelectedExercises(drafts);
+      setExpandedExerciseIds(drafts.map((item) => item.draftId));
+      setIsWorkoutDraftDirty(false);
       const validIds = sessionsForInference.map((s) => s.id).filter(Boolean) as string[];
       setEditingSessionIds(validIds);
       setEditingRecurrenceGroupId(session.recurrenceGroupId ?? null);
@@ -1944,6 +3289,10 @@ export function PersonalPageContent({
   };
 
   const handleDeleteSavedGroup = async (sessions: TrainingSession[]) => {
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem excluir séries.');
+      return;
+    }
     const validIds = sessions.map((session) => session.id).filter(Boolean) as string[];
     if (validIds.length === 0) return;
     if (!confirm(`Deseja excluir esta série recorrente com ${validIds.length} treinos?`)) {
@@ -1957,7 +3306,11 @@ export function PersonalPageContent({
       await loadSavedSessionsCriar();
       await loadCalendarSessions();
       await loadTodaySession();
+      await loadWeekSessionMarkers();
       await loadHistorico();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('oftware:patient-training-calendar-changed'));
+      }
       alert('Série recorrente excluída com sucesso!');
     } catch (error) {
       console.error('Erro ao excluir série recorrente:', error);
@@ -1967,7 +3320,41 @@ export function PersonalPageContent({
     }
   };
 
+  const handleToggleSavedGroupActive = async (
+    group: { key: string; sessions: TrainingSession[] },
+    nextActive: boolean
+  ) => {
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem ativar ou desativar treinos.');
+      return;
+    }
+    const ids = group.sessions.map((session) => session.id).filter(Boolean) as string[];
+    if (ids.length === 0) return;
+    setTogglingSavedGroupKey(group.key);
+    try {
+      await trainingSessionService.setSessionsActive(ids, nextActive);
+      setSavedSessionsCriar((prev) =>
+        prev.map((session) =>
+          session.id && ids.includes(session.id) ? { ...session, active: nextActive } : session
+        )
+      );
+      await Promise.all([loadTodaySession(), loadWeekSessionMarkers(), loadCalendarSessions()]);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('oftware:patient-training-calendar-changed'));
+      }
+    } catch (error) {
+      console.error('Erro ao ativar/desativar treino:', error);
+      alert('Não foi possível atualizar o treino. Tente novamente.');
+    } finally {
+      setTogglingSavedGroupKey(null);
+    }
+  };
+
   const handleDeleteExercise = async (sessionId: string, exerciseDocId: string) => {
+    if (blockProfessionalMutations) {
+      alert('Somente o paciente ou o personal trainer podem remover exercícios.');
+      return;
+    }
     if (!confirm('Tem certeza que deseja remover este exercício do treino?')) {
       return;
     }
@@ -2016,38 +3403,215 @@ export function PersonalPageContent({
   };
 
   const addExerciseToSession = (exercise: Exercise) => {
-    if (selectedExercises.find((e) => e.id === exercise.id)) {
-      return; // Já adicionado
+    if (blockProfessionalMutations) return;
+    if (intercalationPick) {
+      const gifUrl = resolveExerciseGifUrl(exercise, EXERCISE_GIF_RESOLUTION);
+      setSelectedExercises((prev) =>
+        prev.map((ex) => {
+          if (ex.draftId !== intercalationPick.draftId) return ex;
+          const occurrence = createIntercalatedOccurrence({
+            afterSeriesId: intercalationPick.afterSeriesId,
+            slotOrder: (ex.prescription.intercalations || []).filter(
+              (item) => item.afterSeriesId === intercalationPick.afterSeriesId
+            ).length,
+            exercise,
+            gifUrl,
+          });
+          return {
+            ...ex,
+            prescription: {
+              ...ex.prescription,
+              intercalations: insertIntercalatedOccurrence(
+                ex.prescription.series,
+                ex.prescription.intercalations,
+                occurrence
+              ),
+            },
+          };
+        })
+      );
+      setIntercalationPick(null);
+      setIsWorkoutDraftDirty(true);
+      return;
     }
-    // Construir URL do GIF se não existir (API não retorna diretamente)
-    const gifUrl = exercise.gifUrl || getExerciseGifUrl(exercise.id, EXERCISE_GIF_RESOLUTION);
-    setSelectedExercises([
-      ...selectedExercises,
-      {
-        ...exercise,
-        gifUrl: gifUrl,
-        sets: 3,
-        reps: 10,
-        restSec: 60,
-      },
-    ]);
+    if (catalogExerciseIsAdded(selectedExercises, exercise.id)) {
+      return;
+    }
+    const gifUrl = resolveExerciseGifUrl(exercise, EXERCISE_GIF_RESOLUTION);
+    const draft = toSelectedExerciseDraft({
+      ...exercise,
+      gifUrl,
+      prescription: { series: createDefaultTrainingSeries() },
+    });
+    setSelectedExercises([...selectedExercises, draft]);
+    setExpandedExerciseIds((prev) => [...prev, draft.draftId]);
+    setIsWorkoutDraftDirty(true);
   };
 
-  const removeExerciseFromSession = (exerciseId: string) => {
-    setSelectedExercises(selectedExercises.filter((e) => e.id !== exerciseId));
+  const removeExerciseFromSession = (draftId: string) => {
+    setSelectedExercises(selectedExercises.filter((e) => e.draftId !== draftId));
+    setExpandedExerciseIds((prev) => prev.filter((id) => id !== draftId));
+    if (intercalationPick?.draftId === draftId) setIntercalationPick(null);
+    setIsWorkoutDraftDirty(true);
   };
 
-  const updateExercisePrescription = (
-    exerciseId: string,
-    field: 'sets' | 'reps' | 'restSec',
-    value: number
+  const updateExerciseSeries = (draftId: string, series: TrainingExerciseSeries[]) => {
+    setSelectedExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.draftId !== draftId) return ex;
+        const intercalations = sanitizeIntercalations(ex.prescription.intercalations, series);
+        return {
+          ...ex,
+          prescription: {
+            series,
+            ...(intercalations.length > 0 ? { intercalations } : {}),
+          },
+        };
+      })
+    );
+    setIsWorkoutDraftDirty(true);
+  };
+
+  const updateExerciseIntercalations = (
+    draftId: string,
+    intercalations: TrainingIntercalatedOccurrence[]
   ) => {
+    setSelectedExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.draftId !== draftId) return ex;
+        const next = sanitizeIntercalations(intercalations, ex.prescription.series);
+        return {
+          ...ex,
+          prescription: {
+            ...ex.prescription,
+            ...(next.length > 0 ? { intercalations: next } : { intercalations: undefined }),
+          },
+        };
+      })
+    );
+    setIsWorkoutDraftDirty(true);
+  };
+
+  const pickIntercalationForExercise = (draftId: string, afterSeriesId: string) => {
+    if (blockProfessionalMutations) return;
+    setIntercalationPick({ draftId, afterSeriesId });
+    setCriarTreinoSheetOpen(false);
+  };
+
+  const repeatIntercalationForExercise = (
+    draftId: string,
+    afterSeriesId: string,
+    source: TrainingIntercalatedOccurrence
+  ) => {
+    if (blockProfessionalMutations) return;
+    setSelectedExercises((prev) =>
+      prev.map((ex) => {
+        if (ex.draftId !== draftId) return ex;
+        return {
+          ...ex,
+          prescription: {
+            ...ex.prescription,
+            intercalations: repeatIntercalatedOccurrence(
+              ex.prescription.series,
+              ex.prescription.intercalations,
+              afterSeriesId,
+              source
+            ),
+          },
+        };
+      })
+    );
+    setIsWorkoutDraftDirty(true);
+  };
+
+  const updateExerciseTrainerNote = (draftId: string, trainerNote: string) => {
     setSelectedExercises(
       selectedExercises.map((ex) =>
-        ex.id === exerciseId ? { ...ex, [field]: value } : ex
+        ex.draftId === draftId ? { ...ex, trainerNote } : ex
       )
     );
+    setIsWorkoutDraftDirty(true);
   };
+
+  const duplicateExerciseInSession = (draftId: string) => {
+    if (blockProfessionalMutations) return;
+    const index = selectedExercises.findIndex((item) => item.draftId === draftId);
+    const next = insertDuplicatedExercise(selectedExercises, draftId);
+    const copy = index >= 0 ? next[index + 1] : undefined;
+    setSelectedExercises(next);
+    if (copy) {
+      setExpandedExerciseIds((prev) => [...prev, copy.draftId]);
+    }
+    setIsWorkoutDraftDirty(true);
+  };
+
+  const reorderExercisesInSession = (fromIndex: number, toIndex: number) => {
+    if (blockProfessionalMutations) return;
+    setSelectedExercises(reorderSelectedExercises(selectedExercises, fromIndex, toIndex));
+    setIsWorkoutDraftDirty(true);
+  };
+
+  const importFromWorkoutTemplate = (
+    template: PersonalWorkoutTemplate,
+    mode: ImportWorkoutMode
+  ): boolean => {
+    const result = importWorkoutTemplateToDraft(template);
+    if (!result.ok) return false;
+    const next = mergeClonedDraftsIntoWorkout(selectedExercises, result.drafts, mode);
+    setSelectedExercises(next);
+    setIsWorkoutDraftDirty(true);
+    setNewSessionTitle((prev) => suggestedSessionTitleFromTemplate(prev, template.nome));
+    const importedIds = result.drafts.map((item) => item.draftId);
+    setExpandedExerciseIds((prev) =>
+      mode === 'replace' ? importedIds : [...prev, ...importedIds]
+    );
+    return true;
+  };
+
+  const toggleExerciseExpanded = (draftId: string) => {
+    setExpandedExerciseIds((prev) =>
+      prev.includes(draftId) ? prev.filter((id) => id !== draftId) : [...prev, draftId]
+    );
+  };
+
+  const openWorkoutPrint = useCallback(
+    async (session: TrainingSession | null | undefined, exercises?: TrainingSessionExercise[]) => {
+      if (!session) return;
+      setLoadingWorkoutPrint(true);
+      try {
+        let list = exercises && exercises.length > 0 ? exercises : undefined;
+        if (!list && session.id) {
+          list = await trainingSessionService.getSessionExercises(session.id);
+        }
+        if (!list || list.length === 0) {
+          alert('Este treino ainda não tem exercícios para imprimir.');
+          return;
+        }
+        const patientName =
+          pacienteProp?.dadosIdentificacao?.nomeCompleto ||
+          pacienteProp?.nome ||
+          paciente?.dadosIdentificacao?.nomeCompleto ||
+          paciente?.nome ||
+          'Paciente';
+        const trainerName = personalVinculado?.nome || loggedPersonalName || undefined;
+        setWorkoutPrintData(
+          buildWorkoutPrintData({
+            patientName,
+            trainerName,
+            session,
+            exercises: list,
+          })
+        );
+        setWorkoutPrintOpen(true);
+      } catch (error) {
+        console.error('Erro ao preparar impressão do treino:', error);
+        alert('Não foi possível preparar o treino para impressão.');
+      } finally {
+        setLoadingWorkoutPrint(false);
+      }
+    },
+    [paciente, pacienteProp, personalVinculado?.nome, loggedPersonalName]
+  );
 
   if (loading) {
     return (
@@ -2093,8 +3657,13 @@ export function PersonalPageContent({
     );
   }
 
-  // Paciente não vinculado ao médico: bloquear Personal (modo paciente apenas)
-  if (!isPersonalTrainerMode && effectivePaciente && !effectivePaciente.medicoResponsavelId) {
+  // Paciente não vinculado ao médico: bloquear Personal (modo paciente apenas; embeds profissionais usam pacienteProp)
+  if (
+    !isPersonalTrainerMode &&
+    !isProfessionalEmbed &&
+    effectivePaciente &&
+    !effectivePaciente.medicoResponsavelId
+  ) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0A1F44] via-[#0d2a5a] to-[#0A1F44] flex items-center justify-center px-4">
         <div className="max-w-md w-full rounded-lg border border-white/10 bg-[#0A1F44]/90 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] p-6 text-center">
@@ -2121,34 +3690,461 @@ export function PersonalPageContent({
 
   const hoje = new Date();
   const hojeStr = toLocalYYYYMMDD(hoje);
-
-  // Calcular aderência para exibição no header
-  const adherenceDisplay = adherence7d > 0 ? `${adherence7d.toFixed(0)}%` : '--';
+  const weekDates = getCurrentWeekDates(hoje);
+  const isSelectedHojeToday = selectedHojeDate === hojeStr;
+  const selectedWeekIndex = weekDates.findIndex((d) => toLocalYYYYMMDD(d) === selectedHojeDate);
+  const selectedDayLabel =
+    selectedWeekIndex >= 0
+      ? WEEKDAY_LABELS[selectedWeekIndex]
+      : isSelectedHojeToday
+        ? 'Hoje'
+        : selectedHojeDate;
+  const treinoDiaTitulo = isSelectedHojeToday ? 'Treino de hoje' : `Treino de ${selectedDayLabel.toLowerCase()}`;
+  const handleSelectWeekDay = (dateStr: string) => {
+    setSelectedHojeDate(dateStr);
+    if (activeTab !== 'hoje') setActiveTab('hoje');
+  };
+  const handleAbrirCriarTreino = () => {
+    setCriarTab('novo');
+    setNewSessionDate(selectedHojeDate);
+    setActiveTab('criar');
+  };
 
   const nomePaciente = paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome || 'Paciente';
-  const filtrosBuscaAtivosCriar = [
-    selectedBodyPart.length > 0,
-    selectedTarget.length > 0,
-    selectedEquipment.length > 0,
-  ].filter(Boolean).length;
-  const totalFiltrosBuscaCriar = 3;
+  const primeiroNomePaciente = (
+    user?.displayName ||
+    paciente?.dadosIdentificacao?.nomeCompleto ||
+    paciente?.nome
+  )
+    ? getMetaHomeFirstName(
+        user?.displayName,
+        paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome
+      )
+    : '';
+  /** App fullscreen do cliente em /meta/personal (não embutido no Metapersonal/Metaadmin). */
+  const isPatientAppShell = !embedded && !isPersonalTrainerMode && !isProfessionalEmbed;
+  const isAppFullscreen =
+    metaadminFullscreen ||
+    isPatientAppShell ||
+    (!embedded && (isPersonalTrainerMode || fromMetapersonal));
+  // Embed desktop no Editar Paciente: preenche o container. Fullscreen mobile: fixed como metapersonal.
+  // Com suppressAppHeader o container pai já é fixed (PacienteModalHeader + conteúdo).
+  const fillParentShell = (embedded && !metaadminFullscreen) || (metaadminFullscreen && suppressAppHeader);
+  const showAppHeader = (!embedded || metaadminFullscreen) && !suppressAppHeader;
+  /**
+   * Mesma tela nova do /meta/personal no mobile.
+   * Metaadmin, Metapersonal e Metanutri compartilham esse chrome; no desktop seguem o menu lateral.
+   */
+  const modernMobileChrome = isPatientAppShell || isProfessionalEmbed;
+  /** Desktop: menu lateral. No mobile profissional a grade antiga fica oculta (chrome novo). */
+  const useEmbedDesktopNav = fillParentShell || isProfessionalEmbed;
+  const canMutateWorkoutLibrary =
+    fromMetapersonal && !fromMetaadminEmbedded && !professionalReadOnly;
+  const canViewWorkoutLibrary = canMutateWorkoutLibrary || fromMetaadminEmbedded || professionalReadOnly;
+  const libraryOwnerUid = canMutateWorkoutLibrary
+    ? user?.uid || null
+    : libraryPersonalTrainerId;
+  const openImportTemplateModal = () => {
+    if (!canMutateWorkoutLibrary) return;
+    if (!user?.uid) {
+      alert('Faça login para acessar a biblioteca.');
+      return;
+    }
+    setImportTemplateOpen(true);
+  };
+  const openSaveAsTemplateModal = () => {
+    if (!canMutateWorkoutLibrary) return;
+    if (!user?.uid) {
+      alert('Faça login para salvar na biblioteca.');
+      return;
+    }
+    if (selectedExercises.length < 1) {
+      alert('Adicione pelo menos um exercício antes de salvar como modelo.');
+      return;
+    }
+    setSaveAsTemplateOpen(true);
+  };
+  const workoutLibraryDraftActions = canMutateWorkoutLibrary ? (
+    <WorkoutLibraryDraftActions
+      canSaveAsTemplate={selectedExercises.length > 0}
+      disabled={blockProfessionalMutations}
+      onImport={openImportTemplateModal}
+      onSaveAsTemplate={openSaveAsTemplateModal}
+    />
+  ) : null;
+  const isCriarDesktopBuilder =
+    activeTab === 'criar' && (criarTab === 'novo' || criarTab === 'biblioteca');
+  const requestCriarTab = (next: 'novo' | 'salvos' | 'biblioteca') => {
+    if (next === criarTab) return;
+    if (criarTab === 'novo' && isWorkoutDraftDirty) {
+      const ok = confirm('Há alterações não salvas neste treino. Deseja sair mesmo assim?');
+      if (!ok) return;
+    }
+    if (criarTab === 'biblioteca' && isLibraryDraftDirty) {
+      const ok = confirm('Há alterações não salvas neste plano da biblioteca. Deseja sair mesmo assim?');
+      if (!ok) return;
+    }
+    if (next === 'salvos') setCriarTreinoSheetOpen(false);
+    if (next !== 'biblioteca') setIsLibraryDraftDirty(false);
+    setCriarTab(next);
+  };
+  const canSaveWorkoutDraft =
+    !creatingSession &&
+    !blockProfessionalMutations &&
+    Boolean(newSessionTitle) &&
+    Boolean(newSessionDate) &&
+    selectedExercises.length > 0 &&
+    !(
+      sessionType === 'recurring' &&
+      recurrenceFrequency === 'custom' &&
+      selectedDaysOfWeek.length === 0
+    );
+  const criarCatalogPanel = (layout: 'grid' | 'list') => (
+    <ExerciseCatalogPanel
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+      selectedBodyPart={selectedBodyPart}
+      selectedTarget={selectedTarget}
+      selectedEquipment={selectedEquipment}
+      criarFiltroPastaAtiva={criarFiltroPastaAtiva}
+      onFiltroPastaAtivaChange={setCriarFiltroPastaAtiva}
+      bodyParts={bodyParts}
+      availableTargets={availableTargetsByBodyPart}
+      availableEquipments={availableEquipmentsByFilters}
+      onBodyPartChange={(value) => {
+        setSelectedBodyPart(value);
+        setSelectedTarget('');
+        setSelectedEquipment('');
+        setSearchQuery('');
+        setExercisesResults([]);
+        if (value) setCriarFiltroPastaAtiva('target');
+      }}
+      onTargetChange={(value) => {
+        setSelectedTarget(value);
+        setSelectedEquipment('');
+        if (value) setCriarFiltroPastaAtiva('equipment');
+      }}
+      onEquipmentChange={setSelectedEquipment}
+      exercises={exercisesResults}
+      loading={loadingExercises}
+      selectedExercises={selectedExercises}
+      onAdd={addExerciseToSession}
+      readOnly={blockProfessionalMutations}
+      layout={layout}
+      pickMode={intercalationPick ? 'intercalate' : 'main'}
+      onCancelPick={() => setIntercalationPick(null)}
+    />
+  );
+  const renderCriarSessionMeta = () => (
+    <>
+      <input
+        type="text"
+        value={newSessionTitle}
+        onChange={(e) => {
+          setNewSessionTitle(e.target.value);
+          setIsWorkoutDraftDirty(true);
+        }}
+        className="w-full h-10 px-3 text-sm rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] placeholder:text-[#E8EDED]/45 focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none"
+        placeholder="Título do treino"
+      />
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            setSessionType('single');
+            setIsWorkoutDraftDirty(true);
+          }}
+          className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
+            sessionType === 'single'
+              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+              : 'bg-white/10 text-[#E8EDED]/80'
+          }`}
+        >
+          Único
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSessionType('recurring');
+            setIsWorkoutDraftDirty(true);
+          }}
+          className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
+            sessionType === 'recurring'
+              ? 'bg-[#4CCB7A] text-[#0A1F44]'
+              : 'bg-white/10 text-[#E8EDED]/80'
+          }`}
+        >
+          Recorrente
+        </button>
+      </div>
+      <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+        <div className="min-w-0">
+          <label className="block text-[10px] font-medium text-[#E8EDED]/55 mb-1">
+            {sessionType === 'single' ? 'Data' : 'Início'}
+          </label>
+          <input
+            type="date"
+            value={newSessionDate}
+            onChange={(e) => {
+              setNewSessionDate(e.target.value);
+              setIsWorkoutDraftDirty(true);
+            }}
+            min={hojeStr}
+            className="block w-full min-w-0 h-9 px-2 text-sm rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] focus:ring-2 focus:ring-[#4CCB7A]/35 outline-none [color-scheme:dark] appearance-none"
+            style={{ WebkitAppearance: 'none' }}
+          />
+        </div>
+        {sessionType === 'recurring' && (
+          <div className="text-[10px] text-[#E8EDED]/55 pb-2 whitespace-nowrap">
+            {weeksCount} sem.
+          </div>
+        )}
+      </div>
+      {sessionType === 'recurring' && (
+        <div className="space-y-2 pt-1 border-t border-white/10">
+          <div className="grid grid-cols-3 gap-1">
+            {([
+              ['daily', 'Diário'],
+              ['weekly', 'Semanal'],
+              ['custom', 'Custom'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setRecurrenceFrequency(key);
+                  if (key !== 'custom') setSelectedDaysOfWeek([]);
+                  setIsWorkoutDraftDirty(true);
+                }}
+                className={`h-8 rounded-md text-[11px] font-semibold ${
+                  recurrenceFrequency === key
+                    ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                    : 'bg-white/10 text-[#E8EDED]/80'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {recurrenceFrequency === 'custom' && (
+            <div className="flex flex-wrap gap-1">
+              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((dia, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => {
+                    const newDays = selectedDaysOfWeek.includes(index)
+                      ? selectedDaysOfWeek.filter((d) => d !== index)
+                      : [...selectedDaysOfWeek, index];
+                    setSelectedDaysOfWeek(newDays);
+                    setIsWorkoutDraftDirty(true);
+                  }}
+                  className={`h-8 min-w-[2.25rem] px-1.5 rounded-md text-[10px] font-semibold ${
+                    selectedDaysOfWeek.includes(index)
+                      ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                      : 'bg-white/10 text-[#E8EDED]/80'
+                  }`}
+                >
+                  {dia}
+                </button>
+              ))}
+            </div>
+          )}
+          {recurrenceFrequency === 'weekly' && (
+            <select
+              value={timesPerWeek}
+              onChange={(e) => {
+                setTimesPerWeek(parseInt(e.target.value));
+                setIsWorkoutDraftDirty(true);
+              }}
+              className="w-full h-9 px-2 text-xs rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] outline-none"
+            >
+              {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                <option key={num} value={num}>
+                  {num}x / semana
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min="1"
+              max="12"
+              value={weeksCount}
+              onChange={(e) => {
+                setWeeksCount(parseInt(e.target.value));
+                setIsWorkoutDraftDirty(true);
+              }}
+              className="flex-1"
+            />
+            <span className="text-[11px] font-semibold text-[#E8EDED] tabular-nums w-14 text-right">
+              {weeksCount} sem.
+            </span>
+          </div>
+        </div>
+      )}
+    </>
+  );
   const abasPersonal = [
     { id: 'hoje', label: 'Hoje', shortLabel: 'Hoje', icon: Dumbbell },
     { id: 'cronograma', label: 'Cronograma', shortLabel: 'Crono', icon: Calendar },
-    { id: 'criar', label: 'Criar', shortLabel: 'Criar', icon: Plus },
+    { id: 'criar', label: '+ Criar', shortLabel: 'Criar', icon: Plus },
     { id: 'historico', label: 'Histórico', shortLabel: 'Hist.', icon: History },
     { id: 'estatisticas', label: 'Estatísticas', shortLabel: 'Stats', icon: BarChart3 },
-    { id: 'config', label: 'Configurações', shortLabel: 'Config', icon: Shield },
+    { id: 'config', label: 'Configurações', shortLabel: 'Config', icon: Settings },
   ] as const satisfies ReadonlyArray<{ id: Tab; label: string; shortLabel: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number; 'aria-hidden'?: boolean }> }>;
 
-  return (
-    <div className={`min-h-screen bg-gradient-to-br from-[#0A1F44] via-[#0d2a5a] to-[#0A1F44] text-[#E8EDED] ${fromMetapersonal ? 'flex flex-col h-screen' : ''}`}>
-      {/* Header - omitir quando embedded (página /meta já tem menu) */}
-      {!embedded && (
-      <header className={`bg-[#0A1F44]/95 border-b border-white/10 z-10 ${fromMetapersonal ? 'fixed top-0 left-0 right-0 z-40 backdrop-blur-sm' : 'sticky top-0'}`}>
-        <div className={fromMetapersonal ? 'px-4 py-3' : 'max-w-6xl mx-auto px-4 py-4'}>
-          {/* Aberto pelo Metapersonal (mobile): barra fixa no topo ao rolar — logo Personal + nome do paciente + fechar */}
-          {fromMetapersonal ? (
+  const abasNavegacaoMobile = abasPersonal.filter(
+    (aba) => aba.id !== 'cronograma' && aba.id !== 'config'
+  );
+  const abasMenu = isPatientAppShell ? abasNavegacaoMobile : abasPersonal;
+  const legacyTabGridClass = isProfessionalEmbed
+    ? 'hidden'
+    : isPatientAppShell
+      ? 'hidden lg:block'
+      : useEmbedDesktopNav
+        ? 'lg:hidden'
+        : '';
+
+  const handleFecharAppPersonal = () => {
+    if (fromMetaadminEmbedded || metaadminFullscreen) {
+      onCloseMetaadmin?.();
+      return;
+    }
+    if (isPersonalTrainerMode || fromMetapersonal) {
+      router.push('/metapersonal');
+      return;
+    }
+    router.push('/meta');
+  };
+
+  const appShell = (
+    <div
+      className={`personal-dark-scroll w-full bg-gradient-to-br from-[#0A1F44] via-[#0d2a5a] to-[#0A1F44] text-[#E8EDED] ${
+        fillParentShell
+          ? 'flex flex-col min-h-[70dvh] h-full'
+          : isAppFullscreen || fromMetapersonal || metaadminFullscreen
+            ? 'fixed inset-0 z-[200] flex flex-col h-[100dvh] overflow-hidden'
+            : 'min-h-screen'
+      }`}
+    >
+      {/* Header */}
+      {showAppHeader && (
+      <header className={`relative shrink-0 z-40 backdrop-blur-sm ${
+        isPatientAppShell
+          ? 'bg-transparent lg:bg-[#0A1F44]/95 lg:border-b lg:border-white/10'
+          : 'bg-[#0A1F44]/95 border-b border-white/10'
+      }`}>
+        <div className="w-full px-4 py-3">
+          {isPatientAppShell ? (
+            <>
+              <div className="flex items-start justify-between gap-3 lg:hidden pt-[max(0.15rem,env(safe-area-inset-top))]">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-light leading-tight text-white min-h-[1.25rem]">
+                    {dayGreeting ?? '\u00a0'}
+                  </p>
+                  <h1 className="truncate text-[1.65rem] font-bold leading-tight text-white">
+                    {primeiroNomePaciente || '\u00a0'}
+                  </h1>
+                  <p className="sr-only">
+                    {personalVinculado?.nome
+                      ? `Personal ${personalVinculado.nome}${personalVinculado.isVerificado ? ', verificado' : ''}.`
+                      : 'Personal não vinculado.'}
+                    {agregadoPersonalVinculado && agregadoPersonalVinculado.count > 0
+                      ? ` Avaliação ${agregadoPersonalVinculado.media.toFixed(1)} de 5, ${agregadoPersonalVinculado.count} avaliações.`
+                      : ' Seu personal compartilhado.'}
+                  </p>
+                </div>
+                <PersonalPatientHeaderActions
+                  photoUrl={user?.photoURL}
+                  personal={personalVinculado}
+                  rating={agregadoPersonalVinculado}
+                  patientId={paciente?.id || null}
+                  userId={user?.uid || null}
+                  patientName={
+                    paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome || null
+                  }
+                  onClose={handleFecharAppPersonal}
+                  onOpenSettings={() => setActiveTab('config')}
+                />
+              </div>
+              <div className="hidden lg:flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <Dumbbell className="w-6 h-6 text-[#4CCB7A] flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h1 className="text-base font-semibold text-[#E8EDED] truncate">
+                        {personalVinculado?.nome || 'Personal'}
+                      </h1>
+                      {personalVinculado?.isVerificado === true ? (
+                        <ShieldCheck className="h-4 w-4 text-[#4CCB7A] flex-shrink-0" />
+                      ) : personalVinculado ? (
+                        <Shield className="h-4 w-4 text-red-400 flex-shrink-0" />
+                      ) : null}
+                    </div>
+                    {agregadoPersonalVinculado && agregadoPersonalVinculado.count > 0 ? (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={11}
+                            className={
+                              s <= Math.round(agregadoPersonalVinculado.media)
+                                ? 'text-yellow-400 fill-yellow-400'
+                                : 'text-white/25'
+                            }
+                          />
+                        ))}
+                        <span className="text-[10px] text-[#E8EDED]/55 ml-0.5 tabular-nums">
+                          {agregadoPersonalVinculado.media.toFixed(1)} ({agregadoPersonalVinculado.count})
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-[#E8EDED]/45 mt-0.5">Seu personal compartilhado</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFecharAppPersonal}
+                  className="flex-shrink-0 p-2 text-[#E8EDED]/65 hover:text-[#E8EDED] rounded-lg hover:bg-white/10"
+                  aria-label="Fechar e voltar ao Home"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </>
+          ) : metaadminFullscreen || (fromMetaadminEmbedded && showAppHeader) ? (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Dumbbell className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+                  <h1 className="text-lg font-semibold text-[#E8EDED] truncate">{nomePaciente}</h1>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFecharAppPersonal}
+                  className="flex-shrink-0 p-2 text-[#E8EDED]/65 hover:text-[#E8EDED] rounded-lg hover:bg-white/10"
+                  aria-label="Fechar"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              {metaadminHeaderExtra ? (
+                <div className="min-w-0">{metaadminHeaderExtra}</div>
+              ) : null}
+            </div>
+          ) : fromMetapersonal && patientBrowserTabs ? (
+            <MetapersonalPersonalPatientTabBar
+              tabs={patientBrowserTabs.tabs}
+              activeId={patientBrowserTabs.activeId}
+              onSelect={patientBrowserTabs.onSelect}
+              onClose={patientBrowserTabs.onClose}
+              onAdd={patientBrowserTabs.onAdd}
+              onCloseAll={patientBrowserTabs.onCloseAll}
+            />
+          ) : fromMetapersonal ? (
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <Dumbbell className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
@@ -2158,7 +4154,7 @@ export function PersonalPageContent({
               </div>
               <button
                 type="button"
-                onClick={() => router.push('/metapersonal')}
+                onClick={handleFecharAppPersonal}
                 className="flex-shrink-0 p-2 text-[#E8EDED]/65 hover:text-[#E8EDED] rounded-lg hover:bg-white/10"
                 aria-label="Fechar"
               >
@@ -2166,68 +4162,163 @@ export function PersonalPageContent({
               </button>
             </div>
           ) : (
-            <>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Dumbbell className="w-6 h-6 text-[#4CCB7A] flex-shrink-0" />
+                <div className="min-w-0">
+                  <h1 className="text-lg font-semibold text-[#E8EDED] truncate">Personal</h1>
+                  {isPersonalTrainerMode && paciente && (
+                    <p className="text-xs text-[#E8EDED]/65 truncate">Aluno: {paciente.nome}</p>
+                  )}
+                </div>
+              </div>
               <button
-                onClick={() => {
-                  if (isPersonalTrainerMode) {
-                    router.push('/metapersonal');
-                  } else {
-                    router.push('/meta');
-                  }
-                }}
-                className="p-2 rounded-lg text-[#E8EDED]/70 hover:bg-white/10"
-                aria-label="Voltar"
+                type="button"
+                onClick={handleFecharAppPersonal}
+                className="flex-shrink-0 p-2 text-[#E8EDED]/65 hover:text-[#E8EDED] rounded-lg hover:bg-white/10"
+                aria-label="Fechar"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <X size={24} />
               </button>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Dumbbell className="w-6 h-6 text-emerald-600" />
-                <h1 className="text-xl font-semibold text-[#E8EDED]">Personal</h1>
-                {isPersonalTrainerMode && paciente && (
-                  <span className="px-3 py-1 text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 rounded-md shadow-sm">
-                    Aluno: <span className="font-semibold">{paciente.nome}</span>
-                  </span>
-                )}
-              </div>
             </div>
-          </div>
-
-          {/* Menu superior: nome do médico do aluno — só em modo PT (não quando fromMetapersonal) */}
-          {isPersonalTrainerMode && paciente && medicoResponsavel && (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-white/10">
-              <div className="flex items-center gap-1.5">
-                <Stethoscope className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-                <span className="text-sm font-semibold text-[#E8EDED] truncate max-w-[200px]">
-                  {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
-                </span>
-                {medicoResponsavel.isVerificado ? (
-                  <ShieldCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                ) : (
-                  <Shield className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                )}
-              </div>
-            </div>
-          )}
-            </>
           )}
         </div>
       </header>
       )}
 
-      {/* Conteúdo rolável quando aberto pelo Metapersonal; pt-14 = espaço para a barra fixa */}
-      <div className={fromMetapersonal ? 'flex-1 overflow-y-auto pt-14' : ''}>
-      {/* Tabs */}
-      <div className="w-full px-0 sm:max-w-6xl sm:mx-auto sm:px-4 pt-0 pb-3">
-        <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/80 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] overflow-hidden">
+      <div
+        className={`flex-1 min-h-0 w-full flex ${
+          useEmbedDesktopNav ? 'flex-col lg:flex-row' : 'flex-col'
+        }`}
+      >
+        {/* Menu lateral — desktop no embed do modal do paciente */}
+        {useEmbedDesktopNav && (
+          <aside className="hidden lg:flex w-52 xl:w-56 flex-shrink-0 flex-col border-r border-white/10 bg-[#071833]/90">
+            <div className="px-4 pt-4 pb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#E8EDED]/40">
+                Personal Trainer
+              </p>
+            </div>
+            <nav
+              className="flex-1 py-2 px-2.5 space-y-1 overflow-y-auto"
+              aria-label="Seções Personal"
+            >
+              {abasMenu.map((aba) => {
+                const ativo = activeTab === aba.id;
+                const TabIcon = aba.icon;
+                return (
+                  <button
+                    key={aba.id}
+                    type="button"
+                    onClick={() => setActiveTab(aba.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                      ativo
+                        ? 'bg-[#4CCB7A]/15 text-[#4CCB7A] ring-1 ring-[#4CCB7A]/35'
+                        : 'text-[#E8EDED]/70 hover:bg-white/5 hover:text-[#E8EDED]'
+                    }`}
+                  >
+                    <TabIcon
+                      className={`w-[18px] h-[18px] flex-shrink-0 ${
+                        ativo ? 'text-[#4CCB7A]' : 'text-[#E8EDED]/45'
+                      }`}
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                    <span className="truncate text-left">{aba.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+        )}
+
+        {/* Coluna de conteúdo */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden min-w-0">
+          <div
+            className={`flex-1 min-h-0 w-full overscroll-y-contain ${
+              isOverlayModalOpen ? 'overflow-hidden' : 'overflow-y-auto'
+            }`}
+          >
+      {(isPersonalTrainerMode || isProfessionalEmbed) && (paciente?.id || pacienteIdFromQuery) && (
+        <div className={`shrink-0 ${isCriarDesktopBuilder ? 'lg:hidden' : ''}`}>
+        <ProfessionalPersonalToolsBar
+          key={`tools-${paciente?.id || pacienteIdFromQuery}`}
+          patientId={(paciente?.id || pacienteIdFromQuery)!}
+          viewerRole={resolvedProfessionalRole}
+          userId={user?.uid ?? null}
+          patientName={paciente?.nome || nomePaciente || null}
+          dark
+        />
+        </div>
+      )}
+
+      {modernMobileChrome && (
+        <div className="lg:hidden w-full px-3 pt-1 pb-2">
+          <div
+            role="tablist"
+            aria-label="Dias da semana"
+            className="grid grid-cols-7 gap-1 w-full"
+          >
+            {weekDates.map((date, index) => {
+              const dateStr = toLocalYYYYMMDD(date);
+              const dayNum = String(date.getDate()).padStart(2, '0');
+              const ativo = selectedHojeDate === dateStr;
+              const isToday = dateStr === hojeStr;
+              const temTreino = weekDatesWithSessions.has(dateStr);
+              const progressoDia = weekProgressByDate[dateStr] ?? 0;
+              return (
+                <button
+                  key={dateStr}
+                  type="button"
+                  role="tab"
+                  aria-selected={ativo}
+                  aria-label={`${WEEKDAY_LABELS[index]} ${dayNum}${isToday ? ' (hoje)' : ''}${weekDayStatusLabel(temTreino, progressoDia)}`}
+                  title={`${WEEKDAY_LABELS[index]} ${dayNum}${progressoDia > 0 ? ` · ${progressoDia}%` : temTreino ? ' · agendado' : ''}`}
+                  onClick={() => handleSelectWeekDay(dateStr)}
+                  className="min-w-0 w-full flex flex-col items-center gap-1 py-0.5"
+                >
+                  <span
+                    className={`text-[11px] font-medium leading-none ${
+                      ativo ? 'text-[#4CCB7A]' : 'text-[#E8EDED]/55'
+                    }`}
+                  >
+                    {WEEKDAY_CIRCLE_LETTERS[index]}
+                  </span>
+                  <span
+                    className={`relative flex aspect-square w-full max-w-10 items-center justify-center rounded-full border text-[13px] font-semibold tabular-nums leading-none transition-colors ${
+                      ativo
+                        ? 'border-[#4CCB7A] bg-[#12352a]/80 text-[#4CCB7A] shadow-[0_0_14px_rgba(76,203,122,0.45)]'
+                        : 'border-[#3B6EA5]/55 bg-transparent text-[#E8EDED]/90'
+                    }`}
+                  >
+                    {progressoDia > 0 && (
+                      <CalendarDayProgressBorder percent={progressoDia} selected={ativo} circular dense />
+                    )}
+                    <span className="relative z-[1]">{dayNum}</span>
+                  </span>
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      ativo && temTreino && progressoDia === 0 ? 'bg-[#4CCB7A]' : weekDayDotClass(temTreino, progressoDia)
+                    }`}
+                    aria-hidden
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Tabs — no app do paciente ficam na barra inferior no mobile; desktop e demais perfis mantêm este menu */}
+      <div className={`w-full px-0 pt-0 pb-3 ${legacyTabGridClass}`}>
+        <div className="border border-white/10 border-x-0 bg-[#0A1F44]/80 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] overflow-hidden rounded-none">
           <div className="border-b border-white/10">
             <div
               role="tablist"
               aria-label="Seções Personal"
-              className="grid grid-cols-6 gap-1 p-2"
+              className={`grid gap-1 p-2 ${abasMenu.length > 4 ? 'grid-cols-6' : 'grid-cols-4'}`}
             >
-              {abasPersonal.map((aba) => {
+              {abasMenu.map((aba) => {
                 const ativo = activeTab === aba.id;
                 const TabIcon = aba.icon;
                 return (
@@ -2264,70 +4355,324 @@ export function PersonalPageContent({
               })}
             </div>
           </div>
+
+          {/* Bolinhas Seg–Dom: preenchem a horizontal; clique abre o treino daquele dia */}
+          <div className="p-2 pt-1">
+            <div
+              role="tablist"
+              aria-label="Dias da semana"
+              className="grid grid-cols-7 gap-1 w-full"
+            >
+              {weekDates.map((date, index) => {
+                const dateStr = toLocalYYYYMMDD(date);
+                const dayNum = String(date.getDate()).padStart(2, '0');
+                const ativo = selectedHojeDate === dateStr;
+                const isToday = dateStr === hojeStr;
+                const temTreino = weekDatesWithSessions.has(dateStr);
+                const progressoDia = weekProgressByDate[dateStr] ?? 0;
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    role="tab"
+                    aria-selected={ativo}
+                    aria-label={`${WEEKDAY_LABELS[index]} ${dayNum}${isToday ? ' (hoje)' : ''}${temTreino ? ', com treino' : ''}${progressoDia > 0 ? `, ${progressoDia}% concluído` : ''}`}
+                    title={`${WEEKDAY_LABELS[index]} ${dayNum}${progressoDia > 0 ? ` · ${progressoDia}%` : ''}`}
+                    onClick={() => handleSelectWeekDay(dateStr)}
+                    className={`relative min-w-0 w-full flex flex-col items-center justify-center rounded-xl border py-2 px-0.5 text-center transition-all gap-0.5 ${
+                      ativo
+                        ? 'border-[#4CCB7A] bg-[#4CCB7A]/12 shadow-[0_8px_24px_-8px_rgba(76,203,122,0.45)] ring-2 ring-[#4CCB7A]/35'
+                        : 'border-white/10 bg-white/[0.04] hover:border-[#4CCB7A]/40 hover:bg-[#4CCB7A]/5'
+                    }`}
+                  >
+                    {progressoDia > 0 && (
+                      <CalendarDayProgressBorder percent={progressoDia} selected={ativo} />
+                    )}
+                    <span
+                      className={`relative z-[1] text-sm sm:text-base font-semibold leading-none ${
+                        ativo ? 'text-[#4CCB7A]' : isToday ? 'text-[#E8EDED]' : 'text-[#E8EDED]/75'
+                      }`}
+                    >
+                      {WEEKDAY_LETTERS[index]}
+                    </span>
+                    <span
+                      className={`relative z-[1] text-[9px] sm:text-[10px] font-medium leading-tight ${
+                        ativo ? 'text-[#E8EDED]' : 'text-[#E8EDED]/65'
+                      }`}
+                    >
+                      {WEEKDAY_SHORT[index]}
+                    </span>
+                    <span
+                      className={`relative z-[1] text-[11px] sm:text-xs font-semibold tabular-nums leading-none ${
+                        ativo ? 'text-[#4CCB7A]' : isToday ? 'text-[#E8EDED]' : 'text-[#E8EDED]/75'
+                      }`}
+                    >
+                      {dayNum}
+                    </span>
+                    {temTreino && (
+                      <span
+                        className={`relative z-[1] w-1 h-1 rounded-full ${
+                          ativo ? 'bg-[#4CCB7A]' : 'bg-[#4CCB7A]/70'
+                        }`}
+                        aria-hidden
+                      />
+                    )}
+                    {!temTreino && <span className="relative z-[1] w-1 h-1" aria-hidden />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Conteúdo */}
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      {/* Faixa de dias — desktop embed (menu lateral já cuida das seções) */}
+      {useEmbedDesktopNav && (
+        <div className={`hidden w-full px-4 pt-3 pb-1 shrink-0 sticky top-0 z-20 bg-[#0A1F44] ${isCriarDesktopBuilder ? '' : 'lg:block'}`}>
+          <div className="rounded-xl border border-white/10 bg-[#0A1F44]/70 p-2">
+            <div
+              role="tablist"
+              aria-label="Dias da semana"
+              className="grid grid-cols-7 gap-1.5 w-full"
+            >
+              {weekDates.map((date, index) => {
+                const dateStr = toLocalYYYYMMDD(date);
+                const dayNum = String(date.getDate()).padStart(2, '0');
+                const ativo = selectedHojeDate === dateStr;
+                const isToday = dateStr === hojeStr;
+                const temTreino = weekDatesWithSessions.has(dateStr);
+                const progressoDia = weekProgressByDate[dateStr] ?? 0;
+                return (
+                  <button
+                    key={`desk-${dateStr}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={ativo}
+                    aria-label={`${WEEKDAY_LABELS[index]} ${dayNum}${isToday ? ' (hoje)' : ''}${temTreino ? ', com treino' : ''}${progressoDia > 0 ? `, ${progressoDia}% concluído` : ''}`}
+                    title={`${WEEKDAY_LABELS[index]} ${dayNum}${progressoDia > 0 ? ` · ${progressoDia}%` : ''}`}
+                    onClick={() => handleSelectWeekDay(dateStr)}
+                    className={`relative min-w-0 w-full flex flex-col items-center justify-center rounded-xl border py-2.5 px-1 text-center transition-all gap-0.5 ${
+                      ativo
+                        ? 'border-[#4CCB7A] bg-[#4CCB7A]/12 ring-2 ring-[#4CCB7A]/35'
+                        : 'border-white/10 bg-white/[0.04] hover:border-[#4CCB7A]/40 hover:bg-[#4CCB7A]/5'
+                    }`}
+                  >
+                    {progressoDia > 0 && (
+                      <CalendarDayProgressBorder percent={progressoDia} selected={ativo} />
+                    )}
+                    <span
+                      className={`relative z-[1] text-base font-semibold leading-none ${
+                        ativo ? 'text-[#4CCB7A]' : isToday ? 'text-[#E8EDED]' : 'text-[#E8EDED]/75'
+                      }`}
+                    >
+                      {WEEKDAY_LETTERS[index]}
+                    </span>
+                    <span
+                      className={`relative z-[1] text-[10px] font-medium leading-tight ${
+                        ativo ? 'text-[#E8EDED]' : 'text-[#E8EDED]/65'
+                      }`}
+                    >
+                      {WEEKDAY_SHORT[index]}
+                    </span>
+                    <span
+                      className={`relative z-[1] text-xs font-semibold tabular-nums leading-none ${
+                        ativo ? 'text-[#4CCB7A]' : isToday ? 'text-[#E8EDED]' : 'text-[#E8EDED]/75'
+                      }`}
+                    >
+                      {dayNum}
+                    </span>
+                    {temTreino ? (
+                      <span
+                        className={`relative z-[1] w-1 h-1 rounded-full ${
+                          ativo ? 'bg-[#4CCB7A]' : 'bg-[#4CCB7A]/70'
+                        }`}
+                        aria-hidden
+                      />
+                    ) : (
+                      <span className="relative z-[1] w-1 h-1" aria-hidden />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Conteúdo — full width no Metapersonal */}
+      <main
+        className={`w-full px-4 py-6 pb-8 ${
+          modernMobileChrome ? 'max-lg:pt-3 max-lg:pb-28' : ''
+        } ${
+          useEmbedDesktopNav
+            ? isCriarDesktopBuilder
+              ? 'lg:px-4 lg:py-3 lg:pb-8 lg:max-w-none'
+              : 'lg:px-6 lg:max-w-5xl lg:mx-auto'
+            : ''
+        }`}
+      >
         {activeTab === 'hoje' && (
-          <Surface className="rounded-2xl">
+          <Surface className={`rounded-2xl ${modernMobileChrome ? 'max-lg:bg-transparent [&>div:first-child]:max-lg:hidden' : ''}`}>
             <div className="space-y-4">
             {loadingToday ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4CCB7A]" />
               </div>
-            ) : todaySessions.length > 0 ? (
-              <div className="space-y-6">
-                {/* Seletor de sessões se houver múltiplas */}
-                {/* Treino selecionado */}
-                {selectedTodaySessionId && todaySelectedSession && (
+            ) : (
+              <div className={modernMobileChrome ? 'space-y-5 lg:space-y-6' : 'space-y-6'}>
+                {modernMobileChrome && (
+                  <div className="lg:hidden">
+                    <PersonalEditWorkoutCard onClick={handleAbrirCriarTreino} />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleAbrirCriarTreino}
+                  className={`w-full px-4 py-3 bg-[#4CCB7A] text-[#0A1F44] text-sm font-semibold rounded-xl shadow-sm hover:bg-[#45b86d] transition-colors flex items-center justify-center gap-2 ${modernMobileChrome ? 'hidden lg:flex' : ''}`}
+                >
+                  <Plus className="w-4 h-4" />
+                  Edite seu Treino
+                </button>
+
+                {todaySessions.length > 0 && selectedTodaySessionId && todaySelectedSession && (
                   <div className="space-y-4">
-                    {/* ETAPA 1 v2 — Hero full-bleed: Card glass + Progress Capsule + CTA único */}
-                    <Card variant="glass" className="p-6 space-y-4 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED]">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <p className="text-sm text-[#E8EDED]/70">Treino de hoje</p>
-                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ring-1 ${
-                          todaySelectedSession.status === 'done'
-                            ? 'bg-[#4CCB7A]/15 text-[#4CCB7A] ring-[#4CCB7A]/35'
-                            : todaySelectedSession.status === 'skipped'
-                            ? 'bg-red-500/15 text-red-300 ring-red-400/30'
-                            : 'bg-white/10 text-[#E8EDED]/75 ring-white/10'
-                        }`}>
-                          {todaySelectedSession.status === 'done' ? 'Concluído' : todaySelectedSession.status === 'skipped' ? 'Pulado' : 'Agendado'}
-                        </span>
+                    {modernMobileChrome && (
+                      <div className="lg:hidden">
+                        <PersonalTodayHeroCard
+                          dayTitle={treinoDiaTitulo}
+                          status={todaySelectedSession.status}
+                          title={todaySelectedSession.title}
+                          exerciseCount={progress.total}
+                          doneCount={progress.done}
+                          percentage={progress.percentage}
+                          progressCaption={isSelectedHojeToday ? 'Hoje' : selectedDayLabel}
+                          muscleImageUrl={todayMuscleImageUrl && !muscleImageFailed ? todayMuscleImageUrl : null}
+                          muscleAlt={`Músculos do dia: ${todayMuscleGroups.join(', ')}`}
+                          onMuscleError={() => setMuscleImageFailed(true)}
+                          startCompleted={nextExercise === null}
+                          startDisabled={nextExercise === null && todayExercises.length === 0}
+                          startLabel={
+                            nextExercise === null
+                              ? 'Treino concluído'
+                              : isPersonalTrainerMode
+                                ? progress.percentage > 0
+                                  ? 'Acompanhar treino'
+                                  : 'Iniciar treino'
+                                : 'Iniciar treino'
+                          }
+                          startSubtitle={
+                            nextExercise === null
+                              ? 'Você concluiu esta sessão'
+                              : progress.percentage > 0
+                                ? isPersonalTrainerMode
+                                  ? 'Acompanhe a sessão do aluno'
+                                  : 'Continue de onde parou'
+                                : 'Vamos lá! Boa sessão de treino 💪'
+                          }
+                          onStart={() =>
+                            startWorkout(
+                              todaySelectedSession,
+                              nextExercise === null
+                                ? todayExercises[0]?.id ?? null
+                                : nextExercise?.id ??
+                                  todayExercises.find((ex) => ex.status !== 'done' && ex.status !== 'skipped')?.id ??
+                                  todayExercises[0]?.id ??
+                                  null
+                            )
+                          }
+                          onPrint={() => void openWorkoutPrint(todaySelectedSession, todayExercises)}
+                          printDisabled={loadingWorkoutPrint || todayExercises.length === 0}
+                          printLoading={loadingWorkoutPrint}
+                        />
                       </div>
-                      <h2 className="text-2xl font-semibold leading-tight text-[#E8EDED]">
-                        {todaySelectedSession.title}
-                      </h2>
-                      <p className="text-sm text-[#E8EDED]/70">
-                        {progress.total} exercícios • {progress.percentage}% • {progress.done}/{progress.total}
-                      </p>
-                      {/* Progress Capsule: pill com track + fill em gradiente + texto à direita */}
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-3 rounded-full bg-white/10 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A] transition-all duration-300"
-                            style={{ width: `${progress.percentage}%` }}
-                          />
+                    )}
+                    {/* ETAPA 1 v2 — Hero full-bleed: Card glass + Progress Capsule + CTA único */}
+                    <Card variant="glass" className={`p-6 space-y-4 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED] ${modernMobileChrome ? 'hidden lg:block' : ''}`}>
+                      <div className="flex items-start gap-4">
+                        <div className="min-w-0 flex-1 space-y-4">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="text-sm text-[#E8EDED]/70">{treinoDiaTitulo}</p>
+                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ring-1 ${
+                              todaySelectedSession.status === 'done'
+                                ? 'bg-[#4CCB7A]/15 text-[#4CCB7A] ring-[#4CCB7A]/35'
+                                : todaySelectedSession.status === 'skipped'
+                                ? 'bg-red-500/15 text-red-300 ring-red-400/30'
+                                : 'bg-white/10 text-[#E8EDED]/75 ring-white/10'
+                            }`}>
+                              {todaySelectedSession.status === 'done' ? 'Concluído' : todaySelectedSession.status === 'skipped' ? 'Pulado' : 'Agendado'}
+                            </span>
+                          </div>
+                          <h2 className="text-2xl font-semibold leading-tight text-[#E8EDED]">
+                            {todaySelectedSession.title}
+                          </h2>
+                          <p className="text-sm text-[#E8EDED]/70">
+                            {progress.total} exercícios • {progress.percentage}% • {progress.done}/{progress.total}
+                          </p>
+                          {/* Progress Capsule: pill com track + fill em gradiente + texto à direita */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-3 rounded-full bg-white/10 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A] transition-all duration-300"
+                                style={{ width: `${progress.percentage}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium text-[#E8EDED]/70 tabular-nums">
+                              {isSelectedHojeToday ? 'Hoje' : selectedDayLabel}: {progress.percentage}%
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-sm font-medium text-[#E8EDED]/70 tabular-nums">
-                          Hoje: {progress.percentage}%
-                        </span>
+                        {todayMuscleImageUrl && !muscleImageFailed ? (
+                          <div className="w-[88px] sm:w-[120px] shrink-0 self-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={todayMuscleImageUrl}
+                              alt={`Músculos do dia: ${todayMuscleGroups.join(', ')}`}
+                              className="w-full h-auto object-contain drop-shadow-[0_8px_24px_rgba(76,203,122,0.25)]"
+                              loading="lazy"
+                              onError={() => setMuscleImageFailed(true)}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                       {nextExercise === null ? (
-                        <button
-                          type="button"
-                          disabled
-                          className="w-full py-2.5 px-4 rounded-xl font-semibold text-[#E8EDED]/60 bg-white/5 cursor-not-allowed ring-1 ring-white/10 border border-white/10"
+                        <PrimaryCTA
+                          onClick={() =>
+                            startWorkout(todaySelectedSession, todayExercises[0]?.id ?? null)
+                          }
+                          disabled={todayExercises.length === 0}
                         >
-                          Treino concluído ✅
-                        </button>
+                          <CheckCircle className="w-5 h-5" />
+                          Treino concluído
+                        </PrimaryCTA>
                       ) : (
-                        <PrimaryCTA onClick={() => startWorkout(todaySelectedSession, nextExercise?.id ?? todayExercises.find((ex) => ex.status !== 'done' && ex.status !== 'skipped')?.id ?? todayExercises[0]?.id ?? null)}>
+                        <PrimaryCTA
+                          onClick={() =>
+                            startWorkout(
+                              todaySelectedSession,
+                              nextExercise?.id ??
+                                todayExercises.find((ex) => ex.status !== 'done' && ex.status !== 'skipped')?.id ??
+                                todayExercises[0]?.id ??
+                                null
+                            )
+                          }
+                        >
                           <Play className="w-5 h-5" />
-                          Iniciar treino
+                          {isPersonalTrainerMode
+                            ? progress.percentage > 0
+                              ? 'Acompanhar treino'
+                              : 'Iniciar treino'
+                            : 'Iniciar treino'}
                         </PrimaryCTA>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => void openWorkoutPrint(todaySelectedSession, todayExercises)}
+                        disabled={loadingWorkoutPrint || todayExercises.length === 0}
+                        className="w-full py-2.5 px-4 rounded-xl font-semibold text-[#E8EDED] bg-white/5 hover:bg-white/10 ring-1 ring-white/15 border border-white/10 flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {loadingWorkoutPrint ? <Loader2 className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />}
+                        Imprimir treino
+                      </button>
                     </Card>
 
                     {/* ETAPA 4 v2 — Seletor de sessões: segmented pills sticky (blur + hairline) */}
@@ -2362,108 +4707,20 @@ export function PersonalPageContent({
                       </div>
                     )}
 
-                    {/* ETAPA 2 v2 — Próximo exercício: media card vertical (mídia primeiro) */}
-                    <div ref={nextExerciseSectionRef} className="scroll-mt-4">
-                      <h3 className="text-xl font-semibold text-[#E8EDED] mb-3">
-                        Próximo exercício
-                      </h3>
-                      {nextExercise ? (
-                        <Card variant="solid" className="overflow-hidden p-0 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED] shadow-[0_16px_32px_-16px_rgba(76,203,122,0.35)]">
-                          <div className="flex flex-col">
-                            {/* Mídia em cima: 16:9 + overlay "Próximo" + gradiente no rodapé */}
-                            {nextExercise.gifUrl && (
-                              <div className="relative aspect-video w-full rounded-t-2xl overflow-hidden bg-white/10">
-                                <img
-                                  src={nextExercise.gifUrl}
-                                  alt={translateExerciseName(nextExercise.name)}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                                <span className="absolute top-3 left-3 text-xs font-semibold px-2.5 py-1 rounded-full bg-[#4CCB7A] text-[#0A1F44] ring-1 ring-[#4CCB7A]/35">
-                                  Próximo
-                                </span>
-                                <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" aria-hidden />
-                              </div>
-                            )}
-                            <div className="p-4 space-y-3">
-                              <h4 className="text-lg font-semibold text-[#E8EDED]">
-                                {translateExerciseName(nextExercise.name)}
-                              </h4>
-                              <div className="flex gap-2 flex-wrap">
-                                <span className={`${ui.pill} bg-[#4CCB7A]/15 text-[#4CCB7A] ring-[#4CCB7A]/35`}>
-                                  {translateTarget(nextExercise.target)}
-                                </span>
-                                {nextExercise.equipment && nextExercise.equipment !== 'body weight' && (
-                                  <span className={`${ui.pill} bg-white/10 text-[#E8EDED]/75 ring-white/10`}>
-                                    {translateEquipment(nextExercise.equipment)}
-                                  </span>
-                                )}
-                              </div>
-                              {nextExercise.prescription && (
-                                <p className="text-xs text-[#E8EDED]/65 font-medium tabular-nums">
-                                  {nextExercise.prescription.sets}×{nextExercise.prescription.reps} • {nextExercise.prescription.restSec}s
-                                </p>
-                              )}
-                              <div className="border-t border-white/10 pt-3 flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => nextExercise.id && handleMarkExercise(nextExercise.id, 'done')}
-                                  disabled={savingStatus}
-                                  className={`flex-1 flex items-center justify-center gap-2 ${ui.btnSuccess} disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] transition-transform`}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                  Feito
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => nextExercise.id && handleMarkExercise(nextExercise.id, 'skipped')}
-                                  disabled={savingStatus}
-                                  className={`flex-1 flex items-center justify-center gap-2 ${ui.btnDanger} disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] transition-transform`}
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                  Pulei
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      ) : (
-                        <Card variant="glass" className="p-6 text-center space-y-4 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED]">
-                          <div className="w-14 h-14 mx-auto rounded-full bg-[#4CCB7A]/15 flex items-center justify-center">
-                            <CheckCircle className="w-8 h-8 text-[#4CCB7A]" />
-                          </div>
-                          <p className="text-lg font-semibold text-[#E8EDED]">
-                            Você concluiu o treino de hoje 🎉
-                          </p>
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            <button
-                              type="button"
-                              onClick={() => setShowAllExercises(true)}
-                              className={`${ui.btnGhost} text-sm py-2 px-3 rounded-xl`}
-                            >
-                              Ver exercícios
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => notesSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                              className={`${ui.pill} bg-white/10 text-[#E8EDED]/80 hover:bg-white/15 transition-colors text-sm py-2 px-3`}
-                            >
-                              Adicionar nota
-                            </button>
-                          </div>
-                        </Card>
-                      )}
-                    </div>
-
                     {/* ETAPA 3 v2 — Ver todos: lista premium com expand inline (hairline, accent bar, 1 expand por vez) */}
-                    <Card variant="solid" className="overflow-hidden p-0 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED] shadow-[0_16px_32px_-16px_rgba(76,203,122,0.3)]">
+                    <Card variant="solid" className={`overflow-hidden p-0 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED] shadow-[0_16px_32px_-16px_rgba(76,203,122,0.3)] ${modernMobileChrome ? 'max-lg:border-0 max-lg:bg-transparent max-lg:shadow-none' : ''}`}>
+                      {modernMobileChrome && (
+                        <div className="lg:hidden">
+                          <PersonalExerciseListHeader
+                            expanded={showAllExercises}
+                            onToggle={() => setShowAllExercises((v) => !v)}
+                          />
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => setShowAllExercises((v) => !v)}
-                        className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left font-semibold text-[#E8EDED] hover:bg-white/5 transition-colors"
+                        className={`w-full px-4 py-3 flex items-center justify-between gap-2 text-left font-semibold text-[#E8EDED] hover:bg-white/5 transition-colors ${modernMobileChrome ? 'hidden lg:flex' : ''}`}
                       >
                         <span>Ver todos os exercícios</span>
                         <ChevronRight
@@ -2471,7 +4728,7 @@ export function PersonalPageContent({
                         />
                       </button>
                       {showAllExercises && (
-                        <div className="border-t border-white/10">
+                        <div className={`border-t border-white/10 ${modernMobileChrome ? 'max-lg:overflow-hidden max-lg:rounded-b-[22px] max-lg:border max-lg:border-t-0 max-lg:border-[rgba(145,180,230,0.20)] max-lg:bg-[#0B2042]' : ''}`}>
                           {todayExercises.map((exercise, index) => {
                             const isDone = exercise.status === 'done';
                             const isSkipped = exercise.status === 'skipped';
@@ -2498,8 +4755,9 @@ export function PersonalPageContent({
                                       {translateExerciseName(exercise.name)}
                                     </p>
                                     <p className="text-xs text-[#E8EDED]/65 tabular-nums">
-                                      {exercise.prescription ? `${exercise.prescription.sets}×${exercise.prescription.reps}` : '—'}
+                                      {formatTrainingSeriesSummary(exercise.prescription)}
                                     </p>
+                                    <WorkoutSequencePreview exercise={exercise} />
                                   </div>
                                   {(isDone || isSkipped) && (
                                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
@@ -2544,9 +4802,14 @@ export function PersonalPageContent({
 
                 {/* ETAPA 5 v2 — Notas: mobile = card compacto + bottom sheet; desktop = inline */}
                 <div ref={notesSectionRef} className="scroll-mt-4">
-                  {isMobile ? (
+                  {isMobile || isPatientAppShell ? (
                     <>
-                      <Card variant="glass" className="p-4 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED]">
+                      {(isPatientAppShell || isProfessionalEmbed) && (
+                        <div className="lg:hidden">
+                          <PersonalNotesHeader onEdit={() => setNotesSheetOpen(true)} />
+                        </div>
+                      )}
+                      <Card variant="glass" className={`p-4 border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED] ${isPatientAppShell || (isProfessionalEmbed && isMobile) ? 'hidden lg:block' : ''}`}>
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <h3 className="text-lg font-semibold text-[#E8EDED]">Observações</h3>
                           <button type="button" onClick={() => setNotesSheetOpen(true)} className="text-sm font-medium text-[#4CCB7A] hover:underline">
@@ -2636,28 +4899,6 @@ export function PersonalPageContent({
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-8 text-center space-y-6 text-[#E8EDED] shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
-                <p className="text-sm text-[#E8EDED]/75">
-                  Você ainda não tem treino para hoje.
-                </p>
-                <div className="flex gap-2 justify-center flex-wrap">
-                  <button
-                    onClick={() => setActiveTab('criar')}
-                    className="px-4 py-2.5 bg-[#4CCB7A] text-[#0A1F44] text-sm font-semibold rounded-xl shadow-sm hover:bg-[#45b86d] transition-colors flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Criar
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('cronograma')}
-                    className="px-4 py-2.5 bg-white/10 text-[#E8EDED] text-sm font-semibold rounded-xl border border-white/20 hover:bg-white/15 transition-colors flex items-center gap-2"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    Cronograma
-                  </button>
-                </div>
-              </div>
             )}
             </div>
           </Surface>
@@ -2673,27 +4914,29 @@ export function PersonalPageContent({
             {/* Controles do calendário */}
             <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-4 space-y-4 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
               {/* Toggle Mês/Semana */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-[#E8EDED]">
                   Visualização
                 </h3>
-                <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1">
+                <div className="flex items-center gap-1 bg-white/[0.06] rounded-xl p-1 ring-1 ring-white/10">
                   <button
+                    type="button"
                     onClick={() => setVisualizacaoCalendario('mes')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                       visualizacaoCalendario === 'mes'
-                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-sm'
-                        : 'text-[#E8EDED]/75 hover:bg-white/10'
+                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-[0_8px_18px_-10px_rgba(76,203,122,0.7)]'
+                        : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                     }`}
                   >
                     Mês
                   </button>
                   <button
+                    type="button"
                     onClick={() => setVisualizacaoCalendario('semana')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                       visualizacaoCalendario === 'semana'
-                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-sm'
-                        : 'text-[#E8EDED]/75 hover:bg-white/10'
+                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-[0_8px_18px_-10px_rgba(76,203,122,0.7)]'
+                        : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                     }`}
                   >
                     Semana
@@ -2728,6 +4971,15 @@ export function PersonalPageContent({
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
+                      checked={showInjetaveisToggle}
+                      onChange={(e) => setShowInjetaveisToggle(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm text-[#E8EDED]/85">Injetáveis</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
                       checked={showPagamentosToggle}
                       onChange={(e) => setShowPagamentosToggle(e.target.checked)}
                       className="w-4 h-4"
@@ -2747,6 +4999,7 @@ export function PersonalPageContent({
               setDiaSelecionado={setDiaSelecionado}
               sessoes={showTreinosToggle ? sessoesCalendario : []}
               aplicacoes={showAplicacoesToggle ? aplicacoesCalendario : []}
+              injetaveis={showInjetaveisToggle ? injetaveisCalendario : []}
               pagamentos={showPagamentosToggle ? pagamentosCalendario : []}
               aplicacaoSelecionada={aplicacaoSelecionada}
               setAplicacaoSelecionada={setAplicacaoSelecionada}
@@ -2762,6 +5015,7 @@ export function PersonalPageContent({
                 setDiaSelecionado={setDiaSelecionado}
                 sessoes={showTreinosToggle ? sessoesCalendario : []}
                 aplicacoes={showAplicacoesToggle ? aplicacoesCalendario : []}
+                injetaveis={showInjetaveisToggle ? injetaveisCalendario : []}
                 pagamentos={showPagamentosToggle ? pagamentosCalendario : []}
                 aplicacaoSelecionada={aplicacaoSelecionada}
                 setAplicacaoSelecionada={setAplicacaoSelecionada}
@@ -2816,6 +5070,15 @@ export function PersonalPageContent({
                     <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                       <div className="h-full rounded-full bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A] transition-all" style={{ width: `${selectedProgress.percent}%` }} />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => void openWorkoutPrint(selectedSessionForDetail, selectedSessionExercisesDetail)}
+                      disabled={loadingWorkoutPrint || selectedSessionExercisesDetail.length === 0}
+                      className="w-full py-2 px-3 rounded-xl text-sm font-semibold text-[#E8EDED] bg-white/5 hover:bg-white/10 border border-white/15 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loadingWorkoutPrint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                      Imprimir treino
+                    </button>
                   </div>
 
                   {/* Conteúdo rolável: Timer Bar (ETAPA 2–4), Próximo, Ver todos */}
@@ -2826,30 +5089,22 @@ export function PersonalPageContent({
                       {restFinishedBadge ? (
                         <div className="py-2 px-3 rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-sm font-medium text-center">Descanso finalizado</div>
                       ) : restSecondsLeft != null ? (
-                        <div className="space-y-2">
-                          <div className="text-2xl font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums text-center">
-                            {Math.floor((restSecondsLeft ?? 0) / 60)}:{(restSecondsLeft ?? 0) % 60 < 10 ? '0' : ''}{(restSecondsLeft ?? 0) % 60}
-                          </div>
-                          <div className="flex gap-2">
-                            <button type="button" onClick={() => setIsRestRunning((r) => !r)} className={`flex-1 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 ${ui.btnGhost}`}>
-                              {isRestRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                              {isRestRunning ? 'Pausar' : 'Continuar'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsRestRunning(false);
-                                setRestSecondsLeft(null);
-                                const list = runExercisesRef.current;
-                                const next = list?.find((ex) => ex.status !== 'done' && ex.status !== 'skipped');
-                                setActiveRunExerciseId(next?.id ?? null);
-                              }}
-                              className={`flex-1 py-2 rounded-lg text-sm font-semibold ${ui.btnGhost}`}
-                            >
-                              Pular descanso
-                            </button>
-                          </div>
-                        </div>
+                        <WorkoutRunRestTimer
+                          compact
+                          secondsLeft={restSecondsLeft}
+                          totalSeconds={restTotalSec ?? restSecondsLeft}
+                          running={isRestRunning}
+                          logoSrc={restLogoSrc}
+                          logoAlt={restLogoAlt}
+                          onTogglePause={() => setIsRestRunning((r) => !r)}
+                          onSkip={() => {
+                            setIsRestRunning(false);
+                            setRestSecondsLeft(null);
+                            const list = runExercisesRef.current;
+                            const next = list?.find((ex) => ex.status !== 'done' && ex.status !== 'skipped');
+                            setActiveRunExerciseId(next?.id ?? null);
+                          }}
+                        />
                       ) : isWorkoutRunning && activeRunSession?.id === selectedSessionForDetail?.id ? (
                         <div className="space-y-3">
                           <div className="text-2xl font-mono font-bold text-[#E8EDED] tabular-nums text-center">
@@ -2924,7 +5179,8 @@ export function PersonalPageContent({
                               </div>
                               {selectedNextExercise.prescription && (
                                 <p className="text-sm text-[#E8EDED]/70">
-                                  {selectedNextExercise.prescription.sets}x{selectedNextExercise.prescription.reps} • {selectedNextExercise.prescription.restSec}s descanso
+                                  {formatTrainingSeriesSummary(selectedNextExercise.prescription)}
+                                  {` • ${getEffectiveRestSec(selectedNextExercise.prescription)}s descanso`}
                                 </p>
                               )}
                               <div className="flex gap-2 pt-1">
@@ -2934,7 +5190,9 @@ export function PersonalPageContent({
                                     if (!selectedSessionForDetail?.id || !selectedNextExercise?.id) return;
                                     await handleMarkCalendarExercise(selectedSessionForDetail.id, selectedNextExercise.id, 'done');
                                     if (timerAutoStart) {
-                                      setRestSecondsLeft(selectedNextExercise.prescription?.restSec ?? restDefaultSec);
+                                      const restSec = getEffectiveRestSec(selectedNextExercise.prescription);
+                                      setRestTotalSec(restSec);
+                                      setRestSecondsLeft(restSec);
                                       setIsRestRunning(true);
                                     }
                                   }}
@@ -2970,7 +5228,8 @@ export function PersonalPageContent({
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-[#E8EDED] truncate">{translateExerciseName(exercise.name)}</p>
-                                <p className="text-xs text-[#E8EDED]/60">{exercise.prescription ? `${exercise.prescription.sets}×${exercise.prescription.reps}` : '—'}</p>
+                                <p className="text-xs text-[#E8EDED]/60">{formatTrainingSeriesSummary(exercise.prescription)}</p>
+                                <WorkoutSequencePreview exercise={exercise} />
                               </div>
                               {(exercise.status === 'done' || exercise.status === 'skipped') && (
                                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${exercise.status === 'done' ? 'bg-green-500/20 text-green-700 dark:text-green-300' : 'bg-red-500/20 text-red-700 dark:text-red-300'}`}>
@@ -2994,32 +5253,49 @@ export function PersonalPageContent({
         )}
 
         {activeTab === 'criar' && (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-2 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
-              <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-3">
+            <div
+              className={`grid gap-1.5 rounded-xl border border-white/10 bg-[#0A1F44]/70 p-1.5 ${
+                canViewWorkoutLibrary ? 'grid-cols-3' : 'grid-cols-2'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => requestCriarTab('novo')}
+                className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
+                  criarTab === 'novo'
+                    ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                    : 'text-[#E8EDED]/80 hover:bg-white/10'
+                }`}
+              >
+                <span className="hidden sm:inline">Novo Treino</span>
+                <span className="sm:hidden">Novo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => requestCriarTab('salvos')}
+                className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
+                  criarTab === 'salvos'
+                    ? 'bg-[#4CCB7A] text-[#0A1F44]'
+                    : 'text-[#E8EDED]/80 hover:bg-white/10'
+                }`}
+              >
+                <span className="hidden sm:inline">Treinos Salvos</span>
+                <span className="sm:hidden">Salvos</span>
+              </button>
+              {canViewWorkoutLibrary && (
                 <button
                   type="button"
-                  onClick={() => setCriarTab('novo')}
-                  className={`min-h-[44px] rounded-xl text-sm font-semibold transition-colors ${
-                    criarTab === 'novo'
+                  onClick={() => requestCriarTab('biblioteca')}
+                  className={`h-9 rounded-lg text-xs font-semibold transition-colors ${
+                    criarTab === 'biblioteca'
                       ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                      : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/15'
+                      : 'text-[#E8EDED]/80 hover:bg-white/10'
                   }`}
                 >
-                  Novo Treino
+                  Biblioteca
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setCriarTab('salvos')}
-                  className={`min-h-[44px] rounded-xl text-sm font-semibold transition-colors ${
-                    criarTab === 'salvos'
-                      ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                      : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/15'
-                  }`}
-                >
-                  Treinos Salvos
-                </button>
-              </div>
+              )}
             </div>
 
             {criarTab === 'salvos' && (
@@ -3028,7 +5304,7 @@ export function PersonalPageContent({
                   <div>
                     <h3 className="text-lg font-semibold text-[#E8EDED]">Treinos salvos</h3>
                     <p className="text-xs text-[#E8EDED]/65">
-                      Gerencie seus treinos e séries recorrentes.
+                      Desative um treino para criar outro sem apagar o anterior.
                     </p>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#4CCB7A]/15 text-[#4CCB7A] border border-[#4CCB7A]/35">
@@ -3047,8 +5323,15 @@ export function PersonalPageContent({
                   <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
                     {savedSessionsCriarGrouped.map((group) => {
                       const firstSession = group.sessions[0];
+                      const groupActive = group.active;
+                      const toggling = togglingSavedGroupKey === group.key;
                       return (
-                        <div key={group.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div
+                          key={group.key}
+                          className={`rounded-xl border border-white/10 bg-white/[0.03] p-3 ${
+                            groupActive ? '' : 'opacity-70'
+                          }`}
+                        >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="font-semibold text-[#E8EDED] truncate">{group.title}</p>
@@ -3057,16 +5340,71 @@ export function PersonalPageContent({
                                 {group.isRecurring ? ` • ${group.count} ocorrências` : ''}
                               </p>
                             </div>
+                            <div className="flex items-start gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  group.isRecurring
+                                    ? handleDeleteSavedGroup(group.sessions)
+                                    : firstSession?.id && handleDeleteSavedSession(firstSession.id)
+                                }
+                                disabled={deletingSession || blockProfessionalMutations}
+                                className="p-1.5 rounded-lg text-red-300/80 hover:text-red-300 hover:bg-red-500/15 disabled:opacity-50 transition-colors"
+                                aria-label={group.isRecurring ? 'Deletar série' : 'Deletar treino'}
+                              >
+                                {deletingSession ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                              <div className="flex flex-col items-end gap-1.5">
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={groupActive}
+                                  aria-label={groupActive ? 'Desativar treino' : 'Ativar treino'}
+                                  disabled={blockProfessionalMutations || toggling}
+                                  onClick={() => void handleToggleSavedGroupActive(group, !groupActive)}
+                                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4CCB7A] disabled:cursor-not-allowed disabled:opacity-50 ${
+                                    groupActive ? 'bg-[#4CCB7A]' : 'bg-white/20'
+                                  }`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow mt-1 transition duration-200 ${
+                                      groupActive ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                  />
+                                </button>
+                                <span
+                                  className={`text-[11px] font-semibold ${
+                                    groupActive ? 'text-[#4CCB7A]' : 'text-[#E8EDED]/55'
+                                  }`}
+                                >
+                                  {toggling ? 'Salvando...' : groupActive ? 'Ativo' : 'Inativo'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-2">
                             <span
                               className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-                                group.status === 'done'
+                                !groupActive
+                                  ? 'bg-white/5 text-[#E8EDED]/55 border-white/10'
+                                  : group.status === 'done'
                                   ? 'bg-[#4CCB7A]/15 text-[#4CCB7A] border-[#4CCB7A]/35'
                                   : group.status === 'skipped'
                                   ? 'bg-red-500/15 text-red-300 border-red-400/30'
                                   : 'bg-white/10 text-[#E8EDED]/75 border-white/15'
                               }`}
                             >
-                              {group.status === 'done' ? 'Feito' : group.status === 'skipped' ? 'Pulado' : 'Agendado'}
+                              {!groupActive
+                                ? 'Fora da rotina'
+                                : group.status === 'done'
+                                ? 'Feito'
+                                : group.status === 'skipped'
+                                ? 'Pulado'
+                                : 'Agendado'}
                             </span>
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -3079,19 +5417,12 @@ export function PersonalPageContent({
                             </button>
                             <button
                               type="button"
-                              onClick={() =>
-                                group.isRecurring
-                                  ? handleDeleteSavedGroup(group.sessions)
-                                  : firstSession?.id && handleDeleteSavedSession(firstSession.id)
-                              }
-                              disabled={deletingSession}
-                              className="min-h-[40px] rounded-lg border border-red-500/35 bg-red-500/10 text-red-300 text-sm font-semibold hover:bg-red-500/15 disabled:opacity-50 transition-colors"
+                              onClick={() => void openWorkoutPrint(firstSession)}
+                              disabled={loadingWorkoutPrint || !firstSession?.id}
+                              className="min-h-[40px] rounded-lg border border-white/20 bg-white/5 text-[#E8EDED] text-sm font-semibold hover:bg-white/10 disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-1.5"
                             >
-                              {deletingSession
-                                ? 'Deletando...'
-                                : group.isRecurring
-                                ? 'Deletar série'
-                                : 'Deletar'}
+                              {loadingWorkoutPrint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                              Imprimir treino
                             </button>
                           </div>
                         </div>
@@ -3103,10 +5434,10 @@ export function PersonalPageContent({
             )}
 
             {criarTab === 'novo' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
             {editingSessionIds.length > 0 && (
-              <div className="rounded-xl border border-[#4CCB7A]/35 bg-[#4CCB7A]/10 px-4 py-3 flex items-center justify-between gap-3">
-                <p className="text-sm text-[#E8EDED]">
+              <div className="rounded-lg border border-[#4CCB7A]/35 bg-[#4CCB7A]/10 px-3 py-2 flex items-center justify-between gap-2 shrink-0">
+                <p className="text-xs text-[#E8EDED]">
                   Editando {editingSessionIds.length > 1 ? 'série recorrente' : 'treino'}.
                 </p>
                 <button
@@ -3120,609 +5451,315 @@ export function PersonalPageContent({
                     setTimesPerWeek(3);
                     setSelectedDaysOfWeek([]);
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-white/20 bg-white/10 text-xs font-semibold text-[#E8EDED] hover:bg-white/15 transition-colors"
+                  className="px-2.5 py-1 rounded-md border border-white/20 bg-white/10 text-[11px] font-semibold text-[#E8EDED] hover:bg-white/15 transition-colors"
                 >
-                  Cancelar edição
+                  Cancelar
                 </button>
               </div>
             )}
-            {/* Formulário da sessão */}
-            <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                  Título do treino
-                </label>
-                <input
-                  type="text"
-                  value={newSessionTitle}
-                  onChange={(e) => setNewSessionTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] placeholder:text-[#E8EDED]/45 focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none"
-                  placeholder="Ex: Treino A - Superior"
-                />
-              </div>
 
-              {/* Tipo de treino */}
-              <div>
-                <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                  Tipo de treino
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSessionType('single')}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      sessionType === 'single'
-                        ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                        : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/15'
-                    }`}
-                  >
-                    Treino único
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSessionType('recurring')}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      sessionType === 'recurring'
-                        ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                        : 'bg-white/10 text-[#E8EDED]/80 hover:bg-white/15'
-                    }`}
-                  >
-                    Treino recorrente
-                  </button>
-                </div>
-              </div>
-
-              {/* Data inicial */}
-              <div className="min-w-0">
-                <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                  {sessionType === 'single' ? 'Data' : 'Data inicial'}
-                </label>
-                <input
-                  type="date"
-                  value={newSessionDate}
-                  onChange={(e) => setNewSessionDate(e.target.value)}
-                  min={hojeStr}
-                  className="block w-full min-w-0 max-w-full h-11 px-3 py-2 text-sm rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none [color-scheme:dark] appearance-none"
-                  style={{ WebkitAppearance: 'none' }}
-                />
-              </div>
-
-              {/* Configurações de recorrência */}
-              {sessionType === 'recurring' && (
-                <div className="space-y-4 p-4 bg-white/[0.04] rounded-lg border border-white/10">
-                  <div>
-                    <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                      Periodicidade
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRecurrenceFrequency('daily');
-                          setSelectedDaysOfWeek([]);
-                        }}
-                        className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                          recurrenceFrequency === 'daily'
-                            ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                            : 'bg-white/10 border border-white/15 text-[#E8EDED]/80'
-                        }`}
-                      >
-                        Diário
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRecurrenceFrequency('weekly');
-                          setSelectedDaysOfWeek([]);
-                        }}
-                        className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                          recurrenceFrequency === 'weekly'
-                            ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                            : 'bg-white/10 border border-white/15 text-[#E8EDED]/80'
-                        }`}
-                      >
-                        Semanal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRecurrenceFrequency('custom')}
-                        className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                          recurrenceFrequency === 'custom'
-                            ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                            : 'bg-white/10 border border-white/15 text-[#E8EDED]/80'
-                        }`}
-                      >
-                        Personalizado
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dias da semana (se personalizado) */}
-                  {recurrenceFrequency === 'custom' && (
-                    <div>
-                      <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                        Dias da semana
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((dia, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              const newDays = selectedDaysOfWeek.includes(index)
-                                ? selectedDaysOfWeek.filter((d) => d !== index)
-                                : [...selectedDaysOfWeek, index];
-                              setSelectedDaysOfWeek(newDays);
-                            }}
-                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                              selectedDaysOfWeek.includes(index)
-                                ? 'bg-[#4CCB7A] text-[#0A1F44]'
-                                : 'bg-white/10 border border-white/15 text-[#E8EDED]/80 hover:bg-white/15'
-                            }`}
-                          >
-                            {dia}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Repetições por semana (se semanal) */}
-                  {recurrenceFrequency === 'weekly' && (
-                    <div>
-                      <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                        Quantas vezes por semana?
-                      </label>
-                      <select
-                        value={timesPerWeek}
-                        onChange={(e) => setTimesPerWeek(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7].map((num) => (
-                          <option key={num} value={num}>
-                            {num} {num === 1 ? 'vez' : 'vezes'} por semana
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Número de semanas */}
-                  <div>
-                    <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                      Duração (semanas)
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="1"
-                        max="12"
-                        value={weeksCount}
-                        onChange={(e) => setWeeksCount(parseInt(e.target.value))}
-                        className="flex-1"
-                      />
-                      <span className="text-sm font-semibold text-[#E8EDED] min-w-[3rem] text-right">
-                        {weeksCount} {weeksCount === 1 ? 'semana' : 'semanas'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Preview das datas */}
-                  {newSessionDate && (
-                    <div className="mt-4 p-3 bg-[#4CCB7A]/12 rounded-lg border border-[#4CCB7A]/35">
-                      <p className="text-xs font-medium text-[#4CCB7A] mb-1">
-                        📅 Resumo:
-                      </p>
-                      <p className="text-xs text-[#E8EDED]/80">
-                        {recurrenceFrequency === 'daily' && `Treino diário por ${weeksCount} ${weeksCount === 1 ? 'semana' : 'semanas'}`}
-                        {recurrenceFrequency === 'weekly' && `${timesPerWeek} ${timesPerWeek === 1 ? 'treino' : 'treinos'} por semana por ${weeksCount} ${weeksCount === 1 ? 'semana' : 'semanas'}`}
-                        {recurrenceFrequency === 'custom' && selectedDaysOfWeek.length > 0 && (
-                          <>
-                            {selectedDaysOfWeek.length} {selectedDaysOfWeek.length === 1 ? 'dia' : 'dias'} por semana ({selectedDaysOfWeek.map(d => ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][d]).join(', ')}) por {weeksCount} {weeksCount === 1 ? 'semana' : 'semanas'}
-                          </>
-                        )}
-                        {recurrenceFrequency === 'custom' && selectedDaysOfWeek.length === 0 && 'Selecione os dias da semana'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+            <div className="rounded-xl border border-white/10 bg-[#0A1F44]/70 p-3 space-y-2.5 lg:hidden">
+              {renderCriarSessionMeta()}
             </div>
 
-            {/* Filtros de busca */}
-            <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/90 overflow-hidden shadow-[0_12px_35px_-12px_rgba(76,203,122,0.28)]">
-              <div className="relative">
-                <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#4CCB7A]/12 blur-2xl" />
-                <div className="pointer-events-none absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-[#2F8FA3]/12 blur-2xl" />
-                <div className="relative border-b border-white/10 bg-white/[0.04] p-4">
-                  <h3 className="text-lg font-semibold text-[#E8EDED] mb-1">Buscar exercícios</h3>
-                  <p className="text-sm text-[#E8EDED]/70">
-                    Encontre exercícios por nome, parte do corpo, músculo ou equipamento
-                  </p>
-                </div>
-                <div className="relative grid grid-cols-3 border-b border-white/10 bg-white/[0.03]">
-                  {[
-                    { key: 'bodyPart', label: 'Parte do Corpo', selected: selectedBodyPart.length > 0, icon: Dumbbell },
-                    { key: 'target', label: 'Músculo Alvo', selected: selectedTarget.length > 0, icon: Target },
-                    { key: 'equipment', label: 'Equipamento', selected: selectedEquipment.length > 0, icon: Shield },
-                  ].map(({ key, label, selected, icon: Icon }) => {
-                    const isAtiva = criarFiltroPastaAtiva === key;
-                    return (
-                    <button
-                      type="button"
-                      key={key}
-                      onClick={() => setCriarFiltroPastaAtiva(key as 'bodyPart' | 'target' | 'equipment')}
-                      className={`border-r border-white/10 last:border-r-0 py-2 text-center transition-colors ${
-                        isAtiva
-                          ? 'bg-[#4CCB7A]/14 text-[#4CCB7A]'
-                          : selected
-                          ? 'bg-[#4CCB7A]/7 text-[#4CCB7A]/90'
-                          : 'text-[#E8EDED]/65 hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="inline-flex items-center gap-1.5">
-                        <Icon className="h-3.5 w-3.5" />
-                        <span className="text-[11px] font-semibold">{label}</span>
-                      </div>
-                    </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="p-6 space-y-5">
+            {workoutLibraryDraftActions ? (
+              <div className="lg:hidden shrink-0">{workoutLibraryDraftActions}</div>
+            ) : null}
 
-              {criarFiltroPastaAtiva === 'bodyPart' && (
-                <div>
-                  <label className="block text-sm font-medium text-[#E8EDED]/85 mb-2">
-                    Parte do corpo
-                  </label>
-                  <select
-                    value={selectedBodyPart}
-                    onChange={(e) => {
-                      setSelectedBodyPart(e.target.value);
-                      setSelectedTarget('');
-                      setSelectedEquipment('');
-                      setSearchQuery('');
-                      setExercisesResults([]);
-                      if (e.target.value) setCriarFiltroPastaAtiva('target');
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none"
-                  >
-                    <option value="">Todas as partes</option>
-                    {bodyParts.map((bp) => (
-                      <option key={bp} value={bp}>
-                        {translateBodyPart(bp)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {criarFiltroPastaAtiva === 'target' && (
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <label className="block text-sm font-medium text-[#E8EDED]/85">
-                      Músculo alvo
-                    </label>
-                    <span className="text-[11px] font-semibold text-[#4CCB7A]">
-                      {availableTargetsByBodyPart.length} opções
-                    </span>
-                  </div>
-                  <select
-                    value={selectedTarget}
-                    onChange={(e) => {
-                      setSelectedTarget(e.target.value);
-                              setSelectedEquipment('');
-                      if (e.target.value) setCriarFiltroPastaAtiva('equipment');
-                    }}
-                    className="w-full px-3 py-2 rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none"
-                  >
-                    <option value="">Todos os músculos</option>
-                            {availableTargetsByBodyPart.map((t) => {
-                      const translated = translateTarget(t);
-                      const capitalized = translated.charAt(0).toUpperCase() + translated.slice(1);
-                      return (
-                        <option key={t} value={t}>
-                          {capitalized}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  {selectedBodyPart && availableTargetsByBodyPart.length === 0 && (
-                    <p className="mt-2 text-xs text-[#E8EDED]/65">
-                      Nenhum músculo disponível para esta parte do corpo.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {criarFiltroPastaAtiva === 'equipment' && (
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <label className="block text-sm font-medium text-[#E8EDED]/85">
-                      Equipamento
-                    </label>
-                    <span className="text-[11px] font-semibold text-[#4CCB7A]">
-                      {availableEquipmentsByFilters.length} opções
-                    </span>
-                  </div>
-                  <select
-                    value={selectedEquipment}
-                    onChange={(e) => setSelectedEquipment(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none"
-                  >
-                    <option value="">Todos os equipamentos</option>
-                            {availableEquipmentsByFilters.map((eq) => (
-                      <option key={eq} value={eq}>
-                        {translateEquipment(eq)}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedBodyPart && availableEquipmentsByFilters.length === 0 && (
-                    <p className="mt-2 text-xs text-[#E8EDED]/65">
-                      Sem equipamentos para os filtros atuais. Ajuste a seleção anterior.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (criarFiltroPastaAtiva === 'target') setCriarFiltroPastaAtiva('bodyPart');
-                    if (criarFiltroPastaAtiva === 'equipment') setCriarFiltroPastaAtiva('target');
-                  }}
-                  disabled={criarFiltroPastaAtiva === 'bodyPart'}
-                  className="min-h-[42px] rounded-xl border border-white/15 px-3 text-sm font-semibold text-[#E8EDED] disabled:opacity-40"
-                >
-                  Pasta anterior
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (criarFiltroPastaAtiva === 'bodyPart') setCriarFiltroPastaAtiva('target');
-                    if (criarFiltroPastaAtiva === 'target') setCriarFiltroPastaAtiva('equipment');
-                  }}
-                  disabled={criarFiltroPastaAtiva === 'equipment'}
-                  className="min-h-[42px] rounded-xl border border-[#4CCB7A]/40 bg-[#4CCB7A]/10 px-3 text-sm font-semibold text-[#4CCB7A] disabled:opacity-40"
-                >
-                  Próxima pasta
-                </button>
-              </div>
-
-              {/* Busca por nome opcional */}
-              <div>
-                <label className="block text-sm font-medium text-[#E8EDED]/75 mb-2">
-                  Nome do exercício (opcional)
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#4CCB7A]" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Refine digitando o nome..."
-                    className="w-full pl-10 pr-3 py-2 rounded-lg border border-white/15 bg-white/10 text-[#E8EDED] placeholder:text-[#E8EDED]/45 focus:ring-2 focus:ring-[#4CCB7A]/35 focus:border-[#4CCB7A]/50 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
-                <div className="mb-2 flex items-center justify-between text-xs text-[#E8EDED]/70">
-                  <span>
-                    Filtros ativos <span className="font-semibold text-[#4CCB7A]">{filtrosBuscaAtivosCriar}</span> / {totalFiltrosBuscaCriar}
-                  </span>
-                  <span className="text-[#E8EDED]/55">{exercisesResults.length} resultados</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A] transition-all duration-300"
-                    style={{ width: `${(filtrosBuscaAtivosCriar / totalFiltrosBuscaCriar) * 100}%` }}
-                  />
-                </div>
-              </div>
-              </div>
+            <div className="lg:hidden h-[min(80vh,44rem)] min-h-[28rem] pb-24">
+              {criarCatalogPanel('grid')}
             </div>
 
-            {/* Resultados da busca */}
-            {loadingExercises ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-              </div>
-            ) : exercisesResults.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {exercisesResults.map((exercise) => {
-                  const isAdded = selectedExercises.some((e) => e.id === exercise.id);
-                  return (
+            <PersonalCreateWorkoutDesktop
+              catalog={criarCatalogPanel('list')}
+              title={newSessionTitle}
+              exercises={selectedExercises}
+              expandedIds={expandedExerciseIds}
+              gifUrlFor={(exercise) => resolveExerciseGifUrl(exercise, EXERCISE_GIF_RESOLUTION)}
+              readOnly={blockProfessionalMutations}
+              dirty={isWorkoutDraftDirty}
+              saving={creatingSession}
+              canSave={canSaveWorkoutDraft}
+              saveLabel={editingSessionIds.length > 0 ? 'Atualizar treino' : 'Salvar treino'}
+              headerExtra={renderCriarSessionMeta()}
+              toolbar={workoutLibraryDraftActions}
+              onToggleExpanded={toggleExerciseExpanded}
+              onSeriesChange={updateExerciseSeries}
+              onIntercalationsChange={updateExerciseIntercalations}
+              onPickIntercalation={pickIntercalationForExercise}
+              onRepeatIntercalation={repeatIntercalationForExercise}
+              onTrainerNoteChange={updateExerciseTrainerNote}
+              onDuplicate={duplicateExerciseInSession}
+              onRemove={removeExerciseFromSession}
+              onReorder={reorderExercisesInSession}
+              onSave={() => void handleCreateSession()}
+            />
+
+            {/* FAB + sheet no body, acima do shell fullscreen (z-200) */}
+            {criarPortalReady &&
+              createPortal(
+                <>
+                  {!criarTreinoSheetOpen && (
                     <div
-                      key={exercise.id}
-                      className="rounded-xl border border-white/10 bg-[#0A1F44]/85 shadow-[0_10px_24px_-12px_rgba(76,203,122,0.25)] hover:shadow-[0_14px_30px_-12px_rgba(76,203,122,0.35)] transition-all overflow-hidden"
+                      className="fixed z-[220] right-4 lg:hidden"
+                      style={{
+                        bottom: modernMobileChrome
+                          ? 'calc(6rem + env(safe-area-inset-bottom, 0px))'
+                          : 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
+                      }}
                     >
-                      {exercise.gifUrl && (
-                        <div className="relative w-full h-40 overflow-hidden bg-white/10">
-                          <img
-                            src={exercise.gifUrl}
-                            alt={translateExerciseName(exercise.name)}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
-                      <div className="p-4">
-                        <h4 className="font-semibold text-[#E8EDED] text-sm mb-3 line-clamp-2 min-h-[2.5rem]">
-                          {translateExerciseName(exercise.name)}
-                        </h4>
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 px-2.5 py-1 rounded-full transition-colors border border-emerald-200 dark:border-emerald-800"
-                            title={translateTarget(exercise.target)}
-                          >
-                            {translateTarget(exercise.target)}
-                          </button>
-                          {exercise.equipment && exercise.equipment.toLowerCase() !== 'body weight' && (
-                            <button
-                              type="button"
-                              className="text-xs font-medium text-[#E8EDED]/85 bg-white/10 hover:bg-white/15 px-2.5 py-1 rounded-full transition-colors border border-white/15"
-                              title={translateEquipment(exercise.equipment)}
-                            >
-                              {translateEquipment(exercise.equipment)}
-                            </button>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => addExerciseToSession(exercise)}
-                          disabled={isAdded}
-                          className={`w-full px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                            isAdded
-                              ? 'bg-white/10 text-[#E8EDED]/55 cursor-not-allowed border border-white/15'
-                              : 'bg-[#4CCB7A] hover:bg-[#45b86d] text-[#0A1F44] shadow-sm hover:shadow'
-                          }`}
-                        >
-                          {isAdded ? (
-                            <span className="flex items-center justify-center gap-1.5">
-                              <CheckCircle className="w-4 h-4" />
-                              Adicionado
-                            </span>
-                          ) : (
-                            <span className="flex items-center justify-center gap-1.5">
-                              <Plus className="w-4 h-4" />
-                              Adicionar
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-[#E8EDED]/60">
-                Nenhum exercício encontrado. Tente outros filtros.
-              </div>
-            )}
-
-            {/* Exercícios selecionados */}
-            {selectedExercises.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] p-6 space-y-4">
-                <h3 className="font-semibold text-[#E8EDED]">
-                  Exercícios do treino ({selectedExercises.length})
-                </h3>
-                {selectedExercises.map((exercise, index) => (
-                  <div
-                    key={exercise.id}
-                    className="border border-white/10 rounded-lg p-4 bg-white/[0.03]"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-[#E8EDED]">
-                          {index + 1}. {translateExerciseName(exercise.name)}
-                        </h4>
-                        <div className="text-sm text-[#E8EDED]/65 mt-1">
-                          {translateTarget(exercise.target)} · {translateEquipment(exercise.equipment)}
-                        </div>
-                      </div>
                       <button
-                        onClick={() => removeExerciseFromSession(exercise.id)}
-                        className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                        type="button"
+                        onClick={() => setCriarTreinoSheetOpen(true)}
+                        className="relative flex items-center justify-center w-14 h-14 rounded-full bg-[#4CCB7A] text-[#0A1F44] shadow-[0_10px_28px_-8px_rgba(76,203,122,0.65)] hover:bg-[#45b86d] active:scale-95 transition-transform"
+                        aria-label={
+                          selectedExercises.length > 0
+                            ? `Treino com ${selectedExercises.length} exercício${selectedExercises.length === 1 ? '' : 's'}`
+                            : 'Abrir treino selecionado'
+                        }
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Save className="w-6 h-6" />
+                        {selectedExercises.length > 0 && (
+                          <span
+                            key={selectedExercises.length}
+                            className="absolute -top-1.5 -right-1.5 min-w-[1.375rem] px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold leading-none flex items-center justify-center shadow-md ring-2 ring-[#0A1F44] tabular-nums"
+                            style={{ height: '1.375rem' }}
+                          >
+                            {selectedExercises.length > 99 ? '99+' : selectedExercises.length}
+                          </span>
+                        )}
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="block text-xs text-[#E8EDED]/65 mb-1">
-                          Séries
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={exercise.sets}
-                          onChange={(e) =>
-                            updateExercisePrescription(exercise.id, 'sets', parseInt(e.target.value))
-                          }
-                          className="w-full px-2 py-1 border border-white/15 rounded bg-white/10 text-[#E8EDED] text-sm outline-none focus:ring-2 focus:ring-[#4CCB7A]/35"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-[#E8EDED]/65 mb-1">
-                          Reps
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={exercise.reps}
-                          onChange={(e) =>
-                            updateExercisePrescription(exercise.id, 'reps', parseInt(e.target.value))
-                          }
-                          className="w-full px-2 py-1 border border-white/15 rounded bg-white/10 text-[#E8EDED] text-sm outline-none focus:ring-2 focus:ring-[#4CCB7A]/35"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-[#E8EDED]/65 mb-1">
-                          Descanso (s)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={exercise.restSec}
-                          onChange={(e) =>
-                            updateExercisePrescription(
-                              exercise.id,
-                              'restSec',
-                              parseInt(e.target.value)
-                            )
-                          }
-                          className="w-full px-2 py-1 border border-white/15 rounded bg-white/10 text-[#E8EDED] text-sm outline-none focus:ring-2 focus:ring-[#4CCB7A]/35"
-                        />
+                  )}
+
+                  {criarTreinoSheetOpen && (
+                    <div
+                      className="fixed inset-0 z-[220] flex h-[100dvh] max-h-[100dvh] flex-col justify-end overflow-hidden overscroll-none touch-none"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="criar-treino-sheet-title"
+                    >
+                      <div
+                        className="absolute inset-0 bg-black/50 touch-none"
+                        onClick={() => setCriarTreinoSheetOpen(false)}
+                        aria-hidden
+                      />
+                      <div className="relative z-10 flex w-full max-h-[min(82vh,640px)] flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0A1F44] shadow-[0_-16px_40px_-12px_rgba(0,0,0,0.55)] touch-auto pb-[env(safe-area-inset-bottom,0px)]">
+                        <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3 border-b border-white/10">
+                          <h3 id="criar-treino-sheet-title" className="text-sm font-semibold text-[#E8EDED]">
+                            Treino
+                            <span className="ml-1.5 text-[#4CCB7A] tabular-nums">({selectedExercises.length})</span>
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => setCriarTreinoSheetOpen(false)}
+                            className="p-1.5 rounded-full text-[#E8EDED]/70 hover:bg-white/10"
+                            aria-label="Fechar"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                        {workoutLibraryDraftActions ? (
+                          <div className="shrink-0 px-3 pt-2">{workoutLibraryDraftActions}</div>
+                        ) : null}
+
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y p-3 space-y-2">
+                          {selectedExercises.length === 0 ? (
+                            <p className="text-center py-8 text-xs text-[#E8EDED]/50">
+                              Toque em um exercício acima para montar o treino.
+                            </p>
+                          ) : (
+                            selectedExercises.map((exercise, index) => {
+                              const gifSrc = resolveExerciseGifUrl(exercise, EXERCISE_GIF_RESOLUTION);
+                              return (
+                                <div
+                                  key={exercise.draftId}
+                                  className="rounded-xl border border-white/10 bg-white/[0.04] overflow-hidden"
+                                >
+                                  <div className="p-2 space-y-1.5">
+                                    <div className="flex items-start gap-1.5">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-[#E8EDED] line-clamp-2 leading-snug">
+                                          <span className="text-[#4CCB7A] tabular-nums mr-1">{index + 1}.</span>
+                                          {translateExerciseName(exercise.name)}
+                                        </p>
+                                        {exercise.target && (
+                                          <p className="text-[10px] text-[#E8EDED]/45 truncate mt-0.5">
+                                            {translateTarget(exercise.target)}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeExerciseFromSession(exercise.draftId)}
+                                        className="p-1.5 text-[#E8EDED]/45 hover:text-red-400 hover:bg-red-500/10 rounded-lg shrink-0 transition-colors"
+                                        aria-label={`Remover ${translateExerciseName(exercise.name)}`}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+
+                                    <ExerciseSeriesEditor
+                                      series={exercise.prescription.series}
+                                      onChange={(series) => updateExerciseSeries(exercise.draftId, series)}
+                                      intercalations={exercise.prescription.intercalations || []}
+                                      onIntercalationsChange={(intercalations) =>
+                                        updateExerciseIntercalations(exercise.draftId, intercalations)
+                                      }
+                                      onPickIntercalation={(afterSeriesId) =>
+                                        pickIntercalationForExercise(exercise.draftId, afterSeriesId)
+                                      }
+                                      onRepeatIntercalation={(afterSeriesId, source) =>
+                                        repeatIntercalationForExercise(
+                                          exercise.draftId,
+                                          afterSeriesId,
+                                          source
+                                        )
+                                      }
+                                      hostGifSrc={gifSrc}
+                                      readOnly={blockProfessionalMutations}
+                                    />
+                                    <ExerciseTrainerNoteField
+                                      value={exercise.trainerNote || ''}
+                                      readOnly={blockProfessionalMutations}
+                                      onChange={(note) => updateExerciseTrainerNote(exercise.draftId, note)}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        <div className="p-3 border-t border-white/10 bg-[#0A1F44]">
+                          <button
+                            type="button"
+                            onClick={() => void handleCreateSession()}
+                            disabled={
+                              creatingSession ||
+                              !newSessionTitle ||
+                              !newSessionDate ||
+                              selectedExercises.length === 0 ||
+                              (sessionType === 'recurring' &&
+                                recurrenceFrequency === 'custom' &&
+                                selectedDaysOfWeek.length === 0)
+                            }
+                            className="w-full h-11 px-3 bg-[#4CCB7A] text-[#0A1F44] rounded-lg hover:bg-[#45b86d] disabled:opacity-45 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-semibold"
+                          >
+                            <Save className="w-4 h-4" />
+                            {creatingSession
+                              ? `${editingSessionIds.length > 0 ? 'Atualizando' : 'Publicando'}…`
+                              : editingSessionIds.length > 0
+                              ? 'Salvar alterações'
+                              : sessionType === 'recurring'
+                              ? 'Publicar treinos'
+                              : 'Publicar treino'}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                <button
-                  onClick={handleCreateSession}
-                  disabled={
-                    creatingSession ||
-                    !newSessionTitle ||
-                    !newSessionDate ||
-                    selectedExercises.length === 0 ||
-                    (sessionType === 'recurring' && recurrenceFrequency === 'custom' && selectedDaysOfWeek.length === 0)
-                  }
-                  className="w-full px-4 py-2 bg-[#4CCB7A] text-[#0A1F44] rounded-lg hover:bg-[#45b86d] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                >
-                  <Save className="w-4 h-4" />
-                  {creatingSession
-                    ? `${editingSessionIds.length > 0 ? 'Atualizando' : 'Publicando'} ${sessionType === 'recurring' ? 'treinos...' : 'treino...'}`
-                    : editingSessionIds.length > 0
-                    ? 'Salvar alterações do treino'
-                    : sessionType === 'recurring'
-                    ? 'Publicar treinos recorrentes'
-                    : 'Publicar no calendário'}
-                </button>
-              </div>
-            )}
+                  )}
+                </>,
+                document.body
+              )}
           </div>
           )}
+
+            {canViewWorkoutLibrary && criarTab === 'biblioteca' && (
+              <div className="flex flex-col">
+                {libraryOwnerUid ? (
+                  <PersonalWorkoutTemplatesPanel
+                    uid={libraryOwnerUid}
+                    readOnly={!canMutateWorkoutLibrary}
+                    onDirtyChange={setIsLibraryDraftDirty}
+                  />
+                ) : (
+                  <p className="text-sm text-[#E8EDED]/60 p-4">
+                    {canMutateWorkoutLibrary
+                      ? 'Faça login para acessar a biblioteca.'
+                      : 'Este paciente ainda não tem personal vinculado. A biblioteca aparece quando houver um personal ativo.'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {canMutateWorkoutLibrary && user?.uid ? (
+              <>
+                <ImportWorkoutTemplateModal
+                  open={importTemplateOpen}
+                  uid={user.uid}
+                  currentExerciseCount={selectedExercises.length}
+                  onClose={() => setImportTemplateOpen(false)}
+                  onImport={importFromWorkoutTemplate}
+                  onGoToLibrary={() => {
+                    setImportTemplateOpen(false);
+                    requestCriarTab('biblioteca');
+                  }}
+                />
+                <SaveWorkoutAsTemplateModal
+                  open={saveAsTemplateOpen}
+                  uid={user.uid}
+                  suggestedName={newSessionTitle}
+                  exercises={selectedExercises}
+                  onClose={() => setSaveAsTemplateOpen(false)}
+                />
+              </>
+            ) : null}
           </div>
         )}
 
         {activeTab === 'historico' && (
-          <div className="space-y-6">
+          <>
+            {modernMobileChrome ? (
+              <div className="lg:hidden">
+                <PatientTrainingHistory
+                  loading={loadingHistorico}
+                  sessions={historicoSessionsFiltradas}
+                  sessionsInRange={historicoSessionsRealizadas}
+                  periodLabel={historicoPeriodoLabel}
+                  view={visualizacaoHistoricoCalendario}
+                  onViewChange={setVisualizacaoHistoricoCalendario}
+                  selectedDay={diaHistoricoSelecionado}
+                  onSelectDay={setDiaHistoricoSelecionado}
+                  weekAnchor={semanaHistoricoCalendario}
+                  onChangeWeek={setSemanaHistoricoCalendario}
+                  monthAnchor={mesHistoricoCalendario}
+                  onChangeMonth={setMesHistoricoCalendario}
+                  selectedSession={selectedSessionDetail}
+                  exercises={selectedSessionExercises}
+                  executions={selectedHistoricoExecutions}
+                  progress={historicoProgress}
+                  nextExercise={historicoNextExercise}
+                  showAllExercises={showAllHistoricoExercises}
+                  onToggleAllExercises={() => setShowAllHistoricoExercises((value) => !value)}
+                  onOpenSession={(session) => {
+                    void handleViewHistoricoSession(session);
+                  }}
+                  onClearSelection={() => {
+                    setSelectedSessionDetail(null);
+                    setSelectedSessionExercises([]);
+                    setSelectedHistoricoExecutions({});
+                  }}
+                  onPrint={() => {
+                    if (!selectedSessionDetail) return;
+                    void openWorkoutPrint(selectedSessionDetail, selectedSessionExercises);
+                  }}
+                  printing={loadingWorkoutPrint}
+                />
+              </div>
+            ) : null}
+            <div className={modernMobileChrome ? 'hidden space-y-6 lg:block' : 'space-y-6'}>
             <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-4 space-y-4 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-[#E8EDED]">Visualização do histórico</h3>
-                <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1">
+                <div className="flex items-center gap-1 bg-white/[0.06] rounded-xl p-1 ring-1 ring-white/10">
                   <button
                     type="button"
                     onClick={() => setVisualizacaoHistoricoCalendario('mes')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                       visualizacaoHistoricoCalendario === 'mes'
-                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-sm'
-                        : 'text-[#E8EDED]/75 hover:bg-white/10'
+                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-[0_8px_18px_-10px_rgba(76,203,122,0.7)]'
+                        : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                     }`}
                   >
                     Mês
@@ -3730,10 +5767,10 @@ export function PersonalPageContent({
                   <button
                     type="button"
                     onClick={() => setVisualizacaoHistoricoCalendario('semana')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                       visualizacaoHistoricoCalendario === 'semana'
-                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-sm'
-                        : 'text-[#E8EDED]/75 hover:bg-white/10'
+                        ? 'bg-[#4CCB7A] text-[#0A1F44] shadow-[0_8px_18px_-10px_rgba(76,203,122,0.7)]'
+                        : 'text-[#E8EDED]/70 hover:bg-white/10 hover:text-[#E8EDED]'
                     }`}
                   >
                     Semana
@@ -3753,6 +5790,7 @@ export function PersonalPageContent({
                 setDiaSelecionado={setDiaHistoricoSelecionado}
                 sessoes={historicoSessionsRealizadas}
                 aplicacoes={[]}
+                injetaveis={[]}
                 pagamentos={[]}
                 aplicacaoSelecionada={historicoAplicacaoSelecionada}
                 setAplicacaoSelecionada={setHistoricoAplicacaoSelecionada}
@@ -3768,6 +5806,7 @@ export function PersonalPageContent({
                 setDiaSelecionado={setDiaHistoricoSelecionado}
                 sessoes={historicoSessionsRealizadas}
                 aplicacoes={[]}
+                injetaveis={[]}
                 pagamentos={[]}
                 aplicacaoSelecionada={historicoAplicacaoSelecionada}
                 setAplicacaoSelecionada={setHistoricoAplicacaoSelecionada}
@@ -3845,7 +5884,7 @@ export function PersonalPageContent({
             )}
 
             {/* ETAPA 4 — Detalhe do treino inline (padrão Hoje/Cronograma) — sem modal */}
-            <div ref={historicoDetailRef} className="space-y-4 scroll-mt-4 mt-6">
+            <div ref={historicoDetailRef} data-historico-detail className="space-y-4 scroll-mt-4 mt-6">
               {!selectedSessionDetail ? (
                 <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-6 text-center shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
                   <p className="text-sm text-[#E8EDED]/70">
@@ -3857,7 +5896,11 @@ export function PersonalPageContent({
                   <Card variant="solid" className="p-6 space-y-4 relative border border-white/10 bg-[#0A1F44]/90 text-[#E8EDED]">
                     <button
                       type="button"
-                      onClick={() => { setSelectedSessionDetail(null); setSelectedSessionExercises([]); }}
+                      onClick={() => {
+                        setSelectedSessionDetail(null);
+                        setSelectedSessionExercises([]);
+                        setSelectedHistoricoExecutions({});
+                      }}
                       className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-[#E8EDED]/70"
                       aria-label="Limpar seleção"
                     >
@@ -3880,6 +5923,15 @@ export function PersonalPageContent({
                     <div className="h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
                       <div className="h-full rounded-full bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A] transition-all" style={{ width: `${historicoProgress.percent}%` }} />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => void openWorkoutPrint(selectedSessionDetail, selectedSessionExercises)}
+                      disabled={loadingWorkoutPrint || selectedSessionExercises.length === 0}
+                      className="w-full py-2.5 px-4 rounded-xl font-semibold text-[#E8EDED] bg-white/5 hover:bg-white/10 ring-1 ring-white/15 border border-white/10 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loadingWorkoutPrint ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                      Imprimir treino
+                    </button>
                   </Card>
                   <div>
                     <h3 className="text-lg font-semibold text-[#E8EDED] mb-3">Próximo exercício</h3>
@@ -3909,7 +5961,8 @@ export function PersonalPageContent({
                             </div>
                             {historicoNextExercise.prescription && (
                               <p className="text-sm text-[#E8EDED]/70">
-                                {historicoNextExercise.prescription.sets}x{historicoNextExercise.prescription.reps} • {historicoNextExercise.prescription.restSec}s descanso
+                                {formatTrainingSeriesSummary(historicoNextExercise.prescription)}
+                                {` • ${getEffectiveRestSec(historicoNextExercise.prescription)}s descanso`}
                               </p>
                             )}
                           </div>
@@ -3933,7 +5986,21 @@ export function PersonalPageContent({
                             )}
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold text-[#E8EDED] truncate">{translateExerciseName(exercise.name)}</p>
-                              <p className="text-xs text-[#E8EDED]/65">{exercise.prescription ? `${exercise.prescription.sets}×${exercise.prescription.reps}` : '—'}</p>
+                              <p className="text-xs text-[#E8EDED]/65">{formatTrainingSeriesSummary(exercise.prescription)}</p>
+                              <WorkoutSequencePreview
+                                exercise={exercise}
+                                hostExecution={
+                                  exercise.id ? selectedHistoricoExecutions[exercise.id] || null : null
+                                }
+                                intercalationExecutions={selectedHistoricoExecutions}
+                              />
+                              {(exercise.prescription?.intercalations || []).length === 0 ? (
+                              <SessionExerciseExecutionDetail
+                                execution={
+                                  exercise.id ? selectedHistoricoExecutions[exercise.id] || null : null
+                                }
+                              />
+                              ) : null}
                             </div>
                             {(exercise.status === 'done' || exercise.status === 'skipped') && (
                               <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${exercise.status === 'done' ? 'bg-[#4CCB7A]/15 text-[#4CCB7A]' : 'bg-red-500/15 text-red-300'}`}>
@@ -3948,71 +6015,33 @@ export function PersonalPageContent({
                 </>
               )}
             </div>
-          </div>
+            </div>
+          </>
         )}
 
-        {activeTab === 'estatisticas' && (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-4 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
-              <p className="text-xs uppercase tracking-wide text-[#E8EDED]/55">Resumo de performance</p>
-              <p className="text-sm text-[#E8EDED]/80 mt-1">
-                Acompanhe sua constância e evolução semanal.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#0f2a5a]/85 via-[#0A1F44]/90 to-[#091936]/95 p-5 shadow-[0_16px_32px_-16px_rgba(76,203,122,0.35)]">
-                <p className="text-xs uppercase tracking-wide text-[#E8EDED]/55">Aderência</p>
-                <h3 className="text-sm font-semibold text-[#E8EDED] mt-1">Últimos 7 dias</h3>
-                <div className="mt-3 text-4xl font-bold text-[#4CCB7A]">
-                  {adherence7d.toFixed(0)}%
-                </div>
-                <div className="mt-3 h-2.5 rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A]"
-                    style={{ width: `${Math.max(0, Math.min(adherence7d, 100))}%` }}
-                  />
-                </div>
+        {activeTab === 'estatisticas' &&
+          (isPatientAppShell ? (
+            <PatientTrainingStats
+              patientId={paciente?.userId || pacienteIdFromQuery || user?.uid || null}
+            />
+          ) : isProfessionalEmbed ? (
+            <>
+              <div className="lg:hidden">
+                <PatientTrainingStats
+                  patientId={paciente?.userId || pacienteIdFromQuery || user?.uid || null}
+                />
               </div>
-              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#0f2a5a]/85 via-[#0A1F44]/90 to-[#091936]/95 p-5 shadow-[0_16px_32px_-16px_rgba(76,203,122,0.35)]">
-                <p className="text-xs uppercase tracking-wide text-[#E8EDED]/55">Aderência</p>
-                <h3 className="text-sm font-semibold text-[#E8EDED] mt-1">Últimos 30 dias</h3>
-                <div className="mt-3 text-4xl font-bold text-[#4CCB7A]">
-                  {adherence30d.toFixed(0)}%
-                </div>
-                <div className="mt-3 h-2.5 rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A]"
-                    style={{ width: `${Math.max(0, Math.min(adherence30d, 100))}%` }}
-                  />
-                </div>
+              <div className="hidden lg:block">
+                <PersonalTrainingStatsPanel
+                  patientId={paciente?.userId || pacienteIdFromQuery || user?.uid || null}
+                />
               </div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/90 p-6 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
-              <h3 className="text-lg font-semibold text-[#E8EDED] mb-4">
-                Treinos feitos por semana (últimas 4 semanas)
-              </h3>
-              <div className="space-y-2">
-                {treinosPorSemana.map((count, index) => (
-                  <div key={index} className="flex items-center gap-4">
-                    <span className="w-24 text-sm text-[#E8EDED]/70">
-                      Semana {4 - index}
-                    </span>
-                    <div className="flex-1 bg-white/10 rounded-full h-6 relative overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-[#2F8FA3] to-[#4CCB7A] h-6 rounded-full flex items-center justify-end pr-2"
-                        style={{ width: `${Math.min((count / 7) * 100, 100)}%` }}
-                      >
-                        {count > 0 && (
-                          <span className="text-xs text-[#0A1F44] font-semibold">{count}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+            </>
+          ) : (
+            <PersonalTrainingStatsPanel
+              patientId={paciente?.userId || pacienteIdFromQuery || user?.uid || null}
+            />
+          ))}
 
         {activeTab === 'config' && (
           <div className="space-y-6 max-w-2xl">
@@ -4167,14 +6196,24 @@ export function PersonalPageContent({
         )}
       </main>
 
-      {/* ETAPA 3 — Bottom sheet "Treino em andamento" com cronômetro de descanso */}
-      {isWorkoutRunning && !selectedSessionForDetail && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end pointer-events-none">
-          <div className="pointer-events-auto h-[70vh] max-h-[85vh] rounded-t-3xl bg-[#0A1F44] border border-white/10 flex flex-col overflow-hidden shadow-2xl text-[#E8EDED]">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <h2 className="text-lg font-semibold text-[#E8EDED] truncate">
-                {activeRunSession?.title ?? 'Treino'}
-              </h2>
+      {/* Modal fullscreen — carrossel de exercícios do treino */}
+      {isWorkoutRunning && !selectedSessionForDetail && criarPortalReady &&
+        createPortal(
+          <div className="fixed inset-0 z-[230] flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none touch-none bg-[#06152e] text-[#E8EDED]">
+            <header className="shrink-0 flex items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-white/10 bg-[#0A1F44]/95 backdrop-blur-md touch-auto">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.08em] text-[#E8EDED]/45">
+                  {runExercisesList.length > 0 &&
+                  runExercisesList.every((ex) => ex.status === 'done' || ex.status === 'skipped')
+                    ? 'Treino concluído'
+                    : isPersonalTrainerMode
+                      ? 'Acompanhando o aluno'
+                      : 'Treino em andamento'}
+                </p>
+                <h2 className="text-base font-semibold text-[#E8EDED] truncate">
+                  {activeRunSession?.title ?? 'Treino'}
+                </h2>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -4183,45 +6222,50 @@ export function PersonalPageContent({
                   setActiveRunExerciseId(null);
                   setRestSecondsLeft(null);
                   setIsRestRunning(false);
+                  setRunDetailsSheetOpen(false);
+                  setRunNotesSheetOpen(false);
+                  setRunGymMediaSheetOpen(false);
+                  setRunExecution(null);
+                  setRunIntercalationExecutions({});
                 }}
-                className="p-2 rounded-full hover:bg-white/10 text-[#E8EDED]/70"
-                aria-label="Sair"
+                className="p-2 rounded-full hover:bg-white/10 text-[#E8EDED]/70 shrink-0"
+                aria-label="Fechar treino"
               >
                 <X className="w-5 h-5" />
               </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            </header>
+
+            <div className="flex min-h-0 flex-1 touch-auto flex-col overflow-hidden">
               {restSecondsLeft != null ? (
-                <div className="space-y-4">
-                  <p className="text-sm font-medium text-[#E8EDED]/75">Descanso</p>
-                  <div className="text-4xl font-mono font-bold text-[#4CCB7A] tabular-nums text-center py-6">
-                    {Math.floor((restSecondsLeft ?? 0) / 60)}:{(restSecondsLeft ?? 0) % 60 < 10 ? '0' : ''}{(restSecondsLeft ?? 0) % 60}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsRestRunning((r) => !r)}
-                      className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-white/10 text-[#E8EDED] hover:bg-white/15 transition-colors"
-                    >
-                      {isRestRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                      {isRestRunning ? 'Pausar' : 'Continuar'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsRestRunning(false);
-                        setRestSecondsLeft(null);
-                        const next = runExercisesRef.current?.find((ex) => ex.status !== 'done' && ex.status !== 'skipped');
-                        setActiveRunExerciseId(next?.id ?? null);
-                      }}
-                      className="flex-1 py-3 rounded-xl font-semibold bg-white/10 text-[#E8EDED] hover:bg-white/15 transition-colors"
-                    >
-                      Pular descanso
-                    </button>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0 overflow-y-auto py-4">
+                  <WorkoutRunRestTimer
+                    secondsLeft={restSecondsLeft}
+                    totalSeconds={restTotalSec ?? restSecondsLeft}
+                    running={isRestRunning}
+                    logoSrc={restLogoSrc}
+                    logoAlt={restLogoAlt}
+                    nextLabel={
+                      currentRunExercise
+                        ? restAdvanceMode === 'series'
+                          ? currentHostStep?.kind === 'intercalated' || currentIntercalation
+                            ? `Em seguida: ${translateExerciseName(runDisplayExercise?.name || currentRunExercise.name)}`
+                            : 'Próxima série em seguida'
+                          : `Após ${translateExerciseName(currentRunExercise.name)}`
+                        : null
+                    }
+                    onTogglePause={() => setIsRestRunning((r) => !r)}
+                    onSkip={() => {
+                      setIsRestRunning(false);
+                      setRestSecondsLeft(null);
+                      if (restAdvanceModeRef.current === 'exercise') {
+                        advanceRunToNext();
+                      }
+                    }}
+                  />
                 </div>
               ) : !currentRunExercise ? (
-                <div className="text-center py-12">
+                <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
+                  <CheckCircle className="w-14 h-14 text-[#4CCB7A]" />
                   <p className="text-xl font-semibold text-[#E8EDED]">Treino concluído 🎉</p>
                   <button
                     type="button"
@@ -4229,59 +6273,568 @@ export function PersonalPageContent({
                       setIsWorkoutRunning(false);
                       setActiveRunSession(null);
                       setActiveRunExerciseId(null);
+                      setRunDetailsSheetOpen(false);
+                      setRunNotesSheetOpen(false);
+                      setRunGymMediaSheetOpen(false);
+                      setRunExecution(null);
+                      setRunIntercalationExecutions({});
                     }}
-                    className="mt-4 px-4 py-2 rounded-xl font-semibold bg-[#4CCB7A] text-[#0A1F44] hover:bg-[#45b86d]"
+                    className="mt-2 px-5 py-2.5 rounded-xl font-semibold bg-[#4CCB7A] text-[#0A1F44] hover:bg-[#45b86d]"
                   >
                     Fechar
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="rounded-2xl overflow-hidden bg-[#06152e]/85 border border-white/10">
-                    {currentRunExercise.gifUrl && (
-                      <div className="aspect-video w-full">
-                        <img src={currentRunExercise.gifUrl} alt="" className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                  {/* GIF principal — full-bleed com vinheta */}
+                  <div className="relative shrink-0">
+                    <div className="relative w-full aspect-[5/4] max-h-[34vh] overflow-hidden bg-[#040b18]">
+                      {runGymMedia?.kind === 'video' ? (
+                        <GymMediaLoopVideo
+                          src={runGymMedia.url}
+                          playing={showRunGymMediaPreview}
+                          className={`absolute inset-0 w-full h-full object-contain bg-black ${
+                            showRunGymMediaPreview ? '' : 'invisible'
+                          }`}
+                        />
+                      ) : runGymMedia && showRunGymMediaPreview ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={runGymMedia.url}
+                          src={runGymMedia.url}
+                          alt="Foto real da máquina na academia"
+                          className="absolute inset-0 w-full h-full object-contain bg-black"
+                        />
+                      ) : null}
+                      {!(runGymMedia && showRunGymMediaPreview) &&
+                        (runDisplayExercise?.gifUrl || runDisplayExercise?.exerciseId) && (
+                          <img
+                            key={runDisplayExercise?.id || runDisplayExercise?.exerciseId}
+                            src={resolveExerciseGifUrl(runDisplayExercise, EXERCISE_GIF_RESOLUTION)}
+                            alt={translateExerciseName(runDisplayExercise?.name || currentRunExercise.name)}
+                            className="absolute inset-0 w-full h-full object-contain bg-white"
+                            onError={(e) => {
+                              const img = e.currentTarget as HTMLImageElement;
+                              const fallback = getExerciseGifUrl(
+                                resolveExerciseDbId(runDisplayExercise),
+                                EXERCISE_GIF_THUMB_RESOLUTION
+                              );
+                              if (fallback && img.src !== fallback && !img.dataset.retried) {
+                                img.dataset.retried = '1';
+                                img.src = fallback;
+                                return;
+                              }
+                              img.style.display = 'none';
+                            }}
+                          />
+                        )}
+                      <div
+                        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#06152e] via-[#06152e]/25 to-transparent"
+                        aria-hidden
+                      />
+                      <div
+                        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(4,11,24,0.55)_100%)]"
+                        aria-hidden
+                      />
+                      <div className="absolute top-2 left-2 z-20 flex max-w-[calc(100%-6.75rem)] flex-row flex-wrap items-center justify-start gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRunNotesSheetOpen(false);
+                            setRunGymMediaSheetOpen(false);
+                            setRunDetailsSheetOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white ring-1 ring-white/25 backdrop-blur-md hover:bg-black/70"
+                        >
+                          <Info className="h-3.5 w-3.5 text-[#4CCB7A]" />
+                          Ajuda
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRunDetailsSheetOpen(false);
+                            setRunGymMediaSheetOpen(false);
+                            setRunNotesSheetOpen(true);
+                          }}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium text-white ring-1 backdrop-blur-md ${
+                            sanitizeTrainerNote(runTrainerNote)
+                              ? 'bg-[#4CCB7A]/25 ring-[#4CCB7A]/55 hover:bg-[#4CCB7A]/35'
+                              : 'bg-black/55 ring-white/25 hover:bg-black/70'
+                          }`}
+                        >
+                          <ClipboardList className="h-3.5 w-3.5 text-[#4CCB7A]" />
+                          Orientações
+                        </button>
                       </div>
+                      <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRunDetailsSheetOpen(false);
+                            setRunNotesSheetOpen(false);
+                            setRunGymMediaSheetOpen(true);
+                          }}
+                          className={`flex h-9 items-center justify-center gap-0.5 rounded-full px-2 ring-1 backdrop-blur-md ${
+                            runGymMedia
+                              ? 'bg-[#1ED760] text-[#042014] ring-[#B6FFD2] shadow-[0_0_14px_rgba(30,215,96,0.55)] hover:bg-[#3BE878]'
+                              : 'bg-black/55 text-white ring-white/25 hover:bg-black/70'
+                          }`}
+                          aria-label="Adicionar vídeo"
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={2.75} />
+                          <Video className="h-3.5 w-3.5" />
+                        </button>
+                        {runGymMedia ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowRunGymMediaPreview((open) => !open)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md ring-1 ring-white/25 hover:bg-black/70"
+                            aria-label={
+                              showRunGymMediaPreview ? 'Voltar para o GIF do exercício' : 'Ver o vídeo do paciente'
+                            }
+                          >
+                            {showRunGymMediaPreview ? (
+                              <ArrowLeft className="w-4 h-4" />
+                            ) : (
+                              <ArrowRight className="w-4 h-4" />
+                            )}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {runExercisesList.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const idx = runExercisesList.findIndex((ex) => ex.id === activeRunExerciseId);
+                            const prev = (idx <= 0 ? runExercisesList.length : idx) - 1;
+                            const ex = runExercisesList[prev];
+                            if (ex?.id) selectRunExercise(ex.id);
+                          }}
+                          className="absolute left-3 top-[38%] -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white/90 backdrop-blur-md ring-1 ring-white/20 hover:bg-black/55"
+                          aria-label="Exercício anterior"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={advanceRunToNext}
+                          className="absolute right-3 top-[38%] -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white/90 backdrop-blur-md ring-1 ring-white/20 hover:bg-black/55"
+                          aria-label="Próximo exercício"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </>
                     )}
-                    <div className="p-4 space-y-2">
-                      <h3 className="text-lg font-semibold text-[#E8EDED]">{translateExerciseName(currentRunExercise.name)}</h3>
-                      <div className="flex gap-2 flex-wrap">
-                        <span className={`${ui.pill} bg-[#4CCB7A]/15 text-[#4CCB7A] ring-[#4CCB7A]/35`}>{translateTarget(currentRunExercise.target)}</span>
-                        {currentRunExercise.equipment && currentRunExercise.equipment !== 'body weight' && (
-                          <span className={`${ui.pill} bg-white/10 text-[#E8EDED]/75 ring-white/10`}>{translateEquipment(currentRunExercise.equipment)}</span>
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 px-3 pb-2.5 pt-12 bg-gradient-to-t from-black/80 via-black/45 to-transparent">
+                      <div className="flex items-end justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-medium tabular-nums text-white/75">
+                            Exercício {(runExercisesList.findIndex((ex) => ex.id === activeRunExerciseId) + 1) || 1} de {runExercisesList.length}
+                          </p>
+                          <h3 className="text-base font-semibold text-white leading-snug tracking-tight truncate drop-shadow">
+                            {translateExerciseName(runDisplayExercise?.name || currentRunExercise.name)}
+                          </h3>
+                          {currentIntercalation ? (
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#2F8FA3]">
+                              ⇄ Intercalado
+                            </p>
+                          ) : null}
+                        </div>
+                        {currentRunExercise.status === 'done' ? (
+                          <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#4CCB7A]/90 text-[#0A1F44]">
+                            Feito
+                          </span>
+                        ) : currentRunExercise.status === 'skipped' ? (
+                          <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/90 text-white">
+                            Pulado
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white ring-1 ring-white/25">
+                            Pendente
+                          </span>
                         )}
                       </div>
-                      {currentRunExercise.prescription && (
-                        <p className="text-sm text-[#E8EDED]/70">
-                          {currentRunExercise.prescription.sets}×{currentRunExercise.prescription.reps} • {currentRunExercise.prescription.restSec}s descanso
-                        </p>
-                      )}
+                      <div className="mt-1.5 flex gap-1.5 flex-wrap">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                          currentIntercalation
+                            ? 'bg-[#2F8FA3]/90 text-white'
+                            : 'bg-[#4CCB7A]/90 text-[#0A1F44]'
+                        }`}>
+                          {translateTarget(runDisplayExercise?.target || currentRunExercise.target)}
+                        </span>
+                        {(runDisplayExercise?.bodyPart || currentRunExercise.bodyPart) && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/20 text-white ring-1 ring-white/20">
+                            {translateBodyPart(runDisplayExercise?.bodyPart || currentRunExercise.bodyPart)}
+                          </span>
+                        )}
+                        {(runDisplayExercise?.equipment || currentRunExercise.equipment) && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/20 text-white ring-1 ring-white/20">
+                            {translateEquipment(runDisplayExercise?.equipment || currentRunExercise.equipment)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={handleRunFeito} disabled={savingStatus} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold ${ui.btnSuccess} disabled:opacity-50`}>
-                      <CheckCircle className="w-5 h-5" /> Feito
-                    </button>
-                    <button type="button" onClick={handleRunPulei} disabled={savingStatus} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold ${ui.btnDanger} disabled:opacity-50`}>
-                      <XCircle className="w-5 h-5" /> Pulei
+
+                  {/* Resumo compacto */}
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-4 py-2.5 space-y-2.5">
+                    <WorkoutRunSeriesPanel
+                      execution={
+                        currentHostStep?.kind === 'intercalated'
+                          ? runIntercalationExecutions[currentHostStep.intercalationId] ?? null
+                          : runExecution?.exerciseDocId === currentRunExercise.id
+                            ? runExecution
+                            : null
+                      }
+                      currentSeriesId={currentHostStep?.seriesId}
+                      accent={currentHostStep?.kind === 'intercalated'}
+                      intercalatedHint={currentHostStep?.kind === 'intercalated'}
+                      visualSteps={
+                        hostRunQueue.some((step) => step.kind === 'intercalated')
+                          ? hostRunVisualSteps
+                          : undefined
+                      }
+                      loading={
+                        !runExecutionError &&
+                        (loadingRunExecution ||
+                          runExecution?.exerciseDocId !== currentRunExercise.id)
+                      }
+                      saving={savingRunSeries}
+                      readOnly={runExecutionReadOnly}
+                      onCompleteSeries={handleCompleteRunSeries}
+                      onSkipSeries={handleSkipRunSeries}
+                      onRedoExercise={handleRedoRunExercise}
+                      onPrescriptionChange={handleRunSeriesPrescriptionChange}
+                    />
+                  </div>
+
+                  {/* Miniaturas do carrossel */}
+                  <div className="shrink-0 border-t border-white/10 bg-[#0A1F44]/80 px-3 pt-2.5 pb-2">
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin snap-x snap-mandatory">
+                      {runExercisesList.map((ex, idx) => {
+                        const isActive = ex.id === activeRunExerciseId;
+                        const thumb = resolveExerciseGifUrl(ex, EXERCISE_GIF_THUMB_RESOLUTION);
+                        return (
+                          <button
+                            key={ex.id || `${ex.exerciseId}-${idx}`}
+                            type="button"
+                            onClick={() => ex.id && selectRunExercise(ex.id)}
+                            className={`relative shrink-0 w-16 h-16 rounded-xl overflow-hidden snap-start transition-all ${
+                              isActive
+                                ? 'ring-2 ring-[#4CCB7A] scale-105 shadow-[0_0_0_1px_rgba(76,203,122,0.35)]'
+                                : 'ring-1 ring-white/15 opacity-70 hover:opacity-100'
+                            }`}
+                            aria-label={translateExerciseName(ex.name)}
+                            aria-current={isActive ? 'true' : undefined}
+                          >
+                            {thumb ? (
+                              <img
+                                src={thumb}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                <Dumbbell className="w-5 h-5 text-white/30" />
+                              </div>
+                            )}
+                            <span className="absolute bottom-0.5 left-0.5 min-w-[1rem] h-4 px-1 rounded bg-black/60 text-[9px] font-bold tabular-nums text-white/90 flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            {ex.status === 'done' && (
+                              <span className="absolute top-0.5 right-0.5 rounded-full bg-[#4CCB7A] p-0.5">
+                                <CheckCircle className="w-2.5 h-2.5 text-[#0A1F44]" />
+                              </span>
+                            )}
+                            {ex.status === 'skipped' && (
+                              <span className="absolute top-0.5 right-0.5 rounded-full bg-red-500 p-0.5">
+                                <XCircle className="w-2.5 h-2.5 text-white" />
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="shrink-0 flex gap-2 px-4 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-white/10 bg-[#0A1F44]">
+                    <button
+                      type="button"
+                      onClick={handleRunPulei}
+                      disabled={
+                        savingStatus ||
+                        savingRunSeries ||
+                        runExecutionReadOnly ||
+                        (runExecution?.exerciseDocId === currentRunExercise.id &&
+                          !currentHostStep)
+                      }
+                      className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-sm font-semibold ${ui.btnDanger} disabled:opacity-50`}
+                    >
+                      <XCircle className="w-4 h-4" /> Pulei
                     </button>
                     <button
                       type="button"
                       onClick={advanceRunToNext}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold ${ui.btnGhost}`}
+                      className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-sm font-semibold ${ui.btnGhost}`}
                     >
-                      <ChevronRight className="w-5 h-5" /> Próximo
+                      <ChevronRight className="w-4 h-4" /> Próximo
                     </button>
                   </div>
                 </>
               )}
             </div>
+
+            {/* Sheet Detalhes (PT) — sobre o modal do treino */}
+            {runDetailsSheetOpen && currentRunExercise && (
+              <div
+                className="absolute inset-0 z-20 flex h-full max-h-full flex-col justify-end overflow-hidden overscroll-none touch-none"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="run-exercise-details-title"
+              >
+                <div
+                  className="absolute inset-0 bg-black/55 touch-none"
+                  onClick={() => setRunDetailsSheetOpen(false)}
+                  aria-hidden
+                />
+                <div className="relative z-10 flex max-h-[min(78vh,620px)] w-full flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0A1F44] shadow-[0_-16px_40px_-12px_rgba(0,0,0,0.55)] touch-auto pb-[env(safe-area-inset-bottom,0px)]">
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.08em] text-[#E8EDED]/45">Ajuda</p>
+                      <h3
+                        id="run-exercise-details-title"
+                        className="truncate text-sm font-semibold text-[#E8EDED]"
+                      >
+                        {translateExerciseName(currentRunExercise.name)}
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRunDetailsSheetOpen(false)}
+                      className="rounded-full p-1.5 text-[#E8EDED]/70 hover:bg-white/10"
+                      aria-label="Fechar detalhes"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain touch-pan-y p-4">
+                    {(loadingRunDetails || loadingRunDetailsTranslate) && (
+                      <div className="flex items-center gap-2 py-6 text-sm text-[#E8EDED]/55 justify-center">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#4CCB7A]" />
+                        Preparando detalhes em português…
+                      </div>
+                    )}
+
+                    {!loadingRunDetails && runExerciseDetails && (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {translateDifficulty(runExerciseDetails.difficulty) && (
+                            <span className={`${ui.pill} bg-amber-400/10 text-amber-200/90 ring-amber-300/25`}>
+                              {translateDifficulty(runExerciseDetails.difficulty)}
+                            </span>
+                          )}
+                          {translateCategory(runExerciseDetails.category) && (
+                            <span className={`${ui.pill} bg-sky-400/10 text-sky-200/90 ring-sky-300/25`}>
+                              {translateCategory(runExerciseDetails.category)}
+                            </span>
+                          )}
+                          <span className={`${ui.pill} bg-[#4CCB7A]/15 text-[#4CCB7A] ring-[#4CCB7A]/35`}>
+                            {translateTarget(runExerciseDetails.target || currentRunExercise.target)}
+                          </span>
+                          {(runExerciseDetails.bodyPart || currentRunExercise.bodyPart) && (
+                            <span className={`${ui.pill} bg-white/10 text-[#E8EDED]/75 ring-white/10`}>
+                              {translateBodyPart(runExerciseDetails.bodyPart || currentRunExercise.bodyPart)}
+                            </span>
+                          )}
+                          {(runExerciseDetails.equipment || currentRunExercise.equipment) && (
+                            <span className={`${ui.pill} bg-white/10 text-[#E8EDED]/75 ring-white/10`}>
+                              {translateEquipment(runExerciseDetails.equipment || currentRunExercise.equipment)}
+                            </span>
+                          )}
+                        </div>
+
+                        {runExerciseDetails.secondaryMuscles &&
+                          runExerciseDetails.secondaryMuscles.length > 0 && (
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] uppercase tracking-[0.08em] text-[#E8EDED]/40">
+                                Músculos secundários
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {runExerciseDetails.secondaryMuscles.map((muscle) => (
+                                  <span
+                                    key={muscle}
+                                    className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] text-[#E8EDED]/75 ring-1 ring-white/10"
+                                  >
+                                    {translateTarget(muscle)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {!loadingRunDetailsTranslate && runDetailsTranslated?.descriptionPt && (
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase tracking-[0.08em] text-[#E8EDED]/40">
+                              Sobre o exercício
+                            </p>
+                            <p className="text-sm leading-relaxed text-[#E8EDED]/80">
+                              {runDetailsTranslated.descriptionPt}
+                            </p>
+                          </div>
+                        )}
+
+                        {!loadingRunDetailsTranslate &&
+                          runDetailsTranslated &&
+                          runDetailsTranslated.instructionsPt.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[10px] uppercase tracking-[0.08em] text-[#E8EDED]/40">
+                                Como executar
+                              </p>
+                              <ol className="space-y-2.5">
+                                {runDetailsTranslated.instructionsPt.map((step, idx) => (
+                                  <li
+                                    key={`${idx}-${step.slice(0, 20)}`}
+                                    className="flex gap-2.5 text-sm leading-relaxed text-[#E8EDED]/85"
+                                  >
+                                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#4CCB7A]/15 text-[10px] font-bold tabular-nums text-[#4CCB7A]">
+                                      {idx + 1}
+                                    </span>
+                                    <span>{step}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+
+                        {!loadingRunDetailsTranslate &&
+                          runDetailsTranslated &&
+                          !runDetailsTranslated.descriptionPt &&
+                          runDetailsTranslated.instructionsPt.length === 0 && (
+                            <p className="py-4 text-center text-sm text-[#E8EDED]/50">
+                              Sem descrição adicional para este exercício.
+                            </p>
+                          )}
+                      </>
+                    )}
+
+                    {!loadingRunDetails && !runExerciseDetails && (
+                      <p className="py-6 text-center text-sm text-[#E8EDED]/50">
+                        Não foi possível carregar os detalhes agora.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            <WorkoutRunNotesSheet
+              open={runNotesSheetOpen && Boolean(currentRunExercise)}
+              exerciseName={translateExerciseName(
+                runDisplayExercise?.name || currentRunExercise?.name || ''
+              )}
+              note={runTrainerNote}
+              onClose={() => setRunNotesSheetOpen(false)}
+            />
+            <WorkoutRunGymMediaSheet
+              open={runGymMediaSheetOpen && Boolean(currentRunExercise)}
+              exerciseName={translateExerciseName(
+                runDisplayExercise?.name || currentRunExercise?.name || ''
+              )}
+              media={runGymMedia}
+              canEdit={!blockProfessionalMutations}
+              uploading={gymMediaUploading}
+              error={gymMediaError}
+              onClose={() => setRunGymMediaSheetOpen(false)}
+              onPickFile={(file) => void handleGymMediaFile(file)}
+              onRemove={handleGymMediaRemove}
+            />
+          </div>,
+          document.body
+        )}
+      <WorkoutPrintModal
+        open={workoutPrintOpen}
+        data={workoutPrintData}
+        onClose={() => {
+          setWorkoutPrintOpen(false);
+          setWorkoutPrintData(null);
+        }}
+      />
           </div>
         </div>
-      )}
       </div>
+      {modernMobileChrome && !keyboardOpen && !isOverlayModalOpen && !notesSheetOpen && (
+        <nav
+          className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-[210] flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          aria-label="Seções Personal"
+        >
+          <div
+            role="tablist"
+            className="pointer-events-auto flex w-full max-w-md items-end justify-between rounded-full border border-[#7eb6e8]/45 bg-[#0A1F44]/90 px-1.5 py-1.5 shadow-[0_14px_36px_-12px_rgba(0,0,0,0.7)] backdrop-blur-md"
+          >
+            {abasNavegacaoMobile.map((aba) => {
+              const ativo = activeTab === aba.id;
+              const TabIcon = aba.id === 'hoje' ? Home : aba.icon;
+              return (
+                <button
+                  key={aba.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={ativo}
+                  onClick={() => setActiveTab(aba.id)}
+                  className="flex min-w-0 flex-1 flex-col items-center gap-1 py-0.5"
+                >
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+                      ativo
+                        ? 'bg-white text-[#0A1F44] shadow-[0_0_16px_rgba(226,240,255,0.55)]'
+                        : 'text-[#E8EDED]/80'
+                    }`}
+                  >
+                    <TabIcon
+                      className="h-[18px] w-[18px] fill-none"
+                      strokeWidth={ativo ? 2.25 : 2}
+                      aria-hidden
+                    />
+                  </span>
+                  <span
+                    className={`text-[10px] font-medium leading-none ${
+                      ativo ? 'text-white' : 'text-[#E8EDED]/65'
+                    }`}
+                  >
+                    {aba.shortLabel}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
+
+  const gatedShell = (
+    <AvaliacaoAtividadeFisicaGate
+      isPersonalTrainerMode={isPersonalTrainerMode}
+      fromMetapersonal={isProfessionalEmbed}
+      patientId={effectivePaciente?.id ?? null}
+      userId={user?.uid ?? null}
+      patientFullName={
+        effectivePaciente?.dadosIdentificacao?.nomeCompleto || effectivePaciente?.nome || null
+      }
+    >
+      {appShell}
+    </AvaliacaoAtividadeFisicaGate>
+  );
+
+  if ((isAppFullscreen || metaadminFullscreen) && criarPortalReady && !suppressAppHeader) {
+    return createPortal(gatedShell, document.body);
+  }
+  return gatedShell;
 }
 
 // Componente de Calendário Semanal
@@ -4292,6 +6845,7 @@ function CalendarioSemanalComponent({
   setDiaSelecionado,
   sessoes,
   aplicacoes,
+  injetaveis = [],
   pagamentos,
   aplicacaoSelecionada,
   setAplicacaoSelecionada,
@@ -4305,6 +6859,7 @@ function CalendarioSemanalComponent({
   setDiaSelecionado: (date: Date | null) => void;
   sessoes: TrainingSession[];
   aplicacoes: Array<{ data: Date; semana: number; dose: number; status: string }>;
+  injetaveis?: CalendarioInjetavelItem[];
   pagamentos: Array<{ data: Date; tipo: 'nutri' | 'personal'; valor: number; parcela?: number }>;
   aplicacaoSelecionada: Date | null;
   setAplicacaoSelecionada: (date: Date | null) => void;
@@ -4459,133 +7014,123 @@ function CalendarioSemanalComponent({
     });
   };
 
+  const getInjetaveisDoDia = (data: Date) => {
+    return injetaveis.filter((item) => sameCalendarDay(item.data, data));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between text-[#E8EDED]">
         <button
+          type="button"
           onClick={() => mudarSemana('anterior')}
-          className="p-2 hover:bg-white/10 rounded"
+          className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/10 transition-colors"
+          aria-label="Semana anterior"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <span className="text-lg font-semibold">
-          {diasSemana[0].getDate()} - {diasSemana[6].getDate()} de {meses[diasSemana[0].getMonth()]} {diasSemana[0].getFullYear()}
+        <span className="text-base sm:text-lg font-semibold tracking-tight text-center px-2">
+          {diasSemana[0].getDate()}–{diasSemana[6].getDate()} de {meses[diasSemana[0].getMonth()]}{' '}
+          {diasSemana[0].getFullYear()}
         </span>
         <button
+          type="button"
           onClick={() => mudarSemana('proximo')}
-          className="p-2 hover:bg-white/10 rounded"
+          className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/10 transition-colors"
+          aria-label="Próxima semana"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] overflow-hidden">
-        <div className="grid grid-cols-7">
+      <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-2 sm:p-3 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {diasSemana.map((dia, index) => {
-            const eHoje =
-              dia.getDate() === hoje.getDate() &&
-              dia.getMonth() === hoje.getMonth() &&
-              dia.getFullYear() === hoje.getFullYear();
+            const eHoje = sameCalendarDay(dia, hoje);
+            const selecionado = diaSelecionado ? sameCalendarDay(dia, diaSelecionado) : eHoje;
             const sessoesDoDia = getSessoesDoDia(dia);
             const aplicacoesDoDia = getAplicacoesDoDia(dia);
+            const injetaveisDoDia = getInjetaveisDoDia(dia);
             const pagamentosDoDia = getPagamentosDoDia(dia);
-            const dayStartCell = new Date(dia);
-            dayStartCell.setHours(0, 0, 0, 0);
-            const isFutureDayCell = dayStartCell.getTime() > hoje.getTime();
-
-            let corFundo = '';
-            if (eHoje) {
-              corFundo = 'bg-[#2F8FA3]/20';
-            } else if (sessoesDoDia.length > 0 || aplicacoesDoDia.length > 0 || pagamentosDoDia.length > 0) {
-              corFundo = 'bg-[#4CCB7A]/15';
-            } else {
-              corFundo = 'bg-[#0A1F44]/70';
-            }
+            const dataStr = toLocalYYYYMMDD(dia);
+            const progresso = progressosDias[dataStr] || 0;
+            const temTreino = sessoesDoDia.length > 0;
+            const temEvento =
+              temTreino ||
+              aplicacoesDoDia.length > 0 ||
+              injetaveisDoDia.length > 0 ||
+              pagamentosDoDia.length > 0;
 
             return (
-              <div
+              <button
                 key={index}
+                type="button"
                 onClick={() => setDiaSelecionado(dia)}
-                className={`min-h-32 border-r border-white/10 p-3 cursor-pointer ${corFundo} ${
-                  index === 0 ? 'border-l' : ''
+                title={`${diasSemanaNomes[index]} ${dia.getDate()}${progresso > 0 ? ` · ${progresso}%` : temTreino ? ' · treino' : ''}${injetaveisDoDia.length > 0 ? ` · ${injetaveisDoDia.length} injetável(is)` : ''}`}
+                className={`relative min-h-[7.25rem] sm:min-h-[8rem] rounded-xl border px-1 py-2.5 flex flex-col items-center gap-1 text-center transition-all ${
+                  selecionado
+                    ? 'border-[#4CCB7A] bg-[#4CCB7A]/12 shadow-[0_8px_24px_-8px_rgba(76,203,122,0.45)] ring-2 ring-[#4CCB7A]/35'
+                    : eHoje
+                      ? 'border-[#2F8FA3]/45 bg-[#2F8FA3]/15 hover:border-[#4CCB7A]/40'
+                      : temEvento
+                        ? 'border-white/15 bg-white/[0.05] hover:border-[#4CCB7A]/40 hover:bg-[#4CCB7A]/5'
+                        : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
                 }`}
               >
-                <div className="text-center mb-2">
-                  <div className={`text-xs font-medium mb-1 ${
-                    eHoje ? 'text-[#4CCB7A]' : 'text-[#E8EDED]/65'
-                  }`}>
-                    {diasSemanaNomes[index]}
-                  </div>
-                  <div
-                    className={`text-lg font-bold ${
-                      eHoje
-                        ? 'text-[#4CCB7A]'
-                        : 'text-[#E8EDED]'
-                    }`}
-                  >
-                    {dia.getDate()}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1 justify-center items-center mt-2">
-                  {sessoesDoDia.length > 0 && (
-                    <>
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (sessoesDoDia[0]) onSessionClick(sessoesDoDia[0]);
-                        }}
-                        className="flex items-center justify-center gap-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-                        title={sessoesDoDia.map(s => s.title).join(', ')}
-                      >
-                        <Dumbbell className="w-4 h-4 text-[#E8EDED]/85 flex-shrink-0" />
-                        {sessoesDoDia.length > 1 && (
-                          <span className="text-[10px] font-medium text-[#E8EDED]/65">+{sessoesDoDia.length}</span>
-                        )}
-                      </div>
-                      {!isFutureDayCell && (() => {
-                        const dataStr = toLocalYYYYMMDD(dia);
-                        const progresso = progressosDias[dataStr] || 0;
-                        if (progresso > 0) {
-                          return (
-                            <div
-                              key="progress"
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-emerald-500 text-white"
-                              title={`Progresso: ${progresso}%`}
-                            >
-                              {progresso}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </>
+                <CalendarDayProgressBorder percent={progresso} selected={selecionado} />
+                <span
+                  className={`relative z-[1] text-[10px] sm:text-xs font-medium leading-none ${
+                    selecionado || eHoje ? 'text-[#4CCB7A]' : 'text-[#E8EDED]/60'
+                  }`}
+                >
+                  {diasSemanaNomes[index]}
+                </span>
+                <span
+                  className={`relative z-[1] text-lg sm:text-xl font-bold tabular-nums leading-none ${
+                    selecionado || eHoje ? 'text-[#4CCB7A]' : 'text-[#E8EDED]'
+                  }`}
+                >
+                  {dia.getDate()}
+                </span>
+                {progresso > 0 && (
+                  <span className="relative z-[1] text-[9px] sm:text-[10px] font-semibold tabular-nums text-[#F97316] drop-shadow-[0_0_6px_rgba(249,115,22,0.55)]">
+                    {progresso}%
+                  </span>
+                )}
+                <div className="relative z-[1] mt-auto flex flex-wrap gap-1 justify-center items-center min-h-[1.25rem]">
+                  {temTreino && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${selecionado ? 'bg-[#4CCB7A]' : 'bg-[#4CCB7A]/70'}`}
+                      aria-hidden
+                    />
                   )}
                   {aplicacoesDoDia.length > 0 && (
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${
-                        aplicacoesDoDia[0]?.status === 'tomada'
-                          ? 'bg-green-500 text-white'
-                          : aplicacoesDoDia[0]?.status === 'perdida'
-                          ? 'bg-red-500 text-white'
-                          : aplicacoesDoDia[0]?.status === 'hoje'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-400 text-white'
-                      }`}
-                      title={aplicacoesDoDia.map(a => `Aplicação: ${a.dose}mg - Semana ${a.semana}`).join(', ')}
+                    <span
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] bg-[#F97316]/20 ring-1 ring-[#F97316]/80 shadow-[0_0_10px_rgba(249,115,22,0.55)]"
+                      style={{ filter: 'drop-shadow(0 0 5px rgba(249, 115, 22, 0.85))' }}
+                      title={aplicacoesDoDia
+                        .map((a) => `Aplicação: ${a.dose}mg - Semana ${a.semana}`)
+                        .join(', ')}
                     >
                       💉
-                    </div>
+                    </span>
                   )}
+                  <CalendarioInjetavelBadge items={injetaveisDoDia} />
                   {pagamentosDoDia.length > 0 && (
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs bg-yellow-500 text-white"
-                      title={pagamentosDoDia.map(p => `Pagamento ${p.tipo === 'nutri' ? 'Nutricionista' : 'Personal'}: R$ ${p.valor.toFixed(2)}${p.parcela ? ` - Parcela ${p.parcela}` : ''}`).join(', ')}
+                    <span
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] bg-yellow-500/90 text-white"
+                      title={pagamentosDoDia
+                        .map(
+                          (p) =>
+                            `Pagamento ${p.tipo === 'nutri' ? 'Nutricionista' : 'Personal'}: R$ ${p.valor.toFixed(2)}${p.parcela ? ` - Parcela ${p.parcela}` : ''}`
+                        )
+                        .join(', ')}
                     >
                       💰
-                    </div>
+                    </span>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -4679,7 +7224,7 @@ function CalendarioSemanalComponent({
                                 </span>
                                 {ex.prescription && (
                                   <span className="text-xs text-[#E8EDED]/60 shrink-0">
-                                    {ex.prescription.sets}×{ex.prescription.reps}
+                                    {formatTrainingSeriesSummary(ex.prescription)}
                                   </span>
                                 )}
                               </li>
@@ -4730,6 +7275,64 @@ function CalendarioSemanalComponent({
             </div>
           )}
 
+          {getInjetaveisDoDia(effectiveDia).length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-[#E8EDED]/85 mb-2 flex items-center gap-2">
+                <Pill className="w-3.5 h-3.5 text-[#F97316]" aria-hidden />
+                Injetáveis
+              </h4>
+              <div className="space-y-2">
+                {getInjetaveisDoDia(effectiveDia).map((item) => {
+                  const status = statusInjetavelNoDia(item);
+                  return (
+                    <div
+                      key={`${item.aplicacaoId}-${item.semana}`}
+                      className={`p-3.5 rounded-xl border shadow-[0_12px_24px_-16px_rgba(249,115,22,0.35)] ${
+                        status === 'aplicado'
+                          ? 'bg-green-500/18 border-green-400/40'
+                          : status === 'pendente'
+                            ? 'bg-[#F97316]/18 border-[#F97316]/45'
+                            : status === 'hoje'
+                              ? 'bg-[#F97316]/22 border-[#F97316]/55'
+                              : 'bg-white/[0.06] border-white/18'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-[#E8EDED]/60 mb-1">Injetável</div>
+                          <div className={`font-semibold text-[#E8EDED] ${item.realizado ? 'line-through opacity-75' : ''}`}>
+                            {item.protocoloNome}
+                          </div>
+                          <div className="text-xs text-[#E8EDED]/65 mt-1">Semana {item.semana}</div>
+                          {item.observacao ? (
+                            <div className="text-xs text-[#E8EDED]/55 mt-1">{item.observacao}</div>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            status === 'aplicado'
+                              ? 'bg-green-500/20 text-green-300'
+                              : status === 'pendente' || status === 'hoje'
+                                ? 'bg-[#F97316]/20 text-[#F97316]'
+                                : 'bg-white/10 text-[#E8EDED]/70'
+                          }`}
+                        >
+                          {status === 'aplicado'
+                            ? '✓ Aplicado'
+                            : status === 'pendente'
+                              ? 'Pendente'
+                              : status === 'hoje'
+                                ? 'Hoje'
+                                : 'Futura'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {getPagamentosDoDia(effectiveDia).length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-[#E8EDED]/85 mb-2">Pagamentos</h4>
@@ -4755,6 +7358,7 @@ function CalendarioSemanalComponent({
 
           {getSessoesDoDia(effectiveDia).length === 0 &&
             getAplicacoesDoDia(effectiveDia).length === 0 &&
+            getInjetaveisDoDia(effectiveDia).length === 0 &&
             getPagamentosDoDia(effectiveDia).length === 0 && (
               <p className="text-sm text-[#E8EDED]/65">Nenhum evento neste dia.</p>
             )}
@@ -4771,6 +7375,7 @@ function CalendarioComponent({
   setDiaSelecionado,
   sessoes,
   aplicacoes,
+  injetaveis = [],
   pagamentos,
   aplicacaoSelecionada,
   setAplicacaoSelecionada,
@@ -4784,6 +7389,7 @@ function CalendarioComponent({
   setDiaSelecionado: (date: Date | null) => void;
   sessoes: TrainingSession[];
   aplicacoes: Array<{ data: Date; semana: number; dose: number; status: string }>;
+  injetaveis?: CalendarioInjetavelItem[];
   pagamentos: Array<{ data: Date; tipo: 'nutri' | 'personal'; valor: number; parcela?: number }>;
   aplicacaoSelecionada: Date | null;
   setAplicacaoSelecionada: (date: Date | null) => void;
@@ -4950,140 +7556,129 @@ function CalendarioComponent({
     });
   };
 
+  const getInjetaveisDoDia = (data: Date) => {
+    return injetaveis.filter((item) => sameCalendarDay(item.data, data));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between text-[#E8EDED]">
         <button
+          type="button"
           onClick={() => mudarMes('anterior')}
-          className="p-2 hover:bg-white/10 rounded"
+          className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/10 transition-colors"
+          aria-label="Mês anterior"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <span className="text-lg font-semibold">
+        <span className="text-base sm:text-lg font-semibold tracking-tight">
           {meses[mes]} {ano}
         </span>
         <button
+          type="button"
           onClick={() => mudarMes('proximo')}
-          className="p-2 hover:bg-white/10 rounded"
+          className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/10 transition-colors"
+          aria-label="Próximo mês"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-white/10">
+      <div className="rounded-2xl border border-white/10 bg-[#0A1F44]/85 p-2 sm:p-3 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)]">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
           {diasSemana.map((dia) => (
             <div
               key={dia}
-              className="p-2 text-center text-sm font-semibold text-[#E8EDED]/85 bg-white/[0.04]"
+              className="py-1.5 text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-[#E8EDED]/55"
             >
               {dia}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {dias.map((dia, index) => {
-            const eHoje =
-              dia &&
-              dia.getDate() === hoje.getDate() &&
-              dia.getMonth() === hoje.getMonth() &&
-              dia.getFullYear() === hoje.getFullYear();
-            const sessoesDoDia = dia ? getSessoesDoDia(dia) : [];
-            const aplicacoesDoDia = dia ? getAplicacoesDoDia(dia) : [];
-            const pagamentosDoDia = dia ? getPagamentosDoDia(dia) : [];
-            const dayStartCell = dia ? new Date(dia) : null;
-            if (dayStartCell) dayStartCell.setHours(0, 0, 0, 0);
-            const isFutureDayCell = dia && dayStartCell ? dayStartCell.getTime() > hoje.getTime() : false;
-
-            // Determinar cor de fundo baseado nos eventos
-            let corFundo = '';
-            if (dia === null) {
-              corFundo = 'bg-[#0A1F44]/60';
-            } else if (eHoje) {
-              corFundo = 'bg-[#2F8FA3]/20';
-            } else if (sessoesDoDia.length > 0 || aplicacoesDoDia.length > 0 || pagamentosDoDia.length > 0) {
-              corFundo = 'bg-[#4CCB7A]/15 hover:bg-[#4CCB7A]/20';
-            } else {
-              corFundo = 'hover:bg-white/[0.06]';
+            if (!dia) {
+              return <div key={`empty-${index}`} className="min-h-14 sm:min-h-16 rounded-xl bg-transparent" aria-hidden />;
             }
 
+            const eHoje = sameCalendarDay(dia, hoje);
+            const selecionado = diaSelecionado ? sameCalendarDay(dia, diaSelecionado) : eHoje;
+            const sessoesDoDia = getSessoesDoDia(dia);
+            const aplicacoesDoDia = getAplicacoesDoDia(dia);
+            const injetaveisDoDia = getInjetaveisDoDia(dia);
+            const pagamentosDoDia = getPagamentosDoDia(dia);
+            const dataStr = toLocalYYYYMMDD(dia);
+            const progresso = progressosDias[dataStr] || 0;
+            const temTreino = sessoesDoDia.length > 0;
+            const temEvento =
+              temTreino ||
+              aplicacoesDoDia.length > 0 ||
+              injetaveisDoDia.length > 0 ||
+              pagamentosDoDia.length > 0;
+
             return (
-              <div
+              <button
                 key={index}
-                onClick={() => dia && setDiaSelecionado(dia)}
-                className={`min-h-20 border border-white/10 p-2 cursor-pointer ${corFundo}`}
+                type="button"
+                onClick={() => setDiaSelecionado(dia)}
+                title={`${dia.getDate()}${progresso > 0 ? ` · ${progresso}%` : temTreino ? ' · treino' : ''}${injetaveisDoDia.length > 0 ? ` · ${injetaveisDoDia.length} injetável(is)` : ''}`}
+                className={`relative min-h-14 sm:min-h-16 rounded-xl border px-0.5 py-1.5 flex flex-col items-center gap-0.5 text-center transition-all ${
+                  selecionado
+                    ? 'border-[#4CCB7A] bg-[#4CCB7A]/12 shadow-[0_8px_20px_-10px_rgba(76,203,122,0.5)] ring-2 ring-[#4CCB7A]/35'
+                    : eHoje
+                      ? 'border-[#2F8FA3]/45 bg-[#2F8FA3]/15 hover:border-[#4CCB7A]/40'
+                      : temEvento
+                        ? 'border-white/15 bg-white/[0.05] hover:border-[#4CCB7A]/40 hover:bg-[#4CCB7A]/5'
+                        : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                }`}
               >
-                {dia && (
-                  <>
-                    <div
-                      className={`text-sm font-medium mb-1 ${
-                        eHoje ? 'text-[#4CCB7A] font-bold' : 'text-[#E8EDED]/85'
-                      }`}
-                    >
-                      {dia.getDate()}
-                    </div>
-                    <div className="flex flex-wrap gap-1 justify-center items-center">
-                      {sessoesDoDia.length > 0 && (
-                        <>
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (sessoesDoDia[0]) onSessionClick(sessoesDoDia[0]);
-                            }}
-                            className="flex items-center justify-center gap-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-                            title={sessoesDoDia.map(s => s.title).join(', ')}
-                          >
-                            <Dumbbell className="w-4 h-4 text-[#E8EDED]/85 flex-shrink-0" />
-                            {sessoesDoDia.length > 1 && (
-                              <span className="text-[10px] font-medium text-[#E8EDED]/65">+{sessoesDoDia.length}</span>
-                            )}
-                          </div>
-                          {!isFutureDayCell && (() => {
-                            const dataStr = toLocalYYYYMMDD(dia);
-                            const progresso = progressosDias[dataStr] || 0;
-                            if (progresso > 0) {
-                              return (
-                                <div
-                                  key="progress"
-                                  className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold bg-emerald-500 text-white"
-                                  title={`Progresso: ${progresso}%`}
-                                >
-                                  {progresso}
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </>
-                      )}
-                      {aplicacoesDoDia.length > 0 && (
-                        <div
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                            aplicacoesDoDia[0]?.status === 'tomada'
-                              ? 'bg-green-500 text-white'
-                              : aplicacoesDoDia[0]?.status === 'perdida'
-                              ? 'bg-red-500 text-white'
-                              : aplicacoesDoDia[0]?.status === 'hoje'
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-400 text-white'
-                          }`}
-                          title={aplicacoesDoDia.map(a => `Aplicação: ${a.dose}mg - Semana ${a.semana}`).join(', ')}
-                        >
-                          💉
-                        </div>
-                      )}
-                      {pagamentosDoDia.length > 0 && (
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs bg-yellow-500 text-white"
-                          title={pagamentosDoDia.map(p => `Pagamento ${p.tipo === 'nutri' ? 'Nutricionista' : 'Personal'}: R$ ${p.valor.toFixed(2)}${p.parcela ? ` - Parcela ${p.parcela}` : ''}`).join(', ')}
-                        >
-                          💰
-                        </div>
-                      )}
-                    </div>
-                  </>
+                <CalendarDayProgressBorder percent={progresso} selected={selecionado} dense />
+                <span
+                  className={`relative z-[1] text-sm font-semibold tabular-nums leading-none ${
+                    selecionado || eHoje ? 'text-[#4CCB7A]' : 'text-[#E8EDED]/90'
+                  }`}
+                >
+                  {dia.getDate()}
+                </span>
+                {progresso > 0 && (
+                  <span className="relative z-[1] text-[8px] sm:text-[9px] font-semibold tabular-nums text-[#F97316] drop-shadow-[0_0_5px_rgba(249,115,22,0.5)]">
+                    {progresso}%
+                  </span>
                 )}
-              </div>
+                <div className="relative z-[1] mt-auto flex flex-wrap gap-0.5 justify-center items-center min-h-[0.75rem]">
+                  {temTreino && (
+                    <span
+                      className={`w-1 h-1 rounded-full ${selecionado ? 'bg-[#4CCB7A]' : 'bg-[#4CCB7A]/70'}`}
+                      aria-hidden
+                    />
+                  )}
+                  {aplicacoesDoDia.length > 0 && (
+                    <span
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] bg-[#F97316]/20 ring-1 ring-[#F97316]/80 shadow-[0_0_8px_rgba(249,115,22,0.55)]"
+                      style={{ filter: 'drop-shadow(0 0 4px rgba(249, 115, 22, 0.85))' }}
+                      title={aplicacoesDoDia
+                        .map((a) => `Aplicação: ${a.dose}mg - Semana ${a.semana}`)
+                        .join(', ')}
+                    >
+                      💉
+                    </span>
+                  )}
+                  <CalendarioInjetavelBadge items={injetaveisDoDia} dense />
+                  {pagamentosDoDia.length > 0 && (
+                    <span
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] bg-yellow-500/90 text-white"
+                      title={pagamentosDoDia
+                        .map(
+                          (p) =>
+                            `Pagamento ${p.tipo === 'nutri' ? 'Nutricionista' : 'Personal'}: R$ ${p.valor.toFixed(2)}${p.parcela ? ` - Parcela ${p.parcela}` : ''}`
+                        )
+                        .join(', ')}
+                    >
+                      💰
+                    </span>
+                  )}
+                </div>
+              </button>
             );
           })}
         </div>
@@ -5178,7 +7773,7 @@ function CalendarioComponent({
                                 </span>
                                 {ex.prescription && (
                                   <span className="text-xs text-[#E8EDED]/60 shrink-0">
-                                    {ex.prescription.sets}×{ex.prescription.reps}
+                                    {formatTrainingSeriesSummary(ex.prescription)}
                                   </span>
                                 )}
                               </li>
@@ -5230,6 +7825,65 @@ function CalendarioComponent({
             </div>
           )}
 
+          {/* Injetáveis */}
+          {getInjetaveisDoDia(effectiveDia).length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-[#E8EDED]/85 mb-2 flex items-center gap-2">
+                <Pill className="w-3.5 h-3.5 text-[#F97316]" aria-hidden />
+                Injetáveis
+              </h4>
+              <div className="space-y-2">
+                {getInjetaveisDoDia(effectiveDia).map((item) => {
+                  const status = statusInjetavelNoDia(item);
+                  return (
+                    <div
+                      key={`${item.aplicacaoId}-${item.semana}`}
+                      className={`p-3.5 rounded-xl border shadow-[0_12px_24px_-16px_rgba(249,115,22,0.35)] ${
+                        status === 'aplicado'
+                          ? 'bg-green-500/18 border-green-400/40'
+                          : status === 'pendente'
+                            ? 'bg-[#F97316]/18 border-[#F97316]/45'
+                            : status === 'hoje'
+                              ? 'bg-[#F97316]/22 border-[#F97316]/55'
+                              : 'bg-white/[0.06] border-white/18'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[11px] uppercase tracking-wide text-[#E8EDED]/60 mb-1">Injetável</div>
+                          <div className={`font-semibold text-[#E8EDED] ${item.realizado ? 'line-through opacity-75' : ''}`}>
+                            {item.protocoloNome}
+                          </div>
+                          <div className="text-xs text-[#E8EDED]/65 mt-1">Semana {item.semana}</div>
+                          {item.observacao ? (
+                            <div className="text-xs text-[#E8EDED]/55 mt-1">{item.observacao}</div>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            status === 'aplicado'
+                              ? 'bg-green-500/20 text-green-300'
+                              : status === 'pendente' || status === 'hoje'
+                                ? 'bg-[#F97316]/20 text-[#F97316]'
+                                : 'bg-white/10 text-[#E8EDED]/70'
+                          }`}
+                        >
+                          {status === 'aplicado'
+                            ? '✓ Aplicado'
+                            : status === 'pendente'
+                              ? 'Pendente'
+                              : status === 'hoje'
+                                ? 'Hoje'
+                                : 'Futura'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Pagamentos */}
           {getPagamentosDoDia(effectiveDia).length > 0 && (
             <div>
@@ -5256,6 +7910,7 @@ function CalendarioComponent({
 
         {getSessoesDoDia(effectiveDia).length === 0 &&
           getAplicacoesDoDia(effectiveDia).length === 0 &&
+          getInjetaveisDoDia(effectiveDia).length === 0 &&
           getPagamentosDoDia(effectiveDia).length === 0 && (
             <p className="text-sm text-[#E8EDED]/65">Nenhum evento neste dia.</p>
           )}

@@ -5,8 +5,8 @@ import {
   isValidLeadWhiteLabelEmail,
   normalizeLeadWhiteLabelEmail,
   normalizeLeadWhiteLabelInstagram,
-  normalizeLeadWhiteLabelWhatsApp,
 } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
+import { persistWhiteLabelWhatsAppFromPayload } from '@/lib/whatsapp/resolveLeadPhone';
 import { buildInitialCrmFields, buildLeadScoreFields } from '@/lib/whiteLabel/leadCrmService';
 import { legacyStatusFromCrmStage } from '@/lib/whiteLabel/leadCrmMapper';
 import {
@@ -18,6 +18,8 @@ import type { LeadWhiteLabelMeeting } from '@/types/leadWhiteLabel';
 import { ensureAvailabilitySlot, SlotUnavailableError } from '@/lib/whiteLabel/availabilityService';
 import { WHITELABEL_AVAILABILITY_COLLECTION } from '@/lib/whiteLabel/availabilityFirestore';
 import { listAvailableSlotsFromEngine } from '@/lib/whiteLabel/availabilityEngine';
+import { parseWhiteLabelProfissao } from '@/lib/whiteLabel/profissao';
+import { mapProfissaoChoiceToValue } from '@/lib/whiteLabel/leadWhiteLabelQuestions';
 
 function asTrimmedString(value: unknown): string {
   if (value == null) return '';
@@ -62,13 +64,20 @@ export async function submitWhiteLabelLeadWithMeeting(
     throw new Error('E-mail inválido.');
   }
 
-  const whatsapp = normalizeLeadWhiteLabelWhatsApp(raw.whatsapp);
-  if (!whatsapp || whatsapp.length < 12) {
-    throw new Error('WhatsApp inválido.');
+  const whatsappPersist = persistWhiteLabelWhatsAppFromPayload(input.form);
+  if (!whatsappPersist.ok) {
+    throw new Error(whatsappPersist.error);
   }
+  const { whatsapp, whatsappDdi, whatsappPais } = whatsappPersist.fields;
 
   const instagram = normalizeLeadWhiteLabelInstagram(raw.instagram);
   const scoreFields = buildLeadScoreFields(raw);
+
+  const profissaoFromChoice = mapProfissaoChoiceToValue(asTrimmedString(input.form.profissao));
+  const profissao = parseWhiteLabelProfissao(
+    profissaoFromChoice || input.form.profissao,
+    'medico'
+  );
 
   const engineSlots = await listAvailableSlotsFromEngine();
   const engineMatch = engineSlots.find((s) => s.id === availabilityId);
@@ -110,8 +119,10 @@ export async function submitWhiteLabelLeadWithMeeting(
     transaction.set(leadRef, {
       nome: raw.nome,
       whatsapp,
+      ...(whatsappDdi ? { whatsappDdi, ...(whatsappPais ? { whatsappPais } : {}) } : {}),
       email,
       instagram,
+      profissao,
       situacaoProfissional: raw.situacaoProfissional,
       objetivo3Anos: raw.objetivo3Anos,
       interesseReduzirPlantao: raw.interesseReduzirPlantao,

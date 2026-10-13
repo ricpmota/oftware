@@ -3,6 +3,7 @@
 import {
   Activity,
   Building2,
+  Brain,
   Flame,
   Layers,
   Loader2,
@@ -152,7 +153,7 @@ export default function OftwareDashboardPanel({
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#E8EDED]/50">
           Equipe e pacientes
         </h3>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryCard
             label="Nutricionistas"
             value={metrics.totalNutricionistas}
@@ -165,6 +166,13 @@ export default function OftwareDashboardPanel({
             value={metrics.totalPersonalTrainers}
             hint={`${metrics.personalTrainersVerificados} verificados`}
             icon={Users}
+            loading={loading.team}
+          />
+          <SummaryCard
+            label="Psiquiatras"
+            value={metrics.totalPsiquiatras}
+            hint={`${metrics.psiquiatrasVerificados} verificados`}
+            icon={Brain}
             loading={loading.team}
           />
           <SummaryCard

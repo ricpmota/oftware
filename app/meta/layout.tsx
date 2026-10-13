@@ -1,16 +1,18 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { isMetodoEmagrecerHost } from '@/lib/landing/appNavigation';
+import { buildMetodoEmagrecerOperationalRouteMetadata } from '@/lib/organization/organizationSiteMetadata.server';
+import { resolveHostFromHeaders } from '@/lib/tenant/resolveHostFromHeaders';
 
-const TITLE = 'Meta | Área do paciente — Oftware';
-const DESCRIPTION =
-  'Acompanhe seu tratamento, evolução, aplicações e comunicação com sua equipe multidisciplinar na plataforma Oftware.';
-
-export const metadata: Metadata = {
+const OFTWARE_METADATA: Metadata = {
   metadataBase: new URL('https://www.oftware.com.br'),
-  title: TITLE,
-  description: DESCRIPTION,
+  title: 'Meta | Área do paciente — Oftware',
+  description:
+    'Acompanhe seu tratamento, evolução, aplicações e comunicação com sua equipe multidisciplinar na plataforma Oftware.',
   openGraph: {
-    title: TITLE,
-    description: DESCRIPTION,
+    title: 'Meta | Área do paciente — Oftware',
+    description:
+      'Acompanhe seu tratamento, evolução, aplicações e comunicação com sua equipe multidisciplinar na plataforma Oftware.',
     url: 'https://www.oftware.com.br/meta',
     siteName: 'Oftware',
     locale: 'pt_BR',
@@ -26,11 +28,20 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: TITLE,
-    description: DESCRIPTION,
+    title: 'Meta | Área do paciente — Oftware',
+    description:
+      'Acompanhe seu tratamento, evolução, aplicações e comunicação com sua equipe multidisciplinar na plataforma Oftware.',
     images: ['/oftware3.png'],
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const host = resolveHostFromHeaders(await headers());
+  if (isMetodoEmagrecerHost(host)) {
+    return buildMetodoEmagrecerOperationalRouteMetadata('meta');
+  }
+  return OFTWARE_METADATA;
+}
 
 export default function MetaLayout({
   children,

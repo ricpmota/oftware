@@ -11,11 +11,64 @@ import {
 } from '@/utils/solicitacaoExamesPdfLayout';
 import { addMedicoPdfLogoToDocument } from '@/utils/pdfMedicoLogo';
 import type { SolicitacaoExamesPdfContext } from '@/utils/solicitacaoExamesPdfDownload';
+import type { PrescriptionPrintLanguage } from '@/types/prescriptionPrintLanguage';
+import { prescriptionPdfDateLocale } from '@/lib/prescricao/prescriptionPrintLabels';
 
-function medicoTituloNome(m: Medico | null): string {
+function medicoTituloNome(m: Medico | null, language: PrescriptionPrintLanguage): string {
   const titulo = m?.genero === 'F' ? 'Dra.' : 'Dr.';
-  return `${titulo} ${m?.nome || 'Médico'}`;
+  const fallback = language === 'en' ? 'Physician' : 'Médico';
+  return `${titulo} ${m?.nome || fallback}`;
 }
+
+function sexoExibicao(sexo: string | undefined, language: PrescriptionPrintLanguage): string {
+  const valor = (sexo || '').trim();
+  if (language !== 'en') return valor || 'N/A';
+  if (valor === 'Masculino') return 'Male';
+  if (valor === 'Feminino') return 'Female';
+  if (valor === 'N/A' || !valor) return 'N/A';
+  return valor;
+}
+
+const LABELS = {
+  pt: {
+    title: 'REQUISIÇÃO DE EXAMES',
+    patientSection: 'DADOS DO PACIENTE',
+    name: 'Nome',
+    birth: 'Data Nasc.',
+    sex: 'Sexo',
+    doctorSection: 'DADOS DO MÉDICO',
+    address: 'Endereço',
+    phone: 'Telefone',
+    examsSection: 'EXAMES SOLICITADOS',
+    noExams: 'Nenhum exame selecionado',
+    hypothesis: 'Hipótese Diagnóstica',
+    signature: 'Assinatura do Médico',
+    location: 'Local',
+    date: 'Data',
+    locationMissing: 'Local não informado',
+    filePrefix: 'Requisicao_Exames',
+    page: (current: number, total: number) => `Página ${current} de ${total}`,
+  },
+  en: {
+    title: 'LABORATORY TEST REQUEST',
+    patientSection: 'PATIENT INFORMATION',
+    name: 'Name',
+    birth: 'Date of birth',
+    sex: 'Sex',
+    doctorSection: 'PHYSICIAN INFORMATION',
+    address: 'Address',
+    phone: 'Phone',
+    examsSection: 'REQUESTED TESTS',
+    noExams: 'No tests selected',
+    hypothesis: 'Diagnostic hypothesis',
+    signature: "Physician's signature",
+    location: 'Location',
+    date: 'Date',
+    locationMissing: 'Location not provided',
+    filePrefix: 'Exam_Request',
+    page: (current: number, total: number) => `Page ${current} of ${total}`,
+  },
+} as const;
 
 export type SolicitacaoExamesPdfBuildInput = {
   exames: string[];
@@ -29,6 +82,7 @@ export type SolicitacaoExamesPdfBuildInput = {
 export type SolicitacaoExamesPdfBuildOptions = {
   /** Omitir linha/local/data de assinatura manual (PDF enviado à assinatura digital BRy). */
   omitManualSignatureBlock?: boolean;
+  language?: PrescriptionPrintLanguage;
 };
 
 export async function buildSolicitacaoExamesJsPdfDocument(
@@ -36,14 +90,17 @@ export async function buildSolicitacaoExamesJsPdfDocument(
   options?: SolicitacaoExamesPdfBuildOptions
 ): Promise<JsPDFDoc> {
   const omitManual = options?.omitManualSignatureBlock === true;
+  const language: PrescriptionPrintLanguage = options?.language === 'en' ? 'en' : 'pt';
+  const labels = LABELS[language];
   const { exames, hipoteseDiagnostica, medico, ctx } = input;
   const darkColor: [number, number, number] = [44, 62, 80];
-  const medicoNomeCompleto = medicoTituloNome(medico);
+  const medicoNomeCompleto = medicoTituloNome(medico, language);
   const crmText = `CRM-${medico?.crm?.estado || 'XX'} ${medico?.crm?.numero || '00000'}`;
+  const dataLocale = prescriptionPdfDateLocale(language);
   const dataExibicao =
     input.dataSolicitacao instanceof Date
-      ? input.dataSolicitacao.toLocaleDateString('pt-BR')
-      : new Date().toLocaleDateString('pt-BR');
+      ? input.dataSolicitacao.toLocaleDateString(dataLocale)
+      : new Date().toLocaleDateString(dataLocale);
 
   const yLimiteConteudo = omitManual ? 278 : PDF_REQ_EXAMES_Y_ASSINATURA - 2;
 
@@ -61,7 +118,7 @@ export async function buildSolicitacaoExamesJsPdfDocument(
 
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('REQUISIÇÃO DE EXAMES', 105, 32, { align: 'center' });
+  doc.text(labels.title, 105, 32, { align: 'center' });
 
   doc.setDrawColor(...darkColor);
   doc.setLineWidth(0.5);
@@ -73,28 +130,28 @@ export async function buildSolicitacaoExamesJsPdfDocument(
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('DADOS DO PACIENTE', colunaEsquerda, yPos);
+  doc.text(labels.patientSection, colunaEsquerda, yPos);
   yPos += 8;
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Nome: ${ctx.pacienteNome}`, colunaEsquerda, yPos);
+  doc.text(`${labels.name}: ${ctx.pacienteNome}`, colunaEsquerda, yPos);
   yPos += 6;
   doc.text(`CPF: ${ctx.pacienteCpf || 'N/A'}`, colunaEsquerda, yPos);
   yPos += 6;
-  doc.text(`Data Nasc.: ${ctx.pacienteDataNascimento || 'N/A'}`, colunaEsquerda, yPos);
+  doc.text(`${labels.birth}: ${ctx.pacienteDataNascimento || 'N/A'}`, colunaEsquerda, yPos);
   yPos += 6;
-  doc.text(`Sexo: ${ctx.pacienteSexo || 'N/A'}`, colunaEsquerda, yPos);
+  doc.text(`${labels.sex}: ${sexoExibicao(ctx.pacienteSexo, language)}`, colunaEsquerda, yPos);
 
   let yPosMedico = 52;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('DADOS DO MÉDICO', colunaDireita, yPosMedico);
+  doc.text(labels.doctorSection, colunaDireita, yPosMedico);
   yPosMedico += 8;
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Nome: ${medicoNomeCompleto}`, colunaDireita, yPosMedico);
+  doc.text(`${labels.name}: ${medicoNomeCompleto}`, colunaDireita, yPosMedico);
   yPosMedico += 6;
   doc.text(crmText, colunaDireita, yPosMedico);
   yPosMedico += 6;
@@ -104,7 +161,7 @@ export async function buildSolicitacaoExamesJsPdfDocument(
       medico.localizacao.endereco.length > 40
         ? `${medico.localizacao.endereco.substring(0, 37)}...`
         : medico.localizacao.endereco;
-    doc.text(`Endereço: ${endereco}`, colunaDireita, yPosMedico);
+    doc.text(`${labels.address}: ${endereco}`, colunaDireita, yPosMedico);
     yPosMedico += 6;
   }
   if (medico?.localizacao?.cep) {
@@ -112,14 +169,14 @@ export async function buildSolicitacaoExamesJsPdfDocument(
     yPosMedico += 6;
   }
   if (medico?.telefone) {
-    doc.text(`Telefone: ${medico.telefone}`, colunaDireita, yPosMedico);
+    doc.text(`${labels.phone}: ${medico.telefone}`, colunaDireita, yPosMedico);
   }
 
   yPos = Math.max(yPos, yPosMedico) + 10;
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('EXAMES SOLICITADOS', 20, yPos);
+  doc.text(labels.examsSection, 20, yPos);
   yPos += 8;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -133,7 +190,7 @@ export async function buildSolicitacaoExamesJsPdfDocument(
   );
 
   if (exames.length === 0) {
-    doc.text('Nenhum exame selecionado', 25, yPos);
+    doc.text(labels.noExams, 25, yPos);
     yPos += 5;
   } else {
     yPos = desenharListaExamesSolicitacaoPdf(doc, yPos, exames, yMaxFimBlocoExames);
@@ -146,27 +203,33 @@ export async function buildSolicitacaoExamesJsPdfDocument(
       yPos,
       hipoteseDiagnostica,
       darkColor,
-      yLimiteConteudo
+      yLimiteConteudo,
+      labels.hypothesis
     );
   }
 
   const local = medico?.localizacao?.endereco
     ? `${medico.localizacao.endereco}${medico.localizacao.cep ? ` - CEP: ${medico.localizacao.cep}` : ''}`
-    : 'Local não informado';
+    : labels.locationMissing;
 
   if (omitManual) {
-    desenharNumeracaoPaginasSolicitacaoExamesPdf(doc);
+    desenharNumeracaoPaginasSolicitacaoExamesPdf(doc, labels.page);
   } else {
-    desenharRodapeManualSolicitacaoExamesPdf(doc, darkColor, local, dataExibicao);
+    desenharRodapeManualSolicitacaoExamesPdf(doc, darkColor, local, dataExibicao, labels);
   }
 
   return doc;
 }
 
-export function saveSolicitacaoExamesPdf(doc: JsPDFDoc, pacienteNome: string): void {
+export function saveSolicitacaoExamesPdf(
+  doc: JsPDFDoc,
+  pacienteNome: string,
+  language: PrescriptionPrintLanguage = 'pt'
+): void {
   const safeNome = pacienteNome.replace(/\s+/g, '_');
   const dataArquivo = new Date().toISOString().split('T')[0];
-  doc.save(`Requisicao_Exames_${safeNome}_${dataArquivo}.pdf`);
+  const prefix = LABELS[language === 'en' ? 'en' : 'pt'].filePrefix;
+  doc.save(`${prefix}_${safeNome}_${dataArquivo}.pdf`);
 }
 
 export function openSolicitacaoExamesPdfUrl(url: string): void {

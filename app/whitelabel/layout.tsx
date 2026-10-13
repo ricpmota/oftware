@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://www.oftware.com.br'),
   title: 'Mentoria White Label Oftware',
   description:
-    'Descubra se você tem perfil para transformar sua experiência médica em uma operação digital escalável com sua própria marca.',
+    'Para médicos, nutricionistas e personais: descubra se você tem perfil para transformar sua experiência em uma operação digital escalável com sua própria marca.',
   icons: {
     icon: [{ url: '/logo-icone.png', type: 'image/png' }],
     shortcut: '/logo-icone.png',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Mentoria White Label Oftware',
     description:
-      'Descubra se você tem perfil para transformar sua experiência médica em uma operação digital escalável com sua própria marca.',
+      'Para médicos, nutricionistas e personais: descubra se você tem perfil para transformar sua experiência em uma operação digital escalável com sua própria marca.',
     url: 'https://www.oftware.com.br/whitelabel',
     siteName: 'Oftware',
     locale: 'pt_BR',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Mentoria White Label Oftware',
     description:
-      'Descubra se você tem perfil para transformar sua experiência médica em uma operação digital escalável com sua própria marca.',
+      'Para médicos, nutricionistas e personais: descubra se você tem perfil para transformar sua experiência em uma operação digital escalável com sua própria marca.',
     images: ['/og-mentoria.jpg'],
   },
   robots: {

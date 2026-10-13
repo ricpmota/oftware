@@ -8,6 +8,12 @@ import {
   formatMedicoTelefone,
 } from '@/lib/prescricao/receituarioControleEspecialContext';
 import { itensTemConteudoUtil } from '@/lib/prescricao/prescricaoConteudoUnificado';
+import {
+  controleEspecialPdfLabels,
+  localizeControleEspecialPhrase,
+  prescriptionPdfDateLocale,
+} from '@/lib/prescricao/prescriptionPrintLabels';
+import type { PrescriptionPrintLanguage } from '@/types/prescriptionPrintLanguage';
 
 type JsPDFDoc = InstanceType<typeof jsPDF>;
 
@@ -31,21 +37,28 @@ export type ReceituarioControleEspecialVia = 'farmacia' | 'paciente';
 export type ReceituarioControleEspecialBuildOptions = {
   /** Reserva área inferior para o rodapé visual de assinatura digital. */
   reserveSignedFooterSpace?: boolean;
+  language?: PrescriptionPrintLanguage;
 };
 
-function medicoTituloNome(m: Medico | null): string {
-  const titulo = m?.genero === 'F' ? 'Dra.' : 'Dr.';
-  return `${titulo} ${m?.nome || 'Médico'}`;
+function printLanguage(options?: ReceituarioControleEspecialBuildOptions): PrescriptionPrintLanguage {
+  return options?.language === 'en' ? 'en' : 'pt';
 }
 
-function addDaysPtBr(date: Date, days: number): string {
+function medicoTituloNome(m: Medico | null, language: PrescriptionPrintLanguage): string {
+  const titulo = m?.genero === 'F' ? 'Dra.' : 'Dr.';
+  const fallback = controleEspecialPdfLabels(language).physicianFallback;
+  return `${titulo} ${m?.nome || fallback}`;
+}
+
+function addDaysLocalized(date: Date, days: number, language: PrescriptionPrintLanguage): string {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
-  return d.toLocaleDateString('pt-BR');
+  return d.toLocaleDateString(prescriptionPdfDateLocale(language));
 }
 
-function viaLabel(via: ReceituarioControleEspecialVia): string {
-  return via === 'farmacia' ? '1ª VIA FARMÁCIA' : '2ª VIA PACIENTE';
+function viaLabel(via: ReceituarioControleEspecialVia, language: PrescriptionPrintLanguage): string {
+  const labels = controleEspecialPdfLabels(language);
+  return via === 'farmacia' ? labels.viaFarmacia : labels.viaPaciente;
 }
 
 function maxContentBottom(options?: ReceituarioControleEspecialBuildOptions): number {
@@ -133,49 +146,60 @@ function drawEmptyFillLinePair(
 export function buildControleEspecialPatientBlock(
   doc: JsPDFDoc,
   ctx: ReceituarioControleEspecialPacienteContext,
-  startY: number
+  startY: number,
+  language: PrescriptionPrintLanguage = 'pt'
 ): number {
   const x = PAGE_LEFT;
   const w = CONTENT_WIDTH;
-  const enderecoLines = doc.splitTextToSize(ctx.enderecoCompleto || '—', w - SECTION_PAD * 2 - 28);
+  const labels = controleEspecialPdfLabels(language);
+  const endereco = localizeControleEspecialPhrase(ctx.enderecoCompleto || '—', language);
+  const enderecoLines = doc.splitTextToSize(endereco, w - SECTION_PAD * 2 - 28);
   const contentH = 5 + 5 + enderecoLines.length * 4 + 5 + 3;
 
-  const { contentTop, bottom } = drawSectionBox(doc, x, startY, w, 'INFORMAÇÕES DO PACIENTE', contentH);
+  const { contentTop, bottom } = drawSectionBox(doc, x, startY, w, labels.patientSection, contentH);
   let y = contentTop;
   const innerW = w - SECTION_PAD * 2;
   const ix = x + SECTION_PAD;
 
-  y = drawFieldLine(doc, ix, y, innerW, 'Paciente:', ctx.pacienteNome || '—');
+  y = drawFieldLine(doc, ix, y, innerW, labels.patient, ctx.pacienteNome || '—');
   y = drawFieldLine(doc, ix, y, innerW, 'CPF:', ctx.pacienteCpf?.trim() || '—');
-  y = drawFieldLine(doc, ix, y, innerW, 'Endereço:', ctx.enderecoCompleto || '—');
+  y = drawFieldLine(doc, ix, y, innerW, labels.address, endereco);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Sexo: ${ctx.sexo}`, ix, y);
-  doc.text(`Idade: ${ctx.idade}`, ix + 55, y);
+  doc.text(`${labels.sex}: ${localizeControleEspecialPhrase(ctx.sexo, language)}`, ix, y);
+  doc.text(`${labels.age}: ${localizeControleEspecialPhrase(ctx.idade, language)}`, ix + 55, y);
   doc.text(`UF: ${ctx.uf}`, ix + 105, y);
 
   return bottom + 3;
 }
 
-export function buildControleEspecialDoctorBlock(doc: JsPDFDoc, medico: Medico | null, startY: number): number {
+export function buildControleEspecialDoctorBlock(
+  doc: JsPDFDoc,
+  medico: Medico | null,
+  startY: number,
+  language: PrescriptionPrintLanguage = 'pt'
+): number {
   const x = PAGE_LEFT;
   const w = CONTENT_WIDTH;
   const endereco = formatMedicoEnderecoCompleto(medico);
   const enderecoLines = doc.splitTextToSize(endereco, w - SECTION_PAD * 2 - 32);
   const crmEstado = medico?.crm?.estado || 'XX';
   const crmNumero = medico?.crm?.numero || '00000';
-  const contentH = 5 + enderecoLines.length * 4 + 5 + 5 + 3;
+  const cpf = medico?.cpfPessoal?.trim() || '—';
+  const contentH = 5 + 5 + enderecoLines.length * 4 + 5 + 5 + 3;
 
-  const { contentTop, bottom } = drawSectionBox(doc, x, startY, w, 'IDENTIFICAÇÃO DO EMITENTE', contentH);
+  const labels = controleEspecialPdfLabels(language);
+  const { contentTop, bottom } = drawSectionBox(doc, x, startY, w, labels.issuerSection, contentH);
   let y = contentTop;
   const innerW = w - SECTION_PAD * 2;
   const ix = x + SECTION_PAD;
 
-  y = drawFieldLine(doc, ix, y, innerW, 'Nome:', medicoTituloNome(medico));
+  y = drawFieldLine(doc, ix, y, innerW, labels.name, medicoTituloNome(medico, language));
   y = drawFieldLine(doc, ix, y, innerW, 'CRM:', `${crmNumero} - ${crmEstado}`);
-  y = drawFieldLine(doc, ix, y, innerW, 'Endereço:', endereco);
-  y = drawFieldLine(doc, ix, y, innerW, 'Cidade:', formatMedicoCidade(medico));
-  drawFieldLine(doc, ix, y, innerW, 'Telefone:', formatMedicoTelefone(medico));
+  y = drawFieldLine(doc, ix, y, innerW, 'CPF:', cpf);
+  y = drawFieldLine(doc, ix, y, innerW, labels.address, localizeControleEspecialPhrase(endereco, language));
+  y = drawFieldLine(doc, ix, y, innerW, labels.city, localizeControleEspecialPhrase(formatMedicoCidade(medico), language));
+  drawFieldLine(doc, ix, y, innerW, labels.phone, localizeControleEspecialPhrase(formatMedicoTelefone(medico), language));
 
   return bottom + 3;
 }
@@ -210,7 +234,8 @@ function buildControleEspecialPrescriptionBlock(
   doc: JsPDFDoc,
   prescricao: Prescricao,
   startY: number,
-  maxBottom: number
+  maxBottom: number,
+  language: PrescriptionPrintLanguage = 'pt'
 ): number {
   const x = PAGE_LEFT;
   const w = CONTENT_WIDTH;
@@ -222,7 +247,8 @@ function buildControleEspecialPrescriptionBlock(
   const maxContentH = maxBoxBottom - startY - SECTION_HEADER_H - SECTION_PAD - 2;
   const contentH = Math.min(desiredContentH, Math.max(14, maxContentH));
 
-  const { contentTop, bottom } = drawSectionBox(doc, x, startY, w, 'PRESCRIÇÃO', contentH);
+  const labels = controleEspecialPdfLabels(language);
+  const { contentTop, bottom } = drawSectionBox(doc, x, startY, w, labels.prescriptionSection, contentH);
   let y = contentTop;
 
   if (itensTemConteudoUtil(prescricao.itens)) {
@@ -236,14 +262,14 @@ function buildControleEspecialPrescriptionBlock(
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       if (item.dosagem?.trim()) {
-        y = drawFieldLine(doc, ix, y, innerW, 'Concentração:', item.dosagem);
+        y = drawFieldLine(doc, ix, y, innerW, labels.strength, item.dosagem);
       }
       if (item.quantidade?.trim()) {
-        y = drawFieldLine(doc, ix, y, innerW, 'Quantidade:', item.quantidade);
+        y = drawFieldLine(doc, ix, y, innerW, labels.quantity, item.quantidade);
       }
       const posologia = [item.frequencia, item.instrucoes].filter(Boolean).join(' — ');
       if (posologia) {
-        y = drawFieldLine(doc, ix, y, innerW, 'Posologia:', posologia);
+        y = drawFieldLine(doc, ix, y, innerW, labels.directions, posologia);
       }
       y += 1.5;
     });
@@ -259,7 +285,7 @@ function buildControleEspecialPrescriptionBlock(
     y += 2;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text('Observações / Justificativa:', ix, y);
+    doc.text(labels.notes, ix, y);
     y += 4;
     doc.setFont('helvetica', 'normal');
     const obsLines = doc.splitTextToSize(prescricao.observacoes, innerW);
@@ -282,7 +308,11 @@ function drawAdminSectionHeader(doc: JsPDFDoc, x: number, y: number, width: numb
   return y + SECTION_HEADER_H + 2;
 }
 
-function buildControleEspecialAdminBlocks(doc: JsPDFDoc, topY: number): number {
+function buildControleEspecialAdminBlocks(
+  doc: JsPDFDoc,
+  topY: number,
+  language: PrescriptionPrintLanguage = 'pt'
+): number {
   const leftX = PAGE_LEFT;
   const rightX = PAGE_LEFT + COL_WIDTH + COL_GAP;
   const boxBottom = topY + ADMIN_BOX_HEIGHT;
@@ -291,18 +321,19 @@ function buildControleEspecialAdminBlocks(doc: JsPDFDoc, topY: number): number {
   doc.rect(leftX, topY, COL_WIDTH, ADMIN_BOX_HEIGHT);
   doc.rect(rightX, topY, COL_WIDTH, ADMIN_BOX_HEIGHT);
 
-  let ly = drawAdminSectionHeader(doc, leftX, topY, COL_WIDTH, 'IDENTIFICAÇÃO DO COMPRADOR');
+  const labels = controleEspecialPdfLabels(language);
+  let ly = drawAdminSectionHeader(doc, leftX, topY, COL_WIDTH, labels.buyerSection);
   ly += 3;
   const innerLeftW = COL_WIDTH - SECTION_PAD * 2;
   const lix = leftX + SECTION_PAD;
 
-  ly = drawEmptyFillLine(doc, lix, ly, innerLeftW, 'Nome:');
-  ly = drawEmptyFillLinePair(doc, lix, ly, innerLeftW, 'Ident.:', 'Órg. Emissor:');
-  ly = drawEmptyFillLine(doc, lix, ly, innerLeftW, 'Endereço:');
-  ly = drawEmptyFillLinePair(doc, lix, ly, innerLeftW, 'Cidade:', 'UF:');
-  drawEmptyFillLine(doc, lix, ly, innerLeftW, 'Telefone: (____) ');
+  ly = drawEmptyFillLine(doc, lix, ly, innerLeftW, labels.name);
+  ly = drawEmptyFillLinePair(doc, lix, ly, innerLeftW, labels.id, labels.issuer);
+  ly = drawEmptyFillLine(doc, lix, ly, innerLeftW, labels.address);
+  ly = drawEmptyFillLinePair(doc, lix, ly, innerLeftW, labels.city, 'UF:');
+  drawEmptyFillLine(doc, lix, ly, innerLeftW, `${labels.phone} (____) `);
 
-  drawAdminSectionHeader(doc, rightX, topY, COL_WIDTH, 'IDENTIFICAÇÃO DO FORNECEDOR');
+  drawAdminSectionHeader(doc, rightX, topY, COL_WIDTH, labels.supplierSection);
   const innerRightW = COL_WIDTH - SECTION_PAD * 2;
   const rix = rightX + SECTION_PAD;
   const signatureLineY = boxBottom - 16;
@@ -316,11 +347,11 @@ function buildControleEspecialAdminBlocks(doc: JsPDFDoc, topY: number): number {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(...DARK);
-  doc.text('ASSINATURA DO FARMACÊUTICO', rightX + COL_WIDTH / 2, signatureLineY + 4, { align: 'center' });
+  doc.text(labels.pharmacistSignature, rightX + COL_WIDTH / 2, signatureLineY + 4, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.text('DATA ____/____/______', rightX + COL_WIDTH / 2, boxBottom - 4, { align: 'center' });
+  doc.text(labels.dateBlank, rightX + COL_WIDTH / 2, boxBottom - 4, { align: 'center' });
 
   return boxBottom + 4;
 }
@@ -333,32 +364,34 @@ export function buildReceituarioControleEspecialPage(
   ctx: ReceituarioControleEspecialPacienteContext,
   options?: ReceituarioControleEspecialBuildOptions
 ): void {
+  const language = printLanguage(options);
+  const labels = controleEspecialPdfLabels(language);
   const maxY = maxContentBottom(options);
-  const dataEmissao = new Date().toLocaleDateString('pt-BR');
-  const dataValidade = addDaysPtBr(new Date(), 30);
+  const dataEmissao = new Date().toLocaleDateString(prescriptionPdfDateLocale(language));
+  const dataValidade = addDaysLocalized(new Date(), 30, language);
 
   doc.setTextColor(...DARK);
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.text('RECEITUÁRIO DE CONTROLE ESPECIAL', PAGE_LEFT + CONTENT_WIDTH / 2, 18, { align: 'center' });
+  doc.text(labels.title, PAGE_LEFT + CONTENT_WIDTH / 2, 18, { align: 'center' });
 
   doc.setFontSize(10);
-  doc.text(viaLabel(via), PAGE_LEFT + CONTENT_WIDTH / 2, 25, { align: 'center' });
+  doc.text(viaLabel(via, language), PAGE_LEFT + CONTENT_WIDTH / 2, 25, { align: 'center' });
 
   let y = 32;
-  y = buildControleEspecialPatientBlock(doc, ctx, y);
-  y = buildControleEspecialDoctorBlock(doc, medico, y);
+  y = buildControleEspecialPatientBlock(doc, ctx, y, language);
+  y = buildControleEspecialDoctorBlock(doc, medico, y, language);
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Data de Emissão: ${dataEmissao}`, PAGE_LEFT, y);
-  doc.text(`Data de Validade: ${dataValidade}`, PAGE_LEFT + 85, y);
+  doc.text(`${labels.issueDate}: ${dataEmissao}`, PAGE_LEFT, y);
+  doc.text(`${labels.validUntil}: ${dataValidade}`, PAGE_LEFT + 85, y);
   y += 7;
 
-  buildControleEspecialPrescriptionBlock(doc, prescricao, y, maxY);
+  buildControleEspecialPrescriptionBlock(doc, prescricao, y, maxY, language);
 
   const adminTop = maxY - ADMIN_BOX_HEIGHT;
-  buildControleEspecialAdminBlocks(doc, adminTop);
+  buildControleEspecialAdminBlocks(doc, adminTop, language);
 }
 
 export function buildReceituarioControleEspecialPages(

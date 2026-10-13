@@ -24,6 +24,7 @@ import { NutricionistaService } from './nutricionistaService';
 import { MedicoService } from './medicoService';
 import { PacienteService } from './pacienteService';
 import { AuditLogService } from './auditLogService';
+import { syncPacienteProfissionaisEspelho } from '@/lib/paciente/syncPacienteProfissionaisEspelho';
 
 export class SolicitacaoNutricionistaService {
   /**
@@ -274,6 +275,11 @@ export class SolicitacaoNutricionistaService {
         dataCompartilhamento: Timestamp.now(),
         ...shadowOrganizationFields(),
       });
+
+      // Espelho em pacientes_completos (não bloqueia se falhar)
+      await syncPacienteProfissionaisEspelho(requestData.pacienteId).catch((e) =>
+        console.warn('[approveShareRequest] sync espelho paciente', e)
+      );
       
       // Log de auditoria
       await AuditLogService.logNutriAceitouCompartilhamento(
@@ -497,6 +503,9 @@ export class SolicitacaoNutricionistaService {
           removidoEm: Timestamp.now(),
           motivoRemocao: 'Encerrado pelo médico',
         });
+        await syncPacienteProfissionaisEspelho(pacienteId).catch((e) =>
+          console.warn('[endCompartilhamento] sync espelho paciente', e)
+        );
         return;
       }
 
@@ -507,6 +516,10 @@ export class SolicitacaoNutricionistaService {
         removidoEm: Timestamp.now(),
         motivoRemocao: 'Encerrado pelo médico',
       });
+
+      await syncPacienteProfissionaisEspelho(pacienteId).catch((e) =>
+        console.warn('[endCompartilhamento] sync espelho paciente', e)
+      );
       
       // Deletar histórico do compartilhamento
       // 1. Deletar solicitações de compartilhamento de paciente (solicitacoes_nutricionista)
@@ -615,6 +628,78 @@ export class SolicitacaoNutricionistaService {
     } catch (error) {
       console.error('Erro ao obter status de compartilhamento:', error);
       throw error;
+    }
+  }
+
+  /**
+   * IDs únicos de nutricionistas com ≥1 solicitação aceita para o médico
+   * (solicitacoes_nutricionista.status === "aceita").
+   */
+  static async listAcceptedNutricionistaIdsByMedico(medicoId: string): Promise<string[]> {
+    const metas = await this.listAcceptedNutricionistaMetaByMedico(medicoId);
+    return metas.map((m) => m.nutricionistaId);
+  }
+
+  /**
+   * Nutricionistas aceitos via solicitacoes_nutricionista (id + nome/email quando existirem).
+   */
+  static async listAcceptedNutricionistaMetaByMedico(
+    medicoId: string
+  ): Promise<Array<{ nutricionistaId: string; nome?: string; email?: string }>> {
+    const key = String(medicoId || '').trim();
+    if (!key) return [];
+    try {
+      const q = query(
+        collection(db, COL_SOLICITACOES_NUTRICIONISTA),
+        where('medicoId', '==', key),
+        where('status', '==', SOLICITACAO_STATUS.ACEITA)
+      );
+      const snap = await getDocs(q);
+      const out: Array<{ nutricionistaId: string; nome?: string; email?: string }> = [];
+      const seen = new Set<string>();
+      for (const docSnap of snap.docs) {
+        const data = docSnap.data() || {};
+        const id = String(data.nutricionistaId || '').trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({
+          nutricionistaId: id,
+          nome: String(data.nutricionistaNome || '').trim() || undefined,
+          email: String(data.nutricionistaEmail || '').trim() || undefined,
+        });
+      }
+      return out;
+    } catch (error) {
+      console.error('Erro ao listar nutricionistas aceitos por médico:', error);
+      return [];
+    }
+  }
+
+  /**
+   * IDs únicos de médicos com ≥1 solicitação aceita para o nutricionista.
+   */
+  static async listAcceptedMedicoIdsByNutricionista(nutricionistaId: string): Promise<string[]> {
+    const key = String(nutricionistaId || '').trim();
+    if (!key) return [];
+    try {
+      const q = query(
+        collection(db, COL_SOLICITACOES_NUTRICIONISTA),
+        where('nutricionistaId', '==', key),
+        where('status', '==', SOLICITACAO_STATUS.ACEITA)
+      );
+      const snap = await getDocs(q);
+      const ids: string[] = [];
+      const seen = new Set<string>();
+      for (const docSnap of snap.docs) {
+        const id = String(docSnap.data()?.medicoId || '').trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+      }
+      return ids;
+    } catch (error) {
+      console.error('Erro ao listar médicos aceitos por nutricionista:', error);
+      return [];
     }
   }
 

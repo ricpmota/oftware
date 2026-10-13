@@ -1,5 +1,10 @@
 import { withWhatsappProviderAuth } from '@/lib/server/whatsappSessionAuth.server';
 import {
+  markWhatsappSessionHealthy,
+  registerWhatsappSessionTransientFailure,
+  shouldReconcileWhatsappConnectionStatus,
+} from '@/lib/whatsapp/whatsappSessionHealthGuard';
+import {
   disconnectWhatsappConnection,
   updateWhatsappConnectionStatus,
 } from '@/services/whatsappConnectionService';
@@ -9,8 +14,6 @@ import {
   isWhatsappMockMode,
   MOCK_QR_AUTO_CONNECT_MS,
 } from '@/services/whatsappProviderClient';
-import { CANAL_CHAT_OWNER_ID } from '@/lib/whatsapp/canalChatOwner';
-import { ensureCanalChatInboundWebhook } from '@/services/canalChatWebhookEnsureService';
 import type { WhatsappConnection, WhatsappConnectionStatus } from '@/types/whatsappConnection';
 
 export type WhatsappConnectionSyncResult = {
@@ -19,11 +22,14 @@ export type WhatsappConnectionSyncResult = {
   justConnected: boolean;
 };
 
+export { shouldReconcileWhatsappConnectionStatus };
+
 /**
  * Sincroniza o documento Firestore com o estado real do WPPConnect.
  *
  * - Debounce: evita martelar o WPP a cada poll da UI
- * - Histerese: 2 leituras "disconnected" seguidas antes de derrubar um connected
+ * - Histerese: N leituras ruins seguidas antes de gravar error (connected)
+ * - `error` também reconcilia — WPP CONNECTED restaura o Firestore
  */
 const QR_PENDING_GRACE_MS = 3 * 60 * 1000;
 const SYNC_DEBOUNCE_CONNECTED_MS = 25_000;
@@ -42,6 +48,19 @@ function shouldSkipProviderSync(connection: WhatsappConnection, force: boolean):
   return false;
 }
 
+async function keepLastHealthyConnected(
+  connection: WhatsappConnection,
+  now: Date,
+): Promise<WhatsappConnection> {
+  return updateWhatsappConnectionStatus(connection.doctorId, 'connected', {
+    sessionId: connection.sessionId,
+    phone: connection.phone,
+    profileName: connection.profileName,
+    lastCheckAt: now,
+    touchUpdatedAt: false,
+  });
+}
+
 export async function syncWhatsappConnectionWithProvider(
   connection: WhatsappConnection,
   options?: { force?: boolean },
@@ -49,10 +68,6 @@ export async function syncWhatsappConnectionWithProvider(
   const previousStatus = connection.status;
   const now = new Date();
   const force = options?.force === true;
-
-  if (connection.doctorId === CANAL_CHAT_OWNER_ID && connection.status === 'connected') {
-    await ensureCanalChatInboundWebhook();
-  }
 
   if (connection.status === 'qr_pending' && isWhatsappMockMode()) {
     const elapsed = now.getTime() - connection.updatedAt.getTime();
@@ -65,7 +80,7 @@ export async function syncWhatsappConnectionWithProvider(
         qrCode: undefined,
         connectedAt: now,
         lastCheckAt: now,
-        errorMessage: undefined,
+        errorMessage: null,
       });
       return {
         connection: synced,
@@ -81,7 +96,7 @@ export async function syncWhatsappConnectionWithProvider(
     return { connection: synced, previousStatus, justConnected: false };
   }
 
-  if (connection.status !== 'qr_pending' && connection.status !== 'connected') {
+  if (!shouldReconcileWhatsappConnectionStatus(connection.status)) {
     const synced = await updateWhatsappConnectionStatus(connection.doctorId, connection.status, {
       sessionId: connection.sessionId,
       lastCheckAt: now,
@@ -103,6 +118,24 @@ export async function syncWhatsappConnectionWithProvider(
 
     if (providerStatus.status === 'connected') {
       disconnectStrikesByDoctor.delete(connection.doctorId);
+      const { previousStrikes } = markWhatsappSessionHealthy(connection.doctorId);
+      if (previousStatus === 'error') {
+        console.info('[whatsapp.sync] recovering Firestore error -> connected', {
+          doctorId: connection.doctorId,
+          sessionId: connection.sessionId,
+          errorCode: undefined,
+          strike: 0,
+          rawStatus: 'CONNECTED',
+        });
+      } else if (previousStrikes > 0) {
+        console.info('[whatsapp.health] session recovered, strikes reset', {
+          doctorId: connection.doctorId,
+          sessionId: connection.sessionId,
+          errorCode: undefined,
+          strike: 0,
+          rawStatus: 'CONNECTED',
+        });
+      }
       const synced = await updateWhatsappConnectionStatus(connection.doctorId, 'connected', {
         sessionId: connection.sessionId,
         phone: providerStatus.phone ?? connection.phone,
@@ -110,13 +143,50 @@ export async function syncWhatsappConnectionWithProvider(
         qrCode: undefined,
         connectedAt: connection.connectedAt ?? now,
         lastCheckAt: now,
-        errorMessage: undefined,
+        errorMessage: null,
       });
       return {
         connection: synced,
         previousStatus,
         justConnected: previousStatus !== 'connected',
       };
+    }
+
+    const transientWhileConnected =
+      previousStatus === 'connected' &&
+      (providerStatus.status === 'error' || providerStatus.status === 'qr_pending');
+
+    if (transientWhileConnected) {
+      const { strike, threshold, shouldMarkError } = registerWhatsappSessionTransientFailure(
+        connection.doctorId,
+      );
+      console.info(`[whatsapp.health] transient session failure strike ${strike}/${threshold}`, {
+        doctorId: connection.doctorId,
+        sessionId: connection.sessionId,
+        errorCode: providerStatus.status === 'error' ? 'PROVIDER_ERROR' : 'QR_PENDING',
+        strike,
+        rawStatus: providerStatus.status,
+      });
+
+      if (!shouldMarkError) {
+        const synced = await keepLastHealthyConnected(connection, now);
+        return { connection: synced, previousStatus, justConnected: false };
+      }
+
+      markWhatsappSessionHealthy(connection.doctorId);
+      console.info('[whatsapp.health] session marked error after confirmed failures', {
+        doctorId: connection.doctorId,
+        sessionId: connection.sessionId,
+        errorCode: providerStatus.status === 'error' ? 'PROVIDER_ERROR' : 'QR_PENDING',
+        strike,
+        rawStatus: providerStatus.status,
+      });
+      const synced = await updateWhatsappConnectionStatus(connection.doctorId, 'error', {
+        sessionId: connection.sessionId,
+        errorMessage: providerStatus.errorMessage ?? 'Erro na conexão WhatsApp.',
+        lastCheckAt: now,
+      });
+      return { connection: synced, previousStatus, justConnected: false };
     }
 
     if (providerStatus.status === 'error') {
@@ -136,18 +206,22 @@ export async function syncWhatsappConnectionWithProvider(
       disconnectStrikesByDoctor.set(connection.doctorId, strikes);
 
       if (strikes < DISCONNECT_STRIKES_NEEDED) {
-        const synced = await updateWhatsappConnectionStatus(connection.doctorId, 'connected', {
-          sessionId: connection.sessionId,
-          phone: connection.phone,
-          profileName: connection.profileName,
-          lastCheckAt: now,
-          touchUpdatedAt: false,
-        });
+        const synced = await keepLastHealthyConnected(connection, now);
         return { connection: synced, previousStatus, justConnected: false };
       }
 
       disconnectStrikesByDoctor.delete(connection.doctorId);
       const synced = await disconnectWhatsappConnection(connection.doctorId);
+      return { connection: synced, previousStatus, justConnected: false };
+    }
+
+    if (previousStatus === 'error') {
+      const synced = await updateWhatsappConnectionStatus(connection.doctorId, 'error', {
+        sessionId: connection.sessionId,
+        errorMessage: connection.errorMessage,
+        lastCheckAt: now,
+        touchUpdatedAt: false,
+      });
       return { connection: synced, previousStatus, justConnected: false };
     }
 
@@ -188,6 +262,29 @@ export async function syncWhatsappConnectionWithProvider(
     return { connection: synced, previousStatus, justConnected: false };
   } catch (error) {
     console.warn('[whatsapp-connection-sync] provider sync:', error);
+    if (previousStatus === 'connected') {
+      const { strike, threshold, shouldMarkError } = registerWhatsappSessionTransientFailure(
+        connection.doctorId,
+      );
+      console.info(`[whatsapp.health] transient session failure strike ${strike}/${threshold}`, {
+        doctorId: connection.doctorId,
+        sessionId: connection.sessionId,
+        errorCode: 'SYNC_THROW',
+        strike,
+        rawStatus: undefined,
+      });
+      if (!shouldMarkError) {
+        const synced = await keepLastHealthyConnected(connection, now);
+        return { connection: synced, previousStatus, justConnected: false };
+      }
+      markWhatsappSessionHealthy(connection.doctorId);
+      const synced = await updateWhatsappConnectionStatus(connection.doctorId, 'error', {
+        sessionId: connection.sessionId,
+        errorMessage: error instanceof Error ? error.message : 'Erro na conexão WhatsApp.',
+        lastCheckAt: now,
+      });
+      return { connection: synced, previousStatus, justConnected: false };
+    }
     const synced = await updateWhatsappConnectionStatus(connection.doctorId, connection.status, {
       sessionId: connection.sessionId,
       lastCheckAt: now,

@@ -3,19 +3,21 @@ import {
   calcularScoreCheckInSemanal,
   type CheckInSemanalScoreResultado,
 } from '@/lib/aplicacao/calcularScoreCheckInSemanal';
+import { ehPrimeiraSemanaDoProtocolo } from '@/lib/aplicacao/resolverWeekIndexAplicacaoPublica';
+import { semanaIndexFromRegistro } from '@/utils/evolucaoAplicacaoHelpers';
 
 export function calcularVariacoesParaSeguimento(
   paciente: PacienteCompleto,
   seg: SeguimentoSemanal
 ): { variacaoPeso: number | null; variacaoCircunferencia: number | null } {
   const evolucao = paciente.evolucaoSeguimento ?? [];
-  const weekIndex = seg.weekIndex;
+  const weekIndex = seg.weekIndex ?? (seg as { numeroSemana?: number }).numeroSemana ?? 0;
   const peso = seg.peso;
   const circ = seg.circunferenciaAbdominal;
 
   if (peso == null) return { variacaoPeso: null, variacaoCircunferencia: null };
 
-  const ehSemanaUm = weekIndex === 1;
+  const ehSemanaUm = ehPrimeiraSemanaDoProtocolo(paciente, weekIndex);
   const circunfAtualNum = circ != null && !Number.isNaN(circ) ? circ : null;
 
   if (ehSemanaUm) {
@@ -81,8 +83,8 @@ export function registroCorrespondeAplicacao(
   registro: SeguimentoSemanal,
   aplicacao: { semana: number; data: Date }
 ): boolean {
-  const weekIndex = registro.weekIndex ?? registro.numeroSemana ?? 0;
-  if (weekIndex !== aplicacao.semana) return false;
+  const weekIndex = semanaIndexFromRegistro(registro);
+  if (weekIndex !== Number(aplicacao.semana)) return false;
   const dataReg = toDateLocal(registro.dataRegistro);
   if (!dataReg) return false;
   const dataPrev = new Date(aplicacao.data);
@@ -139,8 +141,10 @@ export function resolveCheckInSemanalScore(
   paciente: PacienteCompleto,
   seg: SeguimentoSemanal
 ): CheckInSemanalScoreResultado | null {
-  if (seg.weekIndex === 1) return null;
-  if (seg.marcoZero || paciente.marcoZero) return null;
+  const semana = seg.weekIndex ?? (seg as { numeroSemana?: number }).numeroSemana ?? 0;
+  // Primeira semana do protocolo (Marco Zero) não tem score de check-in
+  if (ehPrimeiraSemanaDoProtocolo(paciente, semana) || seg.marcoZero) return null;
+
   if (seg.checkInSemanalScore?.score != null) {
     return scoreSalvoParaResultado(seg.checkInSemanalScore);
   }
@@ -156,4 +160,22 @@ export function resolveCheckInSemanalScore(
       seg.circunferenciaAbdominal != null && !Number.isNaN(seg.circunferenciaAbdominal),
     checkInSemanal: seg.checkInSemanal,
   });
+}
+
+/** Score direto do registro (ex.: pasta Evolução), sem exigir match de data do calendário. */
+export function obterCheckInScoreDeRegistro(
+  paciente: PacienteCompleto,
+  registro: SeguimentoSemanal | null | undefined
+): number | null {
+  if (!registro) return null;
+  return resolveCheckInSemanalScore(paciente, registro)?.score ?? null;
+}
+
+/** Detalhe do check-in direto do registro. */
+export function obterCheckInSemanalDetalheDeRegistro(
+  paciente: PacienteCompleto,
+  registro: SeguimentoSemanal | null | undefined
+): CheckInSemanalDetalhe | null {
+  if (!registro) return null;
+  return montarCheckInDetalhe(paciente, registro);
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { METODO_ORGANIZATION } from './organizationRegistry';
+import { buildNewOrganizationBrandingSeed } from './buildNewOrganizationBrandingSeed';
 import {
   buildOrganizationBrandingSeedPayload,
   organizationBrandingLayerFromMetodoImagens,
@@ -140,6 +141,78 @@ describe('organizationBrandingMerge', () => {
     expect(seed.siteUrl).toBe('https://www.ometodoemagrecer.com.br');
     expect(seed.instagramBioDefaults.headline).toContain('acompanhamento');
     expect(seed.seedVersion).toBe('11.1.0');
+  });
+
+  it('organização nova não herda assets do Método', () => {
+    const organization = {
+      id: 'clinica-saude-total',
+      name: 'Clínica Saúde Total',
+      kind: 'organization' as const,
+      primaryOrigin: 'https://www.clinicasaudetotal.com.br',
+      hosts: ['www.clinicasaudetotal.com.br'],
+    };
+    const seed = buildNewOrganizationBrandingSeed(organization);
+    const merged = resolveOrganizationBrandingFromSources({
+      organization,
+      firestoreBranding: seed,
+      metodoImagens: {
+        ogImageUrl: 'https://cdn.example/og-metodo.png',
+        faviconUrl: '/metodo-simbolo-17.png',
+        pdfLogoUrl: null,
+        drPageLogoUrl: '/metodo-emagrecer-logotipo-28.png',
+        aplicacaoPageLogoUrl: null,
+        conclusaoPageLogoUrl: null,
+      },
+      sourceWhiteLabel: {
+        brandName: 'Dr. Ricardo Mota',
+        drPageLogoUrl: '/simbolo-metodo.png',
+      },
+    });
+
+    expect(merged.publicName).toBe('Clínica Saúde Total');
+    expect(merged.logoMainUrl).toBeNull();
+    expect(merged.faviconUrl).toBeNull();
+    expect(merged.ogImageUrl).toBeNull();
+    expect(merged.publicPages.dr.logoUrl).toBeNull();
+    expect(JSON.stringify(merged)).not.toMatch(
+      /metodo-simbolo|simbolo-metodo|og-metodo|metodo-emagrecer-logotipo/,
+    );
+  });
+
+  it('organização nova com cor inválida não cai no verde ou navy do Método', () => {
+    const organization = {
+      id: 'kamilla-montenegro',
+      name: 'Kamilla Montenegro',
+      kind: 'organization' as const,
+      primaryOrigin: 'https://www.endocrinokamillamontenegro.com.br',
+      hosts: ['www.endocrinokamillamontenegro.com.br'],
+    };
+    const seed = buildNewOrganizationBrandingSeed(organization);
+    const merged = resolveOrganizationBrandingFromSources({
+      organization,
+      firestoreBranding: {
+        ...seed,
+        primaryColor: 'nao-e-hex',
+        secondaryColor: '',
+      },
+      metodoImagens: {
+        ogImageUrl: 'https://cdn.example/og-metodo.png',
+        faviconUrl: '/metodo-simbolo-17.png',
+        pdfLogoUrl: null,
+        drPageLogoUrl: '/metodo-emagrecer-logotipo-28.png',
+        aplicacaoPageLogoUrl: null,
+        conclusaoPageLogoUrl: null,
+      },
+      sourceWhiteLabel: {
+        primaryColor: '#4CCB7A',
+        drPageBackgroundColor: '#0A1F44',
+      },
+    });
+
+    expect(merged.primaryColor).toBe(seed.primaryColor);
+    expect(merged.secondaryColor).toBe(seed.secondaryColor);
+    expect(merged.primaryColor).not.toBe('#4CCB7A');
+    expect(merged.secondaryColor).not.toBe('#0A1F44');
   });
 
   it('sourceMedico layer retorna null sem whiteLabel', () => {

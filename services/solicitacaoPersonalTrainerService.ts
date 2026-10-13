@@ -24,6 +24,7 @@ import { PersonalTrainerService } from './personalTrainerService';
 import { MedicoService } from './medicoService';
 import { PacienteService } from './pacienteService';
 import { AuditLogService } from './auditLogService';
+import { syncPacienteProfissionaisEspelho } from '@/lib/paciente/syncPacienteProfissionaisEspelho';
 
 export class SolicitacaoPersonalTrainerService {
   /**
@@ -275,6 +276,10 @@ export class SolicitacaoPersonalTrainerService {
         dataCompartilhamento: Timestamp.now(),
         ...shadowOrganizationFields(),
       });
+
+      await syncPacienteProfissionaisEspelho(requestData.pacienteId).catch((e) =>
+        console.warn('[approveShareRequest] sync espelho paciente', e)
+      );
       
       // Log de auditoria
       // TODO: Criar método específico para Personal Trainer no AuditLogService
@@ -489,6 +494,9 @@ export class SolicitacaoPersonalTrainerService {
           removidoEm: Timestamp.now(),
           motivoRemocao: 'Encerrado pelo médico',
         });
+        await syncPacienteProfissionaisEspelho(pacienteId).catch((e) =>
+          console.warn('[endCompartilhamento] sync espelho paciente', e)
+        );
         return;
       }
 
@@ -497,6 +505,10 @@ export class SolicitacaoPersonalTrainerService {
         removidoEm: Timestamp.now(),
         motivoRemocao: 'Encerrado pelo médico',
       });
+
+      await syncPacienteProfissionaisEspelho(pacienteId).catch((e) =>
+        console.warn('[endCompartilhamento] sync espelho paciente', e)
+      );
       
       // Deletar histórico do compartilhamento
       // 1. Deletar solicitações de compartilhamento de paciente
@@ -517,6 +529,113 @@ export class SolicitacaoPersonalTrainerService {
     } catch (error) {
       console.error('Erro ao encerrar compartilhamento:', error);
       throw error;
+    }
+  }
+
+  /**
+   * IDs únicos de personais com ≥1 solicitação aceita para o médico
+   * (solicitacoes_personal_trainer.status === "aceita").
+   */
+  static async listAcceptedPersonalTrainerIdsByMedico(medicoId: string): Promise<string[]> {
+    const metas = await this.listAcceptedPersonalTrainerMetaByMedico(medicoId);
+    return metas.map((m) => m.personalTrainerId);
+  }
+
+  /**
+   * Personais aceitos via solicitacoes_personal_trainer (id + nome/email quando existirem).
+   * Fallback sem filtro composto de status (índice) — filtra no cliente.
+   */
+  static async listAcceptedPersonalTrainerMetaByMedico(
+    medicoId: string
+  ): Promise<Array<{ personalTrainerId: string; nome?: string; email?: string }>> {
+    const key = String(medicoId || '').trim();
+    if (!key) return [];
+
+    const readId = (data: Record<string, unknown>) =>
+      String(
+        data.personalTrainerId ||
+          data.personaltrainerId ||
+          data.personal_trainer_id ||
+          ''
+      ).trim();
+
+    const toMeta = (docs: Array<{ data: () => Record<string, unknown> }>) => {
+      const out: Array<{ personalTrainerId: string; nome?: string; email?: string }> = [];
+      const seen = new Set<string>();
+      for (const docSnap of docs) {
+        const data = docSnap.data() || {};
+        const status = String(data.status || '')
+          .trim()
+          .toLowerCase();
+        if (status && status !== SOLICITACAO_STATUS.ACEITA) continue;
+        const id = readId(data);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({
+          personalTrainerId: id,
+          nome:
+            String(data.personalTrainerNome || data.personaltrainerNome || '').trim() ||
+            undefined,
+          email:
+            String(data.personalTrainerEmail || data.personaltrainerEmail || '').trim() ||
+            undefined,
+        });
+      }
+      return out;
+    };
+
+    try {
+      const q = query(
+        collection(db, COL_SOLICITACOES_PERSONAL_TRAINER),
+        where('medicoId', '==', key),
+        where('status', '==', SOLICITACAO_STATUS.ACEITA)
+      );
+      const snap = await getDocs(q);
+      return toMeta(snap.docs);
+    } catch (error) {
+      console.warn(
+        '[listAcceptedPersonalTrainerMetaByMedico] fallback sem status composto',
+        error
+      );
+      try {
+        const q = query(
+          collection(db, COL_SOLICITACOES_PERSONAL_TRAINER),
+          where('medicoId', '==', key)
+        );
+        const snap = await getDocs(q);
+        return toMeta(snap.docs);
+      } catch (e2) {
+        console.error('Erro ao listar personais aceitos por médico:', e2);
+        return [];
+      }
+    }
+  }
+
+  /**
+   * IDs únicos de médicos com ≥1 solicitação aceita para o personal.
+   */
+  static async listAcceptedMedicoIdsByPersonal(personalTrainerId: string): Promise<string[]> {
+    const key = String(personalTrainerId || '').trim();
+    if (!key) return [];
+    try {
+      const q = query(
+        collection(db, COL_SOLICITACOES_PERSONAL_TRAINER),
+        where('personalTrainerId', '==', key),
+        where('status', '==', SOLICITACAO_STATUS.ACEITA)
+      );
+      const snap = await getDocs(q);
+      const ids: string[] = [];
+      const seen = new Set<string>();
+      for (const docSnap of snap.docs) {
+        const id = String(docSnap.data()?.medicoId || '').trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+      }
+      return ids;
+    } catch (error) {
+      console.error('Erro ao listar médicos aceitos por personal:', error);
+      return [];
     }
   }
 

@@ -7,6 +7,8 @@ export interface ChatConversationSource {
   id?: number;
   title: string;
   url?: string;
+  /** URI real devolvida pelo retrieval. Não renderizar no DOM. */
+  uri?: string;
   snippet?: string;
   page?: number;
 }

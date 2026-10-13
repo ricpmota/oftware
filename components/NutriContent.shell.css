@@ -1,0 +1,72 @@
+/**
+ * Nutrologia (NutriContent embed) — tablet recolhe o menu de seções.
+ * lg–xl (1024–1279): trilho de ícones; hamburger abre overlay com labels.
+ * xl+: menu completo.
+ */
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .nc-pastas-top {
+    height: 2.25rem;
+  }
+
+  .nc-pastas-nav {
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+  }
+
+  .nc-pastas-nav > *,
+  .nc-pastas-nav > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+  }
+
+  .nc-pastas-item {
+    min-height: 2.125rem !important;
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
+  }
+
+  .nc-pastas:not([data-nc-pastas-open]) .nc-pastas-label {
+    display: none !important;
+  }
+
+  .nc-pastas:not([data-nc-pastas-open]) .nc-pastas-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+    gap: 0;
+  }
+
+  .nc-pastas:not([data-nc-pastas-open]) .nc-pastas-item-icon {
+    margin-right: 0 !important;
+  }
+
+  .nc-pastas[data-nc-pastas-open] {
+    width: 14rem;
+    margin-right: -10rem;
+    z-index: 20;
+    box-shadow: 4px 0 16px rgba(15, 23, 42, 0.12);
+  }
+
+  .nc-pastas[data-nc-pastas-open] .nc-pastas-top {
+    justify-content: flex-end;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .nc-pastas[data-nc-pastas-open] .nc-pastas-item {
+    justify-content: flex-start;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .nc-pastas[data-nc-pastas-open] .nc-pastas-item-icon {
+    margin-right: 0;
+  }
+
+  .nc-pastas[data-nc-pastas-open] .nc-pastas-label {
+    display: block !important;
+  }
+}

@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, ChevronLeft, Loader2, Upload } from 'lucide-react';
 import {
-  CADASTRO_MEDICO_DRAFT_STORAGE_KEY,
-  CADASTRO_MEDICO_STEP_TITLES,
   CADASTRO_MEDICO_TOTAL_STEPS,
+  cadastroDraftStorageKey,
+  cadastroStepTitles,
   createEmptyCadastroMedicoForm,
   DIA_VENCIMENTO_OPTIONS,
   ESTADO_CIVIL_OPTIONS,
@@ -14,6 +14,13 @@ import {
 } from '@/lib/whiteLabel/cadastroMedicoConstants';
 import { CADASTRO_MEDICO_FORM_KEYS } from '@/types/cadastroMedicoWhiteLabel';
 import { formatLeadWhiteLabelWhatsAppDisplay } from '@/lib/whiteLabel/leadWhiteLabelNormalize';
+import {
+  whiteLabelClienteNoun,
+  whiteLabelProfissaoLabel,
+  whiteLabelRegistroLabel,
+  whiteLabelTratamentoOptions,
+  type WhiteLabelProfissao,
+} from '@/lib/whiteLabel/profissao';
 import CadastroMedicoReviewStep from '@/components/whitelabel/cadastroMedico/CadastroMedicoReviewStep';
 import CadastroMedicoDomainStep from '@/components/whitelabel/cadastroMedico/CadastroMedicoDomainStep';
 import {
@@ -39,8 +46,13 @@ const UPLOAD_FIELDS = [
   { field: 'comprovanteEndereco', key: 'comprovanteEnderecoUrl', label: 'Comprovante de endereço' },
 ] as const;
 
-function validateStepClient(form: FormState, step: number): string | null {
+function validateStepClient(
+  form: FormState,
+  step: number,
+  profissao: WhiteLabelProfissao
+): string | null {
   const req = (key: string, msg: string) => (!form[key]?.trim() ? msg : null);
+  const registro = whiteLabelRegistroLabel(profissao);
 
   switch (step) {
     case 0:
@@ -76,8 +88,8 @@ function validateStepClient(form: FormState, step: number): string | null {
       if (!form.dataNascimento.trim()) return 'Informe a data de nascimento.';
       if (!form.estadoCivil.trim()) return 'Selecione o estado civil.';
       if (!form.nacionalidade.trim()) return 'Informe a nacionalidade.';
-      if (!form.crm.trim()) return 'Informe o CRM.';
-      if (!form.crmUf.trim()) return 'Selecione a UF do CRM.';
+      if (!form.crm.trim()) return `Informe o ${registro}.`;
+      if (!form.crmUf.trim()) return `Selecione a UF do ${registro}.`;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.emailContrato.trim())) return 'Informe um e-mail válido.';
       if (form.whatsappContrato.replace(/\D/g, '').length < 10) return 'Informe um WhatsApp válido.';
       if (form.usarMesmoEnderecoEntrega === 'nao') {
@@ -120,7 +132,19 @@ async function fetchCep(cep: string) {
   return data as { logradouro?: string; bairro?: string; localidade?: string; uf?: string };
 }
 
-export default function CadastroMedicoPageClient() {
+export type CadastroMedicoPageClientProps = {
+  profissao?: WhiteLabelProfissao;
+};
+
+export default function CadastroMedicoPageClient({
+  profissao = 'medico',
+}: CadastroMedicoPageClientProps) {
+  const draftStorageKey = cadastroDraftStorageKey(profissao);
+  const registroLabel = whiteLabelRegistroLabel(profissao);
+  const tratamentoOptions = whiteLabelTratamentoOptions(profissao);
+  const stepTitles = cadastroStepTitles(profissao);
+  const { plural: clientesPlural } = whiteLabelClienteNoun(profissao);
+
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(createEmptyCadastroMedicoForm);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -159,13 +183,14 @@ export default function CadastroMedicoPageClient() {
             draftId: currentDraftId || undefined,
             form: currentForm,
             currentStep: nextStep,
+            profissao,
           }),
         });
         const data = (await res.json().catch(() => ({}))) as { error?: string; draftId?: string };
         if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
         if (data.draftId) {
           setDraftId(data.draftId);
-          localStorage.setItem(CADASTRO_MEDICO_DRAFT_STORAGE_KEY, data.draftId);
+          localStorage.setItem(draftStorageKey, data.draftId);
         }
         setSavedHint(true);
         if (savedHintTimer.current) clearTimeout(savedHintTimer.current);
@@ -175,13 +200,13 @@ export default function CadastroMedicoPageClient() {
         setSaving(false);
       }
     },
-    []
+    [draftStorageKey, profissao]
   );
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const storedId = localStorage.getItem(CADASTRO_MEDICO_DRAFT_STORAGE_KEY);
+      const storedId = localStorage.getItem(draftStorageKey);
       if (!storedId) {
         setLoadingDraft(false);
         return;
@@ -216,7 +241,7 @@ export default function CadastroMedicoPageClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [draftStorageKey]);
 
   const handleCepChange = useCallback(
     async (prefix: 'Entrega' | 'Contrato', raw: string) => {
@@ -275,7 +300,7 @@ export default function CadastroMedicoPageClient() {
       const res = await fetch('/api/whitelabel/cadastromedico/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draftId: activeDraftId, form }),
+        body: JSON.stringify({ draftId: activeDraftId, form, profissao }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || 'Erro ao concluir cadastro.');
@@ -285,10 +310,10 @@ export default function CadastroMedicoPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [draftId, form, persistDraft, step]);
+  }, [draftId, form, persistDraft, step, profissao]);
 
   const handleNext = useCallback(async () => {
-    const validationError = validateStepClient(form, step);
+    const validationError = validateStepClient(form, step, profissao);
     if (validationError) {
       setError(validationError);
       return;
@@ -310,7 +335,7 @@ export default function CadastroMedicoPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [draftId, form, isReviewStep, persistDraft, step, submitForm]);
+  }, [draftId, form, isReviewStep, persistDraft, step, submitForm, profissao]);
 
   const handleSaveAndExit = useCallback(async () => {
     setLoading(true);
@@ -364,8 +389,8 @@ export default function CadastroMedicoPageClient() {
           <FieldGrid>
             <div>
               <FieldLabel>Tratamento</FieldLabel>
-              <div className="grid grid-cols-2 gap-2.5">
-                {['Dr.', 'Dra.'].map((opt) => (
+              <div className={`grid gap-2.5 ${tratamentoOptions.length > 2 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
+                {tratamentoOptions.map((opt) => (
                   <ChoiceButton
                     key={opt}
                     selected={form.tratamento === opt}
@@ -554,11 +579,11 @@ export default function CadastroMedicoPageClient() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <FieldLabel>CRM</FieldLabel>
+                <FieldLabel>{registroLabel}</FieldLabel>
                 <input className={inputClassName} value={form.crm} onChange={(e) => updateField('crm', e.target.value)} />
               </div>
               <div>
-                <FieldLabel>UF do CRM</FieldLabel>
+                <FieldLabel>UF do {registroLabel}</FieldLabel>
                 <select className={selectClassName} value={form.crmUf} onChange={(e) => updateField('crmUf', e.target.value)}>
                   {ESTADOS_BR_OPTIONS.map((o) => (
                     <option key={o.value || 'empty-crm'} value={o.value}>{o.label}</option>
@@ -737,7 +762,7 @@ export default function CadastroMedicoPageClient() {
       case 6:
         return (
           <div className="space-y-4">
-            <CadastroMedicoReviewStep form={form} />
+            <CadastroMedicoReviewStep form={form} registroLabel={registroLabel} />
             <div className="space-y-3 pt-2">
               <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 cursor-pointer">
                 <input
@@ -799,11 +824,11 @@ export default function CadastroMedicoPageClient() {
           {step === 0 && (
             <>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight mb-2">
-                Implantação White Label
+                Implantação White Label — {whiteLabelProfissaoLabel(profissao)}
               </h1>
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                 Complete seu cadastro para iniciarmos a criação da sua marca, site, domínio, sistema
-                e contrato. Você pode salvar e continuar depois.
+                e contrato para seus {clientesPlural}. Você pode salvar e continuar depois.
               </p>
             </>
           )}
@@ -820,7 +845,7 @@ export default function CadastroMedicoPageClient() {
           >
             {!isReviewStep && (
               <label className="block text-lg sm:text-xl font-semibold text-slate-900 mb-4 leading-snug">
-                {CADASTRO_MEDICO_STEP_TITLES[step]}
+                {stepTitles[step]}
               </label>
             )}
             {renderStep()}

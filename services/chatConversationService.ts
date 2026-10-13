@@ -93,6 +93,7 @@ function fromFirestoreMessage(id: string, data: Record<string, unknown>): ChatMe
         ...(typeof (s as { docId?: string })?.docId === 'string' && { docId: (s as { docId: string }).docId }),
         ...(typeof (s as { id?: number })?.id === 'number' && { id: (s as { id: number }).id }),
         ...(typeof (s as { url?: string })?.url === 'string' && { url: (s as { url: string }).url }),
+        ...(typeof (s as { uri?: string })?.uri === 'string' && { uri: (s as { uri: string }).uri }),
         ...(typeof (s as { snippet?: string })?.snippet === 'string' && { snippet: (s as { snippet: string }).snippet }),
         ...(typeof (s as { page?: number })?.page === 'number' && { page: (s as { page: number }).page }),
       }))

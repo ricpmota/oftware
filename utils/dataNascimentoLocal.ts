@@ -87,3 +87,23 @@ export function parseDataNascimentoDiaMesLocal(v: unknown): Date | null {
 
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
+
+/** Ano mínimo selecionável para data de nascimento (UI). */
+export const DATA_NASCIMENTO_ANO_MIN = 1930;
+
+/** Anos de nascimento do mais recente ao mais antigo (ano atual → 1930). */
+export function listAnosNascimentoDesc(anoAtual = new Date().getFullYear()): number[] {
+  const max = Math.max(anoAtual, DATA_NASCIMENTO_ANO_MIN);
+  return Array.from({ length: max - DATA_NASCIMENTO_ANO_MIN + 1 }, (_, i) => max - i);
+}
+
+/** Limites `min`/`max` para `<input type="date">` de nascimento. */
+export function limitesInputDataNascimento(hoje = new Date()): { min: string; max: string } {
+  const y = hoje.getFullYear();
+  const m = String(hoje.getMonth() + 1).padStart(2, '0');
+  const d = String(hoje.getDate()).padStart(2, '0');
+  return {
+    min: `${DATA_NASCIMENTO_ANO_MIN}-01-01`,
+    max: `${y}-${m}-${d}`,
+  };
+}

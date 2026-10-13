@@ -141,6 +141,7 @@ function mergeScalarFields(
 /** Mescla camadas do fallback (prioridade crescente — última vence). */
 export function mergeOrganizationBrandingLayers(
   layers: Partial<OrganizationBrandingStored>[],
+  options?: { primaryColorFallback?: string; secondaryColorFallback?: string },
 ): OrganizationBrandingStored {
   let merged = { ...(layers[0] as OrganizationBrandingStored) };
 
@@ -167,8 +168,14 @@ export function mergeOrganizationBrandingLayers(
     ...merged,
     publicName: merged.publicName.trim() || 'Organização',
     defaultDescription: merged.defaultDescription.trim() || DEFAULT_WHITE_LABEL_DESCRIPTION,
-    primaryColor: pickColor(merged.primaryColor, ORGANIZATION_METODO_PRIMARY_COLOR),
-    secondaryColor: pickColor(merged.secondaryColor, ORGANIZATION_METODO_SECONDARY_COLOR),
+    primaryColor: pickColor(
+      merged.primaryColor,
+      options?.primaryColorFallback ?? ORGANIZATION_METODO_PRIMARY_COLOR,
+    ),
+    secondaryColor: pickColor(
+      merged.secondaryColor,
+      options?.secondaryColorFallback ?? ORGANIZATION_METODO_SECONDARY_COLOR,
+    ),
     siteUrl: merged.siteUrl.trim() || merged.instagramBioDefaults.emagrecimentoUrl,
     showPoweredByOftware: merged.showPoweredByOftware !== false,
   };

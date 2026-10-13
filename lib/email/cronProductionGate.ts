@@ -23,7 +23,7 @@ function getAllowedHosts(): string[] {
   return DEFAULT_ALLOWED_HOSTS;
 }
 
-/** Só executa crons em produção no host principal (evita preview/deploy antigo). */
+/** Só executa crons em produção (domínio customizado ou deployment *.vercel.app). */
 export function assertCronProductionEnvironment(request: NextRequest): CronEnvironmentGate {
   if (process.env.VERCEL_ENV !== 'production') {
     return {
@@ -39,6 +39,30 @@ export function assertCronProductionEnvironment(request: NextRequest): CronEnvir
   }
 
   const host = (request.headers.get('host') || '').split(':')[0].toLowerCase();
+  const isVercelCronHeader = request.headers.get('x-vercel-cron') === '1';
+  const isVercelProductionDeployment = host.endsWith('.vercel.app');
+
+  // Vercel Cron usa o URL do deployment (*.vercel.app); o header x-vercel-cron nem sempre vem.
+  if (isVercelCronHeader || isVercelProductionDeployment) {
+    const cronSecret = process.env.CRON_SECRET?.trim();
+    if (cronSecret && isVercelCronHeader) {
+      const auth = request.headers.get('authorization');
+      if (auth !== `Bearer ${cronSecret}`) {
+        return {
+          ok: false,
+          status: 401,
+          body: {
+            success: true,
+            skipped: true,
+            reason: 'invalid_cron_secret',
+            message: 'Cron ignorado: CRON_SECRET inválido.',
+          },
+        };
+      }
+    }
+    return { ok: true };
+  }
+
   const allowed = getAllowedHosts();
 
   if (!host || !allowed.includes(host)) {
@@ -49,7 +73,7 @@ export function assertCronProductionEnvironment(request: NextRequest): CronEnvir
         success: true,
         skipped: true,
         reason: 'unexpected_host',
-        message: `Cron ignorado: host="${host || 'unknown'}" (permitidos: ${allowed.join(', ')})`,
+        message: `Cron ignorado: host="${host || 'unknown'}" (permitidos: ${allowed.join(', ')}, *.vercel.app)`,
       },
     };
   }

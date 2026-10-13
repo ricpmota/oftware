@@ -27,7 +27,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function CadastroMedicoReviewStep({ form }: { form: FormState }) {
+export default function CadastroMedicoReviewStep({
+  form,
+  registroLabel = 'CRM',
+}: {
+  form: FormState;
+  registroLabel?: string;
+}) {
   const dominio =
     form.dominioDesejado && form.extensaoDominio
       ? formatDomainPreview(form.dominioDesejado, form.extensaoDominio)
@@ -76,7 +82,7 @@ export default function CadastroMedicoReviewStep({ form }: { form: FormState }) 
         <Row label="Nascimento" value={form.dataNascimento} />
         <Row label="Estado civil" value={form.estadoCivil} />
         <Row label="Nacionalidade" value={form.nacionalidade} />
-        <Row label="CRM" value={`${form.crm} / ${form.crmUf}`} />
+        <Row label={registroLabel} value={`${form.crm} / ${form.crmUf}`} />
         <Row label="E-mail" value={form.emailContrato} />
         <Row label="WhatsApp" value={form.whatsappContrato} />
         {form.usarMesmoEnderecoEntrega === 'nao' && (

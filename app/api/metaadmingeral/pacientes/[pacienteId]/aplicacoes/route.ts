@@ -207,6 +207,14 @@ export async function DELETE(
         updatePayload['planoTerapeutico.datasAplicacaoIndividuais'] = datasMap ?? null;
       }
       await pacienteRef.update(updatePayload);
+      try {
+        const { onPlanoScheduleChangedMaintainQueue } = await import(
+          '@/services/whatsappRemindersService'
+        );
+        await onPlanoScheduleChangedMaintainQueue(pid);
+      } catch (queueError) {
+        console.warn('[metaadmingeral/pacientes/aplicacoes] rebuild fila WhatsApp:', queueError);
+      }
     }
 
     return NextResponse.json({ ok: true });

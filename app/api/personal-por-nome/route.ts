@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { resolveProfessionalPublicPhoto } from '@/lib/server/resolveProfessionalPublicPhoto.server';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -93,6 +94,10 @@ export async function GET(request: NextRequest) {
     
     // Retornar o primeiro personal trainer encontrado
     const personalTrainer = personalTrainers[0];
+    const fotoPerfilUrl = await resolveProfessionalPublicPhoto({
+      fotoPerfilUrl: (personalTrainer as { fotoPerfilUrl?: string | null }).fotoPerfilUrl,
+      userId: (personalTrainer as { userId?: string }).userId || personalTrainer.id,
+    });
     
     // Formatar resposta
     return NextResponse.json({
@@ -106,6 +111,7 @@ export async function GET(request: NextRequest) {
       status: personalTrainer.status || 'inativo',
       isVerificado: personalTrainer.isVerificado || false,
       medicoVinculadoIds: personalTrainer.medicoVinculadoIds || [],
+      fotoPerfilUrl,
     });
   } catch (error) {
     console.error('Erro ao buscar personal trainer por nome:', error);

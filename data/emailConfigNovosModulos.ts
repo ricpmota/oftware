@@ -9,6 +9,7 @@ export type NovoModuloKey =
   | 'leads_nutri' | 'solicitado_nutri' | 'em_tratamento_nutri' | 'consulta_nutri'
   | 'leads_personal' | 'solicitado_personal' | 'em_tratamento_personal' | 'treino_personal'
   | 'nutri_pediu_vinculo' | 'personal_pediu_vinculo'
+  | 'psi_pediu_vinculo' | 'medico_pediu_vinculo_psi' | 'paciente_compartilhado_psi'
   | 'novo_lead_para_medico'
   | 'novo_lead_nutri' | 'check_recomendacoes_nutri' | 'agenda_nutri'
   | 'novo_lead_personal' | 'check_presenca_personal' | 'agenda_personal'
@@ -45,6 +46,9 @@ export const NOVOS_MODULOS_EMAIL_DOCS: DocEmailConfig[] = [
   // Médicos
   { modulo: 'nutri_pediu_vinculo', templateKey: 'aviso_medico', docId: 'nutri_pediu_vinculo_aviso_medico', defaultTemplate: defaultTemplate('Nutricionista solicitou vínculo', '<p>Olá Dr(a). {medico},</p><p>O(a) nutricionista {nutricionista} solicitou vínculo relacionado ao paciente {nome}. Acesse o painel.</p>') },
   { modulo: 'personal_pediu_vinculo', templateKey: 'aviso_medico', docId: 'personal_pediu_vinculo_aviso_medico', defaultTemplate: defaultTemplate('Personal solicitou vínculo', '<p>Olá Dr(a). {medico},</p><p>O personal {personal} solicitou vínculo relacionado ao paciente {nome}. Acesse o painel.</p>') },
+  { modulo: 'psi_pediu_vinculo', templateKey: 'aviso_medico', docId: 'psi_pediu_vinculo_aviso_medico', defaultTemplate: defaultTemplate('Psiquiatra solicitou vínculo', '<p>Olá Dr(a). {medico},</p><p>O(a) psiquiatra {psiquiatra} solicitou vínculo profissional com você. Acesse o Oftware para revisar a solicitação.</p>') },
+  { modulo: 'medico_pediu_vinculo_psi', templateKey: 'aviso_psiquiatra', docId: 'medico_pediu_vinculo_aviso_psiquiatra', defaultTemplate: defaultTemplate('Médico solicitou vínculo', '<p>Olá Dr(a). {psiquiatra},</p><p>{medico} solicitou vínculo profissional com você. Acesse o Oftware para revisar a solicitação.</p>') },
+  { modulo: 'paciente_compartilhado_psi', templateKey: 'aviso_psiquiatra', docId: 'paciente_compartilhado_aviso_psiquiatra', defaultTemplate: defaultTemplate('Novo paciente compartilhado', '<p>Olá,</p><p>{medico} compartilhou o acompanhamento de {paciente} com você.</p><p>Acesse o Oftware para revisar a solicitação.</p>') },
   { modulo: 'novo_lead_para_medico', templateKey: 'novo_lead', docId: 'novo_lead_para_medico_novo_lead', defaultTemplate: defaultTemplate('Novo lead selecionou você', '<p>Olá Dr(a). {medico},</p><p>Um novo lead selecionou você como médico responsável.</p><p><strong>Nome:</strong> {nome}<br/><strong>E-mail:</strong> {lead_email}</p><p>Acesse o painel para avaliar a solicitação.</p>') },
   // Nutricionistas
   { modulo: 'novo_lead_nutri', templateKey: 'novo_lead', docId: 'novo_lead_nutri_novo_lead', defaultTemplate: defaultTemplate('Novo lead/paciente', '<p>Olá {nutricionista},</p><p>Um novo lead/paciente ({nome}) solicitou acompanhamento. Acesse o painel.</p><p><strong>Registro:</strong> {foto_registro}<br/><strong>Selfie:</strong> {selfie}<br/><strong>CNH:</strong> {cnh}</p>') },

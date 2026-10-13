@@ -2,9 +2,13 @@ import {
   calcularMetricasConclusao,
   parseConclusaoFormMedidas,
 } from '@/lib/conclusao/conclusaoFormUtils';
-import { ehRegistroConclusaoSeguimento } from '@/lib/metaadmin/proximoRegistroSeguimento';
+import {
+  ehRegistroConclusaoSeguimento,
+} from '@/lib/metaadmin/proximoRegistroSeguimento';
 import { PacienteService } from '@/services/pacienteService';
 import type { PacienteCompleto, SeguimentoSemanal } from '@/types/obesidade';
+import { semanaInicioCicloDoPlano } from '@/utils/datasAplicacaoSemanaPlano';
+import { contextoConclusaoCicloAtivo } from '@/utils/tirzepatidaProtocoloDisplay';
 
 export type SalvarConclusaoMedicoInput = {
   paciente: PacienteCompleto;
@@ -35,14 +39,18 @@ export async function salvarConclusaoMedicoNoPaciente(
   dataConclusao.setHours(12, 0, 0, 0);
 
   const evolucao = [...(paciente.evolucaoSeguimento || [])];
+  const ctxCiclo = contextoConclusaoCicloAtivo(paciente);
+  const semanaCiclo = Number(semana) > 0 ? Math.floor(Number(semana)) : ctxCiclo.semanaGlobal;
   const idxExistente = registroExistente?.id
     ? evolucao.findIndex((e) => e.id === registroExistente.id)
-    : evolucao.findIndex((e) => ehRegistroConclusaoSeguimento(e));
+    : evolucao.findIndex(
+        (e) => ehRegistroConclusaoSeguimento(e) && (e.weekIndex ?? e.numeroSemana ?? 0) === semanaCiclo
+      );
 
   const seguimentoConclusao: SeguimentoSemanal = {
     id: registroExistente?.id ?? `seguimento-conclusao-${Date.now()}`,
-    weekIndex: semana,
-    numeroSemana: semana,
+    weekIndex: semanaCiclo,
+    numeroSemana: semanaCiclo,
     dataRegistro: dataConclusao,
     peso: medidas.pesoFinal,
     ...(medidas.circunferenciaAbdominal != null
@@ -71,6 +79,7 @@ export async function salvarConclusaoMedicoNoPaciente(
     dataConclusao,
     pesoFinalKg: medidas.pesoFinal,
     updatedAt: new Date(),
+    protocoloIndice: ctxCiclo.proto.indice,
     ...(medidas.circunferenciaAbdominal != null
       ? { circunferenciaAbdominalFinalCm: medidas.circunferenciaAbdominal }
       : ctAnterior?.circunferenciaAbdominalFinalCm != null
@@ -99,22 +108,32 @@ export async function salvarConclusaoMedicoNoPaciente(
   };
 
   if (anteciparPlano) {
+    const inicioCiclo = semanaInicioCicloDoPlano(paciente.planoTerapeutico);
+    const fimCiclo = ctxCiclo.semanaGlobal - 1;
     const aplicacoesRealizadas = evolucao.filter(
       (e) =>
         !ehRegistroConclusaoSeguimento(e) &&
         e.adherence !== 'MISSED' &&
         e.adesao !== 'esquecida' &&
         e.doseAplicada?.quantidade != null &&
-        Number(e.doseAplicada.quantidade) > 0
+        Number(e.doseAplicada.quantidade) > 0 &&
+        (e.weekIndex ?? e.numeroSemana ?? 0) >= inicioCiclo &&
+        (e.weekIndex ?? e.numeroSemana ?? 0) <= fimCiclo
     );
     const numeroSemanasRealizadas = aplicacoesRealizadas.length;
+    const semanasAplicadas = aplicacoesRealizadas.map(
+      (e) => e.weekIndex ?? e.numeroSemana ?? 0
+    );
+    const fimAplicado =
+      semanasAplicadas.length > 0 ? Math.max(...semanasAplicadas) : inicioCiclo;
     const esquemaCustomizado = planoTerapeutico?.esquemaDosesCustomizado;
     const esquemaAjustado =
       esquemaCustomizado && numeroSemanasRealizadas > 0
         ? Object.fromEntries(
-            Object.entries(esquemaCustomizado).filter(
-              ([semanaKey]) => parseInt(semanaKey, 10) <= numeroSemanasRealizadas
-            )
+            Object.entries(esquemaCustomizado).filter(([semanaKey]) => {
+              const w = parseInt(semanaKey, 10);
+              return w >= inicioCiclo && w <= fimAplicado;
+            })
           )
         : undefined;
     const esquemaFinal =

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const noStore = { 'Cache-Control': 'no-store' };
+const RESOLUTIONS = ['180', '360', '720', '1080'] as const;
 
 /**
  * GET /api/exercisedb/image?exerciseId=...&resolution=...
- * Proxy para buscar GIFs de exercícios da ExerciseDB.
- * A API não retorna gifUrl diretamente, mas fornece via endpoint /image
+ * Proxy para GIFs da ExerciseDB (RapidAPI).
+ * Se a resolução pedida falhar, tenta resoluções menores automaticamente.
  */
 export async function GET(request: NextRequest) {
   const base = process.env.EXERCISEDB_BASE_URL || 'https://exercisedb.p.rapidapi.com';
@@ -15,16 +16,14 @@ export async function GET(request: NextRequest) {
   try {
     if (!key) {
       return NextResponse.json(
-        {
-          error: 'RAPIDAPI_KEY não configurada.',
-        },
+        { error: 'RAPIDAPI_KEY não configurada.' },
         { status: 503, headers: noStore }
       );
     }
 
     const { searchParams } = request.nextUrl;
-    const exerciseId = searchParams.get('exerciseId');
-    const resolution = searchParams.get('resolution') || '1080';
+    const exerciseId = searchParams.get('exerciseId')?.trim();
+    const requested = searchParams.get('resolution') || '360';
 
     if (!exerciseId) {
       return NextResponse.json(
@@ -33,41 +32,73 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validar resolution
-    const validResolutions = ['180', '360', '720', '1080'];
-    if (!validResolutions.includes(resolution)) {
+    if (!RESOLUTIONS.includes(requested as (typeof RESOLUTIONS)[number])) {
       return NextResponse.json(
         { error: 'Resolution inválido. Use: 180, 360, 720 ou 1080' },
         { status: 400 }
       );
     }
 
-    const res = await fetch(`${base}/image?exerciseId=${exerciseId}&resolution=${resolution}`, {
-      method: 'GET',
-      headers: {
-        'X-RapidAPI-Key': key,
-        'X-RapidAPI-Host': host,
-      },
-      next: { revalidate: 86400 }, // Cache por 24h
-    });
+    // Tenta a pedida e depois as menores (mais leves / mais estáveis)
+    const order = [
+      requested,
+      ...RESOLUTIONS.filter((r) => Number(r) < Number(requested)).reverse(),
+      ...RESOLUTIONS.filter((r) => Number(r) > Number(requested)),
+    ];
+    const tried = new Set<string>();
+    let lastStatus = 502;
+    let lastText = '';
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `ExerciseDB ${res.status}: Erro ao buscar imagem` },
-        { status: 502 }
+    for (const resolution of order) {
+      if (tried.has(resolution)) continue;
+      tried.add(resolution);
+
+      const res = await fetch(
+        `${base}/image?exerciseId=${encodeURIComponent(exerciseId)}&resolution=${resolution}`,
+        {
+          method: 'GET',
+          headers: {
+            'X-RapidAPI-Key': key,
+            'X-RapidAPI-Host': host,
+          },
+          // Não cachear erro no Data Cache do Next
+          cache: 'no-store',
+        }
       );
+
+      if (!res.ok) {
+        lastStatus = res.status;
+        lastText = await res.text().catch(() => '');
+        continue;
+      }
+
+      const contentType = res.headers.get('content-type') || 'image/gif';
+      const imageBuffer = await res.arrayBuffer();
+      if (!imageBuffer.byteLength) {
+        lastStatus = 502;
+        lastText = 'empty body';
+        continue;
+      }
+
+      return new NextResponse(imageBuffer, {
+        headers: {
+          'Content-Type': contentType.includes('image') ? contentType : 'image/gif',
+          'Cache-Control': 'public, max-age=86400',
+          'X-Exercise-Resolution': resolution,
+        },
+      });
     }
 
-    // Retornar a imagem diretamente
-    const imageBuffer = await res.arrayBuffer();
-    return new NextResponse(imageBuffer, {
-      headers: {
-        'Content-Type': 'image/gif',
-        'Cache-Control': 'public, max-age=86400', // Cache por 24h
+    return NextResponse.json(
+      {
+        error: `ExerciseDB ${lastStatus}: Erro ao buscar imagem`,
+        detail: lastText?.slice(0, 300) || undefined,
+        exerciseId,
       },
-    });
+      { status: 502, headers: noStore }
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erro ao buscar imagem';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers: noStore });
   }
 }

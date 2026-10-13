@@ -4,6 +4,7 @@ import { Bell, FileText, MessageCircle } from 'lucide-react';
 import { useMedicoLeadsCrmTheme } from '@/components/crm/medico/MedicoLeadsCrmProvider';
 import {
   getLeadPhone,
+  getLeadPhoneFields,
   isValidLeadPhone,
 } from '@/lib/crm/leadContactHelpers';
 import {
@@ -48,7 +49,11 @@ export default function Paciente360SheetHeader({
   const phoneRaw = getLeadPhone(lead, paciente);
   const hasTelefone = isValidLeadPhone(lead, paciente);
   const waUrl = hasTelefone
-    ? buildPaciente360WhatsAppUrl(phoneRaw, buildPaciente360WhatsAppMessage(summary, lead))
+    ? buildPaciente360WhatsAppUrl(
+        phoneRaw,
+        buildPaciente360WhatsAppMessage(summary, lead),
+        getLeadPhoneFields(lead, paciente)
+      )
     : null;
   const canProntuario = Boolean(summary.pacienteId && onOpenProntuario);
   const canLembrete = Boolean(summary.pacienteId && onCreateReminder);

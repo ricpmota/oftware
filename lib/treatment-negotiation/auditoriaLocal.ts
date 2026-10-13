@@ -75,6 +75,16 @@ export function diffParametrosNegociacao(
     });
   }
 
+  const injAnt = JSON.stringify(anterior.protocolosInjetaveis ?? []);
+  const injNov = JSON.stringify(atual.protocolosInjetaveis ?? []);
+  if (injAnt !== injNov) {
+    alterados.push({
+      campo: 'protocolosInjetaveis',
+      valorAnterior: `${anterior.protocolosInjetaveis?.length ?? 0} protocolo(s)`,
+      valorNovo: `${atual.protocolosInjetaveis?.length ?? 0} protocolo(s)`,
+    });
+  }
+
   const invAnt = JSON.stringify(anterior.investimento);
   const invNov = JSON.stringify(atual.investimento);
   if (invAnt !== invNov) {

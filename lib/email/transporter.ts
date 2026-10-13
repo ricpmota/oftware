@@ -1,4 +1,8 @@
 import nodemailer, { Transporter } from 'nodemailer';
+import {
+  recordEmailTransportAuthError,
+  recordEmailTransportSuccess,
+} from '@/lib/email/emailTransportHealth';
 
 const EMAIL_PROVIDER = 'ZeptoMail' as const;
 
@@ -56,6 +60,8 @@ export type SendEmailParams = {
   html: string;
   text?: string;
   replyTo?: string;
+  /** Rastreabilidade Automation Engine — repassado ao Zepto via header. */
+  automationExecutionId?: string;
 };
 
 export type SendEmailResult =
@@ -65,8 +71,12 @@ export type SendEmailResult =
 export async function sendEmail(
   params: SendEmailParams
 ): Promise<SendEmailResult> {
-  const { to, subject, html, text, replyTo } = params;
+  const { to, subject, html, text, replyTo, automationExecutionId } = params;
   const replyToFinal = replyTo?.trim() || process.env.MAIL_REPLY_TO?.trim();
+  const executionHeader =
+    automationExecutionId?.trim() ?
+      { 'X-Automation-Execution-Id': automationExecutionId.trim() }
+    : undefined;
 
   try {
     if (!isZeptoMailConfigured()) {
@@ -89,11 +99,15 @@ export async function sendEmail(
       html,
       ...(text !== undefined && text !== '' ? { text } : {}),
       ...(replyToFinal ? { replyTo: replyToFinal } : {}),
+      ...(executionHeader ? { headers: executionHeader } : {}),
     });
 
     console.log(
-      `[email] ZeptoMail: enviado ok | messageId=${info.messageId ?? 'n/a'} | to=${to}`
+      `[email] ZeptoMail: enviado ok | messageId=${info.messageId ?? 'n/a'} | to=${to}${
+        automationExecutionId ? ` | automationExecutionId=${automationExecutionId}` : ''
+      }`
     );
+    void recordEmailTransportSuccess().catch(() => undefined);
     return { success: true, messageId: info.messageId };
   } catch (err: unknown) {
     const e = err as { message?: string; code?: string; stack?: string };
@@ -103,6 +117,7 @@ export async function sendEmail(
         code: e.code,
         message: msg,
       });
+      void recordEmailTransportAuthError(msg, e.code).catch(() => undefined);
     } else {
       console.error('[email] ZeptoMail: erro de envio', {
         code: e.code,

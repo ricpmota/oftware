@@ -18,7 +18,7 @@ describe('organizationRegistry', () => {
     expect(METODO_ORGANIZATION.id).toBe('metodo');
     expect(METODO_ORGANIZATION.name).toBe('Método Emagrecer');
     expect(METODO_ORGANIZATION.primaryOrigin).toBe('https://www.ometodoemagrecer.com.br');
-    expect(listOrganizations()).toHaveLength(1);
+    expect(listOrganizations()).toHaveLength(2);
     expect(getDefaultOrganization().id).toBe(METODO_ORGANIZATION_ID);
     expect(getOrganizationById('metodo')).toEqual(METODO_ORGANIZATION);
     expect(getOrganizationById('inexistente')).toBeNull();

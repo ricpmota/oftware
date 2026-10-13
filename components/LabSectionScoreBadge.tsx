@@ -8,17 +8,17 @@ interface LabSectionScoreBadgeProps {
 }
 
 const COLOR_CLASS: Record<ScoreColor, string> = {
-  green: 'text-green-600',
+  green: 'text-emerald-600',
   orange: 'text-amber-600',
   red: 'text-red-600',
-  gray: 'text-gray-400',
+  gray: 'text-slate-400',
 };
 
 export function LabSectionScoreBadge({ score, color }: LabSectionScoreBadgeProps) {
   return (
-    <span className="text-xs font-medium whitespace-nowrap">
+    <span className="whitespace-nowrap text-[13px] leading-tight text-slate-500">
       Score:{' '}
-      <span className={COLOR_CLASS[color]}>
+      <span className={`font-semibold tabular-nums ${COLOR_CLASS[color]}`}>
         {score !== null ? `${score}%` : '—'}
       </span>
     </span>

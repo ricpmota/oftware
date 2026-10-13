@@ -8,6 +8,8 @@ export type InstagramHubMedicoPublic = {
   genero?: 'M' | 'F';
   email: string;
   telefone?: string | null;
+  telefoneDdi?: string | null;
+  telefonePais?: string | null;
   fotoPerfilUrl?: string | null;
   crm: { estado: string; numero: string };
   status?: 'ativo' | 'inativo';

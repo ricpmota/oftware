@@ -17,15 +17,20 @@ function startOfDay(d: Date): Date {
 }
 
 export function semanaIndexFromRegistro(e: SeguimentoSemanal): number {
-  return e.weekIndex ?? e.numeroSemana ?? 0;
+  const n = Number(
+    e.weekIndex ?? (e as { numeroSemana?: number }).numeroSemana ?? 0
+  );
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
 export function registroEvolucaoPorSemana(
   evolucao: SeguimentoSemanal[] | undefined,
   semanaNum: number
 ): SeguimentoSemanal | null {
-  if (!evolucao?.length || semanaNum < 1) return null;
-  return evolucao.find((e) => semanaIndexFromRegistro(e) === semanaNum) ?? null;
+  const week = Number(semanaNum);
+  if (!evolucao?.length || !Number.isFinite(week) || week < 1) return null;
+  const alvo = Math.floor(week);
+  return evolucao.find((e) => semanaIndexFromRegistro(e) === alvo) ?? null;
 }
 
 const isAdesaoPerdida = (r: { adherence?: string; adesao?: string } | null | undefined) =>

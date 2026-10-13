@@ -9,6 +9,21 @@ import {
   obterMedidasReferenciaPaciente,
 } from '@/lib/aplicacao/checkInSemanalFormUtils';
 import type { PacienteCompleto } from '@/types/obesidade';
+import { semanaIndexFromRegistro } from '@/utils/evolucaoAplicacaoHelpers';
+import {
+  isValidAplicacaoPublicToken,
+  normalizeAplicacaoPublicToken,
+} from '@/lib/aplicacao/aplicacaoPublicToken';
+import { resolverDoseMgAplicacaoPublica } from '@/lib/aplicacao/resolverDoseMgAplicacaoPublica';
+import {
+  ehPrimeiraSemanaDoProtocolo,
+  resolverWeekIndexAplicacaoPublica,
+} from '@/lib/aplicacao/resolverWeekIndexAplicacaoPublica';
+import { buildPacienteResultadoPublico } from '@/lib/aplicacao/pacienteResultadoPublico';
+import {
+  protocoloDaSemanaGlobal,
+  semanaRelativaNoProtocolo,
+} from '@/utils/tirzepatidaProtocoloDisplay';
 
 function toDate(v: unknown): Date {
   if (!v) return new Date();
@@ -77,8 +92,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizeAplicacaoPublicToken((await params).token);
+    if (!isValidAplicacaoPublicToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 
@@ -99,32 +114,23 @@ export async function GET(
       return NextResponse.json({ error: 'Paciente não encontrado' }, { status: 404 });
     }
 
-    const paciente = pacienteSnap.data() as {
+    const paciente = pacienteSnap.data() as PacienteCompleto & {
       nome?: string;
       userId?: string;
       dadosIdentificacao?: { nomeCompleto?: string };
       medicoResponsavelId?: string;
       statusTratamento?: string;
-      evolucaoSeguimento?: Array<{
-        weekIndex?: number;
-        numeroSemana?: number;
-        dataRegistro?: unknown;
-        peso?: number;
-        circunferenciaAbdominal?: number;
-        doseAplicada?: { quantidade?: number };
-        adherence?: string;
-        adesao?: string;
-      }>;
-      dadosClinicos?: { medidasIniciais?: { peso?: number; circunferenciaAbdominal?: number } };
     };
     const nome = paciente?.nome || paciente?.dadosIdentificacao?.nomeCompleto || 'Paciente';
 
     const dataPrevista = parseDataChaveLocal(data);
     const evolucao = paciente.evolucaoSeguimento || [];
-    const semanaLink = Number(semana ?? linkData.semana) || 1;
-    let registro = evolucao.find(
-      (e) => (e.weekIndex ?? e.numeroSemana) === semanaLink
-    );
+    const semanaLink = resolverWeekIndexAplicacaoPublica({
+      paciente: paciente as PacienteCompleto,
+      semanaLink: semana ?? linkData.semana,
+      dataLink: data,
+    });
+    let registro = evolucao.find((e) => semanaIndexFromRegistro(e) === semanaLink);
     if (!registro) {
       registro = evolucao.find((e: any) => {
         if (!e.dataRegistro) return false;
@@ -137,14 +143,32 @@ export async function GET(
 
     const ehPerdida = registro?.adherence === 'MISSED' || registro?.adesao === 'esquecida';
     const jaPreenchido = !!registro?.doseAplicada?.quantidade && registro.doseAplicada.quantidade > 0 && !ehPerdida && registro.peso != null && registro.peso > 0;
+    const semanaResposta = semanaLink;
+    const doseViva = resolverDoseMgAplicacaoPublica({
+      paciente,
+      semana: semanaResposta,
+      fallbackDose: dose ?? linkData.dose,
+    });
 
     const response: Record<string, unknown> = {
-      semana: semana ?? linkData.semana,
-      dose: dose ?? linkData.dose,
+      semana: semanaResposta,
+      dose: doseViva,
       data,
       nomePaciente: nome,
       jaPreenchido,
+      pacienteResultado: buildPacienteResultadoPublico({
+        ...(paciente as PacienteCompleto),
+        id: pacienteId,
+      }),
     };
+
+    const protoSemana = protocoloDaSemanaGlobal(paciente, semanaResposta);
+    response.semanaNoProtocolo = semanaRelativaNoProtocolo(
+      semanaResposta,
+      protoSemana.semanaInicioCiclo
+    );
+    response.protocoloIndice = protoSemana.indice;
+    response.ehMarcoZero = ehPrimeiraSemanaDoProtocolo(paciente as PacienteCompleto, semanaResposta);
 
     const pesoInicial = paciente.dadosClinicos?.medidasIniciais?.peso;
     const circInicial = paciente.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal;
@@ -230,11 +254,14 @@ export async function GET(
     }
 
     if (jaPreenchido && registro) {
-      const weekIndex = registro.weekIndex ?? registro.numeroSemana ?? semana;
+      const weekIndex = semanaResposta;
       const marco =
-        (paciente as { marcoZero?: typeof registro.marcoZero }).marcoZero ?? registro.marcoZero;
+        registro.marcoZero ??
+        (weekIndex === 1
+          ? (paciente as { marcoZero?: typeof registro.marcoZero }).marcoZero
+          : undefined);
 
-      if (weekIndex === 1 && marco) {
+      if (response.ehMarcoZero && marco) {
         response.ehMarcoZero = true;
         response.marcoZero = marco;
         response.peso = registro.peso ?? marco.pesoInicial;
@@ -281,7 +308,7 @@ export async function GET(
     }
 
     if (!jaPreenchido) {
-      const semanaAtual = Number(semana ?? linkData.semana) || 1;
+      const semanaAtual = semanaResposta;
       const pacienteCompleto = paciente as PacienteCompleto;
       const refs = obterMedidasReferenciaPaciente(pacienteCompleto, semanaAtual);
 
@@ -294,7 +321,7 @@ export async function GET(
         response.circunferenciaReferencia = refs.circunferenciaAbdominal;
       }
     } else {
-      const semanaAtual = Number(semana ?? linkData.semana) || 1;
+      const semanaAtual = semanaResposta;
       const refs = obterMedidasReferenciaPaciente(paciente as PacienteCompleto, semanaAtual);
       if (refs.peso != null) response.pesoReferencia = refs.peso;
       if (refs.circunferenciaAbdominal != null) {

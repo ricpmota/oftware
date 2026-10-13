@@ -7,6 +7,11 @@ import { JWT } from 'google-auth-library';
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
+export type CallLLMOptions = {
+  maxTokens?: number;
+  temperature?: number;
+};
+
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 interface GoogleCreds {
@@ -46,7 +51,7 @@ function getVertexAccessToken(creds: GoogleCreds): Promise<string> {
   return client.authorize().then((t) => (t as { access_token?: string }).access_token || '');
 }
 
-async function callOpenAI(systemPrompt: string, history: ChatTurn[]): Promise<string> {
+async function callOpenAI(systemPrompt: string, history: ChatTurn[], options?: CallLLMOptions): Promise<string> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error('OPENAI_API_KEY não configurada.');
 
@@ -65,8 +70,8 @@ async function callOpenAI(systemPrompt: string, history: ChatTurn[]): Promise<st
     body: JSON.stringify({
       model,
       messages,
-      max_tokens: 1024,
-      temperature: 0.7,
+      max_tokens: options?.maxTokens ?? 1024,
+      temperature: options?.temperature ?? 0.7,
     }),
   });
 
@@ -82,7 +87,11 @@ async function callOpenAI(systemPrompt: string, history: ChatTurn[]): Promise<st
   return text;
 }
 
-async function callVertexGemini(systemPrompt: string, history: ChatTurn[]): Promise<string> {
+async function callVertexGemini(
+  systemPrompt: string,
+  history: ChatTurn[],
+  options?: CallLLMOptions
+): Promise<string> {
   const creds = getVertexCredentials();
   if (!creds) throw new Error('Credenciais Vertex não configuradas.');
 
@@ -103,8 +112,8 @@ async function callVertexGemini(systemPrompt: string, history: ChatTurn[]): Prom
     },
     contents,
     generationConfig: {
-      maxOutputTokens: 1024,
-      temperature: 0.7,
+      maxOutputTokens: options?.maxTokens ?? 1024,
+      temperature: options?.temperature ?? 0.7,
     },
   };
 
@@ -134,9 +143,13 @@ async function callVertexGemini(systemPrompt: string, history: ChatTurn[]): Prom
 /**
  * Ordem: OpenAI se OPENAI_API_KEY; senão Vertex Gemini.
  */
-export async function callLLM(systemPrompt: string, history: ChatTurn[]): Promise<string> {
+export async function callLLM(
+  systemPrompt: string,
+  history: ChatTurn[],
+  options?: CallLLMOptions
+): Promise<string> {
   if (process.env.OPENAI_API_KEY) {
-    return callOpenAI(systemPrompt, history);
+    return callOpenAI(systemPrompt, history, options);
   }
-  return callVertexGemini(systemPrompt, history);
+  return callVertexGemini(systemPrompt, history, options);
 }

@@ -5,7 +5,7 @@ import { Calendar, ChevronLeft, Clock, Loader2 } from 'lucide-react';
 import type { WhiteLabelAvailabilityApiRow } from '@/types/whiteLabelAvailability';
 
 const SLOT_UNAVAILABLE_MSG =
-  'Esse horário acabou de ser reservado por outro médico. Escolha outro horário disponível.';
+  'Esse horário acabou de ser reservado. Escolha outro horário disponível.';
 
 type Props = {
   selectedId: string | null;

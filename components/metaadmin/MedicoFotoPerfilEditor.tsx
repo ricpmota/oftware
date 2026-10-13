@@ -11,6 +11,8 @@ type Props = {
   currentUrl?: string | null;
   onUrlChange: (url: string | null) => void;
   disabled?: boolean;
+  /** Pasta de upload no Storage. Default: medico. */
+  profissao?: 'medico' | 'nutricionista' | 'personal' | 'psiquiatra';
 };
 
 function clampPan(x: number, y: number, dispW: number, dispH: number) {
@@ -19,7 +21,12 @@ function clampPan(x: number, y: number, dispW: number, dispH: number) {
   return { x: nx, y: ny };
 }
 
-export default function MedicoFotoPerfilEditor({ currentUrl, onUrlChange, disabled }: Props) {
+export default function MedicoFotoPerfilEditor({
+  currentUrl,
+  onUrlChange,
+  disabled,
+  profissao = 'medico',
+}: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgElRef = useRef<HTMLImageElement | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -166,7 +173,17 @@ export default function MedicoFotoPerfilEditor({ currentUrl, onUrlChange, disabl
     setUploading(true);
     try {
       const fd = new FormData();
-      fd.append('file', new File([blob], 'foto-perfil-medico.png', { type: 'image/png' }));
+      const fileName =
+        profissao === 'nutricionista'
+          ? 'foto-perfil-nutricionista.png'
+          : profissao === 'personal'
+            ? 'foto-perfil-personal.png'
+            : profissao === 'psiquiatra'
+              ? 'foto-perfil-psiquiatra.png'
+            : 'foto-perfil-medico.png';
+      fd.append('file', new File([blob], fileName, { type: 'image/png' }));
+      fd.append('profissao', profissao);
+      fd.append('categoria', 'perfil');
       const res = await fetch('/api/upload-medico-foto', { method: 'POST', body: fd });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok) throw new Error(data.error || 'Falha no upload');

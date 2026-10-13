@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
-import { Calendar, CheckCircle2, AlertTriangle, Plus, Minus, Trash2, Save, ChevronDown, ChevronUp, Star } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Calendar, CheckCircle2, AlertTriangle, Plus, Minus, Trash2, Save, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Star, BookOpen, ListOrdered, Clock, Layers, Zap } from 'lucide-react';
 import type { PlannerSettings, PlannerStats, Schedule, ScheduleSettings, PlanInput } from '@/types/videoLibrary';
 import { buildStudyDays, calculatePlannerStats, generatePlanInput } from '@/utils/studyPlannerUtils';
 import { generateSchedule } from '@/utils/scheduleGenerator';
@@ -17,6 +17,42 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { courseVideosToVideoFiles } from './courseVideoToVideoFile';
 import type { CourseVideoItem } from './CoursePlayer';
+import { displaySubjectName, getSubjectVisual } from '@/utils/oftreviewSubjectVisuals';
+
+function subjectCardLines(subject: string): { lead: string; rest: string } {
+  const full = displaySubjectName(subject);
+  const comma = full.indexOf(',');
+  if (comma > 0) {
+    return { lead: full.slice(0, comma).trim(), rest: full.slice(comma + 1).trim() };
+  }
+  const words = full.split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return { lead: full, rest: '' };
+  return { lead: words[0], rest: words.slice(1).join(' ') };
+}
+
+const MONTH_LABELS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function listMonthsInRange(startISO: string, endISO: string): { year: number; month: number }[] {
+  const [sy, sm] = startISO.split('-').map(Number);
+  const [ey, em] = endISO.split('-').map(Number);
+  if (!sy || !sm || !ey || !em) return [];
+  const months: { year: number; month: number }[] = [];
+  let year = sy;
+  let month = sm;
+  while (year < ey || (year === ey && month <= em)) {
+    months.push({ year, month });
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return months;
+}
+
+function toDateISO(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
 
 const WEEKDAYS = [
   { name: 'Dom', fullName: 'Domingo', index: 0 },
@@ -45,6 +81,12 @@ interface OftPayPlannerProps {
   videos: CourseVideoItem[];
   onScheduleChange: (schedule: Schedule | null) => void;
   onPlannerChange?: (plannerId: string | null, planner: PlannerSettings | null) => void;
+  /** Dados já carregados da conta do código CarPlay, sem login Google. */
+  carplayBundle?: {
+    planners: PlannerSettings[];
+    favoritePlannerId: string | null;
+    schedules: Record<string, Schedule>;
+  } | null;
 }
 
 export default function OftPayPlanner({
@@ -52,6 +94,7 @@ export default function OftPayPlanner({
   videos,
   onScheduleChange,
   onPlannerChange,
+  carplayBundle = null,
 }: OftPayPlannerProps) {
   const libraryId = `oftpay_${courseId}`;
   const videoFiles = useMemo(() => courseVideosToVideoFiles(videos), [videos]);
@@ -71,6 +114,14 @@ export default function OftPayPlanner({
   });
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [subjectOrder, setSubjectOrder] = useState<string[]>([]);
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [calendarPromptDate, setCalendarPromptDate] = useState<string | null>(null);
+  const [calendarMonthIndex, setCalendarMonthIndex] = useState(0);
+
+  useEffect(() => {
+    setCalendarMonthIndex(0);
+    setCalendarPromptDate(null);
+  }, [startDate, endDate]);
   const [plannersList, setPlannersList] = useState<PlannerSettings[]>([]);
   const [favoritePlannerId, setFavoritePlannerIdState] = useState<string | null>(null);
   const [isLoadingPlanners, setIsLoadingPlanners] = useState(false);
@@ -86,6 +137,7 @@ export default function OftPayPlanner({
     hoursPerWeekday: { [k: number]: number };
     selectedSubjects: string[];
     subjectOrder: string[];
+    blockedDates: string[];
   } | null>(null);
 
   const loadPlannerSettings = useCallback((p: PlannerSettings) => {
@@ -98,6 +150,7 @@ export default function OftPayPlanner({
       : { 0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 0 };
     const subjects = p.selectedSubjects ?? [];
     const order = p.subjectOrder ?? p.selectedSubjects ?? [];
+    const blocked = Array.isArray(p.blockedDates) ? p.blockedDates : [];
 
     setPlannerId(p.id ?? null);
     setPlannerName(name);
@@ -107,6 +160,8 @@ export default function OftPayPlanner({
     setHoursPerWeekday(hours);
     setSelectedSubjects(subjects);
     setSubjectOrder(order);
+    setBlockedDates(blocked);
+    setCalendarPromptDate(null);
 
     loadedSnapshotRef.current = {
       name,
@@ -116,6 +171,7 @@ export default function OftPayPlanner({
       hoursPerWeekday: { ...hours },
       selectedSubjects: [...subjects].sort(),
       subjectOrder: [...order],
+      blockedDates: [...blocked].sort(),
     };
     onPlannerChange?.(p.id ?? null, p);
   }, [onPlannerChange]);
@@ -137,11 +193,17 @@ export default function OftPayPlanner({
   }, [libraryId]);
 
   useEffect(() => {
+    if (carplayBundle) {
+      setPlannersList(carplayBundle.planners);
+      setFavoritePlannerIdState(carplayBundle.favoritePlannerId);
+      setIsLoadingPlanners(false);
+      return;
+    }
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) loadPlanners();
     });
     return () => unsub();
-  }, [loadPlanners]);
+  }, [loadPlanners, carplayBundle]);
 
   // Sempre ter um planejamento ativo ao iniciar: abrir o favorito ou o primeiro da lista (não quando o usuário escolheu "Novo Planejamento")
   useEffect(() => {
@@ -158,20 +220,25 @@ export default function OftPayPlanner({
 
   useEffect(() => {
     if (!plannerId) return;
+    if (carplayBundle) {
+      const cached = carplayBundle.schedules[plannerId];
+      if (cached) onScheduleChange(cached);
+      return;
+    }
     loadScheduleFromFirestore(libraryId, plannerId).then((s) => {
       if (s) onScheduleChange(s);
     });
-  }, [plannerId, libraryId, onScheduleChange]);
+  }, [plannerId, libraryId, onScheduleChange, carplayBundle]);
 
   useEffect(() => {
     if (startDate && endDate && allowedWeekdays.length > 0 && selectedSubjects.length > 0) {
-      const studyDays = buildStudyDays(startDate, endDate, allowedWeekdays, hoursPerWeekday);
+      const studyDays = buildStudyDays(startDate, endDate, allowedWeekdays, hoursPerWeekday, blockedDates);
       const s = calculatePlannerStats(studyDays, hoursPerWeekday, videoFiles, progressMap, selectedSubjects);
       setStats(s);
     } else {
       setStats(null);
     }
-  }, [startDate, endDate, allowedWeekdays, hoursPerWeekday, selectedSubjects, subjectOrder, videoFiles, progressMap]);
+  }, [startDate, endDate, allowedWeekdays, hoursPerWeekday, blockedDates, selectedSubjects, subjectOrder, videoFiles, progressMap]);
 
   const handleSavePlanner = useCallback(async () => {
     if (!startDate || !endDate || !plannerName.trim()) {
@@ -193,22 +260,51 @@ export default function OftPayPlanner({
         hoursPerWeekday,
         selectedSubjects,
         subjectOrder: subjectOrder.length > 0 ? subjectOrder : selectedSubjects,
+        blockedDates,
       };
-      const savedId = await savePlannerToFirestore(settings);
+      let savedId: string;
+      let scheduleForSave: Schedule | null = null;
+      if (carplayBundle) {
+        const studyDaysForSave = buildStudyDays(startDate, endDate, allowedWeekdays, hoursPerWeekday, blockedDates);
+        const selectedVideosForSave = videoFiles.filter((v) => selectedSubjects.includes(v.subject));
+        const planInputForSave: PlanInput = {
+          studyDays: studyDaysForSave,
+          hoursPerWeekday,
+          selectedVideoIds: selectedVideosForSave.map((v) => v.videoId),
+          selectedSubjects,
+          subjectOrder: subjectOrder.length > 0 ? subjectOrder : selectedSubjects,
+          plannerId: plannerId ?? 'pending',
+        };
+        scheduleForSave = generateSchedule(planInputForSave, videoFiles, progressMap, DEFAULT_SCHEDULE_SETTINGS);
+        const res = await fetch('/api/oftpay/carplay/library', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'planner', courseId, settings, schedule: scheduleForSave }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Erro ao salvar');
+        savedId = typeof data.id === 'string' ? data.id : (plannerId ?? '');
+        scheduleForSave = { ...scheduleForSave, plannerId: savedId };
+      } else {
+        savedId = await savePlannerToFirestore(settings);
+      }
       setPlannerId(savedId);
 
-      const studyDays = buildStudyDays(startDate, endDate, allowedWeekdays, hoursPerWeekday);
-      const selectedVideos = videoFiles.filter((v) => selectedSubjects.includes(v.subject));
-      const planInput: PlanInput = {
-        studyDays,
-        hoursPerWeekday,
-        selectedVideoIds: selectedVideos.map((v) => v.videoId),
-        selectedSubjects,
-        subjectOrder: subjectOrder.length > 0 ? subjectOrder : selectedSubjects,
-        plannerId: savedId,
-      };
-      const schedule = generateSchedule(planInput, videoFiles, progressMap, DEFAULT_SCHEDULE_SETTINGS);
-      await saveScheduleToFirestore(libraryId, schedule);
+      let schedule = scheduleForSave;
+      if (!carplayBundle) {
+        const studyDays = buildStudyDays(startDate, endDate, allowedWeekdays, hoursPerWeekday, blockedDates);
+        const selectedVideos = videoFiles.filter((v) => selectedSubjects.includes(v.subject));
+        const planInput: PlanInput = {
+          studyDays,
+          hoursPerWeekday,
+          selectedVideoIds: selectedVideos.map((v) => v.videoId),
+          selectedSubjects,
+          subjectOrder: subjectOrder.length > 0 ? subjectOrder : selectedSubjects,
+          plannerId: savedId,
+        };
+        schedule = generateSchedule(planInput, videoFiles, progressMap, DEFAULT_SCHEDULE_SETTINGS);
+        await saveScheduleToFirestore(libraryId, schedule);
+      }
 
       onScheduleChange(schedule);
       onPlannerChange?.(savedId, { ...settings, id: savedId });
@@ -220,14 +316,15 @@ export default function OftPayPlanner({
         hoursPerWeekday: { ...settings.hoursPerWeekday },
         selectedSubjects: [...settings.selectedSubjects].sort(),
         subjectOrder: [...(settings.subjectOrder ?? settings.selectedSubjects)],
+        blockedDates: [...(settings.blockedDates ?? [])].sort(),
       };
-      await loadPlanners();
+      if (!carplayBundle) await loadPlanners();
       alert('Planejamento salvo. Cronograma gerado.');
     } catch (e) {
       console.error('Erro ao salvar:', e);
       alert('Erro ao salvar. Tente novamente.');
     }
-  }, [plannerId, plannerName, startDate, endDate, allowedWeekdays, hoursPerWeekday, selectedSubjects, subjectOrder, libraryId, videoFiles, progressMap, loadPlanners, onScheduleChange, onPlannerChange]);
+  }, [plannerId, plannerName, startDate, endDate, allowedWeekdays, hoursPerWeekday, blockedDates, selectedSubjects, subjectOrder, libraryId, courseId, videoFiles, progressMap, loadPlanners, onScheduleChange, onPlannerChange, carplayBundle]);
 
   const handleNewPlanner = useCallback(() => {
     userChoseNewPlannerRef.current = true;
@@ -240,6 +337,8 @@ export default function OftPayPlanner({
     setHoursPerWeekday({ 0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 0 });
     setSelectedSubjects([]);
     setSubjectOrder([]);
+    setBlockedDates([]);
+    setCalendarPromptDate(null);
     setStats(null);
     onScheduleChange(null);
     onPlannerChange?.(null, null);
@@ -333,8 +432,11 @@ export default function OftPayPlanner({
     const sss = [...snap.selectedSubjects].sort();
     if (ss.length !== sss.length || ss.some((v, i) => v !== sss[i])) return true;
     if (subjectOrder.length !== snap.subjectOrder.length || subjectOrder.some((v, i) => v !== snap.subjectOrder[i])) return true;
+    const blocked = [...blockedDates].sort();
+    const snapBlocked = [...(snap.blockedDates ?? [])].sort();
+    if (blocked.length !== snapBlocked.length || blocked.some((v, i) => v !== snapBlocked[i])) return true;
     return false;
-  }, [plannerId, plannerName, startDate, endDate, allowedWeekdays, hoursPerWeekday, selectedSubjects, subjectOrder]);
+  }, [plannerId, plannerName, startDate, endDate, allowedWeekdays, hoursPerWeekday, blockedDates, selectedSubjects, subjectOrder]);
 
   const formatHours = (minutes: number) => {
     if (minutes === 0) return '0h';
@@ -360,255 +462,357 @@ export default function OftPayPlanner({
     }
     return `/Oftreview%20Icones/${encodeURIComponent(subject.trim())}.png`;
   };
-  const getSubjectShortLabel = (subject: string) => {
-    if (subject.toLowerCase() === 'neuroftalmologia') return 'Neuroftalmo';
-    const cleaned = subject.replace(/[.,]/g, ' ').trim();
-    const first = cleaned.split(/\s+/)[0];
-    return first || subject;
-  };
-  /** Versão curta em maiúsculas para caber no card no mobile (ex: OCULOPLASTICA → OCULOPLA). */
-  const getSubjectShortLabelMobile = (subject: string, maxLen = 8) => {
-    const upper = (subject || '').trim().toUpperCase();
-    if (upper.length <= maxLen) return upper;
-    return upper.slice(0, maxLen);
-  };
+
+  const weeklyHours = Object.entries(hoursPerWeekday)
+    .filter(([index]) => allowedWeekdays.includes(parseInt(index, 10)))
+    .reduce((sum, [, hours]) => sum + (hours || 0), 0);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-blue-600" />
-          <h2 className="text-base font-semibold text-gray-900">Planejador de Estudo</h2>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+            <Calendar className="h-4 w-4 text-blue-600" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold tracking-tight text-gray-900 md:text-2xl">Planejador de Estudo</h2>
+            <p className="mt-1 text-sm text-gray-500">Configure sua rotina e organize seu cronograma de estudos.</p>
+          </div>
         </div>
         <button
           type="button"
           onClick={handleNewPlanner}
-          className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="h-4 w-4" />
           Novo Planejamento
         </button>
       </div>
 
-      {/* Seletor de Planejamento Salvo (igual ao oftreview) */}
-      <div className="mb-3 flex items-center gap-2">
-        <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Planejamento:</label>
-        <div className="flex-1 relative">
-          <select
-            value={plannerId ?? ''}
-            onChange={(e) => {
-              const id = e.target.value;
-              if (id) {
-                userChoseNewPlannerRef.current = false;
-                const p = plannersList.find((x) => x.id === id);
-                if (p) loadPlannerSettings(p);
-              } else {
-                handleNewPlanner();
-              }
-            }}
-            onFocus={() => { if (plannersList.length === 0) loadPlanners(); }}
-            className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none pr-16"
-          >
-            <option value="">-- Novo Planejamento --</option>
-            {plannersList.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          {plannerId && plannersList.some((p) => p.id === plannerId) && (
-            <>
-              <button
-                type="button"
-                onClick={handleSetFavorite}
-                className="absolute right-14 top-1/2 transform -translate-y-1/2 p-1 rounded text-amber-500 hover:bg-amber-50"
-                title={plannerId === favoritePlannerId ? 'Planejamento favorito (abre ao iniciar)' : 'Definir como favorito (abre ao iniciar)'}
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <div className="min-w-0">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Planejamento</h3>
+        <div className="mt-3 space-y-3">
+          <div className="min-w-0">
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Planejamento atual</label>
+            <div className="relative">
+              <select
+                value={plannerId ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) {
+                    userChoseNewPlannerRef.current = false;
+                    const p = plannersList.find((x) => x.id === id);
+                    if (p) loadPlannerSettings(p);
+                  } else {
+                    handleNewPlanner();
+                  }
+                }}
+                onFocus={() => { if (plannersList.length === 0) loadPlanners(); }}
+                className="w-full appearance-none rounded-xl border border-gray-200 bg-white py-2.5 pl-3 pr-16 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <Star className={`w-3.5 h-3.5 ${plannerId === favoritePlannerId ? 'fill-amber-500' : ''}`} />
-              </button>
-              <button
-                type="button"
-                onClick={() => plannerId && confirm('Tem certeza que deseja excluir este planejamento? O cronograma associado também será excluído.') && handleDeletePlanner(plannerId)}
-                className="absolute right-8 top-1/2 transform -translate-y-1/2 p-1 text-red-600 hover:bg-red-50 rounded"
-                title="Excluir planejamento"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
-          <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-        </div>
-      </div>
-
-      {/* Nome do planejamento */}
-      <div className="space-y-2">
-        <label className="block text-xs font-medium text-gray-700">Nome do Planejamento</label>
-        <input
-          type="text"
-          value={plannerName}
-          onChange={(e) => setPlannerName(e.target.value)}
-          placeholder="Ex: Estudo Anual 2025, Foco Catarata, etc."
-          className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-
-      {/* Período: Início e Fim na mesma linha, 2cm cada, exibição dd/mm/aaaa */}
-      <div className="space-y-1.5">
-        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Período</h3>
-        <div className="flex flex-nowrap gap-2 items-end min-w-0">
-          <div className="flex flex-col gap-0.5 w-[2cm] shrink-0">
-            <label className="text-[10px] font-medium text-gray-600 whitespace-nowrap">Início</label>
-            <div className="relative w-[2cm] h-7 border border-gray-300 rounded bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                aria-label="Data de início"
-              />
-              <span className="absolute inset-0 flex items-center px-1.5 text-xs text-gray-800 pointer-events-none">
-                {startDate ? formatDateDDMMYYYY(startDate) : 'dd/mm/aaaa'}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-0.5 w-[2cm] shrink-0">
-            <label className="text-[10px] font-medium text-gray-600 whitespace-nowrap">Fim</label>
-            <div className="relative w-[2cm] h-7 border border-gray-300 rounded bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-              <input
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                aria-label="Data de fim"
-              />
-              <span className="absolute inset-0 flex items-center px-1.5 text-xs text-gray-800 pointer-events-none">
-                {endDate ? formatDateDDMMYYYY(endDate) : 'dd/mm/aaaa'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Dias da Semana e Horas: 1ª coluna = dia (nome completo), 2ª coluna = controle de horas (+ / −) */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Dias da Semana e Horas</h3>
-        <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-50/50">
-          <div className="p-2.5">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 items-center">
-              {WEEKDAYS.map((d) => (
-                <Fragment key={d.index}>
+                <option value="">-- Novo Planejamento --</option>
+                {plannersList.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {plannerId && plannersList.some((p) => p.id === plannerId) && (
+                <>
                   <button
                     type="button"
-                    onClick={() => toggleWeekday(d.index)}
-                    className={`px-4 py-3 text-sm font-medium rounded-xl border-2 transition-all duration-200 text-left shadow-sm md:py-2.5 md:text-xs ${
-                      allowedWeekdays.includes(d.index)
-                        ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:shadow-md shadow-sm'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-sm'
+                    onClick={handleSetFavorite}
+                    className="absolute right-14 top-1/2 -translate-y-1/2 rounded-lg p-1 text-amber-500 hover:bg-amber-50"
+                    title={plannerId === favoritePlannerId ? 'Planejamento favorito (abre ao iniciar)' : 'Definir como favorito (abre ao iniciar)'}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${plannerId === favoritePlannerId ? 'fill-amber-500' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => plannerId && confirm('Tem certeza que deseja excluir este planejamento? O cronograma associado também será excluído.') && handleDeletePlanner(plannerId)}
+                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-lg p-1 text-red-600 hover:bg-red-50"
+                    title="Excluir planejamento"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+          <div className="min-w-0">
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">Nome do planejamento</label>
+            <input
+              type="text"
+              value={plannerName}
+              onChange={(e) => setPlannerName(e.target.value)}
+              placeholder="Ex: Estudo Anual 2025, Foco Catarata, etc."
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+          <div className="mt-5 border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900">Calendário</h3>
+              {!startDate || !endDate ? (
+                <p className="mt-3 text-sm text-gray-500">Defina o início e o fim para ver os dias.</p>
+              ) : (() => {
+                const periodMonths = listMonthsInRange(startDate, endDate);
+                const monthIndex = Math.min(calendarMonthIndex, Math.max(0, periodMonths.length - 1));
+                const current = periodMonths[monthIndex];
+                if (!current) return null;
+                const { year, month } = current;
+                const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+                const totalDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+                const cells: Array<number | null> = [
+                  ...Array.from({ length: firstWeekday }, () => null),
+                  ...Array.from({ length: totalDays }, (_, i) => i + 1),
+                ];
+                return (
+                  <div className="mt-3 w-full">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        disabled={monthIndex <= 0}
+                        onClick={() => {
+                          setCalendarPromptDate(null);
+                          setCalendarMonthIndex(monthIndex - 1);
+                        }}
+                        className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-50 disabled:opacity-30"
+                        aria-label="Mês anterior"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <p className="text-sm font-semibold text-gray-900">{MONTH_LABELS[month - 1]} {year}</p>
+                      <button
+                        type="button"
+                        disabled={monthIndex >= periodMonths.length - 1}
+                        onClick={() => {
+                          setCalendarPromptDate(null);
+                          setCalendarMonthIndex(monthIndex + 1);
+                        }}
+                        className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-50 disabled:opacity-30"
+                        aria-label="Próximo mês"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mb-1.5 grid grid-cols-7 gap-1.5">
+                      {WEEKDAYS.map((d) => (
+                        <span key={d.index} className="text-center text-[11px] font-medium text-gray-400">{d.name}</span>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {cells.map((day, index) => {
+                        if (day == null) return <span key={`empty-${index}`} />;
+                        const iso = toDateISO(year, month, day);
+                        const inPeriod = iso >= startDate && iso <= endDate;
+                        const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+                        const isStudyDay = inPeriod && allowedWeekdays.includes(weekday);
+                        const isBlocked = blockedDates.includes(iso);
+                        const showPrompt = calendarPromptDate === iso;
+                        const placeLeft = weekday >= 4;
+                        return (
+                          <div key={iso} className="relative">
+                            <button
+                              type="button"
+                              disabled={!isStudyDay && !isBlocked}
+                              onClick={() => setCalendarPromptDate(iso)}
+                              className={`h-10 w-full rounded-lg text-sm font-medium ${
+                                !inPeriod
+                                  ? 'text-gray-300'
+                                  : isBlocked
+                                    ? 'bg-gray-200 text-gray-500 line-through'
+                                    : isStudyDay
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-white text-gray-400 border border-gray-200'
+                              }`}
+                            >
+                              {day}
+                            </button>
+                            {showPrompt && (isStudyDay || isBlocked) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBlockedDates((prev) => (
+                                    isBlocked ? prev.filter((d) => d !== iso) : [...prev, iso]
+                                  ));
+                                  setCalendarPromptDate(null);
+                                }}
+                                className={`absolute top-1/2 z-20 -translate-y-1/2 whitespace-nowrap rounded-lg bg-gray-900 px-2 py-1 text-[11px] font-medium text-white shadow-md ${
+                                  placeLeft ? 'right-full mr-1' : 'left-full ml-1'
+                                }`}
+                              >
+                                {isBlocked ? 'Desbloquear' : 'Bloquear'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-gray-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+                        Disponível
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+                        Bloqueado
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+          </div>
+          </div>
+          <div className="min-w-0 lg:border-l lg:border-gray-100 lg:pl-6">
+            <div>
+            <p className="mb-1.5 text-xs font-medium text-gray-600">Período</p>
+            <div className="flex flex-nowrap items-center gap-2">
+              <div className="relative h-10 w-[8.75rem] shrink-0 rounded-xl border border-gray-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  aria-label="Data de início"
+                />
+                <span className="pointer-events-none absolute inset-0 flex items-center px-3 text-sm text-gray-800">
+                  {startDate ? formatDateDDMMYYYY(startDate) : 'dd/mm/aaaa'}
+                </span>
+              </div>
+              <span className="text-sm text-gray-400">→</span>
+              <div className="relative h-10 w-[8.75rem] shrink-0 rounded-xl border border-gray-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500">
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  aria-label="Data de fim"
+                />
+                <span className="pointer-events-none absolute inset-0 flex items-center px-3 text-sm text-gray-800">
+                  {endDate ? formatDateDDMMYYYY(endDate) : 'dd/mm/aaaa'}
+                </span>
+              </div>
+            </div>
+            <h3 className="mt-5 border-t border-gray-100 pt-4 text-sm font-semibold text-gray-900">Disponibilidade semanal</h3>
+            <p className="mt-1 text-sm text-gray-500">Defina quanto tempo você pode estudar em cada dia.</p>
+            <div className="mt-4 space-y-1.5">
+              {WEEKDAYS.map((d) => {
+                const active = allowedWeekdays.includes(d.index);
+                return (
+                  <div
+                    key={d.index}
+                    className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 ${
+                      active ? 'bg-blue-50/70' : 'bg-transparent'
                     }`}
                   >
-                    {d.fullName}
-                  </button>
-                  <div className="flex items-center justify-center">
-                    {allowedWeekdays.includes(d.index) ? (
-                      <div className="inline-flex items-center rounded-xl border-2 border-gray-200 bg-white shadow-sm overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleWeekday(d.index)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    >
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${active ? 'bg-blue-600' : 'bg-gray-300'}`} />
+                      <span className={`text-sm font-medium ${active ? 'text-gray-900' : 'text-gray-400'}`}>{d.fullName}</span>
+                    </button>
+                    {active ? (
+                      <div className="inline-flex items-center overflow-hidden rounded-xl border border-gray-200 bg-white">
                         <button
                           type="button"
                           onClick={() => updateHoursForWeekday(d.index, Math.max(0, (hoursPerWeekday[d.index] ?? 0) - 0.5))}
-                          className="flex items-center justify-center w-10 h-10 text-gray-600 hover:bg-gray-100 hover:text-blue-600 active:bg-gray-200 transition-colors touch-manipulation md:w-9 md:h-9"
+                          className="flex h-9 w-9 items-center justify-center text-gray-600 transition-colors hover:bg-gray-100 hover:text-blue-600"
                           aria-label="Diminuir 0,5 h"
                         >
-                          <Minus className="w-5 h-5 md:w-4 md:h-4" />
+                          <Minus className="h-4 w-4" />
                         </button>
-                        <span className="min-w-[3.5rem] py-2 text-center text-sm font-semibold tabular-nums text-gray-800 bg-gray-50/80 border-x border-gray-200 md:min-w-[3rem] md:text-xs">
+                        <span className="min-w-[3.5rem] border-x border-gray-200 px-1 text-center text-sm font-semibold tabular-nums text-gray-800">
                           {(hoursPerWeekday[d.index] ?? 0).toFixed(1)} h
                         </span>
                         <button
                           type="button"
                           onClick={() => updateHoursForWeekday(d.index, Math.min(24, (hoursPerWeekday[d.index] ?? 0) + 0.5))}
-                          className="flex items-center justify-center w-10 h-10 text-gray-600 hover:bg-gray-100 hover:text-blue-600 active:bg-gray-200 transition-colors touch-manipulation md:w-9 md:h-9"
+                          className="flex h-9 w-9 items-center justify-center text-gray-600 transition-colors hover:bg-gray-100 hover:text-blue-600"
                           aria-label="Aumentar 0,5 h"
                         >
-                          <Plus className="w-5 h-5 md:w-4 md:h-4" />
+                          <Plus className="h-4 w-4" />
                         </button>
                       </div>
                     ) : (
-                      <span className="text-sm text-gray-400">—</span>
+                      <span className="text-sm text-gray-300">—</span>
                     )}
                   </div>
-                </Fragment>
-              ))}
+                );
+              })}
+            </div>
+            {allowedWeekdays.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                <span className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700">
+                  {allowedWeekdays.length} {allowedWeekdays.length === 1 ? 'dia ativo' : 'dias ativos'}
+                </span>
+                <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
+                  {weeklyHours.toFixed(1)}h / semana
+                </span>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-red-600">Selecione pelo menos um dia da semana</p>
+            )}
             </div>
           </div>
         </div>
-        {allowedWeekdays.length > 0 && (
-          <div className="pt-1 border-t border-gray-200">
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xs font-medium text-gray-700">Total semanal:</span>
-              <span className="text-sm font-bold text-blue-600">
-                {Object.entries(hoursPerWeekday)
-                  .filter(([i]) => allowedWeekdays.includes(parseInt(i, 10)))
-                  .reduce((s, [, h]) => s + (h || 0), 0)
-                  .toFixed(1)}h
-              </span>
-            </div>
-          </div>
-        )}
-        {allowedWeekdays.length === 0 && (
-          <p className="text-xs text-red-600">Selecione pelo menos um dia da semana</p>
-        )}
-      </div>
+      </section>
 
-      {/* Assuntos do Cronograma (pastas dos vídeos do GCS - mesmo layout do oftreview com ícones) */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Assuntos do Cronograma</h3>
-        {orderedSelectedSubjects.length > 0 && (
-          <div className="mb-2 p-2 bg-blue-50 rounded border border-blue-200">
-            <p className="text-xs font-medium text-blue-900 mb-2">Ordem de Estudo:</p>
-            <div className="space-y-1">
-              {orderedSelectedSubjects.map((subject, index) => (
-                <div key={subject} className="flex items-center gap-2 p-1.5 bg-white rounded border border-blue-100">
-                  <span className="text-xs font-medium text-gray-700 w-6">{index + 1}.</span>
-                  <span className="flex-1 text-xs text-gray-900">{subject}</span>
-                  <button type="button" onClick={() => moveSubjectUp(subject)} disabled={index === 0} className="p-0.5 text-gray-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Mover para cima">
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  </button>
-                  <button type="button" onClick={() => moveSubjectDown(subject)} disabled={index === orderedSelectedSubjects.length - 1} className="p-0.5 text-gray-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Mover para baixo">
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+      <section className="min-w-0">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.48fr)_minmax(0,0.52fr)] lg:gap-5">
+        <div className="min-w-0 rounded-[22px] border border-slate-200/60 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+              <BookOpen className="h-5 w-5 text-blue-600" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-950">Assuntos do cronograma</h3>
+              <p className="mt-0.5 text-sm text-slate-500">Selecione os temas que deseja incluir no seu planejamento.</p>
             </div>
           </div>
-        )}
-        <div className="grid grid-cols-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
+          <p className="shrink-0 pt-1 text-sm font-semibold text-blue-600">
+            {selectedSubjects.length} {selectedSubjects.length === 1 ? 'selecionado' : 'selecionados'}
+          </p>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2.5 lg:grid-cols-3 xl:grid-cols-4">
           {availableSubjects.length === 0 ? (
             <div className="col-span-full">
-              <p className="text-xs text-gray-500">Nenhum assunto disponível. Os assuntos vêm das pastas dos vídeos (GCS).</p>
+              <p className="text-sm text-slate-500">Nenhum assunto disponível. Os assuntos vêm das pastas dos vídeos (GCS).</p>
             </div>
           ) : (
             availableSubjects.map((subject) => {
               const isSelected = selectedSubjects.includes(subject);
+              const visual = getSubjectVisual(subject);
+              const lines = subjectCardLines(subject);
               return (
                 <button
                   key={subject}
                   type="button"
                   onClick={() => toggleSubject(subject)}
-                  className={`group flex flex-col items-center justify-start gap-1.5 md:gap-2 p-2 md:p-3 rounded-xl md:rounded-2xl border-2 bg-white transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-w-0 overflow-hidden ${
-                    isSelected ? 'border-blue-500 bg-blue-50 shadow-md md:scale-105' : 'border-gray-200 hover:border-blue-300 hover:shadow-sm md:hover:scale-[1.02] active:scale-[0.98]'
+                  aria-pressed={isSelected}
+                  className={`relative flex min-w-0 flex-col items-center overflow-hidden rounded-2xl border bg-white px-1.5 pb-2 pt-2.5 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:flex-row sm:items-center sm:gap-2 sm:px-2 sm:py-2 sm:text-left lg:flex-col lg:items-center lg:gap-0 lg:px-1.5 lg:pb-2 lg:pt-2.5 lg:text-center xl:flex-row xl:items-center xl:gap-2 xl:px-2 xl:py-2 xl:text-left ${
+                    isSelected
+                      ? 'border-blue-200 bg-blue-50/30'
+                      : 'border-slate-200/80 hover:-translate-y-px hover:border-slate-300 hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)]'
                   }`}
                 >
-                  <div className={`relative w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 xl:w-20 xl:h-20 flex-shrink-0 rounded-lg md:rounded-xl flex items-center justify-center overflow-hidden transition-all duration-200 max-w-full ${
-                    isSelected ? 'bg-white shadow-sm border-2 border-blue-100' : 'bg-gray-50 border border-gray-200 group-hover:bg-white group-hover:border-blue-200'
-                  }`}>
-                    <img
-                      src={getSubjectIconSrc(subject)}
-                      alt={subject}
-                      className={`w-full h-full object-contain transition-transform duration-200 max-w-full max-h-full ${isSelected ? 'md:scale-110' : 'group-hover:scale-105'}`}
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  </div>
-                  <span className={`text-[10px] md:text-[11px] font-semibold text-center leading-tight transition-colors duration-200 ${isSelected ? 'text-blue-700' : 'text-gray-700 group-hover:text-blue-600'}`}>
-                    <span className="md:hidden">{getSubjectShortLabelMobile(subject)}</span>
-                    <span className="hidden md:inline">{getSubjectShortLabel(subject)}</span>
+                  <span className={`absolute inset-x-0 top-0 h-[3px] ${visual.stripeClass} ${isSelected ? '' : 'opacity-60'}`} />
+                  {isSelected ? <CheckCircle2 className="absolute right-1.5 top-2 h-3.5 w-3.5 text-blue-600" /> : null}
+                  <img
+                    src={getSubjectIconSrc(subject)}
+                    alt=""
+                    className="h-8 w-8 shrink-0 object-contain sm:h-7 sm:w-7 lg:h-8 lg:w-8 xl:h-7 xl:w-7"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                  <span className="mt-1.5 min-w-0 sm:mt-0 lg:mt-1.5 xl:mt-0">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-900 sm:line-clamp-2">{lines.lead}</span>
+                    {lines.rest ? (
+                      <span className="mt-0.5 block line-clamp-2 text-[10px] leading-snug text-slate-500">{lines.rest}</span>
+                    ) : null}
                   </span>
                 </button>
               );
@@ -616,113 +820,121 @@ export default function OftPayPlanner({
           )}
         </div>
         {selectedSubjects.length === 0 && availableSubjects.length > 0 && (
-          <p className="text-xs text-red-600">Selecione pelo menos um assunto</p>
+          <p className="mt-3 text-xs text-red-600">Selecione pelo menos um assunto</p>
         )}
-      </div>
+        </div>
 
-      {/* Botão Salvar */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
+        <div className="min-w-0 rounded-[22px] border border-slate-200/60 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:p-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+              <ListOrdered className="h-5 w-5 text-slate-700" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-950">Ordem e resumo</h3>
+              <p className="mt-0.5 text-sm text-slate-500">A sequência abaixo será usada na geração do cronograma.</p>
+            </div>
+          </div>
+          {stats && startDate && endDate && selectedSubjects.length > 0 && (
+            <div className="mt-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-2xl border border-slate-200/70 bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden />
+                    <p className="text-sm font-semibold tabular-nums text-blue-700">{stats.studyDaysCount}</p>
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-slate-500">dias</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200/70 bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 shrink-0 text-purple-600" aria-hidden />
+                    <p className="text-sm font-semibold tabular-nums text-purple-700">{formatHours(stats.totalCapacityMinutes)}</p>
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-slate-500">capacidade</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200/70 bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                  <div className="flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 shrink-0 text-orange-600" aria-hidden />
+                    <p className="text-sm font-semibold tabular-nums text-orange-700">{formatHours(stats.totalLoadMinutes)}</p>
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-slate-500">conteúdo</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200/70 bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className={`h-3.5 w-3.5 shrink-0 ${stats.excessMinutes >= 0 ? 'text-green-600' : 'text-red-600'}`} aria-hidden />
+                    <p className={`text-sm font-semibold tabular-nums ${stats.excessMinutes >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                      {stats.excessMinutes >= 0 ? '+' : ''}{formatHours(stats.excessMinutes)}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-slate-500">folga</p>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2 rounded-full bg-blue-600" style={{ width: `${stats.coveragePercent}%` }} />
+                </div>
+                <span className="shrink-0 text-[11px] font-medium tabular-nums text-slate-500">{stats.coveragePercent.toFixed(1)}%</span>
+              </div>
+              {stats.excessMinutes < 0 ? (
+                <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-800">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Não cabe no período. Ajuste as horas ou as datas.
+                </p>
+              ) : (
+                <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-green-50 px-3 py-2 text-xs text-green-800">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  Cabe com folga de {formatHours(stats.excessMinutes)}h
+                </p>
+              )}
+            </div>
+          )}
+          {orderedSelectedSubjects.length === 0 ? (
+            <p className="mt-4 text-xs text-slate-400">Selecione assuntos para definir a ordem.</p>
+          ) : (
+            <div className="mt-3 space-y-1.5">
+              {orderedSelectedSubjects.map((subject, index) => {
+                const visual = getSubjectVisual(subject);
+                const stat = stats?.perSubjectStats.find((item) => item.subject === subject);
+                return (
+                  <div key={subject} className="flex min-h-14 items-center gap-2 rounded-[14px] border border-slate-200/70 bg-white px-2.5 py-1.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[11px] font-semibold tabular-nums text-slate-500">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${visual.dotClass}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-900">{displaySubjectName(subject)}</p>
+                      {stat ? (
+                        <p className="truncate text-[11px] tabular-nums text-slate-500">
+                          {stat.videoCount} vídeos · {stat.totalMinutes.toFixed(1)}h · {stat.watchedMinutes.toFixed(1)}h assist. · {stat.watchedPercent.toFixed(1)}%
+                        </p>
+                      ) : null}
+                    </div>
+                    <button type="button" onClick={() => moveSubjectUp(subject)} disabled={index === 0} className="rounded-lg p-1 text-slate-400 transition-colors duration-150 hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-30" title="Mover para cima" aria-label="Mover para cima">
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => moveSubjectDown(subject)} disabled={index === orderedSelectedSubjects.length - 1} className="rounded-lg p-1 text-slate-400 transition-colors duration-150 hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-30" title="Mover para baixo" aria-label="Mover para baixo">
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        </div>
+      </section>
+
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={handleSavePlanner}
           disabled={!startDate || !endDate || !plannerName.trim() || selectedSubjects.length === 0 || !hasChanges}
-          className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           title={plannerId && !hasChanges ? 'Nenhuma alteração para salvar' : undefined}
         >
-          <Save className="w-4 h-4" />
+          <Save className="h-4 w-4" />
           Salvar Planejamento
         </button>
       </div>
-
-      {/* Resumo e Estatísticas (igual ao oftreview) */}
-      {stats && startDate && endDate && selectedSubjects.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-          <h4 className="text-sm font-semibold text-gray-900">Resumo do Planejamento</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-3">
-            <div className="bg-blue-50 rounded p-2.5">
-              <p className="text-xs text-gray-600 mb-0.5">Dias de Estudo</p>
-              <p className="text-lg font-bold text-blue-600">{stats.studyDaysCount}</p>
-            </div>
-            <div className="bg-green-50 rounded p-2.5">
-              <p className="text-xs text-gray-600 mb-0.5">Capacidade Total</p>
-              <p className="text-lg font-bold text-green-600">{formatHours(stats.totalCapacityMinutes)}</p>
-            </div>
-            <div className="bg-orange-50 rounded p-2.5">
-              <p className="text-xs text-gray-600 mb-0.5">Carga dos Vídeos</p>
-              <p className="text-lg font-bold text-orange-600">{formatHours(stats.totalLoadMinutes)}h</p>
-            </div>
-            <div className={`rounded p-2.5 ${stats.excessMinutes >= 0 ? 'bg-purple-50' : 'bg-red-50'}`}>
-              <p className="text-xs text-gray-600 mb-0.5">Folga/Excesso</p>
-              <p className={`text-lg font-bold ${stats.excessMinutes >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
-                {stats.excessMinutes >= 0 ? '+' : ''}{formatHours(stats.excessMinutes)}
-              </p>
-            </div>
-          </div>
-          <div className="pt-2 border-t border-gray-200">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-600">Percentual de Cobertura</span>
-              <span className="text-xs font-bold text-blue-700">{stats.coveragePercent.toFixed(1)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${stats.coveragePercent}%` }} />
-            </div>
-          </div>
-          {stats.excessMinutes < 0 ? (
-            <div className="bg-red-50 border border-red-200 rounded p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-red-800 mb-1">Não cabe no período</p>
-                  <p className="text-xs text-red-700">Ajuste as horas por dia ou o período para acomodar todo o conteúdo.</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-green-50 border border-green-200 rounded p-3">
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-green-800 mb-0.5">Cabe com folga</p>
-                  <p className="text-xs text-green-700">Folga de <strong>{formatHours(stats.excessMinutes)}h</strong> ({stats.coveragePercent.toFixed(1)}% de cobertura)</p>
-                </div>
-              </div>
-            </div>
-          )}
-          {stats.perSubjectStats.length > 0 && (
-            <div className="mt-3">
-              <h5 className="text-xs font-semibold text-gray-700 mb-2">Breakdown por Assunto</h5>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-600 uppercase">Assunto</th>
-                      <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-600 uppercase">Vídeos</th>
-                      <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-600 uppercase">Horas</th>
-                      <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-600 uppercase">Assistido</th>
-                      <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-600 uppercase">%</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {stats.perSubjectStats.map((stat) => (
-                      <tr key={stat.subject} className="hover:bg-gray-50">
-                        <td className="px-2 py-1.5 font-medium text-gray-900">{stat.subject}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-700">{stat.videoCount}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-700">
-                          {stat.totalMinutes.toFixed(1)}h
-                        </td>
-                        <td className="px-2 py-1.5 text-right text-gray-700">
-                          {stat.watchedMinutes.toFixed(1)}h
-                        </td>
-                        <td className="px-2 py-1.5 text-right text-gray-700">{stat.watchedPercent.toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

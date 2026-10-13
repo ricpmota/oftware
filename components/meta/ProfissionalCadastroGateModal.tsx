@@ -4,7 +4,7 @@ type Props = {
   loading?: boolean;
   onConfirm: () => void | Promise<void>;
   onDecline: () => void | Promise<void>;
-  tipo: 'nutri' | 'personal' | 'medico';
+  tipo: 'nutri' | 'personal' | 'medico' | 'psi';
 };
 
 export default function ProfissionalCadastroGateModal({
@@ -18,13 +18,17 @@ export default function ProfissionalCadastroGateModal({
       ? 'Voce e Nutricionista?'
       : tipo === 'medico'
         ? 'Voce e Medico?'
-        : 'Voce e Personal Trainer?';
+        : tipo === 'psi'
+          ? 'Voce e Psiquiatra?'
+          : 'Voce e Personal Trainer?';
   const descricao =
     tipo === 'nutri'
       ? 'Se voce atua como nutricionista, vamos continuar com o seu cadastro e abrir o chat de verificacao.'
       : tipo === 'medico'
         ? 'Se voce atua como medico, vamos continuar com o seu cadastro e abrir o chat de verificacao.'
-        : 'Se voce atua como personal trainer, vamos continuar com o seu cadastro e abrir o chat de verificacao.';
+        : tipo === 'psi'
+          ? 'Se voce atua como psiquiatra, vamos continuar com o seu cadastro e abrir o chat de verificacao.'
+          : 'Se voce atua como personal trainer, vamos continuar com o seu cadastro e abrir o chat de verificacao.';
 
   return (
     <div

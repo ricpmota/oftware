@@ -30,6 +30,7 @@ type Props = {
   rotuloLinhaAlvo?: string;
   marcosClinicos?: MarcoClinicoGrafico[];
   fases?: FaseTratamentoSegmento[];
+  modoInicial?: ModoGraficoPlano;
 };
 
 type MarcadorTimelineUi = PontoGraficoTratamento['marcadores'][number];
@@ -49,8 +50,8 @@ const ROTULO_MARCADOR: Record<MarcadorTimelineUi['tipo'], string> = {
 };
 
 const MODOS_GRAFICO: { id: ModoGraficoPlano; label: string }[] = [
-  { id: 'peso', label: 'Peso' },
   { id: 'dose', label: 'Dose' },
+  { id: 'peso', label: 'Peso' },
   { id: 'acompanhamento', label: 'Acompanhamento' },
   { id: 'marcos', label: 'Marcos' },
 ];
@@ -175,6 +176,13 @@ function ConteudoTooltipGrafico({
     });
   }
 
+  if (modo === 'dose' && row.injetaveis && row.injetaveis.length > 0) {
+    linhas.push({
+      rotulo: 'Injetáveis',
+      valor: row.injetaveis.length === 1 ? 'Aplicação prevista' : `${row.injetaveis.length} aplicações previstas`,
+    });
+  }
+
   if (modo === 'acompanhamento' && row.marcadores?.length) {
     linhas.push({
       rotulo: 'Acompanhamento',
@@ -190,7 +198,7 @@ function ConteudoTooltipGrafico({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md max-w-[220px]">
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md max-w-[260px]">
       <p className="font-medium text-slate-700 mb-1">{base}</p>
       {linhas.map((l) => (
         <p key={l.rotulo} className="text-slate-600">
@@ -244,6 +252,10 @@ function LegendaModo({
           <span className="w-3 h-3 rounded-sm bg-pink-200 border border-pink-400" />
           Dose semanal prevista
         </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-violet-600 border border-white" />
+          Injetáveis
+        </span>
         {fasesRender.map((fase) => (
           <span key={fase.id} className="inline-flex items-center gap-1.5">
             <span
@@ -295,8 +307,9 @@ export default function PlanoTerapeuticoGraficoPrevisto({
   rotuloLinhaAlvo = 'Peso alvo',
   marcosClinicos = [],
   fases = [],
+  modoInicial = 'dose',
 }: Props) {
-  const [modoGrafico, setModoGrafico] = useState<ModoGraficoPlano>('peso');
+  const [modoGrafico, setModoGrafico] = useState<ModoGraficoPlano>(modoInicial);
 
   if (dados.length === 0) return null;
 
@@ -325,6 +338,15 @@ export default function PlanoTerapeuticoGraficoPrevisto({
   const maxDose = comDose.reduce((m, p) => Math.max(m, p.doseSemanalMg), 0);
   const maxDoseAxis = maxDose > 0 ? Math.ceil(maxDose * 1.35 / 2.5) * 2.5 : 15;
   const doseTicks = [2.5, 5, 7.5, 10, 12.5, 15].filter((v) => v <= maxDoseAxis);
+  const pisoInjetavel = Math.max(1.25, maxDoseAxis * 0.12);
+
+  const dadosComInjetaveis = dadosComMarcos.map((d) => {
+    const temInj = (d.injetaveis?.length ?? 0) > 0 && d.semana > 0;
+    return {
+      ...d,
+      injetavelY: temInj ? Math.max(d.doseSemanalMg || 0, pisoInjetavel) : null,
+    };
+  });
 
   const marcadoresUnicos = dadosPlot.flatMap((d) =>
     d.marcadores.map((m) => ({
@@ -390,7 +412,7 @@ export default function PlanoTerapeuticoGraficoPrevisto({
 
       <div className="h-[22rem] sm:h-[26rem] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={dadosComMarcos} margin={{ top: 20, right: 12, left: 4, bottom: 8 }}>
+          <ComposedChart data={dadosComInjetaveis} margin={{ top: 12, right: 12, left: 4, bottom: 8 }}>
             <defs>
               <pattern id={patternId} patternUnits="userSpaceOnUse" width={10} height={10}>
                 <rect width="10" height="10" fill={dosePinkSoft} />
@@ -568,6 +590,22 @@ export default function PlanoTerapeuticoGraficoPrevisto({
                 ))}
               </Bar>
             ) : null}
+            {vis.dose &&
+              dadosComInjetaveis
+                .filter((d) => d.injetavelY != null)
+                .map((d) => (
+                  <ReferenceDot
+                    key={`inj-${d.semana}`}
+                    x={d.semanaLabel}
+                    y={d.injetavelY as number}
+                    yAxisId="dose"
+                    r={5}
+                    fill="#7c3aed"
+                    stroke="#fff"
+                    strokeWidth={1.5}
+                    isFront
+                  />
+                ))}
             {vis.marcadores &&
               marcadoresUnicos.map((m, idx) => {
                 if (m.pesoY == null) return null;

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { LogOut, Stethoscope, UserCheck, UtensilsCrossed, Dumbbell, ChevronDown } from 'lucide-react';
+import { LogOut, Stethoscope, UserCheck, UtensilsCrossed, Dumbbell, Brain, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { withIndicacaoRef } from '@/lib/landing/appNavigation';
 
@@ -31,6 +31,7 @@ const MENU_ITEMS = [
   { label: 'Médico', path: '/metaadmin', icon: Stethoscope },
   { label: 'Paciente', path: '/meta', icon: UserCheck },
   { label: 'Nutricionista', path: '/metanutri', icon: UtensilsCrossed },
+  { label: 'Psiquiatra', path: '/metapsi', icon: Brain },
   { label: 'Personal', path: '/metapersonal', icon: Dumbbell },
 ];
 

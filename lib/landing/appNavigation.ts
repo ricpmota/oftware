@@ -2,7 +2,7 @@ import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.
 
 export const OFTWARE_APP_ORIGIN = 'https://www.oftware.com.br';
 
-export const APP_ACCESS_PATHS = ['/meta', '/metaadmin', '/metanutri', '/metapersonal'] as const;
+export const APP_ACCESS_PATHS = ['/meta', '/metaadmin', '/metanutri', '/metapersonal', '/metapsi'] as const;
 export type AppAccessPath = (typeof APP_ACCESS_PATHS)[number];
 
 const APP_PATH_SET = new Set<string>(APP_ACCESS_PATHS);
@@ -44,7 +44,21 @@ export function sanitizeLoginNextPath(raw: string | null | undefined): string | 
   if (raw.includes('://') || raw.startsWith('//')) return null;
 
   const pathOnly = raw.split('?')[0] ?? '';
-  if (pathOnly !== '/metaadmingeral' && !pathOnly.startsWith('/metaadmingeral/')) {
+  if (pathOnly === '/50kgdepois' || pathOnly.startsWith('/50kgdepois/')) {
+    const qIdx = raw.indexOf('?');
+    if (qIdx === -1) return pathOnly;
+    const query = raw.slice(qIdx + 1);
+    if (!query || !/^[a-zA-Z0-9_=&%.-]*$/.test(query)) return pathOnly;
+    return raw;
+  }
+  const rotaAdmin =
+    pathOnly === '/metaadmingeral' ||
+    pathOnly.startsWith('/metaadmingeral/') ||
+    pathOnly === '/relatoriomedico' ||
+    pathOnly.startsWith('/relatoriomedico/') ||
+    pathOnly === '/relatoriomedicos' ||
+    pathOnly.startsWith('/relatoriomedicos/');
+  if (!rotaAdmin) {
     return null;
   }
 

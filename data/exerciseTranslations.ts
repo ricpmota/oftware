@@ -156,65 +156,133 @@ export function translateExerciseName(name: string): string {
 }
 
 /**
- * Traduz bodyPart, target e equipment
+ * Traduções ExerciseDB (listas oficiais da API).
+ * bodyPartList: 10 | targetList: 19 | equipmentList: 28
+ *
+ * Nota: a API NÃO tem "legs"/"arms" únicos —
+ * pernas = "upper legs" + "lower legs"; braços = "upper arms" + "lower arms".
  */
 export const bodyPartTranslations: Record<string, string> = {
-  'chest': 'Peito',
-  'back': 'Costas',
-  'shoulders': 'Ombros',
-  'arms': 'Braços',
-  'legs': 'Pernas',
-  'cardio': 'Cardio',
-  'waist': 'Cintura',
-  'upper legs': 'Coxas',
+  back: 'Costas',
+  cardio: 'Cardio',
+  chest: 'Peito',
+  'lower arms': 'Antebraços',
   'lower legs': 'Panturrilhas',
-  'neck': 'Pescoço',
+  neck: 'Pescoço',
+  shoulders: 'Ombros',
+  'upper arms': 'Braços',
+  'upper legs': 'Coxas',
+  waist: 'Abdômen',
 };
 
 export const targetTranslations: Record<string, string> = {
-  'pectorals': 'Peitorais',
-  'anterior deltoids': 'Deltóides Anteriores',
-  'lats': 'Latíssimos',
-  'biceps': 'Bíceps',
-  'triceps': 'Tríceps',
-  'quadriceps': 'Quadríceps',
-  'hamstrings': 'Posteriores',
-  'glutes': 'Glúteos',
-  'calves': 'Panturrilhas',
-  'abs': 'Abdominais',
-  'traps': 'Trapézios',
-  'rear delts': 'Deltóides Posteriores',
-  'middle delts': 'Deltóides Médios',
-  'forearms': 'Antebraços',
-  'adductors': 'Adutores',
-  'abductors': 'Abdutores',
+  abductors: 'Abdutores',
+  abs: 'Abdominais',
+  adductors: 'Adutores',
+  biceps: 'Bíceps',
+  calves: 'Panturrilhas',
+  'cardiovascular system': 'Sistema cardiovascular',
+  delts: 'Deltoides',
+  forearms: 'Antebraços',
+  glutes: 'Glúteos',
+  hamstrings: 'Posteriores (isquiotibiais)',
+  lats: 'Latíssimos',
+  'levator scapulae': 'Elevador da escápula',
+  pectorals: 'Peitorais',
+  quads: 'Quadríceps',
+  'serratus anterior': 'Serrátil anterior',
+  spine: 'Coluna',
+  traps: 'Trapézios',
+  triceps: 'Tríceps',
+  'upper back': 'Costas superiores',
+  // aliases / secundários que aparecem em secondaryMuscles
+  'anterior deltoids': 'Deltóides anteriores',
+  'rear delts': 'Deltóides posteriores',
+  'middle delts': 'Deltóides médios',
+  quadriceps: 'Quadríceps',
+  'lower back': 'Lombar',
 };
 
 export const equipmentTranslations: Record<string, string> = {
-  'barbell': 'Barra',
-  'dumbbell': 'Halter',
-  'cable': 'Cabo',
-  'machine': 'Máquina',
-  'body weight': 'Peso Corporal',
-  'kettlebell': 'Kettlebell',
-  'resistance band': 'Faixa Elástica',
-  'medicine ball': 'Medicine Ball',
+  assisted: 'Assistido',
+  band: 'Faixa elástica',
+  barbell: 'Barra',
+  'body weight': 'Peso corporal',
+  'bosu ball': 'Bola BOSU',
+  cable: 'Cabo / polia',
+  dumbbell: 'Halter',
+  'elliptical machine': 'Elíptico',
+  'ez barbell': 'Barra W (EZ)',
   'ez-bar': 'Barra W',
-  'smith machine': 'Smith Machine',
-  'none': 'Sem Equipamento',
+  hammer: 'Martelo',
+  kettlebell: 'Kettlebell',
+  'leverage machine': 'Máquina de alavanca',
+  machine: 'Máquina',
+  'medicine ball': 'Bola medicinal',
+  none: 'Sem equipamento',
+  'olympic barbell': 'Barra olímpica',
+  'resistance band': 'Faixa de resistência',
+  roller: 'Rolo',
+  rope: 'Corda',
+  'skierg machine': 'SkiErg',
+  'sled machine': 'Máquina de trenó',
+  'smith machine': 'Smith',
+  'stability ball': 'Bola de estabilidade',
+  'stationary bike': 'Bicicleta ergométrica',
+  'stepmill machine': 'Escada ergométrica',
+  tire: 'Pneu',
+  'trap bar': 'Barra hexagonal',
+  'upper body ergometer': 'Ergômetro de braços',
+  weighted: 'Com peso adicional',
+  'wheel roller': 'Roda abdominal',
+  // strings compostas raras na base (não estão no equipmentList)
+  'dumbbell, exercise ball': 'Halter + bola de exercício',
+  'dumbbell (used as handles for deeper range)': 'Halter (apoio para amplitude)',
+  'dumbbell, exercise ball, tennis ball': 'Halter + bola de exercício + bola de tênis',
+  'assisted (towel)': 'Assistido (toalha)',
+  'ez barbell, exercise ball': 'Barra W + bola de exercício',
+  'body weight (with resistance band)': 'Peso corporal (com faixa)',
 };
 
+function titleCasePt(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 export function translateBodyPart(bodyPart: string): string {
-  const translated = bodyPartTranslations[bodyPart.toLowerCase()] || bodyPart;
-  return translated.charAt(0).toUpperCase() + translated.slice(1);
+  const key = bodyPart.toLowerCase().trim();
+  return titleCasePt(bodyPartTranslations[key] || bodyPart);
 }
 
 export function translateTarget(target: string): string {
-  const translated = targetTranslations[target.toLowerCase()] || target;
-  return translated.charAt(0).toUpperCase() + translated.slice(1);
+  const key = target.toLowerCase().trim();
+  return titleCasePt(targetTranslations[key] || target);
 }
 
 export function translateEquipment(equipment: string): string {
-  const translated = equipmentTranslations[equipment.toLowerCase()] || equipment;
-  return translated.charAt(0).toUpperCase() + translated.slice(1);
+  const key = equipment.toLowerCase().trim();
+  return titleCasePt(equipmentTranslations[key] || equipment);
 }
+
+/** Mapa canônico músculo → parte do corpo (ExerciseDB). */
+export const targetToBodyPart: Record<string, string> = {
+  abductors: 'upper legs',
+  abs: 'waist',
+  adductors: 'upper legs',
+  biceps: 'upper arms',
+  calves: 'lower legs',
+  'cardiovascular system': 'cardio',
+  delts: 'shoulders',
+  forearms: 'lower arms',
+  glutes: 'upper legs',
+  hamstrings: 'upper legs',
+  lats: 'back',
+  'levator scapulae': 'neck',
+  pectorals: 'chest',
+  quads: 'upper legs',
+  'serratus anterior': 'chest',
+  spine: 'back', // também aparece em neck
+  traps: 'back',
+  triceps: 'upper arms',
+  'upper back': 'back',
+};

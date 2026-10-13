@@ -107,6 +107,7 @@ function interpolarComposicao(
     bioimpedancia: i(a.bioimpedancia, b.bioimpedancia),
     exames: i(a.exames, b.exames),
     outrosCustos: i(a.outrosCustos, b.outrosCustos),
+    custoInjetaveis: i(a.custoInjetaveis ?? 0, b.custoInjetaveis ?? 0),
     subtotal: i(a.subtotal, b.subtotal),
     margem: i(a.margem, b.margem),
     descontoManual: i(a.descontoManual, b.descontoManual),

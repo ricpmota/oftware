@@ -1,7 +1,9 @@
 import type { MedicoInstagramBio } from '@/types/medicoInstagramBio';
 import {
   INSTAGRAM_FOUNDER,
+  INSTAGRAM_PLATFORM_HREFS,
   INSTAGRAM_PROFILES,
+  INSTAGRAM_WHITELABEL_PARTNER_COPY,
   type InstagramFounderItem,
   type InstagramProfileItem,
 } from '@/components/instagram/instagramHubData';
@@ -14,6 +16,9 @@ import {
 } from '@/lib/instagram/instagramBioConfig';
 import type { InstagramHubMedicoPublic, InstagramHubPageConfig } from '@/lib/instagram/instagramWhiteLabelTypes';
 import { getMedicoWhatsAppUrl } from '@/lib/instagram/medicoWhatsAppUrl';
+import { getInstagramFounderWhatsAppUrl } from '@/lib/landing/instagramFounderWhatsApp';
+import { phoneFieldsFromProfessional } from '@/lib/whatsapp/resolveProfessionalPhone';
+import type { InternationalPhoneFields } from '@/lib/phone/buildWhatsappUrl';
 
 const RICARDO_MOTA_EMAIL = 'ricpmota.med@gmail.com';
 const OFTWARE_LOGO = '/oftware2.png';
@@ -24,10 +29,13 @@ export const INSTAGRAM_WHITE_LABEL_COPY = {
   profilePrompt: INSTAGRAM_BIO_TEXT_DEFAULTS.profilePrompt,
 } as const;
 
-function resolveWhatsAppPhone(medico: InstagramHubMedicoPublic): string | null {
+function resolveWhatsAppPhone(medico: InstagramHubMedicoPublic): InternationalPhoneFields | null {
   const fromBio = medico.instagramBio?.whatsapp?.trim();
-  if (fromBio) return fromBio;
-  return medico.telefone?.trim() || null;
+  if (fromBio) {
+    return { telefoneE164: fromBio };
+  }
+  if (!medico.telefone?.trim()) return null;
+  return phoneFieldsFromProfessional(medico);
 }
 
 function resolveLogo(medico: InstagramHubMedicoPublic): {
@@ -51,21 +59,26 @@ function resolveLogo(medico: InstagramHubMedicoPublic): {
   return { src: OFTWARE_LOGO, variant: 'oftware' };
 }
 
-function buildMedicoProfileItem(): InstagramProfileItem {
+function buildMedicoProfileItem(toFounderWhatsApp: boolean): InstagramProfileItem {
+  const founderMedico = INSTAGRAM_PROFILES.find((profile) => profile.id === 'medico');
   return {
     kind: 'profile',
     id: 'medico',
     title: 'Sou Médico',
     iconKey: 'stethoscope',
-    ctaLabel: 'Ver Clínica Digital',
-    href: 'https://www.oftware.com.br',
+    ctaLabel: toFounderWhatsApp ? 'Falar no WhatsApp' : 'Ver Clínica Digital',
+    href: toFounderWhatsApp
+      ? getInstagramFounderWhatsAppUrl('medico')
+      : INSTAGRAM_PLATFORM_HREFS.medico,
     accent: 'green',
     modalIntro:
-      'Transforme consultas em acompanhamento contínuo e construa uma clínica digital moderna.',
-    benefits: [
-      'Crie sua clínica digital',
-      'Acompanhe pacientes além da consulta',
-      'Menos dependência de plantões',
+      founderMedico?.modalIntro ||
+      'Tenha sua própria plataforma para acompanhar pacientes e construir um programa de acompanhamento contínuo.',
+    benefits: founderMedico?.benefits || [
+      'Sua própria plataforma com sua marca',
+      'Acompanhamento contínuo dos pacientes',
+      'Prescrições, exames e evolução em um só lugar',
+      'Menos dependência de consultas isoladas',
     ],
   };
 }
@@ -102,31 +115,49 @@ function resolveEmagrecerHref(medico: InstagramHubMedicoPublic): string {
   return INSTAGRAM_BIO_DEFAULT_EMAGRECIMENTO_URL;
 }
 
-function partnerProfileFromHub(id: 'nutricionista' | 'personal'): InstagramProfileItem {
+function partnerProfileFromHub(
+  id: 'nutricionista' | 'personal',
+  toFounderWhatsApp: boolean,
+): InstagramProfileItem {
   const item = INSTAGRAM_PROFILES.find((profile) => profile.id === id);
   if (!item) {
     throw new Error(`Perfil Instagram ausente: ${id}`);
   }
-  return { ...item };
+  if (toFounderWhatsApp) {
+    return {
+      ...item,
+      ctaLabel: 'Falar no WhatsApp',
+      href: getInstagramFounderWhatsAppUrl(id),
+    };
+  }
+  const legacy = INSTAGRAM_WHITELABEL_PARTNER_COPY[id];
+  return {
+    ...item,
+    ctaLabel: legacy.ctaLabel,
+    href: INSTAGRAM_PLATFORM_HREFS[id],
+    modalIntro: legacy.modalIntro,
+    benefits: legacy.benefits,
+  };
 }
 
 export function buildInstagramWhiteLabelHub(medico: InstagramHubMedicoPublic): InstagramHubPageConfig {
   const tratamento = medicoTratamentoShort(medico.genero);
   const whatsappPhone = resolveWhatsAppPhone(medico);
   const copy = resolveCopy(medico);
+  const isRicardo = medico.email === RICARDO_MOTA_EMAIL;
 
   const emagrecerHref = resolveEmagrecerHref(medico);
   const logo = resolveLogo(medico);
 
   const profiles: InstagramProfileItem[] = [];
 
-  if (medico.email === RICARDO_MOTA_EMAIL) {
-    profiles.push(buildMedicoProfileItem());
+  if (isRicardo) {
+    profiles.push(buildMedicoProfileItem(true));
   }
 
   profiles.push(buildEmagrecerProfileItem(emagrecerHref));
-  profiles.push(partnerProfileFromHub('nutricionista'));
-  profiles.push(partnerProfileFromHub('personal'));
+  profiles.push(partnerProfileFromHub('nutricionista', isRicardo));
+  profiles.push(partnerProfileFromHub('personal', isRicardo));
 
   const contactLabelTemplate =
     medico.instagramBio?.contactButtonLabel?.trim() ||
@@ -148,7 +179,7 @@ export function buildInstagramWhiteLabelHub(medico: InstagramHubMedicoPublic): I
   );
 
   let founder: InstagramFounderItem | null = null;
-  if (medico.email === RICARDO_MOTA_EMAIL) {
+  if (isRicardo) {
     founder = { ...INSTAGRAM_FOUNDER };
   } else if (whatsappGeral) {
     founder = {

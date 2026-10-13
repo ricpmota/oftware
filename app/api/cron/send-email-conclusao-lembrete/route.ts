@@ -10,6 +10,12 @@ import {
 import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
 import { dataConclusaoPrevisaoPaciente } from '@/lib/conclusao/dataConclusaoPrevisaoPlano';
 import { ensureConclusaoPublicUrl } from '@/lib/conclusao/ensureConclusaoPublicLink';
+import {
+  auditEmailEnviosQuery,
+  beginEmailEnviosAuditScope,
+  endEmailEnviosAuditScope,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -178,6 +184,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(envGate.body, { status: envGate.status });
   }
 
+  const auditScopeId = beginEmailEnviosAuditScope({
+    siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_SEND_EMAIL_CONCLUSAO.id,
+    surface: 'cron',
+  });
+
   try {
     const zeptoGate = assertCronZeptoConfigured();
     if (!zeptoGate.ok) {
@@ -220,6 +231,15 @@ export async function GET(request: NextRequest) {
       const leadId = paciente.userId || docSnap.id;
       let enviosSnap;
       try {
+        auditEmailEnviosQuery({
+          scopeId: auditScopeId,
+          siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_SEND_EMAIL_CONCLUSAO.id,
+          surface: 'cron',
+          queryPattern: 'leadId_eq_emailTipo_eq',
+          leadId,
+          emailTipos: [EMAIL_DOC_ID],
+          limit: 25,
+        });
         enviosSnap = await db
           .collection('email_envios')
           .where('leadId', '==', leadId)
@@ -227,8 +247,26 @@ export async function GET(request: NextRequest) {
           .limit(25)
           .get();
       } catch {
+        auditEmailEnviosQuery({
+          scopeId: auditScopeId,
+          siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_SEND_EMAIL_CONCLUSAO.id,
+          surface: 'cron',
+          queryPattern: 'other',
+          leadId,
+          limit: 40,
+          note: 'fallback sem filtro emailTipo',
+        });
         enviosSnap = await db.collection('email_envios').where('leadId', '==', leadId).limit(40).get();
       }
+
+      auditEmailEnviosQuery({
+        scopeId: auditScopeId,
+        siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_SEND_EMAIL_CONCLUSAO.id,
+        surface: 'cron',
+        queryPattern: 'leadId_eq_emailTipo_eq',
+        leadId,
+        docsReturned: enviosSnap.size,
+      });
 
       const jaHoje = enviosSnap.docs.some((e) => {
         const env = e.data();
@@ -270,5 +308,7 @@ export async function GET(request: NextRequest) {
       { error: 'Erro interno', details: (error as Error).message },
       { status: 500 }
     );
+  } finally {
+    endEmailEnviosAuditScope(auditScopeId, { cron: 'send-email-conclusao-lembrete' });
   }
 }

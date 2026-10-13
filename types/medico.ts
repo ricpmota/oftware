@@ -32,6 +32,17 @@ export interface HipoteseDiagnosticaSalva {
   texto: string;
 }
 
+/** Modelo reutilizável de requisição de exames (perfil do médico, todos os pacientes). */
+export interface ModeloPadraoExamesSalvo {
+  id: string;
+  nome: string;
+  examesSelecionados: string[];
+  examesCustomizados: string[];
+  hipoteseDiagnostica: string;
+  hipoteseDiagnosticaTitulo?: string;
+  criadoEm: string;
+}
+
 export interface Medico {
   id: string;
   userId: string; // Firebase Auth UID
@@ -42,11 +53,20 @@ export interface Medico {
   genero?: 'M' | 'F'; // Para exibir Dr./Dra.
   /** Usuário público do Instagram (sem @); ex.: "drfulano". Preenchido em Metaadmin. */
   instagramUsuario?: string | null;
-  telefone?: string; // Telefone do médico
+  telefone?: string; // Telefone do médico (nacional, sem DDI concatenado)
+  /** DDI sem '+'. Ausente = legado Brasil. */
+  telefoneDdi?: string;
+  /** ISO-3166 alpha-2 (ex.: "BR", "US", "PT"). */
+  telefonePais?: string;
   /** CPF (pessoa física), opcional — usado no recibo quando o médico escolher exibir CPF. */
   cpfPessoal?: string;
   /** CNPJ da empresa (pessoa jurídica), opcional — usado no recibo quando o médico escolher exibir CNPJ. */
   cnpjEmpresa?: string;
+  /**
+   * Chave PIX do médico (CPF, e-mail, telefone ou chave aleatória).
+   * Se preenchida, entra na mensagem de cobrança do Financeiro.
+   */
+  chavePix?: string | null;
   crm: {
     numero: string;
     estado: string;
@@ -71,6 +91,12 @@ export interface Medico {
   dataCadastro: Date;
   status: 'ativo' | 'inativo';
   isVerificado?: boolean; // Verificação do médico pelo admin
+  /**
+   * Permissão para upload/gestão da Central do Mentorado.
+   * Ausência do campo deve ser tratada como false.
+   * Controlada exclusivamente em /metaadmingeral.
+   */
+  uploadMentor?: boolean;
   /** Análise inteligente (IA) na aba Dados Clínicos — ativado pelo metaadmingeral. */
   anamneseInteligenteAtivo?: boolean;
   /** Foto da CNH (verificação — enviada no chat de primeiro acesso). */
@@ -95,6 +121,8 @@ export interface Medico {
    * Firestore pode ter legado `string[]`; normalizar com `normalizeHipotesesDiagnosticasSalvas`.
    */
   hipotesesDiagnosticasSalvas?: HipoteseDiagnosticaSalva[] | string[];
+  /** Modelos padrão de requisição de exames (perfil do médico). */
+  modelosPadraoExames?: ModeloPadraoExamesSalvo[];
   /** Preferência de provedor de assinatura digital (sem credenciais). */
   doctorSignatureProvider?: DoctorSignatureProvider;
   /** Identidade white label para links públicos enviados aos pacientes. */
@@ -103,6 +131,14 @@ export interface Medico {
   instagramBio?: MedicoInstagramBio;
   /** Quando true, usa as 6 imagens padrão do Método (platformSettings/metodoImagens). */
   metodoImagensAtivo?: boolean;
+  /** Organização da equipe (metaadmingeral / Comunicação). */
+  organizationId?: string | null;
+  /** IDs de documentos de nutricionistas com vínculo profissional aceito. */
+  nutricionistaVinculadoIds?: string[];
+  /** IDs de psiquiatras com vínculo profissional ativo (não concede ACL de paciente sozinho). */
+  psiquiatraVinculadoIds?: string[];
+  /** IDs de documentos de personal trainers com vínculo profissional aceito. */
+  personalTrainerVinculadoIds?: string[];
 }
 
 export function normalizeHipotesesDiagnosticasSalvas(raw: unknown): HipoteseDiagnosticaSalva[] {
@@ -128,6 +164,35 @@ export function normalizeHipotesesDiagnosticasSalvas(raw: unknown): HipoteseDiag
     }
     return { titulo: `Hipótese ${i + 1}`, texto: '' };
   });
+}
+
+export function normalizeModelosPadraoExames(raw: unknown): ModeloPadraoExamesSalvo[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw
+    .map((item, i) => {
+      if (!item || typeof item !== 'object') return null;
+      const o = item as Record<string, unknown>;
+      const nome = String(o.nome ?? '').trim();
+      if (!nome) return null;
+      const examesSelecionados = Array.isArray(o.examesSelecionados)
+        ? o.examesSelecionados.filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
+        : [];
+      const examesCustomizados = Array.isArray(o.examesCustomizados)
+        ? o.examesCustomizados.filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
+        : [];
+      const id = String(o.id ?? '').trim() || `modelo-${i + 1}`;
+      const hipoteseDiagnosticaTitulo = String(o.hipoteseDiagnosticaTitulo ?? '').trim();
+      return {
+        id,
+        nome: nome.slice(0, 80),
+        examesSelecionados,
+        examesCustomizados,
+        hipoteseDiagnostica: String(o.hipoteseDiagnostica ?? '').trim(),
+        hipoteseDiagnosticaTitulo: hipoteseDiagnosticaTitulo ? hipoteseDiagnosticaTitulo.slice(0, 120) : undefined,
+        criadoEm: String(o.criadoEm ?? '').trim() || new Date().toISOString(),
+      } satisfies ModeloPadraoExamesSalvo;
+    })
+    .filter((item): item is ModeloPadraoExamesSalvo => item !== null);
 }
 
 export interface CidadeAtendimento {

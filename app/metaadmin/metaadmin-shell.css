@@ -1,0 +1,121 @@
+/**
+ * MetaAdmin — tablet recolhe a sidebar (mesmo padrão do /metanutri).
+ *
+ * md–xl (768–1279): trilho de 64px; hamburger abre overlay com labels.
+ * xl+: sidebar completa.
+ */
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .ma-sidebar:not([data-ma-nav-open]) {
+    width: 4rem;
+  }
+
+  .ma-sidebar:not([data-ma-nav-open]) .ma-sidebar-label {
+    display: none !important;
+  }
+
+  .ma-sidebar:not([data-ma-nav-open]) .ma-sidebar-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .ma-sidebar:not([data-ma-nav-open]) .ma-sidebar-item-icon {
+    margin-right: 0 !important;
+  }
+
+  .ma-sidebar:not([data-ma-nav-open]) .ma-sidebar-top {
+    justify-content: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .ma-sidebar:not([data-ma-nav-open]) .ma-sidebar-nav,
+  .ma-sidebar:not([data-ma-nav-open]) .ma-sidebar-footer {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .ma-sidebar:not([data-ma-nav-open]) .ma-profile-dropdown {
+    left: 100%;
+    right: auto;
+    bottom: 0;
+    margin-bottom: 0;
+    margin-left: 0.5rem;
+  }
+
+  .ma-sidebar[data-ma-nav-open] {
+    width: 16rem;
+    z-index: 45;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .ma-pastas-top {
+    height: 2.25rem;
+  }
+
+  .ma-pastas-nav {
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+  }
+
+  .ma-pastas-nav > *,
+  .ma-pastas-nav > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0 !important;
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+  }
+
+  .ma-pastas-nav .my-2 {
+    margin-top: 0.125rem !important;
+    margin-bottom: 0.125rem !important;
+  }
+
+  .ma-pastas-item {
+    min-height: 2.125rem !important;
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
+  }
+
+  .ma-pastas:not([data-ma-pastas-open]) .ma-pastas-label {
+    display: none !important;
+  }
+
+  .ma-pastas:not([data-ma-pastas-open]) .ma-pastas-item {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .ma-pastas:not([data-ma-pastas-open]) .ma-pastas-item-icon {
+    margin-right: 0 !important;
+  }
+
+  .ma-pastas[data-ma-pastas-open] {
+    width: 14rem;
+    margin-right: -10rem;
+    z-index: 20;
+    box-shadow: 4px 0 16px rgba(15, 23, 42, 0.12);
+  }
+
+  .ma-pastas[data-ma-pastas-open] .ma-pastas-top {
+    justify-content: flex-end;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .ma-pastas[data-ma-pastas-open] .ma-pastas-item {
+    justify-content: flex-start;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .ma-pastas[data-ma-pastas-open] .ma-pastas-item-icon {
+    margin-right: 0.75rem;
+  }
+
+  .ma-pastas[data-ma-pastas-open] .ma-pastas-label {
+    display: inline !important;
+  }
+}

@@ -1,19 +1,24 @@
 'use client';
 
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, Loader2, X } from 'lucide-react';
 
 type Props = {
   open: boolean;
   pacienteNome?: string;
   pendencias: string[];
+  accepting?: boolean;
   onClose: () => void;
+  /** Aceita o paciente mesmo com cadastro incompleto e segue para o médico completar. */
+  onAccept?: () => void;
 };
 
 export default function ModalCadastroIncompletoPaciente({
   open,
   pacienteNome,
   pendencias,
+  accepting = false,
   onClose,
+  onAccept,
 }: Props) {
   if (!open) return null;
 
@@ -23,6 +28,7 @@ export default function ModalCadastroIncompletoPaciente({
         type="button"
         className="absolute inset-0 bg-black/50"
         aria-label="Fechar"
+        disabled={accepting}
         onClick={onClose}
       />
       <div
@@ -48,7 +54,8 @@ export default function ModalCadastroIncompletoPaciente({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            disabled={accepting}
+            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
             aria-label="Fechar modal"
           >
             <X className="h-5 w-5" />
@@ -79,7 +86,7 @@ export default function ModalCadastroIncompletoPaciente({
             </p>
           )}
           <p className="mt-4 text-xs text-gray-500">
-            Você só poderá aceitar o paciente depois que ele concluir o cadastro inicial no aplicativo.
+            Você pode aceitar mesmo assim e completar as respostas pendentes no lugar do paciente.
           </p>
         </div>
 
@@ -87,10 +94,28 @@ export default function ModalCadastroIncompletoPaciente({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+            disabled={accepting}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >
             Entendi
           </button>
+          {onAccept && (
+            <button
+              type="button"
+              onClick={onAccept}
+              disabled={accepting}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {accepting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Aceitando...
+                </>
+              ) : (
+                'Aceitar'
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

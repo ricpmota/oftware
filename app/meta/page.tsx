@@ -1,15 +1,29 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, Suspense, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { auth, db, storage } from '@/lib/firebase';
+import { buildWhatsappUrl } from '@/lib/phone/buildWhatsappUrl';
+import { InternationalPhoneInput } from '@/components/phone/InternationalPhoneInput';
+import {
+  IDENTIFICACAO_PHONE_ERROR,
+  isValidIdentificacaoPhone,
+  persistedPhoneForIdentificacao,
+} from '@/lib/phone/internationalPhoneValue';
+import { phoneFieldsFromProfessional } from '@/lib/whatsapp/resolveProfessionalPhone';
+import {
+  identPhoneWriteFieldsFromSolicitacao,
+  indicadoPorPhoneWriteFields,
+  indicacaoPhoneWriteFields,
+  solicitacaoPhoneWriteFields,
+  solicitacaoPhoneWriteFieldsFromIdent,
+} from '@/lib/whatsapp/resolveIndicacaoSolicitacaoPhone';
 import { RECOMENDACOES_TERM_VERSION } from '@/lib/meta/recomendacaoConsentConstants';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, query, collection, where, getDocs, deleteDoc, serverTimestamp, writeBatch, orderBy, limit, startAfter, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, getDocs, deleteDoc, deleteField, serverTimestamp, writeBatch, orderBy, limit, startAfter, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore';
 import { ref as storageRef, deleteObject } from 'firebase/storage';
-import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell, Eye, DollarSign, CheckCircle, Copy, UserPlus, MessageCircleIcon, ArrowRight, Mail, MapPin, Sun, Moon, Monitor, HelpCircle, LayoutDashboard, Check, Sparkles, Zap, Download, Syringe, TrendingUp, Loader2, Star, Scale, Share2, Quote, ExternalLink, Play, Pill, ImageIcon, Wrench } from 'lucide-react';
-import { gerarRelatorioCompleto as gerarRelatorioPDF } from '@/utils/gerarRelatorioPDF';
+import { BarChart3, RefreshCw, Calendar, Menu, X, MessageSquare, Bell, Plus, Trash2, Edit, Stethoscope, FlaskConical, FileText, User as UserIcon, Shield, ShieldCheck, ChevronDown, ChevronUp, Activity, Weight, Send, AlertCircle, Clock, Phone, AlertTriangle, ChevronLeft, ChevronRight, UtensilsCrossed, Dumbbell, Eye, DollarSign, CheckCircle, Copy, UserPlus, MessageCircleIcon, ArrowRight, Mail, MapPin, Sun, Moon, Monitor, HelpCircle, LayoutDashboard, Check, Sparkles, Zap, Download, Syringe, TrendingUp, Loader2, Star, Scale, Share2, Quote, Play, Pill, ImageIcon, Wrench } from 'lucide-react';
 import { UserService } from '@/services/userService';
 import { Escala, Local, Servico, Residente } from '@/types/auth';
 import { Troca } from '@/types/troca';
@@ -18,11 +32,25 @@ import { Ferias } from '@/types/ferias';
 import { MensagemService } from '@/services/mensagemService';
 import { MensagemResidente, MensagemResidenteParaAdmin } from '@/types/mensagem';
 import { PacienteService } from '@/services/pacienteService';
+import { pickNonEmptyMedicoResponsavelId } from '@/lib/metaadmin/medicoResponsavelIdOnUpdate';
 import { PacienteCompleto } from '@/types/obesidade';
+import { isValidFirebaseAuthUid } from '@/lib/firebase/isValidAuthUid';
 import { PacienteNutricionistaService } from '@/services/pacienteNutricionistaService';
-import { MetaAplicacaoResumoSection } from '@/components/meta/MetaAplicacaoResumoSection';
+import { MetaAplicacaoSemanaCard } from '@/components/meta/MetaAplicacaoSemanaCard';
+import MetaMeuPerfil from '@/components/meta/perfil/MetaMeuPerfil';
+import { BodyScanModal } from '@/components/bodyscan/BodyScanModal';
+import {
+  backfillBodyScansForMetaPatient,
+  discoverBodyScansForMetaPatient,
+  loadBodyScansForMetaPatient,
+} from '@/lib/bodyscan/loadBodyScansClient';
 import { GoogleCalendarService } from '@/services/googleCalendarService';
-import { PacienteMensagemService, PacienteMensagem } from '@/services/pacienteMensagemService';
+import OrganizacaoComunicacaoGmailPanel from '@/components/comunicacao/OrganizacaoComunicacaoGmailPanel';
+import { loadDestinatariosPaciente } from '@/lib/organizacaoMensagem/loadDestinatarios';
+import { pacienteSyntheticUserId } from '@/lib/organizacaoMensagem/types';
+import { METODO_ORGANIZATION_ID } from '@/lib/organization/organizationRegistry';
+import { resolveAssinaturaLogoUrl } from '@/lib/pacienteMensagem/assinaturaMensagem';
+import { OrganizacaoMensagemService } from '@/services/organizacaoMensagemService';
 import { MedicoService } from '@/services/medicoService';
 import { Medico } from '@/types/medico';
 import { getMedicoGoogleMapsHref } from '@/lib/meta/medicoLocalizacao';
@@ -35,17 +63,39 @@ import { buildExpectedCurveDoseDrivenAnchored, buildSuggestedDoseSchedule, predi
 import type { Sex } from '@/types/labRanges';
 import { getLabRange } from '@/utils/labRangesFromJson';
 import { useLabOrderBySection } from '@/hooks/useLabOrderBySection';
+import { usePatientOrganizationContext } from '@/hooks/usePatientOrganizationContext';
+import { usePatientOrganizationBranding } from '@/hooks/usePatientOrganizationBranding';
+import { metaUiBrandingCssVars, resolveMetaUiBranding } from '@/lib/organization/resolveMetaUiBranding';
+import OrganizationShellMobileMark from '@/components/organization/OrganizationShellMobileMark';
+import {
+  resolveOrganizationShellLogoUrl,
+  shouldShowOrganizationLogoInMobileHeader,
+} from '@/lib/organization/resolveOrganizationShellLogoUrl';
+import {
+  organizationShellActiveClass,
+  organizationShellCssVars,
+  organizationShellIdleClass,
+  organizationShellSplashProps,
+  resolveOrganizationShellChrome,
+  type OrganizationShellChrome,
+} from '@/lib/organization/resolveOrganizationShellChrome';
+import { devLog } from '@/lib/devLog';
 import { EXAME_LABORATORIAL_KEY_TO_FIELD } from '@/lib/metaadmin/exameLaboratorialFormFields';
 import { buildPatientLabSectionsFromOrder } from '@/lib/labExames/buildPatientLabSectionsFromOrder';
-import { LabRangeBar } from '@/components/LabRangeBar';
-import { LabOptimizationBadge } from '@/components/LabOptimizationBadge';
+import {
+  LabResultCard,
+  LabStatusLegend,
+  LabPatientHeaderCard,
+} from '@/components/LabResultCard';
 import { LabSectionScoreBadge } from '@/components/LabSectionScoreBadge';
 import { LabMetabolicSummarySection } from '@/components/LabMetabolicSummarySection';
 import { calculateSectionMetabolicScore } from '@/lib/labExames/labSectionScore';
+import { getExameCampoNumerico, exameTemCampoPreenchido } from '@/lib/labExames/exameCampoNumerico';
+import { findExameLaboratorialAnteriorPorData } from '@/lib/labExames/findExameLaboratorialAnterior';
+import { bioTrendDir } from '@/utils/bioImpedanciaTrend';
 import TrendLine from '@/components/TrendLine';
 import ChatIA from '@/components/ChatIA';
 import NutriContent from '@/components/NutriContent';
-import { PersonalPageContent } from '@/app/meta/personal/page';
 import { IndicacaoService } from '@/services/indicacaoService';
 import { Indicacao } from '@/types/indicacao';
 import { BannerService } from '@/services/bannerService';
@@ -63,17 +113,22 @@ import { alturaInputParaCm } from '@/utils/alturaInput';
 import { ClassificacaoProfissionalService } from '@/services/classificacaoProfissionalService';
 import type { ProfissionalTipo } from '@/types/classificacaoProfissional';
 import { RatingHint } from '@/components/RatingHint';
-import DepoimentosAnimatedBackdrop from '@/components/landing/DepoimentosAnimatedBackdrop';
 import { BioImpedanciaDisplay } from '@/components/bodymap/BioImpedanciaDisplay';
-import { salvarBioImpedanciaRegistros } from '@/services/bioImpedanciaService';
-import { MetaHomeSeisMetricas } from '@/components/meta/MetaHomeSeisMetricas';
+import { MetaPatientHeader, getMetaHomeFirstName } from '@/components/meta/home/MetaPatientHeader';
+import { MatchHomeEntryButton } from '@/components/meta/match/MatchHomeEntryButton';
+import { MetaHomeBanner } from '@/components/meta/home/MetaHomeBanner';
+import { MetaWeightDashboard } from '@/components/meta/home/MetaWeightDashboard';
+import { MetaHomeDateSelect } from '@/components/meta/home/MetaHomeDateSelect';
+import { MetaHomeImcRange } from '@/components/meta/home/MetaHomeImcRange';
+import { MetaHomeSecondaryMetrics } from '@/components/meta/home/MetaHomeSecondaryMetrics';
+import { resolvePesoMetaKgReal } from '@/utils/metaHomeWeightPeriod';
+import { resolveProximaAplicacaoFromLista } from '@/utils/metaHomeSecondaryMetrics';
 import {
   buildMetaHomeReferenciaOptions,
   getBioAnterior,
   getBioAteData,
   getEvolucaoAteData,
   getPesoNaDataReferencia,
-  metaHomeDateKey,
   resolveMetaHomeReferenciaDate,
 } from '@/utils/metaHomeDataReferencia';
 import MetaPacienteWizard from '@/components/meta/MetaPacienteWizard';
@@ -81,21 +136,23 @@ import { getFirstIncompleteStep, isMetaChatInicialCompleto } from '@/lib/meta/me
 import { resolveMedicoWhiteLabel } from '@/lib/whiteLabel/resolveMedicoWhiteLabel';
 import { getFirstIncompletePerfilMetabolicoStep } from '@/lib/meta/perfilMetabolicoV3Chat';
 import { MetaadminPlanoTerapeuticoEditSections } from '@/components/metaadmin/MetaadminPlanoTerapeuticoEditSections';
+import { MetaadminInjetaveisAplicacoesView } from '@/components/metaadmin/MetaadminInjetaveisAplicacoesView';
 import {
   resolveMetaPerdaPesoAtiva,
   resolveMetaReducaoCinturaAtiva,
 } from '@/utils/metasTratamentoSwitches';
 import { roundMetaHalfStep } from '@/utils/metaadminMetasUiSteps';
 import { PagamentoService } from '@/services/pagamentoService';
-import { PagamentoPaciente, ParcelaPagamento } from '@/types/pagamento';
+import { PagamentoPaciente } from '@/types/pagamento';
+import CadastroVerificacaoScreen from '@/components/portal/CadastroVerificacaoScreen';
 import PageLoadingScreen from '@/components/landing/PageLoadingScreen';
 import PrescricoesPacienteTab from '@/components/meta/PrescricoesPacienteTab';
+import { PersonalPageContent } from '@/app/meta/personal/page';
 import { ModalRecomendacoesPaciente } from '@/components/meta/ModalRecomendacoesPaciente';
 import ContratoPacienteMenuItem from '@/components/meta/ContratoPacienteMenuItem';
 import ContratoPacienteModal from '@/components/meta/ContratoPacienteModal';
-import PlanoTerapeuticoPacienteMenuItem from '@/components/meta/PlanoTerapeuticoPacienteMenuItem';
 import PlanoTerapeuticoPacienteModal from '@/components/meta/PlanoTerapeuticoPacienteModal';
-import PropostaPlanoPagamentosButton from '@/components/meta/PropostaPlanoPagamentosButton';
+import MetaPagamentosModal from '@/components/meta/MetaPagamentosModal';
 import { observarContratoTratamentoPorPacienteId } from '@/lib/documentos/contrato-tratamento/contratoPacienteService';
 import { contratoPacienteAssinaturaPendente } from '@/lib/documentos/contrato-tratamento/contratoTratamentoPacienteDisponibilidade';
 import type { ContratoTratamentoDocumentoRecord } from '@/lib/documentos/contrato-tratamento/contratoTratamentoTypes';
@@ -105,7 +162,6 @@ import { ExamesImagemPacientePanel } from '@/components/metaadmin/ExamesImagemPa
 import { EvolucaoTratamentoChart } from '@/components/EvolucaoTratamentoChart';
 import { buildDepoimentoResultadoFromPaciente } from '@/utils/buildDepoimentoResultadoFromPaciente';
 import {
-  aplicacaoFoiFeitaNoPaciente,
   formatarDataAplicacaoISO,
   labelLocalAplicacao,
   localPlanejadoParaSemana,
@@ -117,8 +173,7 @@ import {
 } from '@/utils/evolucaoAplicacaoHelpers';
 import { calcularDoseTitulacaoMg, DOSE_INICIAL_PADRAO_MG } from '@/lib/tirzepatida/doseTitulacao';
 import { dataPrevistaSemanaTratamento, primeiraDoseDoPlano } from '@/utils/datasAplicacaoSemanaPlano';
-
-const META_SPLASH_BG = '#0A1F44';
+import { progressoAplicacoesProtocoloAtivo } from '@/utils/tirzepatidaProtocoloDisplay';
 
 type FotoProgressoAplicacao = {
   id: string;
@@ -253,6 +308,25 @@ function obterAplicacoesPlanoPacienteMeta(paciente: PacienteCompleto | null | un
   return aplicacoes;
 }
 
+function metaDesktopSidebarItemClass(
+  active: boolean,
+  collapsed = false,
+  chrome?: OrganizationShellChrome,
+) {
+  const activeClass = chrome
+    ? organizationShellActiveClass(chrome, 'bg-white/10 text-[#4CCB7A] border-r-2 border-[#4CCB7A]')
+    : 'bg-white/10 text-[#4CCB7A] border-r-2 border-[#4CCB7A]';
+  return `w-full flex items-center py-2 text-sm font-medium rounded-md transition-colors ${
+    collapsed ? 'justify-center px-0' : 'px-3'
+  } ${
+    active
+      ? activeClass
+      : chrome
+        ? organizationShellIdleClass(chrome, 'text-[#E8EDED]/80 hover:bg-white/10 hover:text-[#E8EDED]')
+        : 'text-[#E8EDED]/80 hover:bg-white/10 hover:text-[#E8EDED]'
+  }`;
+}
+
 // Componente para animação de contagem regressiva
 function AnimatedCounter({ from, to, suffix = '', duration = 2000 }: { from: number; to: number; suffix?: string; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(from);
@@ -349,10 +423,14 @@ function AnimatedWeight({ weight, immediate = false, onAnimationComplete }: { we
   }, [weight, immediate, onAnimationComplete]);
 
   if (!weight || weight <= 0) {
-    return <span>--</span>;
+    return <span>—</span>;
   }
 
-  return <span>{displayValue.toFixed(1)}</span>;
+  return (
+    <span>
+      {displayValue.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+    </span>
+  );
 }
 
 // Componente para o link de encaminhamento
@@ -423,7 +501,7 @@ function LinkEncaminhamentoComponent({ emailIndicador, nomeIndicador }: { emailI
 }
 
 function MetaPageContent() {
-  const { labOrderBySection: labOrderBySecaoConfig, labLimitOverrides } = useLabOrderBySection();
+  const { labOrderBySection: labOrderBySecaoConfig, labLimitOverrides, labSectionLabels } = useLabOrderBySection();
   const searchParams = useSearchParams();
   const layoutParam = searchParams.get('layout');
   const [activeMenu, setActiveMenu] = useState('estatisticas');
@@ -447,6 +525,12 @@ function MetaPageContent() {
   const [homeReferenciaDataKey, setHomeReferenciaDataKey] = useState<string | null>(null);
   /** Evita duplicar o menu de perfil: sidebar desktop (lg+) usa dropdown local; portal só abaixo de lg */
   const [isLgViewport, setIsLgViewport] = useState(false);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.add('meta-app-lock');
+    return () => html.classList.remove('meta-app-lock');
+  }, []);
   
   // Estados para controle do arraste do marcador de IMC
   const [isDraggingIMC, setIsDraggingIMC] = useState(false);
@@ -506,12 +590,11 @@ function MetaPageContent() {
   const [paciente, setPaciente] = useState<PacienteCompleto | null>(null);
   const [metaPacienteLoadTick, setMetaPacienteLoadTick] = useState(0);
   const [loadingPaciente, setLoadingPaciente] = useState(false);
-  const [mensagensPaciente, setMensagensPaciente] = useState<PacienteMensagem[]>([]);
-  const [loadingMensagensPaciente, setLoadingMensagensPaciente] = useState(false);
+  /** Bloqueia UI/modais até a 1ª consulta de cadastro por e-mail terminar (evita abrir wizard antes da verificação). */
+  const [verificandoCadastroPaciente, setVerificandoCadastroPaciente] = useState(false);
   const [mensagensNaoLidasPaciente, setMensagensNaoLidasPaciente] = useState(0);
-  const [showMensagensMedicoModal, setShowMensagensMedicoModal] = useState(false); // Novo modal de mensagens médico-paciente
-  const [abaAtivaMensagens, setAbaAtivaMensagens] = useState<'recebidas' | 'enviadas'>('recebidas'); // Aba ativa no modal de mensagens
-  const [showEnviarMensagemMedicoModal, setShowEnviarMensagemMedicoModal] = useState(false); // Modal para enviar nova mensagem ao médico
+  const [showMensagensMedicoModal, setShowMensagensMedicoModal] = useState(false);
+  const [abrirMensagensDaQuery, setAbrirMensagensDaQuery] = useState(false);
   const [showRecomendacoesModal, setShowRecomendacoesModal] = useState(false);
   const [contratoPaciente, setContratoPaciente] = useState<ContratoTratamentoDocumentoRecord | null>(null);
   const [showContratoPacienteModal, setShowContratoPacienteModal] = useState(false);
@@ -522,15 +605,53 @@ function MetaPageContent() {
   /** Modal bloqueado (sem fechar) até concluir os 2 tópicos — ex.: após médico aceitar a solicitação. */
   const [recomendacoesObrigatorias, setRecomendacoesObrigatorias] = useState(false);
   const recomendacoesAutoAberturaTentadaRef = useRef(false);
-  const [mensagensEnviadasPaciente, setMensagensEnviadasPaciente] = useState<PacienteMensagem[]>([]); // Mensagens enviadas pelo paciente
-  const [novaMensagemMedico, setNovaMensagemMedico] = useState({
-    titulo: '',
-    mensagem: '',
-    tipo: 'clinico' as 'clinico' | 'alerta' | 'orientacao' | 'revisao'
-  });
   
   // Estados para médico responsável
   const [medicoResponsavel, setMedicoResponsavel] = useState<Medico | null>(null);
+  const [medicoResponsavelLookupDone, setMedicoResponsavelLookupDone] = useState(false);
+
+  const patientOrganization = usePatientOrganizationContext({
+    patient: paciente,
+    doctor: medicoResponsavel,
+    patientLoading: loading || loadingPaciente || verificandoCadastroPaciente,
+    doctorLookupDone: medicoResponsavelLookupDone,
+  });
+  const patientOrganizationBranding = usePatientOrganizationBranding(patientOrganization);
+  const metaUiBranding = useMemo(
+    () => resolveMetaUiBranding(patientOrganizationBranding),
+    [patientOrganizationBranding],
+  );
+  const shellChrome = useMemo(
+    () =>
+      resolveOrganizationShellChrome({
+        organizationId: patientOrganization.organizationId,
+        branding: patientOrganizationBranding.branding,
+      }),
+    [patientOrganization.organizationId, patientOrganizationBranding.branding],
+  );
+  const shellSplash = organizationShellSplashProps(shellChrome);
+  const metaSidebarLogoSrc = useMemo(
+    () =>
+      resolveOrganizationShellLogoUrl(patientOrganizationBranding.branding, {
+        backgroundColor: shellChrome.secondaryColor,
+      }),
+    [patientOrganizationBranding.branding, shellChrome.secondaryColor],
+  );
+  const metaHeaderLogoSrc = useMemo(
+    () =>
+      resolveOrganizationShellLogoUrl(patientOrganizationBranding.branding, {
+        darkBackground: false,
+      }),
+    [patientOrganizationBranding.branding],
+  );
+
+  useEffect(() => {
+    if (metaUiBranding.divergences.length === 0) return;
+    devLog('[MetaUiBranding]', {
+      organizationId: patientOrganizationBranding.organizationId,
+      divergences: metaUiBranding.divergences,
+    });
+  }, [metaUiBranding, patientOrganizationBranding.organizationId]);
   
   // Estados para nutricionista vinculado
   const [nutricionistaVinculado, setNutricionistaVinculado] = useState<{
@@ -544,6 +665,18 @@ function MetaPageContent() {
     id: string;
     nome: string;
     isVerificado?: boolean;
+  } | null>(null);
+
+  /** Psiquiatra com ACL ativa (paciente_psiquiatra) — usado na Comunicação. */
+  const [psiquiatraVinculado, setPsiquiatraVinculado] = useState<{
+    id: string;
+    nome: string;
+    email?: string;
+    registroNumero?: string;
+    crmUf?: string;
+    userId?: string;
+    genero?: 'M' | 'F' | '';
+    fotoPerfilUrl?: string | null;
   } | null>(null);
   
   // Estados para classificação de profissionais (1-5 estrelas)
@@ -749,12 +882,17 @@ function MetaPageContent() {
   // Um único modal (questionário em chat). Atalhos (Home, Exames, etc.) chamam isto; se não houver paciente, cria mínimo antes de abrir.
   const openModalDadosPaciente = useCallback(() => {
     if (!paciente && user?.uid && user?.email) {
+      const drMedicoId =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('drMedico')
+          : null;
       const minimal = {
         id: '',
         userId: user.uid,
         email: user.email,
         nome: user.displayName || user.email || '',
         medicoResponsavelId: null as string | null,
+        ...(drMedicoId ? { medicoRecomendadoId: drMedicoId } : {}),
         dadosIdentificacao: {
           nomeCompleto: user.displayName || user.email || '',
           email: user.email,
@@ -774,6 +912,7 @@ function MetaPageContent() {
         statusTratamento: 'pendente' as const,
       } as PacienteCompleto;
       setPaciente(minimal);
+      if (drMedicoId) setMedicoRecomendadoId(drMedicoId);
     }
     setPassoModalDadosPaciente(0);
     setShowModalDadosPaciente(true);
@@ -822,6 +961,8 @@ function MetaPageContent() {
   const [showModalMedico, setShowModalMedico] = useState(false);
   const [medicoSelecionado, setMedicoSelecionado] = useState<Medico | null>(null);
   const [telefonePaciente, setTelefonePaciente] = useState<string>('');
+  const [telefonePacienteDdi, setTelefonePacienteDdi] = useState<string>('');
+  const [telefonePacientePais, setTelefonePacientePais] = useState<string>('');
   const [pesoPacienteModal, setPesoPacienteModal] = useState<string>('');
   const [alturaPacienteModal, setAlturaPacienteModal] = useState<string>('');
   const [loadingSolicitacaoMedico, setLoadingSolicitacaoMedico] = useState(false);
@@ -928,10 +1069,17 @@ function MetaPageContent() {
 
   // Aplicações (meta): pasta ativa por índice 0..n-1; ao abrir a aba, a primeira já vem selecionada
   const [indiceAplicacaoSelecionada, setIndiceAplicacaoSelecionada] = useState(0);
+  const [rotuloVariacaoAplicacoes, setRotuloVariacaoAplicacoes] = useState<'peso' | 'circunferencia'>('peso');
+  const [aplicacaoDetalheAberto, setAplicacaoDetalheAberto] = useState(false);
+  const [registroFotograficoAberto, setRegistroFotograficoAberto] = useState(false);
+  const [excluindoAplicacaoKey, setExcluindoAplicacaoKey] = useState<string | null>(null);
   type AplicacoesSubpastaId = 'tirzepatida' | 'retatrutida' | 'injetaveis';
   const [aplicacoesSubpasta, setAplicacoesSubpasta] = useState<AplicacoesSubpastaId>('tirzepatida');
   useEffect(() => {
     setAplicacoesSubpasta('tirzepatida');
+    setRotuloVariacaoAplicacoes('peso');
+    setAplicacaoDetalheAberto(false);
+    setRegistroFotograficoAberto(false);
   }, [paciente?.id]);
   const [fotosAplicacoesPaciente, setFotosAplicacoesPaciente] = useState<FotoProgressoAplicacao[]>([]);
   const [loadingFotosAplicacoesPaciente, setLoadingFotosAplicacoesPaciente] = useState(false);
@@ -951,6 +1099,7 @@ function MetaPageContent() {
   const [erroFotosAplicacoesPaciente, setErroFotosAplicacoesPaciente] = useState<string | null>(null);
   const [compartilhamentoFotosMedico, setCompartilhamentoFotosMedico] = useState(true);
   const [salvandoCompartilhamentoFotos, setSalvandoCompartilhamentoFotos] = useState(false);
+  const [modalBodyScanAberto, setModalBodyScanAberto] = useState(false);
   const [fotoAplicacaoPendenteExclusao, setFotoAplicacaoPendenteExclusao] = useState<FotoProgressoAplicacao | null>(null);
   // Estados para pagamentos (aplicações)
   const [pagamentoPaciente, setPagamentoPaciente] = useState<PagamentoPaciente | null>(null);
@@ -1027,7 +1176,9 @@ function MetaPageContent() {
     cidade: '',
     medicoId: '',
     nomePaciente: '',
-    telefonePaciente: ''
+    telefonePaciente: '',
+    telefonePacienteDdi: '',
+    telefonePacientePais: '',
   });
   const [salvandoIndicacao, setSalvandoIndicacao] = useState(false);
   const [minhasIndicacoes, setMinhasIndicacoes] = useState<Indicacao[]>([]);
@@ -1073,19 +1224,27 @@ function MetaPageContent() {
     }
   }, [activeMenu, paciente?.id, loadPlanoNutricional]);
 
-  // Carregar cidades customizadas
+  // Carregar cidades customizadas (adiado — não bloqueia anamnese / chat)
   useEffect(() => {
-    const loadCidadesCustomizadas = async () => {
-      try {
-        const customizadas = await CidadeCustomizadaService.getAllCidadesCustomizadas();
-        setCidadesCustomizadas(
-          customizadas.map(c => ({ estado: c.estado, cidade: c.cidade }))
-        );
-      } catch (error) {
-        console.error('Erro ao carregar cidades customizadas:', error);
-      }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      const loadCidadesCustomizadas = async () => {
+        try {
+          const customizadas = await CidadeCustomizadaService.getAllCidadesCustomizadas();
+          if (cancelled) return;
+          setCidadesCustomizadas(
+            customizadas.map(c => ({ estado: c.estado, cidade: c.cidade }))
+          );
+        } catch (error) {
+          console.error('Erro ao carregar cidades customizadas:', error);
+        }
+      };
+      void loadCidadesCustomizadas();
+    }, 3000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
     };
-    loadCidadesCustomizadas();
   }, []);
 
 
@@ -1153,6 +1312,16 @@ function MetaPageContent() {
   };
   
   const router = useRouter();
+
+  // Personal: no mobile continua app fullscreen em /meta/personal.
+  // No desktop fica no shell do /meta (sidebar + conteúdo), como o /metapersonal.
+  useEffect(() => {
+    if (activeMenu !== 'personal') return;
+    if (typeof window === 'undefined') return;
+    if (window.innerWidth < 1024) {
+      router.replace('/meta/personal');
+    }
+  }, [activeMenu, router]);
 
   // Funções para controlar expand/collapse das escalas
   const toggleEscala = (escalaId: string) => {
@@ -1264,9 +1433,18 @@ function MetaPageContent() {
     if (!byNutri && !byEmail) return;
 
     setLoadingPaciente(true);
+    setMedicoResponsavelLookupDone(false);
     // Não resetar modalDadosAberturaTentadaRef aqui: cada loadPaciente() alterna loadingPaciente
     // e o efeito de auto-abertura do chat interpretava "nova carga" como permissão para abrir
     // de novo (ex.: após Salvar no modal de Metas), reabrindo o questionário indevidamente.
+    const releaseSplash = () => {
+      setLoadingPaciente(false);
+      if (!searchParams.get('pacienteId')) {
+        setVerificandoCadastroPaciente(false);
+      }
+      setMetaPacienteLoadTick((t) => t + 1);
+    };
+
     try {
       let pacienteData: PacienteCompleto | null = null;
 
@@ -1285,12 +1463,35 @@ function MetaPageContent() {
         console.log('Carregando paciente para email:', user!.email);
         pacienteData = await PacienteService.getPacienteByEmail(user!.email!);
         console.log('Paciente encontrado:', pacienteData ? pacienteData.nome : 'nenhum');
+
+        if (
+          pacienteData?.id &&
+          user?.uid &&
+          pacienteData.userId !== user.uid &&
+          !isValidFirebaseAuthUid(pacienteData.userId)
+        ) {
+          const claimed: PacienteCompleto = { ...pacienteData, userId: user.uid };
+          try {
+            await PacienteService.createOrUpdatePaciente(claimed);
+            pacienteData = claimed;
+          } catch (err) {
+            console.error('Erro ao vincular login Google ao cadastro do paciente:', err);
+          }
+        }
+      }
+
+      // Link /dr: já aplica médico indicado na memória para o chat pular busca sem esperar save.
+      const drMedicoId = searchParams.get('drMedico');
+      if (pacienteData && drMedicoId && !pacienteData.medicoRecomendadoId) {
+        pacienteData = { ...pacienteData, medicoRecomendadoId: drMedicoId };
       }
 
       console.log('Status do tratamento:', pacienteData?.statusTratamento);
       setPaciente(pacienteData);
       if (pacienteData?.medicoRecomendadoId) {
         setMedicoRecomendadoId(pacienteData.medicoRecomendadoId);
+      } else if (drMedicoId) {
+        setMedicoRecomendadoId(drMedicoId);
       }
       // Carregar preferência de layout
       const preferencia = (pacienteData as any)?.preferenciaLayout;
@@ -1299,8 +1500,12 @@ function MetaPageContent() {
       } else if (layoutParam) {
         setPreferenciaLayout(layoutParam);
       }
-      
-      // Carregar dados do médico responsável
+
+      // Libera splash/chat assim que o paciente core existe.
+      // Médico/nutri/personal abaixo não devem bloquear a anamnese inicial.
+      releaseSplash();
+
+      // Carregar dados do médico responsável (background)
       if (pacienteData && pacienteData.medicoResponsavelId) {
         try {
           const medicoData = await MedicoService.getMedicoById(pacienteData.medicoResponsavelId);
@@ -1314,11 +1519,13 @@ function MetaPageContent() {
         console.log('Paciente não tem médico responsável vinculado');
         setMedicoResponsavel(null);
       }
+      setMedicoResponsavelLookupDone(true);
       
       // Carregar nutricionista e personal vinculados ao paciente (e limpar quando não há paciente)
       if (!pacienteData) {
         setNutricionistaVinculado(null);
         setPersonalVinculado(null);
+        setPsiquiatraVinculado(null);
       } else {
         try {
           const { COL_PACIENTE_NUTRICIONISTA, COL_SOLICITACOES_NUTRICIONISTA, SOLICITACAO_STATUS } = await import('@/features/metaNutri/metaNutri.constants');
@@ -1425,16 +1632,48 @@ function MetaPageContent() {
           console.error('Erro ao carregar personal vinculado:', error);
           setPersonalVinculado(null);
         }
+
+        // Psiquiatra: SoT paciente_psiquiatra ativo (não só mirror)
+        try {
+          const { PacientePsiquiatraService } = await import('@/services/pacientePsiquiatraService');
+          const { PsiquiatraService } = await import('@/services/psiquiatraService');
+          const vinculosPsi = await PacientePsiquiatraService.listActiveVinculosByPaciente(
+            pacienteData.id
+          );
+          if (vinculosPsi.length > 0) {
+            const psiId = vinculosPsi[0]!.psiquiatraId;
+            const psi = await PsiquiatraService.getPsiquiatraByUserId(psiId);
+            if (psi) {
+              setPsiquiatraVinculado({
+                id: psi.id || psiId,
+                nome: psi.nome,
+                email: psi.email,
+                registroNumero: psi.registroNumero,
+                crmUf: psi.crmUf,
+                userId: psi.userId || psiId,
+                genero: psi.genero,
+                fotoPerfilUrl: psi.fotoPerfilUrl || null,
+              });
+            } else {
+              setPsiquiatraVinculado(null);
+            }
+          } else {
+            setPsiquiatraVinculado(null);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar psiquiatra vinculado:', error);
+          setPsiquiatraVinculado(null);
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar paciente:', error);
       setPaciente(null);
       setMedicoResponsavel(null);
+      setMedicoResponsavelLookupDone(true);
       setNutricionistaVinculado(null);
       setPersonalVinculado(null);
-    } finally {
-      setLoadingPaciente(false);
-      setMetaPacienteLoadTick((t) => t + 1);
+      setPsiquiatraVinculado(null);
+      releaseSplash();
     }
   }, [user?.email, user?.uid, layoutParam, searchParams]);
 
@@ -1513,39 +1752,21 @@ function MetaPageContent() {
     };
   }, [showDepoimentoLeituraModal, paciente?.id, medicoResponsavel?.id]);
 
-  // Função para carregar mensagens do paciente
+  // Contagem de não lidas no canal corporativo (o que o paciente vê em Comunicação)
   const loadMensagensPacienteAtual = useCallback(async () => {
-    if (!user?.email) return;
-    
-    setLoadingMensagensPaciente(true);
+    if (!user?.uid) return;
+
     try {
-      console.log('📬 Carregando mensagens do paciente para:', user.email);
-      const mensagensData = await PacienteMensagemService.getMensagensPaciente(user.email);
-      console.log('📬 Mensagens recebidas do serviço:', mensagensData.length);
-      console.log('📬 Mensagens (detalhes):', mensagensData);
-      
-      const mensagensFiltradas = mensagensData.filter(m => !m.deletada);
-      console.log('📬 Mensagens não deletadas:', mensagensFiltradas.length);
-      
-      // Separar mensagens recebidas (do médico) e enviadas (pelo paciente)
-      const recebidas = mensagensFiltradas.filter(m => m.direcao === 'medico_para_paciente' || !m.direcao);
-      const enviadas = mensagensFiltradas.filter(m => m.direcao === 'paciente_para_medico');
-      
-      setMensagensPaciente(recebidas);
-      setMensagensEnviadasPaciente(enviadas);
-      
-      // Contar não lidas (apenas recebidas)
-      const naoLidas = recebidas.filter(m => !m.lida).length;
-      console.log('📬 Mensagens não lidas:', naoLidas);
-      setMensagensNaoLidasPaciente(naoLidas);
+      const ids = [user.uid];
+      if (paciente?.id) ids.push(pacienteSyntheticUserId(paciente.id));
+      const orgMsgs = await OrganizacaoMensagemService.listMensagensDoUsuario(ids);
+      const me = new Set(ids);
+      setMensagensNaoLidasPaciente(orgMsgs.filter((m) => me.has(m.to.userId) && !m.lida).length);
     } catch (error) {
       console.error('Erro ao carregar mensagens do paciente:', error);
-      setMensagensPaciente([]);
-      setMensagensEnviadasPaciente([]);
-    } finally {
-      setLoadingMensagensPaciente(false);
+      setMensagensNaoLidasPaciente(0);
     }
-  }, [user?.email]);
+  }, [user?.uid, paciente?.id]);
 
   // Função para carregar solicitações do paciente
   const loadMinhasSolicitacoes = useCallback(async () => {
@@ -1611,9 +1832,13 @@ function MetaPageContent() {
             dadosIdentificacao: {
               nomeCompleto: pacienteNome,
               email: user.email || '',
-              telefone: telefonePaciente.trim().replace(/\D/g, ''),
               dataCadastro: new Date(),
-              endereco: {}
+              endereco: {},
+              ...identPhoneWriteFieldsFromSolicitacao({
+                pacienteTelefone: telefonePaciente,
+                pacienteTelefoneDdi: telefonePacienteDdi,
+                pacienteTelefonePais: telefonePacientePais,
+              }),
             },
             dadosClinicos: {
               medidasIniciais: {
@@ -1644,7 +1869,11 @@ function MetaPageContent() {
         pacienteId: pacienteIdFinal ?? undefined,
         pacienteEmail: user.email || '',
         pacienteNome,
-        pacienteTelefone: telefonePaciente.trim(),
+        ...solicitacaoPhoneWriteFields({
+          pacienteTelefone: telefonePaciente,
+          pacienteTelefoneDdi: telefonePacienteDdi,
+          pacienteTelefonePais: telefonePacientePais,
+        }),
         medicoId: medicoSelecionado.id,
         medicoNome: medicoSelecionado.nome,
         status: 'pendente'
@@ -1654,6 +1883,8 @@ function MetaPageContent() {
       setShowModalMedico(false);
       setMedicoSelecionado(null);
       setTelefonePaciente('');
+      setTelefonePacienteDdi('');
+      setTelefonePacientePais('');
       setPesoPacienteModal('');
       setAlturaPacienteModal('');
       setShowModalSolicitacaoEnviada(true);
@@ -1661,12 +1892,10 @@ function MetaPageContent() {
       setTimeout(() => {
         if (medicoSelecionado.telefone) {
           try {
-            let telefoneFormatado = medicoSelecionado.telefone.replace(/\D/g, '');
-            if (telefoneFormatado.startsWith('0')) telefoneFormatado = telefoneFormatado.substring(1);
-            if (!telefoneFormatado.startsWith('55')) telefoneFormatado = '55' + telefoneFormatado;
             const tituloMedico = medicoSelecionado.genero === 'F' ? 'Dra.' : 'Dr.';
             const mensagem = `Olá, ${tituloMedico} ${medicoSelecionado.nome}, estou enviando uma solicitação para cotação de um tratamento com Tirzepatida. Poderia me dar mais informações, por favor.`;
-            window.open(`https://wa.me/${telefoneFormatado}?text=${encodeURIComponent(mensagem)}`, '_blank');
+            const waUrl = buildWhatsappUrl(phoneFieldsFromProfessional(medicoSelecionado), mensagem);
+            if (waUrl) window.open(waUrl, '_blank');
           } catch (e) {
             console.error('Erro ao abrir WhatsApp:', e);
           }
@@ -1678,7 +1907,7 @@ function MetaPageContent() {
     } finally {
       setLoadingSolicitacaoMedico(false);
     }
-  }, [user, medicoSelecionado, paciente, telefonePaciente, pesoPacienteModal, alturaPacienteModal, pesoTemporarioIMCModal, loadMinhasSolicitacoes]);
+  }, [user, medicoSelecionado, paciente, telefonePaciente, telefonePacienteDdi, telefonePacientePais, pesoPacienteModal, alturaPacienteModal, pesoTemporarioIMCModal, loadMinhasSolicitacoes]);
 
   // Verificar autorização do Google Calendar
   const verificarAutorizacaoGoogleCalendar = useCallback(async () => {
@@ -1737,8 +1966,40 @@ function MetaPageContent() {
     } else {
       setPacienteIdFromQuery(null);
       setIsNutricionistaMode(false);
+      if (menu === 'personal') {
+        setActiveMenu('personal');
+      } else if (menu === 'exames') {
+        setActiveMenu('exames');
+        setMetaExamesSubAba(searchParams.get('aba') === 'imagens' ? 'imagens' : 'laboratoriais');
+      } else if (menu === 'aplicacoes') {
+        setActiveMenu('aplicacoes');
+      } else if (menu === 'mensagens') {
+        setAbrirMensagensDaQuery(true);
+      } else if (menu === 'nutri') {
+        setActiveMenu('nutri');
+      } else if (menu === 'perfil') {
+        setActiveMenu('perfil');
+      }
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!abrirMensagensDaQuery) return;
+    if (!user || !paciente) return;
+    if (!(medicoResponsavel || nutricionistaVinculado || personalVinculado || psiquiatraVinculado)) return;
+    setShowMensagensMedicoModal(true);
+    void loadMensagensPacienteAtual();
+    setAbrirMensagensDaQuery(false);
+  }, [
+    abrirMensagensDaQuery,
+    user,
+    paciente,
+    medicoResponsavel,
+    nutricionistaVinculado,
+    personalVinculado,
+    psiquiatraVinculado,
+    loadMensagensPacienteAtual,
+  ]);
 
   // Salvar referral no paciente quando ele for carregado e houver referral
   useEffect(() => {
@@ -1776,10 +2037,20 @@ function MetaPageContent() {
 
   // Link /dr → ?drMedico= ou solicitação pendente: gravar médico indicado no paciente (pula busca no wizard).
   useEffect(() => {
-    if (!paciente?.id || syncingMedicoIndicadoRef.current) return;
-    if (paciente.statusTratamento === 'em_tratamento' && paciente.medicoResponsavelId) return;
-
     const drMedicoId = searchParams.get('drMedico');
+    if (drMedicoId) setMedicoRecomendadoId(drMedicoId);
+
+    // Paciente ainda sem id (1º acesso): só seed em memória — o save acontece no wizard.
+    if (!paciente?.id) {
+      if (!drMedicoId || !paciente) return;
+      if (paciente.medicoRecomendadoId === drMedicoId) return;
+      setPaciente((prev) => (prev ? { ...prev, medicoRecomendadoId: drMedicoId } : prev));
+      return;
+    }
+
+    if (syncingMedicoIndicadoRef.current) return;
+    if (String(paciente.medicoResponsavelId || '').trim()) return;
+
     const pendente = minhasSolicitacoes.find((s) => s.status === 'pendente');
     const targetId = drMedicoId || pendente?.medicoId;
     if (!targetId) return;
@@ -1793,8 +2064,7 @@ function MetaPageContent() {
       if (!prev) return prev;
       return { ...prev, medicoRecomendadoId: targetId };
     });
-    const updated: PacienteCompleto = { ...paciente, medicoRecomendadoId: targetId };
-    void PacienteService.createOrUpdatePaciente(updated)
+    void PacienteService.patchPacienteFields(paciente.id, { medicoRecomendadoId: targetId })
       .then(() => {
         setMedicoRecomendadoId(targetId);
         setMetaPacienteLoadTick((t) => t + 1);
@@ -1805,7 +2075,6 @@ function MetaPageContent() {
   }, [
     paciente?.id,
     paciente?.medicoRecomendadoId,
-    paciente?.statusTratamento,
     paciente?.medicoResponsavelId,
     searchParams.get('drMedico'),
     minhasSolicitacoes,
@@ -1848,15 +2117,31 @@ function MetaPageContent() {
     }
   }, [loadPaciente, router, searchParams]);
 
-  // Carregar dados do paciente e mensagens quando o usuário estiver logado
+  // Carregar paciente ao logar — NÃO acoplar a mensagens (loadMensagensPacienteAtual muda com paciente.id
+  // e re-disparava este efeito, reabrindo a splash "Verificando cadastro..." em loop).
   useEffect(() => {
     const qPacienteId = searchParams.get('pacienteId');
-    const canLoadByNutri = user?.uid && qPacienteId;
-    const canLoadByEmail = user?.email && !qPacienteId;
-    const canLoadPaciente = user && (canLoadByEmail || canLoadByNutri);
-    if (canLoadPaciente) loadPaciente();
-    if (user && user.email && !qPacienteId) loadMensagensPacienteAtual();
-  }, [user, searchParams, loadPaciente, loadMensagensPacienteAtual]);
+    if (!user) {
+      setVerificandoCadastroPaciente(false);
+      return;
+    }
+    const canLoadByNutri = user.uid && qPacienteId;
+    const canLoadByEmail = user.email && !qPacienteId;
+    const canLoadPaciente = canLoadByEmail || canLoadByNutri;
+    if (canLoadPaciente) {
+      if (!qPacienteId) setVerificandoCadastroPaciente(true);
+      loadPaciente();
+    }
+  }, [user, searchParams, loadPaciente]);
+
+  // Mensagens do serviço de comunicação: só depois do chat/splash liberados (não competir no 1º paint).
+  useEffect(() => {
+    if (!user?.uid || verificandoCadastroPaciente || loadingPaciente) return;
+    const t = window.setTimeout(() => {
+      void loadMensagensPacienteAtual();
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, [user?.uid, paciente?.id, verificandoCadastroPaciente, loadingPaciente, loadMensagensPacienteAtual]);
 
   useEffect(() => {
     if (!paciente?.id) {
@@ -1885,7 +2170,7 @@ function MetaPageContent() {
 
   // Contrato pendente: abre automaticamente ao entrar no /meta até o paciente assinar.
   useEffect(() => {
-    if (loadingPaciente || !user?.uid) return;
+    if (loadingPaciente || verificandoCadastroPaciente || !user?.uid) return;
     const qPacienteId = searchParams.get('pacienteId');
     if (qPacienteId) return;
     if (!paciente || !contratoPaciente) return;
@@ -1900,6 +2185,7 @@ function MetaPageContent() {
     setShowContratoPacienteModal(true);
   }, [
     loadingPaciente,
+    verificandoCadastroPaciente,
     user?.uid,
     searchParams,
     paciente,
@@ -1916,7 +2202,7 @@ function MetaPageContent() {
   // — Já existe médico vinculado: não abrir (completar dados manual).
   // — Sem médico: abre no primeiro passo incompleto (se anamnese ok, getFirstIncompleteStep já é 15 — só fase de escolher médico).
   useEffect(() => {
-    if (loadingPaciente || !user?.uid) return;
+    if (loadingPaciente || verificandoCadastroPaciente || !user?.uid) return;
     const qPacienteId = searchParams.get('pacienteId');
     if (qPacienteId) return; // modo nutricionista vendo paciente — não abrir
     if (modalDadosPacienteFoiFechadoRef.current || modalDadosAberturaTentadaRef.current) return;
@@ -1943,6 +2229,7 @@ function MetaPageContent() {
     return () => clearTimeout(t);
   }, [
     loadingPaciente,
+    verificandoCadastroPaciente,
     user?.uid,
     searchParams.get('pacienteId'),
     openModalDadosPaciente,
@@ -1996,6 +2283,10 @@ function MetaPageContent() {
   }, [activeMenu, aplicacoesSubpasta, paciente?.id, paciente?.planoTerapeutico, paciente?.evolucaoSeguimento]);
 
   useEffect(() => {
+    setAplicacaoDetalheAberto(false);
+  }, [indiceAplicacaoSelecionada]);
+
+  useEffect(() => {
     if (activeMenu !== 'aplicacoes' || aplicacoesSubpasta !== 'tirzepatida' || !paciente) return;
     const lista = obterAplicacoesPlanoPacienteMeta(paciente);
     setIndiceAplicacaoSelecionada(i => (lista.length === 0 ? 0 : Math.min(i, lista.length - 1)));
@@ -2005,7 +2296,7 @@ function MetaPageContent() {
     if (activeMenu !== 'aplicacoes' || aplicacoesSubpasta !== 'tirzepatida') return;
     const container = tabsAplicacoesScrollRef.current;
     if (!container) return;
-    const target = container.querySelector<HTMLButtonElement>(
+    const target = container.querySelector<HTMLElement>(
       `[data-aplicacao-index="${indiceAplicacaoSelecionada}"]`
     );
     if (!target) return;
@@ -2333,6 +2624,77 @@ function MetaPageContent() {
     }
   };
 
+  const abrirFormularioAplicacaoMeta = useCallback(
+    async (aplicacao: { data: Date; semana: number; dose: number }) => {
+      if (!paciente?.id) return;
+      const dataAplicStr = formatarDataAplicacaoISO(aplicacao.data);
+      const loadKey = `${dataAplicStr}-${aplicacao.semana}`;
+      const novaAba = window.open('', '_blank');
+      if (novaAba) {
+        try {
+          novaAba.document.title = 'Abrindo formulário...';
+          novaAba.document.body.innerHTML =
+            '<p style="font-family: Arial, sans-serif; padding: 16px;">Abrindo formulário da aplicação...</p>';
+        } catch {
+          // Alguns navegadores limitam escrita em about:blank; segue fluxo normal.
+        }
+      }
+      setPreencherAplicacaoLoadingKey(loadKey);
+      try {
+        const res = await fetch(
+          `/api/aplicacao/link?pacienteId=${encodeURIComponent(paciente.id)}&data=${encodeURIComponent(dataAplicStr)}&semana=${encodeURIComponent(String(aplicacao.semana))}&dose=${encodeURIComponent(String(aplicacao.dose))}`
+        );
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Erro ao abrir link');
+        const url = json.url as string;
+        if (url) {
+          if (novaAba && !novaAba.closed) {
+            novaAba.location.href = url;
+          } else {
+            window.location.assign(url);
+          }
+        } else {
+          throw new Error('Link de aplicação inválido');
+        }
+      } catch (e) {
+        if (novaAba && !novaAba.closed) {
+          novaAba.close();
+        }
+        alert(e instanceof Error ? e.message : 'Não foi possível abrir o formulário da aplicação.');
+      } finally {
+        setPreencherAplicacaoLoadingKey(null);
+      }
+    },
+    [paciente?.id]
+  );
+
+  const apagarRegistroAplicacaoMeta = useCallback(
+    async (aplicacao: { data: Date; semana: number }) => {
+      if (!paciente) return;
+      const registro = obterRegistroSeguimentoDaAplicacao(paciente, aplicacao.data, aplicacao.semana);
+      if (!registro) return;
+      if (!window.confirm('Tem certeza que deseja apagar o registro desta aplicação?')) return;
+      const key = registro.id || `semana-${aplicacao.semana}`;
+      setExcluindoAplicacaoKey(key);
+      try {
+        const evolucaoAtualizada = (paciente.evolucaoSeguimento || []).filter((e) => {
+          if (registro.id && e.id) return e.id !== registro.id;
+          const semanaE = e.weekIndex ?? e.numeroSemana ?? 0;
+          return semanaE !== aplicacao.semana;
+        });
+        const pacienteAtualizado = { ...paciente, evolucaoSeguimento: evolucaoAtualizada };
+        await PacienteService.createOrUpdatePaciente(pacienteAtualizado);
+        const recarregado = paciente.id ? await PacienteService.getPacienteById(paciente.id) : null;
+        setPaciente(recarregado || pacienteAtualizado);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Não foi possível apagar o registro desta aplicação.');
+      } finally {
+        setExcluindoAplicacaoKey(null);
+      }
+    },
+    [paciente]
+  );
+
   const handleAtualizarCompartilhamentoFotos = async (value: boolean) => {
     if (!paciente?.id) return;
     const previous = compartilhamentoFotosMedico;
@@ -2540,7 +2902,7 @@ function MetaPageContent() {
 
   // Após o médico aceitar a solicitação: abrir recomendações automaticamente (leitura obrigatória).
   useEffect(() => {
-    if (loadingPaciente || loadingMinhasSolicitacoes || !user?.uid) return;
+    if (loadingPaciente || verificandoCadastroPaciente || loadingMinhasSolicitacoes || !user?.uid) return;
     if (!precisaLeituraObrigatoriaRecomendacoes) return;
     if (showModalDadosPaciente) return;
     if (contratoPacienteAssinaturaPendente(contratoPaciente)) return;
@@ -2565,6 +2927,7 @@ function MetaPageContent() {
     return () => clearTimeout(t);
   }, [
     loadingPaciente,
+    verificandoCadastroPaciente,
     loadingMinhasSolicitacoes,
     user?.uid,
     precisaLeituraObrigatoriaRecomendacoes,
@@ -3066,15 +3429,19 @@ function MetaPageContent() {
     }
   };
 
+  // Legado hospital (escalas/trocas/mensagens residente): NÃO no mount do paciente Meta.
+  // Competia com anamnese/Firestore e atrasava o chat. Carrega só se o menu legado for aberto.
   useEffect(() => {
-    if (user) {
-      loadData();
-      loadTrocas();
-      loadFerias();
-      loadMensagens();
-      loadMensagensEnviadas();
+    if (!user) return;
+    if (activeMenu === 'escalas' || activeMenu === 'trocas') {
+      void loadData();
+      void loadTrocas();
     }
-  }, [user]);
+    if (activeMenu === 'mensagens') {
+      void loadMensagens();
+      void loadMensagensEnviadas();
+    }
+  }, [user, activeMenu, loadData, loadTrocas, loadMensagens, loadMensagensEnviadas]);
 
   useLayoutEffect(() => {
     const checkMobile = () => {
@@ -3310,36 +3677,60 @@ function MetaPageContent() {
     }
   }, [user, activeMenu, loadFerias]);
 
-  // Carregar mensagens periodicamente
+  // Carregar mensagens periodicamente (só no menu legado de mensagens — não no fluxo paciente)
   useEffect(() => {
-    if (user) {
-      const interval = setInterval(() => {
-        loadMensagens();
-      }, 30000); // A cada 30 segundos
+    if (!user || activeMenu !== 'mensagens') return;
+    const interval = setInterval(() => {
+      loadMensagens();
+    }, 30000);
 
-      return () => clearInterval(interval);
-    }
-  }, [user, loadMensagens]);
+    return () => clearInterval(interval);
+  }, [user, activeMenu, loadMensagens]);
 
   if (loading) {
     return (
-      <PageLoadingScreen
-        backgroundColor={META_SPLASH_BG}
-        spinnerClassName="text-[#4CCB7A]"
-        messageClassName="text-[#E8EDED]/80"
-      />
+      <div style={organizationShellCssVars(shellChrome)}>
+        <PageLoadingScreen
+          backgroundColor={shellSplash.backgroundColor}
+          spinnerClassName={shellSplash.spinnerClassName}
+          messageClassName={shellSplash.messageClassName}
+        />
+      </div>
     );
   }
 
   if (!user) return null;
 
-  // Função para gerar relatório completo em PDF
-  const gerarRelatorioCompleto = async () => {
-    if (!paciente) {
+  if (verificandoCadastroPaciente) {
+    return (
+      <div style={organizationShellCssVars(shellChrome)}>
+        <CadastroVerificacaoScreen
+          backgroundColor={shellSplash.backgroundColor}
+          spinnerClassName={shellSplash.spinnerClassName}
+          messageClassName={shellSplash.messageClassName}
+        />
+      </div>
+    );
+  }
+
+  const abrirRelatorioFinal = async () => {
+    if (!paciente?.id) {
       alert('Dados do paciente não disponíveis');
       return;
     }
-    await gerarRelatorioPDF(paciente, medicoResponsavel);
+    try {
+      const res = await fetch(
+        `/api/relatorio-paciente/link?pacienteId=${encodeURIComponent(paciente.id)}`
+      );
+      const payload = await res.json();
+      if (payload?.url) {
+        window.open(payload.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      alert('Não foi possível abrir o relatório.');
+    } catch {
+      alert('Erro ao obter link do relatório.');
+    }
   };
 
   // Abrir modal de classificação do profissional (agregado já vem pré-carregado para abrir na hora)
@@ -3421,9 +3812,13 @@ function MetaPageContent() {
             ? 'border-green-600 text-green-700 dark:text-green-400'
             : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
         }`}
+        aria-label="Histórico de prescrições e exames"
       >
-        <Pill className="w-4 h-4 shrink-0" />
-        Prescrições
+        <span className="inline-flex items-center gap-0.5" aria-hidden>
+          <Pill className="w-4 h-4 shrink-0" />
+          <FlaskConical className="w-4 h-4 shrink-0" />
+        </span>
+        Histórico
       </button>
     </div>
   );
@@ -3558,11 +3953,6 @@ function MetaPageContent() {
           comp: r.circunferenciaAbdominal
         }));
         const compUltimaSemana = registrosComComp.length > 0 ? registrosComComp[registrosComComp.length - 1].circunferenciaAbdominal : null;
-        /** Card Home — Δ cintura: inicial só medidasIniciais.circunferenciaAbdominal; atual = último registro em evolução com cintura (compUltimaSemana) */
-        const circunferenciaInicialMedidasHome =
-          medidasIniciais?.circunferenciaAbdominal != null && medidasIniciais.circunferenciaAbdominal > 0
-            ? medidasIniciais.circunferenciaAbdominal
-            : null;
         const reducaoTotalComp = baseCircAbdominal != null && compUltimaSemana != null ? baseCircAbdominal - compUltimaSemana : 0;
         const dadosGraficoComp: { semana: number; comp: number; compLine: number | null; variacao?: number; semanaLabel?: string }[] = [];
         for (let i = 0; i < pontosComp.length; i++) {
@@ -3684,59 +4074,15 @@ function MetaPageContent() {
         
         const classificacaoIMC = classificarIMC(imcParaCard);
 
-        const pesoAtualParaDeltaMetasBadge =
-          isDraggingIMC && pesoTemporarioIMC !== null && pesoTemporarioIMC > 0
-            ? pesoTemporarioIMC
-            : ultimoPeso ?? baselineWeight;
-        const textoDeltaKgMetasBadge =
-          baselineWeight > 0
-            ? `${(baselineWeight - pesoAtualParaDeltaMetasBadge) > 0 ? '−' : '+'}${Math.abs(
-                baselineWeight - pesoAtualParaDeltaMetasBadge,
-              ).toFixed(1)} kg`
-            : '—';
-        const textoDeltaCmMetasBadge =
-          circunferenciaInicialMedidasHome != null &&
-          compUltimaSemana != null &&
-          compUltimaSemana > 0
-            ? `${(circunferenciaInicialMedidasHome - compUltimaSemana) > 0 ? '−' : '+'}${Math.abs(
-                circunferenciaInicialMedidasHome - compUltimaSemana,
-              ).toFixed(1)} cm`
-            : '—';
-
         // Handlers para arrastar o marcador
         const handleMouseDown = (e: React.MouseEvent) => {
           e.preventDefault();
           setIsDraggingIMC(true);
         };
 
-        const handleTouchStart = (e: React.TouchEvent) => {
+        const handleTouchStart = (_e: React.TouchEvent) => {
           // Não precisamos de preventDefault aqui, apenas iniciar o arraste
           setIsDraggingIMC(true);
-        };
-
-        // Função para calcular posição do marcador na barra de IMC
-        const calcularPosicaoMarcador = (imc: number | null | undefined): number => {
-          if (!imc || imc === 0) return 0;
-          // Faixas: Baixo peso (<18.5), Saudável (18.5-25), Sobrepeso (25-30), Obeso (>=30)
-          // A barra tem 4 faixas iguais (25% cada)
-          if (imc < 18.5) {
-            // Dentro da primeira faixa (0-18.5)
-            const percentualNaFaixa = (imc / 18.5) * 25;
-            return percentualNaFaixa;
-          } else if (imc < 25) {
-            // Dentro da segunda faixa (18.5-25)
-            const percentualNaFaixa = ((imc - 18.5) / (25 - 18.5)) * 25;
-            return 25 + percentualNaFaixa;
-          } else if (imc < 30) {
-            // Dentro da terceira faixa (25-30)
-            const percentualNaFaixa = ((imc - 25) / (30 - 25)) * 25;
-            return 50 + percentualNaFaixa;
-          } else {
-            // Dentro da quarta faixa (>=30)
-            // Limitar a 100% para IMC muito alto
-            const percentualNaFaixa = Math.min(((imc - 30) / 20) * 25, 25);
-            return 75 + percentualNaFaixa;
-          }
         };
 
         // Componente de Confetes (apenas mobile) - explodem e depois caem - somente quando na faixa verde
@@ -3920,391 +4266,168 @@ function MetaPageContent() {
 
         const referenciaOptions = buildMetaHomeReferenciaOptions(paciente);
         const refDate = resolveMetaHomeReferenciaDate(referenciaOptions, homeReferenciaDataKey);
-        const refIdx = refDate ? referenciaOptions.findIndex((o) => o.key === metaHomeDateKey(refDate)) : -1;
-        const prevRefDate =
-          refIdx >= 0 && refIdx < referenciaOptions.length - 1 ? referenciaOptions[refIdx + 1].date : null;
-
         const evolucaoNaData = refDate ? getEvolucaoAteData(evolucao, refDate) : null;
-        const evolucaoAnteriorData = prevRefDate ? getEvolucaoAteData(evolucao, prevRefDate) : null;
         const bioNaData = refDate ? getBioAteData(bioRegistrosHome, refDate) : null;
         const bioAnteriorData = getBioAnterior(bioRegistrosHome, bioNaData);
 
         const pesoExibidoHome = refDate
           ? getPesoNaDataReferencia(evolucao, bioRegistrosHome, refDate, medidasIniciais?.peso)
           : ultimoPeso;
-        const pesoAnteriorHome = prevRefDate
-          ? getPesoNaDataReferencia(evolucao, bioRegistrosHome, prevRefDate, medidasIniciais?.peso)
-          : null;
         const circExibidaHome =
           evolucaoNaData?.circunferenciaAbdominal && evolucaoNaData.circunferenciaAbdominal > 0
             ? evolucaoNaData.circunferenciaAbdominal
-            : null;
-        const circAnteriorHome =
-          evolucaoAnteriorData?.circunferenciaAbdominal && evolucaoAnteriorData.circunferenciaAbdominal > 0
-            ? evolucaoAnteriorData.circunferenciaAbdominal
             : null;
         const imcExibidoHome =
           alturaMetros && pesoExibidoHome && pesoExibidoHome > 0
             ? pesoExibidoHome / (alturaMetros * alturaMetros)
             : imcParaCard;
-        const imcAnteriorHome =
-          alturaMetros && pesoAnteriorHome && pesoAnteriorHome > 0
-            ? pesoAnteriorHome / (alturaMetros * alturaMetros)
-            : null;
         const perdaPesoExibidaHome =
           pesoExibidoHome && baselineWeight > 0 ? pesoExibidoHome - baselineWeight : null;
-        const perdaPesoAnteriorHome =
-          pesoAnteriorHome && baselineWeight > 0 ? pesoAnteriorHome - baselineWeight : null;
-        const classificacaoIMCExibida = classificarIMC(imcExibidoHome);
-
-        const renderImcBarraPacienteHome = () => (
-          <>
-            {imcExibidoHome && imcExibidoHome > 0 && (
-              <div className="mt-4">
-                <div className="relative mb-1 h-4">
-                  <span className="absolute text-xs text-gray-500" style={{ left: '25%', transform: 'translateX(-50%)' }}>18.5</span>
-                  <span className="absolute text-xs text-gray-500" style={{ left: '50%', transform: 'translateX(-50%)' }}>25</span>
-                  <span className="absolute text-xs text-gray-500" style={{ left: '75%', transform: 'translateX(-50%)' }}>30</span>
-                </div>
-                <div
-                  ref={barraIMCRef}
-                  className="relative rounded-full overflow-visible bg-gray-100"
-                  style={{ height: '6px', borderRadius: '999px' }}
-                >
-                  <div className="absolute left-0 top-0 h-full" style={{ width: '25%', backgroundColor: '#60a5fa' }}></div>
-                  <div className="absolute left-1/4 top-0 h-full" style={{ width: '25%', backgroundColor: '#34d399' }}></div>
-                  <div className="absolute left-2/4 top-0 h-full" style={{ width: '25%', backgroundColor: '#fbbf24' }}></div>
-                  <div className="absolute left-3/4 top-0 h-full" style={{ width: '25%', backgroundColor: '#f87171' }}></div>
-                  {pctMetasCardPesoHome.imcMetaAlvo != null &&
-                    pctMetasCardPesoHome.imcMetaAlvo > 0 && (
-                    <div
-                      className="absolute top-1/2 z-[6] pointer-events-none flex flex-col items-center -translate-x-1/2 -translate-y-full drop-shadow-md"
-                      style={{ left: `${calcularPosicaoMarcador(pctMetasCardPesoHome.imcMetaAlvo)}%` }}
-                      title={`IMC alvo (meta de peso): ${pctMetasCardPesoHome.imcMetaAlvo.toFixed(1)} kg/m²`}
-                      role="img"
-                      aria-label={`Marcador de meta de peso no IMC ${pctMetasCardPesoHome.imcMetaAlvo.toFixed(1)}`}
-                    >
-                      <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-md">
-                        <img
-                          src="/icones/imc-meta-alvo-simbolo.png"
-                          alt=""
-                          width={22}
-                          height={22}
-                          className="h-[88%] w-[88%] object-contain object-center"
-                          draggable={false}
-                        />
-                      </div>
-                      <div
-                        className="-mt-px h-0 w-0 shrink-0 border-x-[8px] border-t-[10px] border-x-transparent border-t-white"
-                        aria-hidden
-                      />
-                    </div>
-                  )}
-                  <div
-                    className="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 z-10 cursor-grab active:cursor-grabbing"
-                    style={{
-                      left: `${calcularPosicaoMarcador(imcTemporarioIMC || imcExibidoHome)}%`,
-                      userSelect: 'none',
-                    }}
-                    onMouseDown={handleMouseDown}
-                    onTouchStart={handleTouchStart}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-gray-600 text-xs font-bold" style={{ fontSize: '12px' }}>&lt;</span>
-                      <div className="bg-white border-2 border-gray-400 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110" style={{ width: '24px', height: '24px' }}>
-                        <span style={{ fontSize: '14px' }}>{(classificarIMC(imcTemporarioIMC || imcExibidoHome) || classificacaoIMCExibida)?.icone || '🙂'}</span>
-                      </div>
-                      <span className="text-gray-600 text-xs font-bold" style={{ fontSize: '12px' }}>&gt;</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-between mt-2">
-                  <span className="text-gray-500" style={{ fontSize: '11px' }}>Baixo</span>
-                  <span className="text-gray-500" style={{ fontSize: '11px' }}>Saudável</span>
-                  <span className="text-gray-500" style={{ fontSize: '11px' }}>Alto</span>
-                  <span className="text-gray-500" style={{ fontSize: '11px' }}>Obeso</span>
-                </div>
-              </div>
-            )}
-            {(!imcExibidoHome || imcExibidoHome === 0) && (
-              <div className="text-left py-2 text-gray-500 text-sm">
-                Dados insuficientes para calcular o IMC
-              </div>
-            )}
-          </>
+        const proximaAplicacaoHome = resolveProximaAplicacaoFromLista(
+          obterAplicacoesPlanoPacienteMeta(paciente)
         );
+        const classificacaoIMCExibida = classificarIMC(imcExibidoHome);
+        const pesoMetaRealHome = resolvePesoMetaKgReal(paciente, medidasIniciais?.peso);
+        const imcMetaRealHome =
+          pesoMetaRealHome != null &&
+          pesoMetaRealHome > 0 &&
+          alturaMetros != null &&
+          alturaMetros > 0
+            ? pesoMetaRealHome / (alturaMetros * alturaMetros)
+            : null;
+        const pesoParaFaltamHome =
+          isDraggingIMC && pesoTemporarioIMC != null && pesoTemporarioIMC > 0
+            ? pesoTemporarioIMC
+            : pesoExibidoHome;
+        const faltamKgHome =
+          pesoParaFaltamHome != null && pesoParaFaltamHome > 0 && pesoMetaRealHome != null
+            ? Math.round((pesoParaFaltamHome - pesoMetaRealHome) * 10) / 10
+            : null;
+
+        const homeFirstName = getMetaHomeFirstName(
+          user?.displayName,
+          paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome
+        );
+        const openHomeNotifications = () => {
+          if (medicoResponsavel || nutricionistaVinculado || personalVinculado || psiquiatraVinculado) {
+            setShowMensagensMedicoModal(true);
+            loadMensagensPacienteAtual();
+          }
+        };
+        const pauseBannerAutoplay = () => {
+          setAutoRotateEnabled(false);
+          setTimeout(() => setAutoRotateEnabled(true), 3000);
+        };
 
         return (
-          <div className="space-y-2">
-            <div
-              className={
-                showBannerColumn
-                  ? 'flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-stretch lg:gap-x-3 lg:gap-y-3 lg:min-h-0'
-                  : 'flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-stretch lg:gap-x-3 lg:gap-y-3 lg:min-h-0'
+          <div className={`mx-auto flex w-full max-w-7xl xl:max-w-[1500px] flex-col gap-3 sm:gap-4 lg:gap-6 ${
+            showBannerColumn ? 'lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)] lg:items-stretch' : ''
+          }`}>
+            <MetaPatientHeader
+              className="hidden lg:col-span-2 lg:flex"
+              firstName={homeFirstName}
+              photoURL={user?.photoURL}
+              unreadCount={mensagensNaoLidasPaciente}
+              onNotificationsClick={openHomeNotifications}
+              onAvatarClick={() => setActiveMenu('perfil')}
+              chrome={shellChrome}
+            />
+
+            {showBannerColumn && (
+              <MetaHomeBanner
+                banners={banners}
+                loading={loadingBanners}
+                currentIndex={currentBannerIndex}
+                onIndexChange={setCurrentBannerIndex}
+                onUserInteracted={pauseBannerAutoplay}
+              />
+            )}
+
+            <MetaWeightDashboard
+              hasBanner={showBannerColumn}
+              chrome={shellChrome}
+              pesoAtual={pesoExibidoHome}
+              weightValue={
+                isDraggingIMC && pesoTemporarioIMC !== null && pesoTemporarioIMC > 0 ? (
+                  <span>
+                    {pesoTemporarioIMC.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}
+                  </span>
+                ) : (
+                  <AnimatedWeight
+                    weight={pesoExibidoHome}
+                    onAnimationComplete={handleWeightAnimationComplete}
+                  />
+                )
+              }
+              imc={imcTemporarioIMC || imcExibidoHome}
+              imcLabel={(classificarIMC(imcTemporarioIMC || imcExibidoHome) || classificacaoIMCExibida)?.label}
+              imcClassName={(classificarIMC(imcTemporarioIMC || imcExibidoHome) || classificacaoIMCExibida)?.cor}
+              imcBackground={(classificarIMC(imcTemporarioIMC || imcExibidoHome) || classificacaoIMCExibida)?.bgGradient}
+              paciente={paciente}
+              refDate={refDate}
+              evolucao={evolucao}
+              bios={bioRegistrosHome}
+              pesoInicial={medidasIniciais?.peso}
+              imcPanel={
+                <MetaHomeImcRange
+                  imcAtual={imcTemporarioIMC || imcExibidoHome}
+                  imcMeta={imcMetaRealHome}
+                  pesoMetaKg={pesoMetaRealHome}
+                  faltamKg={faltamKgHome}
+                  onOpenMetas={() => setShowModalMetasTratamento(true)}
+                  barRef={barraIMCRef}
+                  onMarkerMouseDown={handleMouseDown}
+                  onMarkerTouchStart={handleTouchStart}
+                  chrome={shellChrome}
+                />
               }
             >
-              {showBannerColumn && (
-                <div className="order-1 min-w-0 w-full flex flex-col lg:h-72 lg:row-start-1 lg:col-start-1">
-                  {loadingBanners ? (
-                    <div
-                      className="rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 h-48 md:h-64 lg:h-72 animate-pulse shrink-0"
-                      aria-hidden
-                    />
-                  ) : (
-                    <div
-                      className="rounded-lg overflow-hidden shadow-lg h-full flex flex-col min-h-0 lg:h-72"
-                      style={{ touchAction: 'pan-x', overscrollBehaviorX: 'contain' }}
-                      onTouchStart={(e) => {
-                        setTouchEnd(null);
-                        setTouchStart(e.targetTouches[0].clientX);
-                      }}
-                      onTouchMove={(e) => {
-                        setTouchEnd(e.targetTouches[0].clientX);
-                      }}
-                      onTouchEnd={() => {
-                        if (!touchStart || !touchEnd) return;
-                        const distance = touchStart - touchEnd;
-                        const isLeftSwipe = distance > 50;
-                        const isRightSwipe = distance < -50;
-                        if (isLeftSwipe && currentBannerIndex < banners.length - 1) {
-                          setCurrentBannerIndex(currentBannerIndex + 1);
-                        }
-                        if (isRightSwipe && currentBannerIndex > 0) {
-                          setCurrentBannerIndex(currentBannerIndex - 1);
-                        }
-                      }}
-                    >
-                      <div className="relative w-full h-full min-h-0 flex flex-col overflow-hidden" style={{ touchAction: 'pan-x', overscrollBehaviorX: 'contain' }}>
-                        <div
-                          className="flex h-full min-h-0 transition-transform duration-300 ease-in-out"
-                          style={{
-                            transform: `translateX(-${currentBannerIndex * (100 / banners.length)}%)`,
-                            width: `${banners.length * 100}%`,
-                          }}
-                        >
-                          {banners.map((banner) => (
-                            <Link
-                              key={banner.id}
-                              href={`/meta/banner/${banner.id}`}
-                              prefetch
-                              className="block relative flex-shrink-0 h-full flex items-center justify-center"
-                              style={{ width: `${100 / banners.length}%`, touchAction: 'manipulation' }}
-                            >
-                              <img
-                                src={banner.imagemUrl}
-                                alt={banner.titulo}
-                                className="w-full h-48 md:h-64 lg:h-full lg:min-h-0 object-contain select-none pointer-events-none bg-white dark:bg-gray-900"
-                                draggable={false}
-                              />
-                            </Link>
-                          ))}
-                        </div>
-                        {banners.length > 1 && (
-                          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-2 z-10 pointer-events-none">
-                            {banners.map((_, index) => (
-                              <button
-                                key={index}
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setCurrentBannerIndex(index);
-                                  setAutoRotateEnabled(false);
-                                  setTimeout(() => setAutoRotateEnabled(true), 3000);
-                                }}
-                                className={`h-2 rounded-full transition-all pointer-events-auto ${
-                                  index === currentBannerIndex ? 'bg-white w-8' : 'bg-white/50 w-2'
-                                }`}
-                                aria-label={`Banner ${index + 1}`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div
-                className={`min-w-0 w-full order-2 flex flex-col lg:h-72 ${
-                  showBannerColumn ? 'lg:row-start-1 lg:col-start-2' : 'lg:row-start-1 lg:col-start-1 lg:col-span-2'
-                }`}
-              >
-            {/* Card de Status Corporal — fundo animado igual à landing / depoimentos */}
-            <div className="rounded-3xl border border-gray-200 shadow-sm overflow-hidden relative h-full flex flex-col min-h-0" style={{ borderRadius: '24px' }}>
-              {paciente ? (
-                <div className="absolute top-3 right-3 z-30 flex flex-col items-end pointer-events-none">
-                  <button
-                    type="button"
-                    onClick={() => setShowModalMetasTratamento(true)}
-                    className="pointer-events-auto inline-flex min-h-[30px] w-max max-w-[min(100%,11rem)] flex-col items-stretch gap-0.5 rounded-full border border-[#4CCB7A]/35 bg-[#0A1F44] px-2 py-1.5 text-sm font-medium tabular-nums leading-tight text-[#E8EDED] shadow-md shadow-black/20 transition-colors hover:border-[#4CCB7A]/55 hover:bg-[#0d2a5a] cursor-pointer"
-                    aria-label={`Abrir metas de peso e circunferência. Meta atingida: peso ${
-                      pctMetasCardPesoHome.onPeso && pctMetasCardPesoHome.pctPeso != null
-                        ? `${pctMetasCardPesoHome.pctPeso.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
-                        : '—'
-                    } (${textoDeltaKgMetasBadge}); circunferência ${
-                      pctMetasCardPesoHome.onCint && pctMetasCardPesoHome.pctCint != null
-                        ? `${pctMetasCardPesoHome.pctCint.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
-                        : '—'
-                    } (${textoDeltaCmMetasBadge})`}
-                  >
-                    <div className="inline-grid w-max shrink-0 grid-cols-2 gap-x-0">
-                      <div className="flex min-w-0 flex-col items-center justify-center gap-0 border-r border-[#E8EDED]/18 px-1 pr-1.5 text-center">
-                        <span
-                          className={
-                            pctMetasCardPesoHome.onPeso && pctMetasCardPesoHome.pctPeso != null
-                              ? 'text-[#4CCB7A]'
-                              : 'text-[#E8EDED]/40'
-                          }
-                        >
-                          {pctMetasCardPesoHome.onPeso && pctMetasCardPesoHome.pctPeso != null
-                            ? `${pctMetasCardPesoHome.pctPeso.toLocaleString('pt-BR', {
-                                maximumFractionDigits: 1,
-                              })}%`
-                            : '-'}
-                        </span>
-                        <span className="text-xs font-semibold tabular-nums text-[#4CCB7A]">
-                          {textoDeltaKgMetasBadge}
-                        </span>
-                      </div>
-                      <div className="flex min-w-0 flex-col items-center justify-center gap-0 pl-1.5 pr-1 text-center">
-                        <span
-                          className={
-                            pctMetasCardPesoHome.onCint && pctMetasCardPesoHome.pctCint != null
-                              ? 'text-[#2F8FA3]'
-                              : 'text-[#E8EDED]/40'
-                          }
-                        >
-                          {pctMetasCardPesoHome.onCint && pctMetasCardPesoHome.pctCint != null
-                            ? `${pctMetasCardPesoHome.pctCint.toLocaleString('pt-BR', {
-                                maximumFractionDigits: 1,
-                              })}%`
-                            : '-'}
-                        </span>
-                        <span className="text-xs font-semibold tabular-nums text-[#2F8FA3]">
-                          {textoDeltaCmMetasBadge}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              ) : null}
-              <div className="absolute inset-0 z-0 overflow-hidden rounded-[24px]">
-                <DepoimentosAnimatedBackdrop />
-              </div>
-              {/* Confetes e Fogos de artifício (apenas mobile) */}
               <Confetti />
               <Fireworks />
-              <div className="relative z-10 p-4 flex-1 min-h-0 overflow-y-auto" style={{ padding: '18px' }}>
-                {/* Peso em destaque (variação kg/cm no badge de metas no canto) */}
-                <div className="mb-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-bold text-gray-900" style={{ fontSize: '52px' }}>
-                    {isDraggingIMC && pesoTemporarioIMC !== null && pesoTemporarioIMC > 0 ? (
-                      <span>{pesoTemporarioIMC.toFixed(1)}</span>
-                    ) : (
-                      <AnimatedWeight 
-                        weight={pesoExibidoHome} 
-                        onAnimationComplete={handleWeightAnimationComplete}
-                      />
-                    )}
-                  </span>
-                  {(isDraggingIMC && pesoTemporarioIMC !== null && pesoTemporarioIMC > 0) || (pesoExibidoHome && pesoExibidoHome > 0) ? (
-                    <span className="text-gray-600 font-medium" style={{ fontSize: '20px' }}>Kg</span>
-                  ) : null}
-                </div>
-                {(classificacaoIMCExibida || (imcTemporarioIMC && imcTemporarioIMC > 0)) && (
-                  <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <div 
-                      className={`px-3 py-2 rounded-full inline-flex items-center gap-2 ${(classificarIMC(imcTemporarioIMC || imcExibidoHome) || classificacaoIMCExibida)?.cor}`}
-                      style={{ 
-                        height: '30px',
-                        background: (classificarIMC(imcTemporarioIMC || imcExibidoHome) || classificacaoIMCExibida)?.bgGradient
-                      }}
-                    >
-                      <span className="text-sm font-medium">{(classificarIMC(imcTemporarioIMC || imcExibidoHome) || classificacaoIMCExibida)?.label}</span>
-                    </div>
-                    {imcExibidoHome && imcExibidoHome > 0 && (
-                      <span className="text-gray-500 text-sm font-medium">
-                        IMC {(imcTemporarioIMC || imcExibidoHome).toFixed(1)}
-                      </span>
-                    )}
-                  </div>
-                )}
-                </div>
+            </MetaWeightDashboard>
 
-                {renderImcBarraPacienteHome()}
-              </div>
+            <div className={showBannerColumn ? 'lg:col-span-2' : ''}>
+            <MetaHomeDateSelect
+              options={referenciaOptions}
+              value={homeReferenciaDataKey ?? referenciaOptions[0]?.key ?? ''}
+              onChange={(key) => setHomeReferenciaDataKey(key)}
+              chrome={shellChrome}
+            />
             </div>
-              </div>
 
-              {referenciaOptions.length > 0 && (
-                <div
-                  className={`order-3 min-w-0 w-full ${
-                    showBannerColumn ? 'lg:col-start-1 lg:col-span-2 lg:row-start-2' : 'lg:col-span-2'
-                  }`}
-                >
-                  <label htmlFor="meta-home-data-ref" className="block text-xs font-medium text-gray-600 mb-1.5">
-                    Data de referência
-                  </label>
-                  <select
-                    id="meta-home-data-ref"
-                    value={homeReferenciaDataKey ?? referenciaOptions[0]?.key ?? ''}
-                    onChange={(e) => setHomeReferenciaDataKey(e.target.value)}
-                    className="w-full max-w-md rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm"
-                  >
-                    {referenciaOptions.map((o) => (
-                      <option key={o.key} value={o.key}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div
-                className={`order-4 flex flex-col gap-4 min-w-0 w-full ${
-                  showBannerColumn ? 'lg:col-start-1 lg:col-span-2 lg:row-start-3' : 'lg:col-span-2'
-                }`}
-              >
-                <MetaHomeSeisMetricas
-                  paciente={paciente}
-                  perdaPesoAcumulado={perdaPesoExibidaHome}
-                  perdaPesoAnterior={perdaPesoAnteriorHome}
-                  circunferenciaCm={circExibidaHome}
-                  circunferenciaAnterior={circAnteriorHome}
-                  imc={imcExibidoHome}
-                  imcAnterior={imcAnteriorHome}
-                  registroBio={bioNaData}
-                  registroBioAnterior={bioAnteriorData}
-                  sexo={sexoBioHome as 'M' | 'F' | null}
-                  compact={isMobile}
-                />
-                <BioImpedanciaDisplay
-                  paciente={paciente}
-                  registros={bioRegistrosHome}
-                  imagemSrc={imagemSrcBioHome}
-                  imageAlt={imageAltBioHome}
-                  modoNutricionista
-                  isMobile={isMobile}
-                  formularioEmModal
-                  permitirEdicaoRegistro={false}
-                  ocultarResumoCorporal
-                  ocultarCabecalhoInterno
-                  registroExibidoExterno={bioNaData}
-                  registroAnteriorExterno={bioAnteriorData}
-                  onSalvo={async (novos) => {
-                    if (!paciente?.id) return;
-                    await salvarBioImpedanciaRegistros(paciente.id, novos);
-                    setPaciente((prev) => (prev ? { ...prev, bioimpedanciaRegistros: novos } : null));
-                  }}
-                />
-              </div>
+            <div className={`flex min-w-0 w-full flex-col gap-4 ${showBannerColumn ? 'lg:col-span-2' : ''}`}>
+              <MetaHomeSecondaryMetrics
+                paciente={paciente}
+                perdaPesoKg={perdaPesoExibidaHome}
+                circunferenciaCm={circExibidaHome}
+                circunferenciaInicialCm={medidasIniciais?.circunferenciaAbdominal}
+                registroBio={bioNaData}
+                registroBioAnterior={bioAnteriorData}
+                proximaAplicacao={proximaAplicacaoHome}
+                chrome={shellChrome}
+              />
+              <BioImpedanciaDisplay
+                paciente={paciente}
+                registros={bioRegistrosHome}
+                imagemSrc={imagemSrcBioHome}
+                imageAlt={imageAltBioHome}
+                modoNutricionista
+                isMobile={isMobile}
+                formularioEmModal
+                permitirEdicaoRegistro={false}
+                ocultarResumoCorporal
+                ocultarCabecalhoInterno
+                registroExibidoExterno={bioNaData}
+                registroAnteriorExterno={bioAnteriorData}
+              />
             </div>
             
             {/* Mostrar "Buscar Médico" só quando não tem médico e não tem solicitação em aberto (se rejeitou ou nunca enviou) */}
             {semMedicoNemSolicitacao && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+              <div className={`${showBannerColumn ? 'lg:col-span-2' : ''} bg-green-50 border border-green-200 rounded-lg p-6 text-center`}>
                 <Stethoscope className="mx-auto h-12 w-12 text-green-600 mb-4" />
                 <h3 className="text-lg font-semibold text-black mb-2">Você ainda não tem um médico responsável</h3>
                 <p className="text-black mb-4">Preencha as informações e escolha um médico na sua região para iniciar seu tratamento.</p>
@@ -4413,120 +4536,43 @@ function MetaPageContent() {
         
         const dataSelecionada = exameDataSelecionada || dataInicial;
         
-        // Encontrar exame da data selecionada
-        const exameOriginal = exames.find(e => {
-          const dataExame = safeDateToString(e.dataColeta);
-          return dataExame === dataSelecionada;
-        }) || examesOrdenados[0] || {};
-        
-        // Mapear exame selecionado com os mesmos campos que dadosGrafico
+        // Encontrar exame da data selecionada (spread do raw = mesmos campos do Firestore / campo.field)
+        const exameRaw =
+          exames.find((e) => safeDateToString(e.dataColeta) === dataSelecionada) ||
+          examesOrdenados[0] ||
+          {};
         const getHemogramaVal = (ex: any, f: string) =>
           (ex?.hemogramaCompleto?.[f] ?? ex?.[f]) || null;
         const exameSelecionado = {
-          glicemiaJejum: exameOriginal.glicemiaJejum || null,
-          hemoglobinaGlicada: exameOriginal.hemoglobinaGlicada || null,
-          insulinaJejum: exameOriginal.insulinaJejum || null,
-          ureia: exameOriginal.ureia || null,
-          creatinina: exameOriginal.creatinina || null,
-          taxaFiltracaoGlomerular: exameOriginal.taxaFiltracaoGlomerular || null,
-          sodio: exameOriginal.sodio || null,
-          potassio: exameOriginal.potassio || null,
-          tgp: exameOriginal.tgp || null,
-          tgo: exameOriginal.tgo || null,
-          ggt: exameOriginal.ggt || null,
-          fosfataseAlcalina: exameOriginal.fosfataseAlcalina || null,
-          amilase: exameOriginal.amilase || null,
-          lipase: exameOriginal.lipase || null,
-          colesterolTotal: exameOriginal.colesterolTotal || null,
-          ldl: exameOriginal.ldl || null,
-          hdl: exameOriginal.hdl || null,
-          triglicerides: exameOriginal.triglicerides || null,
-          tsh: exameOriginal.tsh || null,
-          calcitonina: exameOriginal.calcitonina || null,
-          ft4: exameOriginal.t4Livre || null,
-          ferritina: exameOriginal.ferritina || null,
-          ferroSerico: exameOriginal.ferroSerico || null,
-          vitaminaB12: exameOriginal.vitaminaB12 || null,
-          vitaminaD: exameOriginal.vitaminaD || null,
-          hemoglobina: getHemogramaVal(exameOriginal, 'hemoglobina'),
-          plaquetas: getHemogramaVal(exameOriginal, 'plaquetas'),
-          leucocitos: getHemogramaVal(exameOriginal, 'leucocitos'),
-          t3Livre: exameOriginal.t3Livre || null, antiTPO: exameOriginal.antiTPO || null, antiTg: exameOriginal.antiTg || null,
-          testosteronaTotal: exameOriginal.testosteronaTotal || null, testosteronaLivre: exameOriginal.testosteronaLivre || null,
-          shbg: exameOriginal.shbg || null, lh: exameOriginal.lh || null, fsh: exameOriginal.fsh || null,
-          estradiol: exameOriginal.estradiol || null, dht: exameOriginal.dht || null, dheas: exameOriginal.dheas || null,
-          prolactina: exameOriginal.prolactina || null, psa: exameOriginal.psa || null,
-          progesterona: exameOriginal.progesterona || null, oh17Progesterona: exameOriginal.oh17Progesterona || null, amh: exameOriginal.amh || null,
-          cortisol8h: exameOriginal.cortisol8h || null, cortisol16h: exameOriginal.cortisol16h || null, acth: exameOriginal.acth || null,
-          homaIr: exameOriginal.homaIr || null, leptina: exameOriginal.leptina || null, adiponectina: exameOriginal.adiponectina || null,
-          igf1: exameOriginal.igf1 || null, pcrUltra: exameOriginal.pcrUltra || null
+          ...exameRaw,
+          hemoglobina: getHemogramaVal(exameRaw, 'hemoglobina'),
+          plaquetas: getHemogramaVal(exameRaw, 'plaquetas'),
+          leucocitos: getHemogramaVal(exameRaw, 'leucocitos'),
         };
-        
-        // Preparar dados para gráfico de linha (todos os exames ao longo do tempo)
-        const dadosGrafico = examesOrdenados.map(exame => {
-          const dataExame = safeDateToString(exame.dataColeta);
-          return {
-            data: dataExame,
-            glicemiaJejum: exame.glicemiaJejum || null,
-            hemoglobinaGlicada: exame.hemoglobinaGlicada || null,
-            insulinaJejum: exame.insulinaJejum || null,
-            ureia: exame.ureia || null,
-            creatinina: exame.creatinina || null,
-            taxaFiltracaoGlomerular: exame.taxaFiltracaoGlomerular || null,
-            sodio: exame.sodio || null,
-            potassio: exame.potassio || null,
-            tgp: exame.tgp || null,
-            tgo: exame.tgo || null,
-            ggt: exame.ggt || null,
-            fosfataseAlcalina: exame.fosfataseAlcalina || null,
-            amilase: exame.amilase || null,
-            lipase: exame.lipase || null,
-            colesterolTotal: exame.colesterolTotal || null,
-            ldl: exame.ldl || null,
-            hdl: exame.hdl || null,
-            triglicerides: exame.triglicerides || null,
-            tsh: exame.tsh || null,
-            calcitonina: exame.calcitonina || null,
-            ft4: exame.t4Livre || null,
-          ferritina: exame.ferritina || null,
-          ferroSerico: exame.ferroSerico || null,
-          vitaminaB12: exame.vitaminaB12 || null,
-          vitaminaD: exame.vitaminaD || null,
-          albumina: exame.albumina || null,
-          hemoglobina: (exame as any)?.hemogramaCompleto?.hemoglobina ?? (exame as any)?.hemoglobina ?? null,
-          plaquetas: (exame as any)?.hemogramaCompleto?.plaquetas ?? (exame as any)?.plaquetas ?? null,
-          leucocitos: (exame as any)?.hemogramaCompleto?.leucocitos ?? (exame as any)?.leucocitos ?? null,
-          t3Livre: (exame as any)?.t3Livre ?? null, antiTPO: (exame as any)?.antiTPO ?? null, antiTg: (exame as any)?.antiTg ?? null,
-          testosteronaTotal: (exame as any)?.testosteronaTotal ?? null, testosteronaLivre: (exame as any)?.testosteronaLivre ?? null,
-          shbg: (exame as any)?.shbg ?? null, lh: (exame as any)?.lh ?? null, fsh: (exame as any)?.fsh ?? null,
-          estradiol: (exame as any)?.estradiol ?? null, dht: (exame as any)?.dht ?? null, dheas: (exame as any)?.dheas ?? null,
-          prolactina: (exame as any)?.prolactina ?? null, psa: (exame as any)?.psa ?? null,
-          progesterona: (exame as any)?.progesterona ?? null, oh17Progesterona: (exame as any)?.oh17Progesterona ?? null, amh: (exame as any)?.amh ?? null,
-          cortisol8h: (exame as any)?.cortisol8h ?? null, cortisol16h: (exame as any)?.cortisol16h ?? null, acth: (exame as any)?.acth ?? null,
-          homaIr: (exame as any)?.homaIr ?? null, leptina: (exame as any)?.leptina ?? null, adiponectina: (exame as any)?.adiponectina ?? null,
-          igf1: (exame as any)?.igf1 ?? null, pcrUltra: (exame as any)?.pcrUltra ?? null
-          };
-        }).reverse();
-        
+
         const pacienteSex = paciente?.dadosIdentificacao?.sexoBiologico as Sex;
 
         const todosOsCampos = buildPatientLabSectionsFromOrder(
           labOrderBySecaoConfig,
           EXAME_LABORATORIAL_KEY_TO_FIELD,
-          labLimitOverrides
+          labLimitOverrides,
+          labSectionLabels
         );
 
-        const campoTemAlgumValor = (fieldKey: string) => {
-          return exames.some((exame: any) => {
-            let v;
-            if (['hemoglobina', 'plaquetas', 'leucocitos'].includes(fieldKey)) {
-              v = exame.hemogramaCompleto?.[fieldKey] ?? exame[fieldKey];
-            } else {
-              v = exame[fieldKey];
+        // Gráficos: chaves alinhadas a campo.field (igual metaadmin / metanutri)
+        const dadosGrafico = examesOrdenados
+          .map((exame) => {
+            const dataExame = safeDateToString(exame.dataColeta);
+            const base: Record<string, unknown> = { data: dataExame };
+            const er = exame as Record<string, unknown>;
+            for (const sec of todosOsCampos) {
+              for (const campo of sec.fields) {
+                base[campo.field] = getExameCampoNumerico(er, campo.field);
+              }
             }
-            return v !== null && v !== undefined && v !== '';
-          });
-        };
+            return base;
+          })
+          .reverse();
 
         if (exames.length === 0) {
           return (
@@ -4541,7 +4587,6 @@ function MetaPageContent() {
           );
         }
 
-        // Funções para controlar expansão
         const toggleSecao = (secaoKey: string) => {
           const newSet = new Set(secoesExpandidas);
           if (newSet.has(secaoKey)) {
@@ -4562,219 +4607,329 @@ function MetaPageContent() {
           setExamesExpandidos(newSet);
         };
 
+        const formatExameDateLong = (dateKey: string): string => {
+          try {
+            const d = new Date(`${dateKey}T12:00:00`);
+            if (isNaN(d.getTime())) return dateKey;
+            return d.toLocaleDateString('pt-BR', {
+              day: '2-digit',
+              month: 'long',
+              year: 'numeric',
+            });
+          } catch {
+            return dateKey;
+          }
+        };
+
+        const formatExameDateLabel = (dateKey: string): string => {
+          const [y, m, d] = dateKey.split('-').map(Number);
+          if (!y || !m || !d) return dateKey;
+          const date = new Date(y, m - 1, d);
+          return date
+            .toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })
+            .replace(/\./g, '')
+            .replace(/\s+/g, ' ');
+        };
+
+        const exameAnterior = findExameLaboratorialAnteriorPorData(
+          exames,
+          dataSelecionada,
+          safeDateToString
+        );
+
+        const campoTemValorNaDataSelecionada = (fieldKey: string) =>
+          exameTemCampoPreenchido(exameRaw as Record<string, unknown>, fieldKey);
+
+        const allScores = todosOsCampos.map((secao) =>
+          calculateSectionMetabolicScore({
+            sectionKey: secao.sectionId,
+            examKeys: secao.fields.map((f) => f.key),
+            labValues: exameSelecionado as Record<string, unknown>,
+            sex: pacienteSex,
+            dob: paciente?.dadosIdentificacao?.dataNascimento,
+            limitOverrides: labLimitOverrides,
+            sectionLabel: secao.section,
+          })
+        );
+        const scoredSections = allScores.filter((s) => s.score !== null);
+        const globalAvg =
+          scoredSections.length > 0
+            ? Math.round(
+                scoredSections.reduce((sum, s) => sum + (s.score ?? 0), 0) / scoredSections.length
+              )
+            : null;
+        const patientName =
+          paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome || 'Paciente';
+
         return (
-          <div>
-            <h2 className="text-lg font-bold text-black mb-3">Exames Laboratoriais</h2>
-            
-            {/* Mobile: acordeão por sistema. Desktop: um bloco por sistema (largura total); dentro de cada sistema, exames em 3 colunas. */}
-            <div className="space-y-1.5 pb-3 text-sm lg:space-y-4">
-              {todosOsCampos.map((secao) => {
-                const camposComValor = secao.fields.filter((campo) =>
-                  campoTemAlgumValor(campo.field)
-                );
-
-                if (camposComValor.length === 0) return null;
-
-                const secaoKey = `secao-${secao.sectionId}`;
-                const isSecaoExpandida = secoesExpandidas.has(secaoKey);
-                const secaoComExameForaDaFaixa = camposComValor.some((campo) => {
-                  const range = getLabRange(
-                    campo.key as string,
-                    pacienteSex,
-                    paciente?.dadosIdentificacao?.dataNascimento,
-                    labLimitOverrides
-                  );
-                  if (!range) return false;
-                  const min = Number(range.min);
-                  const max = Number(range.max);
-                  if (!Number.isFinite(min) || !Number.isFinite(max)) return false;
-                  const valor = Number(exameSelecionado[campo.field as keyof typeof exameSelecionado]);
-                  if (!Number.isFinite(valor)) return false;
-                  return valor < min || valor > max;
-                });
-
-                const blocosCampos = camposComValor.map((campo) => {
-                  const range = getLabRange(campo.key as string, pacienteSex, paciente?.dadosIdentificacao?.dataNascimento, labLimitOverrides);
-                  if (!range) return null;
-
-                  const value = exameSelecionado[campo.field as keyof typeof exameSelecionado] as number | undefined;
-                  const exameKey = `${secaoKey}-${campo.field}`;
-                  const isExameExpandido = examesExpandidos.has(exameKey);
-                  const temHistorico =
-                    dadosGrafico.length > 0 &&
-                    dadosGrafico.some((d) => {
-                      const fieldValue = d[campo.field as keyof typeof d];
-                      return fieldValue !== null && fieldValue !== undefined;
-                    });
-
-                  if (isLgViewport) {
-                    return (
-                      <div key={campo.field} className="border border-gray-200 rounded-lg overflow-hidden min-w-0">
-                        <div className="p-2 bg-white space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="font-medium text-black text-left text-sm leading-tight">{range.label}</span>
-                            <div className="text-sm font-semibold text-black whitespace-nowrap shrink-0">
-                              {value || '-'}
-                              {value && range.unit && ` ${range.unit}`}
-                            </div>
-                          </div>
-                          <LabRangeBar range={range} value={value || null} />
-                          <LabOptimizationBadge examKey={campo.key} value={value || null} range={range} />
-                          {temHistorico ? (
-                            <div className="pt-1">
-                              <label className="block text-xs font-medium text-black mb-1.5">Evolução Temporal</label>
-                              <TrendLine
-                                data={dadosGrafico}
-                                dataKeys={[{ key: campo.field, name: range.label, stroke: '#10b981', dot: true }]}
-                                xKey="data"
-                                height={150}
-                                xAxisLabel="Data"
-                                yAxisLabel={range.unit || ''}
-                                formatter={(v: any) => (v !== null ? `${parseFloat(v).toFixed(1)}` : 'N/A')}
-                                referenceLines={[
-                                  { value: range.min, label: `Min: ${range.min}`, stroke: '#ef4444', strokeDasharray: '5 5' },
-                                  { value: range.max, label: `Max: ${range.max}`, stroke: '#ef4444', strokeDasharray: '5 5' },
-                                ]}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  }
-
+          <div className="flex min-h-0 flex-col gap-3 lg:grid lg:min-h-[calc(100vh-10rem)] lg:grid-cols-[minmax(9rem,0.5fr)_minmax(0,1.5fr)] lg:items-stretch lg:gap-5">
+            <div className="hidden min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-600 dark:bg-gray-900/40 lg:flex lg:min-h-[28rem]">
+              <div className="shrink-0 space-y-0.5 border-b border-gray-200 bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/40 px-3 py-3 dark:border-gray-600 dark:from-emerald-950/30 dark:via-gray-900 dark:to-teal-950/20">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Datas dos exames
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {examesOrdenados.length} registro{examesOrdenados.length === 1 ? '' : 's'}
+                </p>
+              </div>
+              <nav
+                className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-2 py-2"
+                aria-label="Datas de exames laboratoriais"
+              >
+                {examesOrdenados.map((exame, idx) => {
+                  const dataExame = safeDateToString(exame.dataColeta);
+                  const ativo = dataExame === dataSelecionada;
                   return (
-                    <div key={campo.field} className="border border-gray-200 rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => toggleExame(exameKey)}
-                        className="w-full flex items-center justify-between p-2 bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 flex-1">
-                          {isExameExpandido ? (
-                            <ChevronUp className="w-3.5 h-3.5 text-black flex-shrink-0" />
-                          ) : (
-                            <ChevronDown className="w-3.5 h-3.5 text-black flex-shrink-0" />
-                          )}
-                          <span className="font-medium text-black text-left text-sm">{range.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="text-sm font-semibold text-black">
-                            {value || '-'}
-                            {value && range.unit && ` ${range.unit}`}
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="p-2 bg-white border-t border-gray-200">
-                        <LabRangeBar range={range} value={value || null} />
-                        <LabOptimizationBadge examKey={campo.key} value={value || null} range={range} />
-                      </div>
-
-                      {isExameExpandido && (
-                        <div className="p-2 bg-white border-t border-gray-200">
-                          <label className="block text-xs font-medium text-black mb-1.5">Evolução Temporal</label>
-                          {temHistorico ? (
-                            <TrendLine
-                              data={dadosGrafico}
-                              dataKeys={[{ key: campo.field, name: range.label, stroke: '#10b981', dot: true }]}
-                              xKey="data"
-                              height={150}
-                              xAxisLabel="Data"
-                              yAxisLabel={range.unit || ''}
-                              formatter={(v: any) => (v !== null ? `${parseFloat(v).toFixed(1)}` : 'N/A')}
-                              referenceLines={[
-                                { value: range.min, label: `Min: ${range.min}`, stroke: '#ef4444', strokeDasharray: '5 5' },
-                                { value: range.max, label: `Max: ${range.max}`, stroke: '#ef4444', strokeDasharray: '5 5' },
-                              ]}
-                            />
-                          ) : (
-                            <div className="h-[150px] flex items-center justify-center border border-gray-200 rounded-md bg-gray-50">
-                              <p className="text-xs text-black">Sem dados históricos</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                });
-
-                const sectionScore = calculateSectionMetabolicScore({
-                  sectionKey: secao.sectionId,
-                  examKeys: secao.fields.map((f) => f.key),
-                  labValues: exameSelecionado as Record<string, unknown>,
-                  sex: pacienteSex,
-                  dob: paciente?.dadosIdentificacao?.dataNascimento,
-                  limitOverrides: labLimitOverrides,
-                  sectionLabel: secao.section,
-                });
-
-                if (isLgViewport) {
-                  return (
-                    <div key={secao.sectionId} className="border border-gray-200 rounded-lg overflow-hidden min-w-0 flex flex-col bg-white">
-                      <div className="p-2.5 bg-gray-50 border-b border-gray-200">
-                        <div className="flex items-center justify-between min-w-0">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`h-2.5 w-2.5 rounded-full shrink-0 ${secaoComExameForaDaFaixa ? 'bg-red-500' : 'bg-green-500'}`}
-                              aria-hidden="true"
-                            />
-                            <h4 className="font-semibold text-black text-sm">{secao.section}</h4>
-                          </div>
-                          <LabSectionScoreBadge score={sectionScore.score} color={sectionScore.color} />
-                        </div>
-                      </div>
-                      <div className="p-2.5 grid grid-cols-3 gap-4 flex-1 min-w-0">{blocosCampos}</div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={secao.sectionId} className="border border-gray-200 rounded-lg overflow-hidden">
                     <button
-                      onClick={() => toggleSecao(secaoKey)}
-                      className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-gray-100 transition-colors"
+                      key={`lab-date-${dataExame}-${idx}`}
+                      type="button"
+                      onClick={() => setExameDataSelecionada(dataExame)}
+                      className={`w-full rounded-lg px-2 py-1.5 text-left transition-colors ${
+                        ativo
+                          ? 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-100'
+                          : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
+                      }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span
-                          className={`h-2.5 w-2.5 rounded-full shrink-0 ${secaoComExameForaDaFaixa ? 'bg-red-500' : 'bg-green-500'}`}
-                          aria-hidden="true"
-                        />
-                        <h4 className="font-semibold text-black text-left text-sm">{secao.section}</h4>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <LabSectionScoreBadge score={sectionScore.score} color={sectionScore.color} />
-                        {isSecaoExpandida ? (
-                          <ChevronUp className="w-4 h-4 text-black" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-black" />
-                        )}
-                      </div>
+                      <span className="block text-sm font-medium capitalize leading-tight">
+                        {formatExameDateLabel(dataExame)}
+                      </span>
+                      <span className="mt-0.5 block text-[10px] tabular-nums text-gray-500 dark:text-gray-400">
+                        {dataExame.split('-').reverse().join('/')}
+                      </span>
                     </button>
+                  );
+                })}
+              </nav>
+            </div>
 
-                    {isSecaoExpandida && (
-                      <div className="p-2.5 space-y-2">
-                        {blocosCampos}
-                      </div>
+            <div className="min-w-0 lg:flex lg:min-h-[28rem] lg:flex-col lg:overflow-hidden lg:rounded-2xl lg:border lg:border-gray-200 lg:bg-white lg:shadow-sm dark:lg:border-gray-600 dark:lg:bg-gray-900/40">
+              <div className="hidden shrink-0 border-b border-gray-200 bg-gradient-to-r from-teal-50/50 via-white to-emerald-50/40 px-4 py-3 dark:border-gray-600 dark:from-teal-950/20 dark:via-gray-900 dark:to-emerald-950/20 lg:block">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Resultados
+                </p>
+                <p className="mt-0.5 text-sm font-semibold capitalize text-gray-900 dark:text-gray-100">
+                  {dataSelecionada ? formatExameDateLong(dataSelecionada) : 'Selecione uma data'}
+                </p>
+              </div>
+              <div className="space-y-3 pb-3 text-sm lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:p-4">
+            <LabPatientHeaderCard
+              patientName={patientName}
+              dateLabel={dataSelecionada ? formatExameDateLong(dataSelecionada) : null}
+              score={globalAvg}
+              patientPhotoUrl={user?.photoURL || null}
+            />
+
+            <LabMetabolicSummarySection scores={allScores} />
+
+            {todosOsCampos.map((secao) => {
+              const camposComValor = secao.fields.filter((campo) =>
+                campoTemValorNaDataSelecionada(campo.field)
+              );
+              if (camposComValor.length === 0) return null;
+
+              const secaoKey = `secao-${secao.sectionId}`;
+              const isSecaoExpandida = secoesExpandidas.has(secaoKey);
+              const secaoComExameForaDaFaixa = camposComValor.some((campo) => {
+                const range = getLabRange(
+                  campo.key as string,
+                  pacienteSex,
+                  paciente?.dadosIdentificacao?.dataNascimento,
+                  labLimitOverrides
+                );
+                if (!range) return false;
+                const min = Number(range.min);
+                const max = Number(range.max);
+                if (!Number.isFinite(min) || !Number.isFinite(max)) return false;
+                const valor = getExameCampoNumerico(
+                  exameRaw as Record<string, unknown>,
+                  campo.field
+                );
+                if (valor == null) return false;
+                return valor < min || valor > max;
+              });
+
+              const sectionScore = calculateSectionMetabolicScore({
+                sectionKey: secao.sectionId,
+                examKeys: secao.fields.map((f) => f.key),
+                labValues: exameSelecionado as Record<string, unknown>,
+                sex: pacienteSex,
+                dob: paciente?.dadosIdentificacao?.dataNascimento,
+                limitOverrides: labLimitOverrides,
+                sectionLabel: secao.section,
+              });
+
+              return (
+                <div
+                  key={secao.sectionId}
+                  className="overflow-hidden rounded-[18px] border border-slate-200/80 bg-white/80"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSecao(secaoKey)}
+                    className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-2.5 gap-y-1 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 to-emerald-50/40 px-3 py-2.5 text-left transition-colors hover:from-slate-50 hover:to-emerald-50/60"
+                  >
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                        secaoComExameForaDaFaixa
+                          ? 'bg-red-50 text-red-500'
+                          : 'bg-emerald-50 text-emerald-600'
+                      }`}
+                      aria-hidden
+                    >
+                      <Activity className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 whitespace-normal text-[15px] font-semibold leading-tight text-slate-800">
+                      {secao.section}
+                    </span>
+                    <LabSectionScoreBadge score={sectionScore.score} color={sectionScore.color} />
+                    {isSecaoExpandida ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
                     )}
-                  </div>
-                );
-              })}
+                  </button>
 
-              {/* Resumo Metabólico */}
-              {exameSelecionado && (() => {
-                const allScores = todosOsCampos.map((secao) =>
-                  calculateSectionMetabolicScore({
-                    sectionKey: secao.sectionId,
-                    examKeys: secao.fields.map((f) => f.key),
-                    labValues: exameSelecionado as Record<string, unknown>,
-                    sex: pacienteSex,
-                    dob: paciente?.dadosIdentificacao?.dataNascimento,
-                    limitOverrides: labLimitOverrides,
-                    sectionLabel: secao.section,
-                  })
-                );
-                return <LabMetabolicSummarySection scores={allScores} />;
-              })()}
+                  {isSecaoExpandida && (
+                    <div className="space-y-3 p-2.5 sm:p-3">
+                      {camposComValor.map((campo) => {
+                        const range = getLabRange(
+                          campo.key as string,
+                          pacienteSex,
+                          paciente?.dadosIdentificacao?.dataNascimento,
+                          labLimitOverrides
+                        );
+                        if (
+                          !range ||
+                          !range.label ||
+                          range.min === undefined ||
+                          range.max === undefined
+                        ) {
+                          return null;
+                        }
+
+                        const value = getExameCampoNumerico(
+                          exameRaw as Record<string, unknown>,
+                          campo.field
+                        );
+                        const valorAnteriorTrend = exameAnterior
+                          ? getExameCampoNumerico(
+                              exameAnterior as Record<string, unknown>,
+                              campo.field
+                            )
+                          : null;
+                        const labTrendDir =
+                          value != null && valorAnteriorTrend != null
+                            ? bioTrendDir(value, valorAnteriorTrend)
+                            : 'none';
+                        const exameKey = `${secaoKey}-${campo.field}`;
+                        const isExameExpandido = examesExpandidos.has(exameKey);
+                        const mostrarEvolucao = isLgViewport || isExameExpandido;
+                        const temHistorico = dadosGrafico.some(
+                          (d) => d[campo.field] != null
+                        );
+
+                        return (
+                          <div key={campo.field} className="min-w-0 space-y-1.5">
+                            <LabResultCard
+                              name={range.label}
+                              value={value}
+                              unit={range.unit}
+                              examKey={campo.key}
+                              range={range}
+                              trendDir={labTrendDir}
+                              footer={
+                                <>
+                                  {campo.key === 'egfr' && value != null && value < 15 && (
+                                    <p className="text-sm text-red-600">
+                                      ⚠️ Alerta crítico: eGFR &lt; 15
+                                    </p>
+                                  )}
+                                  {campo.key === 'calcitonin' &&
+                                    value != null &&
+                                    value > range.max && (
+                                      <p className="text-sm text-red-600">
+                                        ⚠️ Alerta MEN2: calcitonina elevada
+                                      </p>
+                                    )}
+                                  {['amylase', 'lipase'].includes(campo.key) &&
+                                    value != null &&
+                                    value > range.max && (
+                                      <p className="text-sm text-red-600">
+                                        ⚠️ Alerta: valor acima do máximo
+                                      </p>
+                                    )}
+                                </>
+                              }
+                            >
+                              {mostrarEvolucao ? (
+                                temHistorico ? (
+                                  <TrendLine
+                                    data={dadosGrafico}
+                                    dataKeys={[
+                                      {
+                                        key: campo.field,
+                                        name: range.label,
+                                        stroke: '#10b981',
+                                        dot: true,
+                                      },
+                                    ]}
+                                    xKey="data"
+                                    height={180}
+                                    showLegend={false}
+                                    showValueLabels
+                                    premium
+                                    unitLabel={range.unit || ''}
+                                    referenceBand={{
+                                      min: range.min,
+                                      max: range.max,
+                                    }}
+                                    formatter={(v: any) =>
+                                      v != null ? `${parseFloat(v).toFixed(1)}` : 'N/A'
+                                    }
+                                    referenceLines={[
+                                      {
+                                        value: range.min,
+                                        label: `Min: ${range.min}`,
+                                        stroke: '#94a3b8',
+                                        strokeDasharray: '4 6',
+                                      },
+                                      {
+                                        value: range.max,
+                                        label: `Max: ${range.max}`,
+                                        stroke: '#94a3b8',
+                                        strokeDasharray: '4 6',
+                                      },
+                                    ]}
+                                  />
+                                ) : (
+                                  <div className="flex h-[100px] items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white">
+                                    <p className="text-xs text-gray-500">Sem dados históricos</p>
+                                  </div>
+                                )
+                              ) : null}
+                            </LabResultCard>
+                            {!isLgViewport ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleExame(exameKey)}
+                                className="w-full rounded-[14px] border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+                              >
+                                {isExameExpandido
+                                  ? 'Ocultar evolução temporal'
+                                  : 'Ver evolução temporal'}
+                              </button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <LabStatusLegend className="mt-2" />
+              </div>
             </div>
           </div>
         );
@@ -4833,25 +4988,73 @@ function MetaPageContent() {
           const idx =
             total === 0 ? 0 : Math.min(Math.max(0, indiceAplicacaoSelecionada), total - 1);
           const aplicacao = total > 0 ? aplicacoes[idx] : null;
+          const hojeCalendario = new Date();
+          hojeCalendario.setHours(0, 0, 0, 0);
 
           const evolucaoChartBlock =
             paciente &&
             (() => {
               const d = buildDepoimentoResultadoFromPaciente(paciente, classificacaoMedico ?? 0, '');
               if (d.evolucao.length === 0) return null;
+              const conclusaoCmRaw = paciente.planoTerapeutico?.conclusaoTratamento?.circunferenciaAbdominalFinalCm;
+              const conclusaoCm = typeof conclusaoCmRaw === 'number' && conclusaoCmRaw > 0 ? conclusaoCmRaw : null;
+              const ultimo = d.evolucao[d.evolucao.length - 1];
+              const evolucao =
+                ultimo && !ultimo.isConclusao && conclusaoCm != null
+                  ? [
+                      ...d.evolucao,
+                      {
+                        weekIndex: ultimo.weekIndex + 1,
+                        peso: null,
+                        doseMg: 0,
+                        foiAplicado: false,
+                        isConclusao: true,
+                        circunferenciaCm: conclusaoCm,
+                      },
+                    ]
+                  : d.evolucao;
+              const compAtivo = rotuloVariacaoAplicacoes === 'circunferencia';
               return (
-                <div className="rounded-xl border border-gray-200/80 dark:border-white/10 bg-gray-50/80 dark:bg-[#06152e]/90 overflow-hidden p-3 sm:p-5">
-                  <EvolucaoTratamentoChart evolucao={d.evolucao} pacienteId={d.pacienteId} />
+                <div className="h-full overflow-visible rounded-xl border border-gray-200/80 bg-gray-50/80 p-2 dark:border-white/10 dark:bg-[#06152e]/90 lg:border-0 lg:bg-transparent lg:p-0 dark:lg:bg-transparent">
+                  <div
+                    role="switch"
+                    aria-checked={compAtivo}
+                    aria-label="Valor acima das barras"
+                    className="relative mb-2 inline-flex h-8 w-full max-w-[220px] cursor-pointer select-none rounded-full bg-gray-200 p-1 shadow-inner dark:bg-gray-600"
+                    onClick={() => setRotuloVariacaoAplicacoes(compAtivo ? 'peso' : 'circunferencia')}
+                  >
+                    <div
+                      className="absolute top-1 h-6 w-[calc(50%-4px)] rounded-full bg-[#4CCB7A] shadow-md transition-[left] duration-200 ease-out"
+                      style={{ left: compAtivo ? 'calc(50% + 2px)' : '4px' }}
+                    />
+                    <span
+                      className={`relative z-10 flex flex-1 items-center justify-center text-[11px] font-semibold transition-colors duration-200 ${
+                        compAtivo ? 'text-gray-500 dark:text-gray-400' : 'text-[#0A1F44]'
+                      }`}
+                    >
+                      Peso
+                    </span>
+                    <span
+                      className={`relative z-10 flex flex-1 items-center justify-center text-[11px] font-semibold transition-colors duration-200 ${
+                        compAtivo ? 'text-[#0A1F44]' : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      Comp. Abdominal
+                    </span>
+                  </div>
+                  <EvolucaoTratamentoChart
+                    evolucao={evolucao}
+                    pacienteId={d.pacienteId}
+                    rotuloVariacao={rotuloVariacaoAplicacoes}
+                    compact
+                  />
                 </div>
               );
             })();
 
-          const hojeCalendario = new Date();
-          hojeCalendario.setHours(0, 0, 0, 0);
-
           return (
-            <div className="flex flex-col gap-5 sm:gap-6 min-w-0">
-              <div className="rounded-2xl border border-gray-200/90 dark:border-white/10 bg-white dark:bg-[#0A1F44]/80 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] overflow-hidden p-3 sm:p-4">
+            <div className="flex min-w-0 flex-col gap-5 sm:gap-6">
+            <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-3 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.22)] dark:border-white/10 dark:bg-[#0A1F44]/80 sm:p-4">
                 {total === 0 ? (
                   <div className="p-6 text-center text-sm text-gray-500 dark:text-[#E8EDED]/65">
                     Nenhuma aplicação no plano para exibir.
@@ -4861,7 +5064,7 @@ function MetaPageContent() {
                     role="tablist"
                     aria-label="Aplicações do tratamento"
                     ref={tabsAplicacoesScrollRef}
-                    className="flex gap-2 sm:gap-3 overflow-x-auto pb-1 pt-0.5 scrollbar-hide snap-x snap-mandatory"
+                    className="flex gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-hide snap-x snap-mandatory sm:gap-3"
                   >
                     {aplicacoes.map((item, i) => {
                       const n = i + 1;
@@ -4871,7 +5074,7 @@ function MetaPageContent() {
                       let statusLabel = '';
                       let statusPillClass = '';
                       if (item.status === 'tomada') {
-                        statusLabel = 'Tomada';
+                        statusLabel = 'Aplicada';
                         statusPillClass = 'bg-[#4CCB7A]/90 text-[#0A1F44]';
                       } else if (item.status === 'perdida') {
                         statusLabel = 'Perdida';
@@ -4919,7 +5122,7 @@ function MetaPageContent() {
                             </span>
                             <span className="text-[10px] font-medium text-gray-500 dark:text-[#E8EDED]/50">/{total}</span>
                           </div>
-                          <div className="px-2 py-2 space-y-1">
+                          <div className="space-y-1 px-2 py-2">
                             <p
                               className={`text-[10px] sm:text-[11px] font-semibold leading-tight line-clamp-2 ${
                                 item.status === 'cancelada' ? 'line-through opacity-70' : ''
@@ -4947,281 +5150,88 @@ function MetaPageContent() {
                 )}
               </div>
 
-              {aplicacao && paciente && (
-                <div className="rounded-2xl border border-gray-200/90 dark:border-white/10 bg-white dark:bg-[#0A1F44]/85 shadow-[0_12px_30px_-12px_rgba(76,203,122,0.15)] p-4 sm:p-6 space-y-5">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#4CCB7A]">
-                      Pasta {idx + 1} de {total}
-                    </p>
-                    <h3 className="text-base sm:text-lg font-semibold text-[#0A1F44] dark:text-[#E8EDED] mt-1">
-                      {aplicacao.data.toLocaleDateString('pt-BR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-[#E8EDED]/65 mt-1">
-                      Semana {aplicacao.semana} do plano · {aplicacao.dose} mg
-                    </p>
-                  </div>
+              {paciente && aplicacao ? (() => {
+                  const registroItem = obterRegistroSeguimentoDaAplicacao(paciente, aplicacao.data, aplicacao.semana);
+                  const dataAplicStr = formatarDataAplicacaoISO(aplicacao.data);
+                  const loadKey = `${dataAplicStr}-${aplicacao.semana}`;
+                  const hoje = new Date();
+                  hoje.setHours(0, 0, 0, 0);
+                  const dataAplic = new Date(aplicacao.data);
+                  dataAplic.setHours(0, 0, 0, 0);
+                  const ehHojeAplicacao = dataAplic.getTime() === hoje.getTime();
+                  const podeLinkPreencher =
+                    ehHojeAplicacao && aplicacao.status !== 'cancelada' && !!paciente.id;
+                  const podeEditar = aplicacao.status !== 'cancelada' && !!paciente.id;
+                  const podeApagar = !!registroItem && aplicacao.status !== 'cancelada';
+                  const excluindoKey = registroItem?.id || `semana-${aplicacao.semana}`;
 
-                  {(() => {
-                      const hoje = new Date();
-                      hoje.setHours(0, 0, 0, 0);
-                      const dataAplic = new Date(aplicacao.data);
-                      dataAplic.setHours(0, 0, 0, 0);
-                      const foiFeita = aplicacaoFoiFeitaNoPaciente(paciente, aplicacao.data);
-                      const ehMarcoZeroSemana = aplicacao.semana === 1;
-                      const variacaoPeso = ehMarcoZeroSemana
-                        ? null
-                        : foiFeita
-                          ? obterVariacaoPesoAplicacao(paciente, aplicacao.data)
-                          : obterUltimaVariacaoPesoPaciente(paciente);
-                      const variacaoComp = ehMarcoZeroSemana
-                        ? null
-                        : foiFeita
-                          ? obterVariacaoCompAplicacao(paciente, aplicacao.data)
-                          : obterUltimaVariacaoCompPaciente(paciente);
-                      const registro = obterRegistroSeguimentoDaAplicacao(
-                        paciente,
-                        aplicacao.data,
-                        aplicacao.semana
-                      );
-                      const localSugerido = localPlanejadoParaSemana(aplicacao.semana);
-                      const localCodigo =
-                        (aplicacao.localAplicacao as string | null) || registro?.localAplicacao || null;
-                      const dataAplicStr = formatarDataAplicacaoISO(aplicacao.data);
-                      const loadKey = `${dataAplicStr}-${aplicacao.semana}`;
-                      const carregandoLink = preencherAplicacaoLoadingKey === loadKey;
-                      const ehHojeAplicacao = dataAplic.getTime() === hoje.getTime();
-                      const podeLinkPreencher =
-                        ehHojeAplicacao && aplicacao.status !== 'cancelada' && !!paciente.id;
+                  return (
+                    <MetaAplicacaoSemanaCard
+                      paciente={paciente}
+                      aplicacao={aplicacao}
+                      index={idx}
+                      total={total}
+                      aberto={aplicacaoDetalheAberto}
+                      onToggle={() => setAplicacaoDetalheAberto((v) => !v)}
+                      onEditar={() => void abrirFormularioAplicacaoMeta(aplicacao)}
+                      onApagar={() => void apagarRegistroAplicacaoMeta(aplicacao)}
+                      podeEditar={podeEditar}
+                      podeApagar={podeApagar}
+                      editando={preencherAplicacaoLoadingKey === loadKey}
+                      apagando={excluindoAplicacaoKey === excluindoKey}
+                      podePreencher={podeLinkPreencher}
+                      preencherLoading={preencherAplicacaoLoadingKey === loadKey}
+                      onPreencher={() => void abrirFormularioAplicacaoMeta(aplicacao)}
+                    />
+                  );
+                })() : null}
 
-                      return (
-                        <div
-                          className={`p-4 sm:p-5 rounded-xl border ${
-                            aplicacao.status === 'tomada'
-                              ? 'bg-green-50/80 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                              : aplicacao.status === 'perdida'
-                              ? 'bg-red-50/80 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                              : aplicacao.status === 'hoje'
-                              ? 'bg-blue-50/80 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                              : aplicacao.status === 'cancelada'
-                              ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
-                              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
-                          }`}
-                        >
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                            <div className="flex-1 min-w-0 space-y-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="text-base font-semibold text-gray-900 dark:text-white">
-                                  Semana {aplicacao.semana} · {aplicacao.dose} mg
-                                </div>
-                                {aplicacao.status === 'tomada' ? (
-                                  <span className="inline-flex px-2.5 py-0.5 bg-green-600 text-white text-xs font-medium rounded-full">
-                                    ✓ Tomada
-                                  </span>
-                                ) : aplicacao.status === 'perdida' ? (
-                                  <span className="inline-flex px-2.5 py-0.5 bg-red-600 text-white text-xs font-medium rounded-full">
-                                    ✗ Perdida
-                                  </span>
-                                ) : aplicacao.status === 'hoje' ? (
-                                  <span className="inline-flex px-2.5 py-0.5 bg-blue-600 text-white text-xs font-medium rounded-full">
-                                    Hoje
-                                  </span>
-                                ) : aplicacao.status === 'cancelada' ? (
-                                  <span className="inline-flex px-2.5 py-0.5 bg-gray-500 text-white text-xs font-medium rounded-full">
-                                    Cancelada
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex px-2.5 py-0.5 bg-gray-500 text-white text-xs font-medium rounded-full">
-                                    Futura
-                                  </span>
-                                )}
-                              </div>
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-sm">
-                                <div className="rounded-lg bg-white/70 dark:bg-gray-800/60 border border-gray-200/80 dark:border-gray-600 px-3 py-2">
-                                  <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                                    Local de aplicação
-                                  </p>
-                                  <p className="text-gray-900 dark:text-white font-medium mt-0.5">
-                                    {localCodigo
-                                      ? labelLocalAplicacao(localCodigo)
-                                      : `Sugerido: ${labelLocalAplicacao(localSugerido)}`}
-                                  </p>
-                                  {!localCodigo && (
-                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                                      Rotação semanal (abdômen · coxa · braço). Confirme no preenchimento.
-                                    </p>
-                                  )}
-                                </div>
-                                {!ehMarcoZeroSemana && (
-                                <div className="rounded-lg bg-white/70 dark:bg-gray-800/60 border border-gray-200/80 dark:border-gray-600 px-3 py-2">
-                                  <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                                    Δ Peso (vs anterior)
-                                  </p>
-                                  <p
-                                    className={`font-semibold mt-0.5 ${
-                                      variacaoPeso == null
-                                        ? 'text-gray-500 dark:text-gray-400'
-                                        : variacaoPeso <= 0
-                                        ? 'text-green-700 dark:text-green-400'
-                                        : 'text-amber-700 dark:text-amber-400'
-                                    }`}
-                                  >
-                                    {variacaoPeso == null
-                                      ? '—'
-                                      : `${variacaoPeso > 0 ? '+' : ''}${variacaoPeso.toFixed(1)} kg`}
-                                  </p>
-                                </div>
-                                )}
-                                {!ehMarcoZeroSemana && (
-                                <div className="rounded-lg bg-white/70 dark:bg-gray-800/60 border border-gray-200/80 dark:border-gray-600 px-3 py-2 sm:col-span-2">
-                                  <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                                    Δ Circunferência abdominal (vs anterior)
-                                  </p>
-                                  <p
-                                    className={`font-semibold mt-0.5 ${
-                                      variacaoComp == null
-                                        ? 'text-gray-500 dark:text-gray-400'
-                                        : variacaoComp <= 0
-                                        ? 'text-green-700 dark:text-green-400'
-                                        : 'text-amber-700 dark:text-amber-400'
-                                    }`}
-                                  >
-                                    {variacaoComp == null
-                                      ? '—'
-                                      : `${variacaoComp > 0 ? '+' : ''}${variacaoComp.toFixed(1)} cm`}
-                                  </p>
-                                </div>
-                                )}
-                              </div>
-
-                              {registro?.peso != null && typeof registro.peso === 'number' && (
-                                <p className="text-xs text-gray-600 dark:text-gray-400">
-                                  Peso neste registro:{' '}
-                                  <span className="font-medium text-gray-900 dark:text-white">{registro.peso.toFixed(1)} kg</span>
-                                  {registro.circunferenciaAbdominal != null &&
-                                    typeof registro.circunferenciaAbdominal === 'number' && (
-                                      <>
-                                        {' · '}Cintura:{' '}
-                                        <span className="font-medium text-gray-900 dark:text-white">
-                                          {registro.circunferenciaAbdominal.toFixed(1)} cm
-                                        </span>
-                                      </>
-                                    )}
-                                </p>
-                              )}
-
-                              {aplicacao.adherence && aplicacao.status === 'tomada' && (
-                                <div
-                                  className={`text-xs font-medium ${
-                                    aplicacao.adherence === 'ON_TIME'
-                                      ? 'text-green-700 dark:text-green-400'
-                                      : 'text-amber-700 dark:text-amber-400'
-                                  }`}
-                                >
-                                  {aplicacao.adherence === 'ON_TIME' ? '✓ Aplicação pontual' : '⚠ Aplicação registrada com atraso'}
-                                </div>
-                              )}
-
-                              <MetaAplicacaoResumoSection
-                                paciente={paciente}
-                                registro={registro}
-                                semana={aplicacao.semana}
-                              />
-
-                            </div>
-                          </div>
-
-                          {podeLinkPreencher && (
-                            <div className="mt-4 pt-3 border-t border-gray-200/80 dark:border-gray-600">
-                              <button
-                                type="button"
-                                disabled={carregandoLink}
-                                onClick={async () => {
-                                  if (!paciente.id) return;
-                                  const novaAba = window.open('', '_blank');
-                                  if (novaAba) {
-                                    try {
-                                      novaAba.document.title = 'Abrindo formulário...';
-                                      novaAba.document.body.innerHTML =
-                                        '<p style="font-family: Arial, sans-serif; padding: 16px;">Abrindo formulário da aplicação...</p>';
-                                    } catch {
-                                      // Alguns navegadores limitam escrita em about:blank; segue fluxo normal.
-                                    }
-                                  }
-                                  setPreencherAplicacaoLoadingKey(loadKey);
-                                  try {
-                                    const res = await fetch(
-                                      `/api/aplicacao/link?pacienteId=${encodeURIComponent(paciente.id)}&data=${encodeURIComponent(dataAplicStr)}&semana=${encodeURIComponent(String(aplicacao.semana))}&dose=${encodeURIComponent(String(aplicacao.dose))}`
-                                    );
-                                    const json = await res.json();
-                                    if (!res.ok) throw new Error(json.error || 'Erro ao abrir link');
-                                    const url = json.url as string;
-                                    if (url) {
-                                      if (novaAba && !novaAba.closed) {
-                                        novaAba.location.href = url;
-                                      } else {
-                                        window.location.assign(url);
-                                      }
-                                    } else {
-                                      throw new Error('Link de aplicação inválido');
-                                    }
-                                  } catch (e) {
-                                    if (novaAba && !novaAba.closed) {
-                                      novaAba.close();
-                                    }
-                                    alert(e instanceof Error ? e.message : 'Não foi possível abrir o formulário da aplicação.');
-                                  } finally {
-                                    setPreencherAplicacaoLoadingKey(null);
-                                  }
-                                }}
-                                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4CCB7A] hover:bg-[#45b86d] disabled:opacity-60 text-[#0A1F44] text-sm font-semibold transition-colors shadow-md shadow-[#4CCB7A]/25"
-                              >
-                                {carregandoLink ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                                    Abrindo…
-                                  </>
-                                ) : (
-                                  <>
-                                    <ExternalLink className="w-4 h-4 shrink-0" />
-                                    Preencher dados da aplicação
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-
+              <div className={`flex min-w-0 flex-col gap-5 lg:items-stretch lg:gap-2 lg:rounded-2xl lg:border lg:border-gray-200/90 lg:bg-white lg:p-2 lg:shadow-sm dark:lg:border-white/10 dark:lg:bg-[#0A1F44]/85 ${evolucaoChartBlock ? 'lg:grid lg:grid-cols-2' : ''}`}>
+                {evolucaoChartBlock ? (
+                <div className="order-2 min-w-0 lg:order-1 lg:border-r lg:border-gray-200/80 lg:pr-2 dark:lg:border-white/10">
+                  {evolucaoChartBlock}
+                </div>
+                ) : null}
                   {total > 0 && (
-                    <div className="rounded-xl border border-gray-200/80 dark:border-white/10 bg-gray-50/80 dark:bg-[#06152e]/90 p-3 sm:p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#4CCB7A]">
-                          Registro fotográfico
-                        </p>
+                    <div className="order-1 min-w-0 rounded-xl border border-gray-200/80 bg-gray-50/80 p-3 space-y-3 dark:border-white/10 dark:bg-[#06152e]/90 sm:p-4 lg:order-2 lg:h-full lg:overflow-y-auto lg:border-0 lg:bg-transparent lg:p-0 dark:lg:bg-transparent">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRegistroFotograficoAberto((v) => !v)}
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                          aria-expanded={registroFotograficoAberto}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#4CCB7A]">
+                            Registro fotográfico
+                          </p>
+                          {registroFotograficoAberto ? (
+                            <ChevronUp className="h-4 w-4 shrink-0 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                          )}
+                        </button>
                         {loadingFotosAplicacoesPaciente && (
                           <span className="text-[10px] text-gray-500 dark:text-[#E8EDED]/65">Carregando fotos…</span>
                         )}
-                      </div>
-
-                      <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] px-3 py-2.5">
                         <button
                           type="button"
                           onClick={() => handleAtualizarCompartilhamentoFotos(!compartilhamentoFotosMedico)}
                           disabled={salvandoCompartilhamentoFotos}
-                          className="w-full flex items-center gap-3 disabled:opacity-60"
+                          className="shrink-0 disabled:opacity-60"
+                          title={
+                            compartilhamentoFotosMedico
+                              ? 'Visualização médica ativa'
+                              : 'Visualização médica inativa'
+                          }
+                          aria-label={
+                            compartilhamentoFotosMedico
+                              ? 'Desativar visualização médica'
+                              : 'Ativar visualização médica'
+                          }
                         >
-                          <span className="flex-1 text-left text-sm font-medium text-gray-800 dark:text-[#E8EDED]">
-                            Permitir Visualização Médico
-                          </span>
                           <span
-                            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${
+                            className={`relative inline-flex h-6 w-11 rounded-full border transition-colors ${
                               compartilhamentoFotosMedico
                                 ? 'bg-emerald-500 border-emerald-500'
                                 : 'bg-red-600 border-red-700 dark:bg-red-600 dark:border-red-500'
@@ -5234,8 +5244,17 @@ function MetaPageContent() {
                             />
                           </span>
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setModalBodyScanAberto(true)}
+                          className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100 border border-emerald-200 hover:bg-emerald-200"
+                        >
+                          BodyScan
+                        </button>
                       </div>
 
+                      {registroFotograficoAberto ? (
+                        <>
                       {erroFotosAplicacoesPaciente ? (
                         <p className="text-[11px] text-red-600 dark:text-red-400">{erroFotosAplicacoesPaciente}</p>
                       ) : null}
@@ -5457,12 +5476,11 @@ function MetaPageContent() {
                           </>
                         );
                       })()}
+                        </>
+                      ) : null}
                     </div>
                   )}
-
-                  {evolucaoChartBlock}
-                </div>
-              )}
+              </div>
             </div>
           );
         };
@@ -5554,15 +5572,10 @@ function MetaPageContent() {
 
         const estatisticas = calcularEstatisticas();
         const estiloStatus = paciente?.statusTratamento ? obterEstiloStatus(paciente.statusTratamento) : null;
-        const aplicacoesPlanoPaciente = paciente ? obterAplicacoesPlanoPacienteMeta(paciente) : [];
-        const totalAplicacoesPlano = estatisticas.totalAplicacoes;
-        const aplicacoesRealizadas = paciente
-          ? aplicacoesPlanoPaciente.filter((aplicacao) => aplicacaoFoiFeitaNoPaciente(paciente, aplicacao.data)).length
-          : 0;
-        const percentualTratamento =
-          totalAplicacoesPlano > 0
-            ? Math.max(0, Math.min(100, (aplicacoesRealizadas / totalAplicacoesPlano) * 100))
-            : 0;
+        const progressoCicloAtivo = progressoAplicacoesProtocoloAtivo(paciente);
+        const totalAplicacoesPlano = progressoCicloAtivo.total;
+        const aplicacoesRealizadas = progressoCicloAtivo.aplicadas;
+        const percentualTratamento = progressoCicloAtivo.percAplicadas;
         const exibirCirculoProgressoTratamento =
           paciente?.statusTratamento === 'em_tratamento' || paciente?.statusTratamento === 'concluido';
 
@@ -5572,12 +5585,16 @@ function MetaPageContent() {
           { id: 'injetaveis' as const, label: 'Injetáveis' },
         ] as const;
 
-        const botaoVideoAplicacaoPacienteMeta = (
+        const botaoVideoAplicacaoPacienteMeta = (placement: 'header' | 'fixed') => (
           <button
             type="button"
             onClick={abrirVideoAplicacaoPacienteMeta}
             disabled={videoUrlLoadingAplicacaoMeta}
-            className="flex flex-col items-center gap-0.5 shrink-0 border-0 bg-transparent p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A1F44] rounded-md disabled:opacity-55 disabled:pointer-events-none"
+            className={`${
+              placement === 'fixed'
+                ? 'hidden lg:flex fixed bottom-6 right-8 z-40'
+                : 'flex lg:hidden'
+            } flex-col items-center gap-0.5 shrink-0 border-0 bg-transparent p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A1F44] rounded-md disabled:opacity-55 disabled:pointer-events-none`}
             aria-label="Assistir vídeo de como fazer a aplicação"
             title="Vídeo da aplicação"
           >
@@ -5628,13 +5645,24 @@ function MetaPageContent() {
               <Wrench className="h-7 w-7" aria-hidden />
             </div>
             <p className="text-lg font-semibold text-gray-900 dark:text-[#E8EDED]">
-              {aplicacoesSubpasta === 'retatrutida' ? 'Retratutida' : 'Injetáveis'}
+              Retratutida
             </p>
             <p className="mt-2 max-w-md text-sm text-gray-600 dark:text-[#E8EDED]/65">
               Esta seção está em construção. Em breve você poderá acompanhar suas aplicações aqui.
             </p>
           </div>
         );
+
+        const conteudoInjetaveisAplicacoesMeta = paciente ? (
+          <MetaadminInjetaveisAplicacoesView
+            paciente={paciente}
+            onPacienteAtualizado={() => {
+              /* Paciente em /meta: somente leitura — check é exclusivo do médico */
+            }}
+            variant="lista"
+            allowToggle={false}
+          />
+        ) : null;
 
         const modalVideoAplicacaoMetaEl = showModalVideoAplicacaoMeta && (
           <div
@@ -5694,6 +5722,8 @@ function MetaPageContent() {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Nenhum plano cadastrado</h3>
                   <p className="text-gray-500 dark:text-gray-400">Seu cronograma de aplicações aparecerá aqui quando um plano terapêutico for cadastrado.</p>
                 </div>
+              ) : aplicacoesSubpasta === 'injetaveis' ? (
+                conteudoInjetaveisAplicacoesMeta
               ) : (
                 conteudoEmConstrucaoAplicacoesMeta
               )}
@@ -5822,7 +5852,7 @@ function MetaPageContent() {
                     </p>
                   </div>
                 </button>
-                {botaoVideoAplicacaoPacienteMeta}
+                {botaoVideoAplicacaoPacienteMeta('header')}
               </div>
             </div>
             </div>
@@ -5830,10 +5860,13 @@ function MetaPageContent() {
             {/* Pastas horizontais + detalhe */}
             {renderizarPastasAplicacoes()}
             </>
+            ) : aplicacoesSubpasta === 'injetaveis' ? (
+              conteudoInjetaveisAplicacoesMeta
             ) : (
               conteudoEmConstrucaoAplicacoesMeta
             )}
             {modalVideoAplicacaoMetaEl}
+            {aplicacoesSubpasta === 'tirzepatida' ? botaoVideoAplicacaoPacienteMeta('fixed') : null}
           </div>
         );
       }
@@ -5893,8 +5926,10 @@ function MetaPageContent() {
               <NutriContent
                 paciente={paciente}
                 modoNutricionista
+                chatNutriAuthorKind="nutritionist"
                 chatNutriDataSelecionada={chatNutriDataSelecionada || new Date().toISOString().split('T')[0]}
                 onChatNutriDataChange={(d) => setChatNutriDataSelecionada(d)}
+                initialTab={searchParams.get('aba') === 'cardapio' ? 'cardapio' : undefined}
               />
             </div>
           );
@@ -5933,6 +5968,7 @@ function MetaPageContent() {
             paciente={paciente}
             chatNutriDataSelecionada={chatNutriDataSelecionada || new Date().toISOString().split('T')[0]}
             onChatNutriDataChange={(d) => setChatNutriDataSelecionada(d)}
+            initialTab={searchParams.get('aba') === 'cardapio' ? 'cardapio' : undefined}
           />
         );
       }
@@ -5966,37 +6002,33 @@ function MetaPageContent() {
           );
         }
 
-        // Paciente vinculado: exibir conteúdo Personal embutido (igual ao Nutri, mantém menu superior/inferior)
         return (
-          <Suspense fallback={
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
-            </div>
-          }>
-            <PersonalPageContent embedded pacienteProp={paciente} />
-          </Suspense>
+          <div className="flex min-h-0 h-full flex-1 flex-col overflow-hidden">
+            <Suspense
+              fallback={
+                <div className="flex flex-1 items-center justify-center py-12">
+                  <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600" />
+                </div>
+              }
+            >
+              <PersonalPageContent embedded pacienteProp={paciente ?? undefined} />
+            </Suspense>
+          </div>
         );
       }
 
       case 'indicar': {
         // Função para validar telefone brasileiro (DDD + 9 dígitos)
-        const validarTelefone = (telefone: string): boolean => {
-          // Remove caracteres não numéricos
-          const numeros = telefone.replace(/\D/g, '');
-          // Deve ter 11 dígitos (2 DDD + 9 número) ou 10 dígitos (2 DDD + 8 número - formato antigo)
-          // Aceitamos ambos, mas preferimos 11 dígitos
-          return numeros.length === 10 || numeros.length === 11;
-        };
-
-        // Função para formatar telefone
-        const formatarTelefone = (telefone: string): string => {
-          const numeros = telefone.replace(/\D/g, '');
-          if (numeros.length === 10) {
-            return numeros.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-          } else if (numeros.length === 11) {
-            return numeros.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-          }
-          return telefone;
+        const validarTelefoneIndicacao = (fields: {
+          telefonePaciente?: string;
+          telefonePacienteDdi?: string;
+          telefonePacientePais?: string;
+        }): boolean => {
+          return isValidIdentificacaoPhone({
+            telefone: fields.telefonePaciente,
+            telefoneDdi: fields.telefonePacienteDdi,
+            telefonePais: fields.telefonePacientePais,
+          });
         };
 
         // Filtrar médicos por estado e cidade
@@ -6037,8 +6069,8 @@ function MetaPageContent() {
           }
 
           // Validar telefone
-          if (!validarTelefone(indicacaoForm.telefonePaciente)) {
-            alert('Telefone inválido. Digite o DDD e o número com 9 dígitos (ex: (11) 98765-4321).');
+          if (!validarTelefoneIndicacao(indicacaoForm)) {
+            alert(IDENTIFICACAO_PHONE_ERROR);
             return;
           }
 
@@ -6050,15 +6082,16 @@ function MetaPageContent() {
               return;
             }
 
-            // Normalizar telefone (remover formatação)
-            const telefoneNormalizado = indicacaoForm.telefonePaciente.replace(/\D/g, '');
-
             await IndicacaoService.criarIndicacao({
               indicadoPor: user.email,
               indicadoPorNome: paciente.nome || user.displayName || 'Paciente',
-              indicadoPorTelefone: paciente.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '',
+              ...indicadoPorPhoneWriteFields(paciente.dadosIdentificacao ?? {}),
               nomePaciente: indicacaoForm.nomePaciente.trim(),
-              telefonePaciente: telefoneNormalizado,
+              ...indicacaoPhoneWriteFields({
+                telefonePaciente: indicacaoForm.telefonePaciente,
+                telefonePacienteDdi: indicacaoForm.telefonePacienteDdi,
+                telefonePacientePais: indicacaoForm.telefonePacientePais,
+              }),
               estado: indicacaoForm.estado,
               cidade: indicacaoForm.cidade,
               medicoId: indicacaoForm.medicoId,
@@ -6073,7 +6106,9 @@ function MetaPageContent() {
               cidade: '',
               medicoId: '',
               nomePaciente: '',
-              telefonePaciente: ''
+              telefonePaciente: '',
+              telefonePacienteDdi: '',
+              telefonePacientePais: '',
             });
 
             // Recarregar minhas indicações se estiver na aba
@@ -6133,7 +6168,7 @@ function MetaPageContent() {
                 </span>
                 <div className="min-w-0">
                   <h2 id="encaminhamentos-modal-title" className="text-lg font-bold leading-tight sm:text-xl">Encaminhamentos</h2>
-                  <p className="mt-0.5 text-xs text-[#E8EDED]/65">Tela cheia no mesmo padrão do Check-in Diário.</p>
+                  <p className="mt-0.5 text-xs text-[#E8EDED]/65">Tela cheia no mesmo padrão das outras áreas do META.</p>
                 </div>
               </div>
               <button
@@ -6505,559 +6540,64 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
       }
 
       case 'perfil': {
-        if (!paciente && !searchParams.get('pacienteId')) {
-          return (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Meu Perfil</h2>
-              <div className="bg-[#075e54]/10 border border-[#075e54]/30 rounded-xl p-6 flex flex-col items-center justify-center text-center max-w-lg mx-auto">
-                <div className="w-14 h-14 rounded-full bg-[#075e54] flex items-center justify-center mb-4">
-                  <MessageSquare className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Preencha seus dados</h3>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">Responda às perguntas no formato de chat para cadastrar seus dados, peso, comorbidades e outras informações importantes para o tratamento.</p>
-                <button
-                  type="button"
-                  onClick={() => openModalDadosPaciente()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#25d366] text-white font-medium text-sm hover:bg-[#20bd5a] transition-colors"
-                >
-                  <MessageSquare size={20} />
-                  Abrir questionário em chat
-                </button>
-              </div>
-            </div>
-          );
-        }
-        if (!paciente) {
-          return (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Meu Perfil</h2>
-              <div className="bg-white p-8 rounded-lg shadow text-center">
-                <UserIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Dados não encontrados</h3>
-                <p className="text-gray-500">Seus dados aparecerão aqui.</p>
-              </div>
-            </div>
-          );
-        }
-        
-        const dados = paciente.dadosIdentificacao;
-        const clinicos = paciente.dadosClinicos;
-        const estiloVida = paciente.estiloVida;
-        
-        // Funções auxiliares para formatação
-        const formatarSexo = (sexo?: string) => {
-          return sexo === 'M' ? 'Masculino' : sexo === 'F' ? 'Feminino' : '-';
-        };
-        
-        const formatarPadraoAlimentar = (padrao?: string) => {
-          const padroes: { [key: string]: string } = {
-            'equilibrado': 'Alimentação Equilibrada',
-            'hiper_calorico_noturno': 'Hipercalórico Noturno',
-            'ultraprocessados': 'Alta Ingestão de Ultraprocessados',
-            'baixo_proteico': 'Baixo Teor Proteico',
-            'hiperproteico': 'Hiperproteico',
-            'jejum_intermitente': 'Jejum Intermitente',
-            'vegetariano_vegano': 'Vegetariano/Vegano'
-          };
-          return padroes[padrao || ''] || padrao || '-';
-        };
-        
-        const formatarFrequenciaAlimentar = (freq?: string) => {
-          return freq ? `${freq} refeições/dia` : '-';
-        };
-        
-        const formatarAtividadeFisica = (atividade?: string) => {
-          const atividades: { [key: string]: string } = {
-            'sedentario': 'Sedentário',
-            'leve': 'Leve (1–2x/sem)',
-            'moderada': 'Moderada (3–4x/sem)',
-            'intensa': 'Intensa (≥5x/sem)',
-            'profissional': 'Profissional ou Atleta'
-          };
-          return atividades[atividade || ''] || atividade || '-';
-        };
-        
-        const formatarUsoAlcool = (uso?: string) => {
-          const usos: { [key: string]: string } = {
-            'nao_consome': 'Não Consome',
-            'social': 'Social',
-            'frequente': 'Frequente',
-            'abuso': 'Abuso/Diário'
-          };
-          return usos[uso || ''] || uso || '-';
-        };
-        
-        const formatarTabagismo = (tabagismo?: string) => {
-          const tipos: { [key: string]: string } = {
-            'nunca_fumou': 'Nunca Fumou',
-            'ex_fumante_5': 'Ex-fumante (<5 anos)',
-            'ex_fumante_5plus': 'Ex-fumante (>5 anos)',
-            'fumante_10': 'Fumante Atual (≤10 cigarros/dia)',
-            'fumante_10plus': 'Fumante Atual (>10 cigarros/dia)'
-          };
-          return tipos[tabagismo || ''] || tabagismo || '-';
-        };
-        
-        const formatarEstresse = (estresse?: string) => {
-          const niveis: { [key: string]: string } = {
-            'baixo': 'Baixo',
-            'moderado': 'Moderado',
-            'elevado': 'Elevado',
-            'muito_elevado': 'Muito Elevado'
-          };
-          return niveis[estresse || ''] || estresse || '-';
-        };
-        
         return (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Meu Perfil</h2>
-              {!searchParams.get('pacienteId') && (semMedicoNemSolicitacao || !paciente.dadosIdentificacao?.dataNascimento) && (
-                <button
-                  type="button"
-                  onClick={() => openModalDadosPaciente()}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  <Edit size={16} />
-                  Completar ou atualizar dados clínicos
-                </button>
-              )}
-            </div>
-
-            {/* Link destacado para abrir o modal de dados (chat) — quando sem médico nem solicitação em aberto, ou falta data de nascimento */}
-            {!searchParams.get('pacienteId') && (semMedicoNemSolicitacao || !paciente.dadosIdentificacao?.dataNascimento) && (
-              <div className="bg-[#075e54]/10 border border-[#075e54]/30 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#075e54] flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Preencher ou atualizar dados de saúde</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Responda no chat (dados, peso, motivação, comorbidades, etc.) — leva poucos minutos.</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => openModalDadosPaciente()}
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#25d366] text-white font-medium text-sm hover:bg-[#20bd5a] transition-colors"
-                >
-                  <MessageSquare size={18} />
-                  Abrir formulário em chat
-                </button>
-              </div>
-            )}
-            
-            {/* Dados de Identificação */}
-            <div className="bg-white rounded-lg shadow p-4 md:p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <UserIcon className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Dados de Identificação</h3>
-              </div>
-              
-              <div className="space-y-4">
-                {/* Cards principais */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Nome Completo</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{dados?.nomeCompleto || '-'}</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">E-mail</p>
-                    <div className="flex items-center gap-1.5">
-                      <Mail className="w-3 h-3 text-gray-500" />
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{paciente.email || '-'}</p>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Telefone</p>
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="w-3 h-3 text-gray-500" />
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{dados?.telefone || '-'}</p>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">CPF</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{dados?.cpf || '-'}</p>
-                  </div>
-                </div>
-
-                {/* Informações adicionais */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Data de Nascimento</p>
-                      <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3 h-3 text-gray-500" />
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {dados?.dataNascimento 
-                          ? new Date(dados.dataNascimento).toLocaleDateString('pt-BR')
-                          : '-'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Sexo Biológico</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatarSexo(dados?.sexoBiologico)}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    <p className="text-xs font-medium text-gray-600 mb-1">Data de Cadastro</p>
-                      <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3 h-3 text-gray-500" />
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {dados?.dataCadastro 
-                          ? new Date(dados.dataCadastro).toLocaleDateString('pt-BR')
-                          : '-'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Endereço */}
-                {(dados?.endereco?.cep || dados?.endereco?.rua) && (
-                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <MapPin className="w-4 h-4 text-gray-500" />
-                      <p className="text-xs font-medium text-gray-600">Endereço</p>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {dados?.endereco?.rua ? `${dados.endereco.rua}, ${dados.endereco.cidade}/${dados.endereco.estado}` : dados?.endereco?.cep || '-'}
-                    </p>
-                  </div>
-                )}
-
-                {/* Médico Responsável */}
-                {medicoResponsavel && (
-                  <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-3 border border-teal-200">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Stethoscope className="w-4 h-4 text-teal-600" />
-                      <p className="text-xs font-medium text-gray-600">Médico Responsável</p>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Dados Clínicos */}
-            {clinicos && (
-              <div className="bg-white rounded-lg shadow p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <FlaskConical className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Dados Clínicos</h3>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* Medidas Iniciais */}
-                  {clinicos.medidasIniciais && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-3">Medidas Iniciais</p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
-                          <p className="text-xs font-medium text-gray-600 mb-1">Peso</p>
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {clinicos.medidasIniciais.peso ? `${clinicos.medidasIniciais.peso} kg` : '-'}
-                          </p>
-                        </div>
-                        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
-                          <p className="text-xs font-medium text-gray-600 mb-1">Altura</p>
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {clinicos.medidasIniciais.altura ? `${clinicos.medidasIniciais.altura} cm` : '-'}
-                          </p>
-                        </div>
-                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
-                          <p className="text-xs font-medium text-gray-600 mb-1">IMC</p>
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {clinicos.medidasIniciais.imc 
-                              ? `${clinicos.medidasIniciais.imc.toFixed(1)} kg/m²` 
-                              : '-'}
-                          </p>
-                        </div>
-                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
-                          <p className="text-xs font-medium text-gray-600 mb-1">Circunferência Abdominal</p>
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {clinicos.medidasIniciais.circunferenciaAbdominal 
-                              ? `${clinicos.medidasIniciais.circunferenciaAbdominal} cm` 
-                              : '-'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {clinicos.motivacao && Object.keys(clinicos.motivacao).some((k) => k !== 'outro' && !!(clinicos.motivacao as any)[k]) && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-2">Motivação (peso)</p>
-                      <div className="flex flex-wrap gap-2">
-                        {(clinicos.motivacao as any).estetica && <span className="px-2 py-1 bg-violet-50 text-violet-800 text-xs rounded-full border border-violet-200">Estética</span>}
-                        {(clinicos.motivacao as any).cansaco_falta_energia && <span className="px-2 py-1 bg-violet-50 text-violet-800 text-xs rounded-full border border-violet-200">Cansaço / energia</span>}
-                        {(clinicos.motivacao as any).saude_exames_alterados && <span className="px-2 py-1 bg-violet-50 text-violet-800 text-xs rounded-full border border-violet-200">Saúde / exames</span>}
-                        {(clinicos.motivacao as any).autoestima && <span className="px-2 py-1 bg-violet-50 text-violet-800 text-xs rounded-full border border-violet-200">Autoestima</span>}
-                        {(clinicos.motivacao as any).dificuldade_emagrecer && <span className="px-2 py-1 bg-violet-50 text-violet-800 text-xs rounded-full border border-violet-200">Dificuldade emagrecer</span>}
-                        {(clinicos.motivacao as any).outro && (clinicos.motivacaoOutro ? <span className="px-2 py-1 bg-violet-50 text-violet-800 text-xs rounded-full border border-violet-200">{clinicos.motivacaoOutro}</span> : <span className="px-2 py-1 bg-violet-50 text-violet-800 text-xs rounded-full border border-violet-200">Outro</span>)}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {clinicos.diagnosticoPrincipal && (
-                      <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                        <p className="text-xs font-medium text-gray-600 mb-1">Diagnóstico Principal</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {clinicos.diagnosticoPrincipal.tipo === 'dm1' ? 'Diabetes tipo 1' :
-                           clinicos.diagnosticoPrincipal.tipo === 'dm2' ? 'Diabetes tipo 2' :
-                           clinicos.diagnosticoPrincipal.tipo === 'obesidade' ? 'Obesidade' :
-                           clinicos.diagnosticoPrincipal.tipo === 'sobrepeso_comorbidade' ? 'Sobrepeso com problema de saúde' :
-                           clinicos.diagnosticoPrincipal.tipo === 'pre_diabetes' ? 'Pré-diabetes' :
-                           clinicos.diagnosticoPrincipal.tipo === 'resistencia_insulinica' ? 'Resistência à insulina / síndrome metabólica' :
-                           clinicos.diagnosticoPrincipal.tipo === 'sop_ri' ? 'Ovário policístico (SOP)' :
-                           clinicos.diagnosticoPrincipal.tipo === 'ehna_sem_dm2' ? 'Gordura no fígado / esteatose' :
-                           clinicos.diagnosticoPrincipal.tipo === 'outro' ? (clinicos.diagnosticoPrincipal.outro || 'Outro') :
-                           clinicos.diagnosticoPrincipal.tipo}
-                        </p>
-                      </div>
-                    )}
-                    {clinicos.historiaTireoidiana && (
-                      <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-200">
-                        <p className="text-xs font-medium text-gray-600 mb-1">História Tireoidiana</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {clinicos.historiaTireoidiana === 'eutireoidismo' ? 'Tireoide normal' :
-                           clinicos.historiaTireoidiana === 'hipotireoidismo_tratado' ? 'Hipotireoidismo tratado' :
-                           clinicos.historiaTireoidiana === 'nodulo_bocio' ? 'Nódulo ou bócio' :
-                           clinicos.historiaTireoidiana === 'tireoidite_previa' ? 'Tireoidite prévia' :
-                           clinicos.historiaTireoidiana === 'cmt_confirmado' ? 'CMT confirmado' :
-                           clinicos.historiaTireoidiana === 'outro' ? (clinicos.historiaTireoidianaOutro || 'Outro') :
-                           clinicos.historiaTireoidiana}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Comorbidades Associadas (2.3) */}
-                  {clinicos.comorbidades && Object.keys(clinicos.comorbidades).some(k => k !== 'outraDescricao' && !!(clinicos.comorbidades as any)[k]) && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-2">Comorbidades Associadas</p>
-                      <div className="flex flex-wrap gap-2">
-                        {clinicos.comorbidades.hipertensaoArterial && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Pressão alta</span>}
-                        {clinicos.comorbidades.dislipidemia && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Dislipidemia</span>}
-                        {clinicos.comorbidades.apneiaObstrutivaSono && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">AOS</span>}
-                        {clinicos.comorbidades.esteatoseEHNA && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Esteatose/EHNA</span>}
-                        {clinicos.comorbidades.doencaCardiovascular && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Doença cardiovascular</span>}
-                        {clinicos.comorbidades.doencaRenalCronica && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">DRC</span>}
-                        {clinicos.comorbidades.sop && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">SOP</span>}
-                        {clinicos.comorbidades.hipotireoidismo && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Hipotireoidismo</span>}
-                        {clinicos.comorbidades.asmaDPOC && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Asma/DPOC</span>}
-                        {clinicos.comorbidades.transtornoAnsiedadeDepressao && <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Ansiedade/depressão</span>}
-                        {clinicos.comorbidades.nenhuma && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full border border-gray-200">Nenhuma</span>}
-                        {clinicos.comorbidades.outra && (clinicos.comorbidades.outraDescricao ? <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">{clinicos.comorbidades.outraDescricao}</span> : <span className="px-2 py-1 bg-amber-50 text-amber-800 text-xs rounded-full border border-amber-200">Outra</span>)}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Riscos e condições (2.6) */}
-                  {clinicos.riscos && Object.values(clinicos.riscos).some(Boolean) && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-2">Riscos e condições (Tirzepatida)</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-900 dark:text-white">
-                        {clinicos.riscos.pancreatitePrevia && <span>Pancreatite prévia: {clinicos.riscos.pancreatitePrevia === 'sim' ? 'Sim' : 'Não'}</span>}
-                        {clinicos.riscos.gastroparesia && <span>Gastroparesia: {clinicos.riscos.gastroparesia === 'sim' ? 'Sim' : 'Não'}</span>}
-                        {clinicos.riscos.historicoCMT_MEN2 && <span>Hist. CMT/MEN2: {clinicos.riscos.historicoCMT_MEN2 === 'sim' ? 'Sim' : clinicos.riscos.historicoCMT_MEN2 === 'nao' ? 'Não' : 'Desconheço'}</span>}
-                        {clinicos.riscos.gestacao && <span>Gestação: {clinicos.riscos.gestacao === 'sim' ? 'Sim' : clinicos.riscos.gestacao === 'nao' ? 'Não' : 'Desconheço'}</span>}
-                        {clinicos.riscos.lactacao && <span>Lactação: {clinicos.riscos.lactacao === 'sim' ? 'Sim' : 'Não'}</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sintomas basais GI (2.10) */}
-                  {clinicos.sintomasGI && Object.keys(clinicos.sintomasGI).some(k => !!(clinicos.sintomasGI as any)[k]) && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-2">Sintomas basais do trato GI</p>
-                      <div className="flex flex-wrap gap-2">
-                        {clinicos.sintomasGI.plenitudePosPrandial && <span className="px-2 py-1 bg-slate-100 text-slate-800 text-xs rounded-full">Plenitude após comer</span>}
-                        {clinicos.sintomasGI.nauseaLeve && <span className="px-2 py-1 bg-slate-100 text-slate-800 text-xs rounded-full">Náusea leve</span>}
-                        {clinicos.sintomasGI.constipacao && <span className="px-2 py-1 bg-slate-100 text-slate-800 text-xs rounded-full">Constipação</span>}
-                        {clinicos.sintomasGI.refluxoPirose && <span className="px-2 py-1 bg-slate-100 text-slate-800 text-xs rounded-full">Refluxo / queimação</span>}
-                        {clinicos.sintomasGI.nenhum && <span className="px-2 py-1 bg-slate-100 text-slate-800 text-xs rounded-full">Nenhum</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Objetivos do tratamento (2.11) */}
-                  {clinicos.objetivosTratamento && Object.keys(clinicos.objetivosTratamento).some(k => k !== 'outroDescricao' && !!(clinicos.objetivosTratamento as any)[k]) && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-2">Objetivos do tratamento</p>
-                      <div className="flex flex-wrap gap-2">
-                        {clinicos.objetivosTratamento.perdaPeso10Porcento && <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Perder ≥10% do peso</span>}
-                        {clinicos.objetivosTratamento.hba1cMenor68 && <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Melhorar glicose / HbA1c</span>}
-                        {clinicos.objetivosTratamento.reducaoCircunferencia10cm && <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Reduzir circunferência abdominal</span>}
-                        {clinicos.objetivosTratamento.remissaoPreDiabetes && <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Reverter pré-diabetes</span>}
-                        {clinicos.objetivosTratamento.melhoraEHNA && <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Melhorar fígado (esteatose)</span>}
-                        {(clinicos.objetivosTratamento as any).mais_energia && <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Mais energia</span>}
-                        {(clinicos.objetivosTratamento as any).melhora_autoestima && <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Autoestima</span>}
-                        {clinicos.objetivosTratamento.outro && (clinicos.objetivosTratamento.outroDescricao ? <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">{clinicos.objetivosTratamento.outroDescricao}</span> : <span className="px-2 py-1 bg-emerald-50 text-emerald-800 text-xs rounded-full border border-emerald-200">Outro</span>)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* Informações Nutricionais */}
-            {loadingPlanoNutricional ? (
-              <div className="bg-white rounded-lg shadow p-4 md:p-6">
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
-                  <span className="ml-2 text-sm text-gray-600">Carregando informações nutricionais...</span>
-                </div>
-              </div>
-            ) : planoNutricional ? (
-              <div className="bg-white rounded-lg shadow p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <UtensilsCrossed className="w-5 h-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Informações Nutricionais</h3>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* Plano Nutricional */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
-                      <p className="text-xs font-medium text-gray-600 mb-1">Estilo Alimentar</p>
-                      <p className="text-sm font-semibold text-gray-900 capitalize">
-                        {planoNutricional.estilo?.replace('_', ' ') || '-'}
-                      </p>
-                    </div>
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
-                      <p className="text-xs font-medium text-gray-600 mb-1">Meta de Proteína</p>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {planoNutricional.protDia_g ? `${planoNutricional.protDia_g}g/dia` : '-'}
-                      </p>
-                    </div>
-                    <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-3 border border-cyan-200">
-                      <p className="text-xs font-medium text-gray-600 mb-1">Meta de Água</p>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {planoNutricional.aguaDia_ml ? `${Math.round(planoNutricional.aguaDia_ml / 1000)}L/dia` : '-'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Hipótese Comportamental */}
-                  {planoNutricional.hipoteseComportamental && (
-                    <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
-                      <p className="text-xs font-medium text-gray-600 mb-2">Análise Comportamental</p>
-                      <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">
-                        {planoNutricional.hipoteseComportamental}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Restrições e Preferências */}
-                  {(planoNutricional.restricoesPaciente?.length > 0 || planoNutricional.preferenciasProteinaPaciente?.length > 0 || planoNutricional.evitar?.length > 0) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {planoNutricional.restricoesPaciente?.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-gray-600 mb-2">Restrições Alimentares</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {planoNutricional.restricoesPaciente.map((restricao: string, idx: number) => (
-                              <span key={idx} className="px-2 py-1 bg-red-50 text-red-700 text-xs rounded-full border border-red-200">
-                                {restricao}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {planoNutricional.preferenciasProteinaPaciente?.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-gray-600 mb-2">Preferências de Proteína</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {planoNutricional.preferenciasProteinaPaciente.map((pref: string, idx: number) => (
-                              <span key={idx} className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
-                                {pref}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {planoNutricional.evitar?.length > 0 && (
-                        <div className="md:col-span-2">
-                          <p className="text-xs font-medium text-gray-600 mb-2">Alimentos/Hábitos a Evitar</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {planoNutricional.evitar.map((item: string, idx: number) => (
-                              <span key={idx} className="px-2 py-1 bg-orange-50 text-orange-700 text-xs rounded-full border border-orange-200">
-                                {item}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Suplementos */}
-                  {planoNutricional.suplementos && (planoNutricional.suplementos.probiotico || planoNutricional.suplementos.whey || planoNutricional.suplementos.creatina) && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-600 mb-2">Suplementos Recomendados</p>
-                      <div className="flex flex-wrap gap-2">
-                        {planoNutricional.suplementos.probiotico && (
-                          <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded border border-purple-200">
-                            Probiótico: {planoNutricional.suplementos.probiotico}
-                          </span>
-                        )}
-                        {planoNutricional.suplementos.whey && (
-                          <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded border border-purple-200">
-                            Whey: {planoNutricional.suplementos.whey}
-                          </span>
-                        )}
-                        {planoNutricional.suplementos.creatina && (
-                          <span className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded border border-purple-200">
-                            Creatina: {planoNutricional.suplementos.creatina}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Descrição do Estilo */}
-                  {planoNutricional.descricaoEstilo && (
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      <p className="text-xs font-medium text-gray-600 mb-1">Sobre o Plano</p>
-                      <p className="text-xs text-gray-700 leading-relaxed">{planoNutricional.descricaoEstilo}</p>
-                    </div>
-                  )}
-
-                  {/* Data de Criação */}
-                  {planoNutricional.criadoEm && (
-                    <p className="text-xs text-gray-500 text-right">
-                      Plano criado em {planoNutricional.criadoEm?.toDate ? new Date(planoNutricional.criadoEm.toDate()).toLocaleDateString('pt-BR') : new Date(planoNutricional.criadoEm).toLocaleDateString('pt-BR')}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <UtensilsCrossed className="w-5 h-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Informações Nutricionais</h3>
-                </div>
-                
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-6 text-center">
-                  <UtensilsCrossed className="w-12 h-12 text-amber-600 mx-auto mb-3" />
-                  <h4 className="text-base font-semibold text-gray-900 mb-2">
-                    Plano Nutricional não disponível
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Você ainda não possui um plano nutricional cadastrado. Acesse a página Nutri para preencher suas informações e obter seu plano personalizado.
-                  </p>
-                  <button
-                    onClick={() => setActiveMenu('nutri')}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Ir para Nutri
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <MetaMeuPerfil
+            paciente={paciente}
+            temPacienteIdNaUrl={Boolean(searchParams.get('pacienteId'))}
+            medicoResponsavel={medicoResponsavel}
+            planoNutricional={planoNutricional}
+            loadingPlanoNutricional={loadingPlanoNutricional}
+            mostrarCompletarDados={
+              !searchParams.get('pacienteId') &&
+              (semMedicoNemSolicitacao || !paciente?.dadosIdentificacao?.dataNascimento)
+            }
+            onCompletarDados={() => openModalDadosPaciente()}
+            onIrNutri={() => setActiveMenu('nutri')}
+            onIrAtividade={() => setActiveMenu('personal')}
+            podeEditarIdentificacao={!searchParams.get('pacienteId')}
+            onSalvarIdentificacao={async (payload) => {
+              if (!paciente?.id || searchParams.get('pacienteId')) return;
+              const vazio = (valor: string) => (valor.trim() ? valor.trim() : deleteField());
+              await PacienteService.patchPacienteFields(paciente.id, {
+                nome: payload.nomeCompleto,
+                'dadosIdentificacao.nomeCompleto': payload.nomeCompleto,
+                'dadosIdentificacao.telefone': payload.telefone,
+                'dadosIdentificacao.telefoneDdi': payload.telefoneDdi,
+                'dadosIdentificacao.telefonePais': payload.telefonePais,
+                'dadosIdentificacao.telefoneE164': deleteField(),
+                'dadosIdentificacao.cpf': vazio(payload.cpf),
+                'dadosIdentificacao.dataNascimento': payload.dataNascimento ?? deleteField(),
+                'dadosIdentificacao.sexoBiologico': payload.sexoBiologico || deleteField(),
+                'dadosIdentificacao.endereco.cidade': vazio(payload.cidade),
+                'dadosIdentificacao.endereco.estado': vazio(payload.estado),
+                'dadosIdentificacao.endereco.codigoIbge': vazio(payload.codigoIbge),
+              });
+              setPaciente((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  nome: payload.nomeCompleto,
+                  dadosIdentificacao: {
+                    ...prev.dadosIdentificacao,
+                    nomeCompleto: payload.nomeCompleto,
+                    telefone: payload.telefone,
+                    telefoneDdi: payload.telefoneDdi,
+                    telefonePais: payload.telefonePais,
+                    telefoneE164: undefined,
+                    cpf: payload.cpf || undefined,
+                    dataNascimento: payload.dataNascimento ?? undefined,
+                    sexoBiologico: payload.sexoBiologico || undefined,
+                    endereco: {
+                      ...prev.dadosIdentificacao?.endereco,
+                      cidade: payload.cidade || undefined,
+                      estado: payload.estado || undefined,
+                      codigoIbge: payload.codigoIbge || undefined,
+                    },
+                  },
+                };
+              });
+            }}
+          />
         );
       }
 
@@ -8152,6 +7692,10 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             return;
           }
           setMedicoSelecionado(medico);
+          const ident = paciente?.dadosIdentificacao;
+          setTelefonePaciente(ident?.telefone || '');
+          setTelefonePacienteDdi(ident?.telefoneDdi || '');
+          setTelefonePacientePais(ident?.telefonePais || '');
           setShowModalMedico(true);
         };
 
@@ -8537,7 +8081,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                                 <div className="flex items-center gap-2">
                                   <p className="text-sm text-gray-900 dark:text-white">{medico.telefone}</p>
                                   <a
-                                    href={`https://wa.me/55${medico.telefone.replace(/\D/g, '')}`}
+                                    href={buildWhatsappUrl(phoneFieldsFromProfessional(medico)) ?? '#'}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors text-xs font-medium"
@@ -8655,24 +8199,15 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                                         return;
                                       }
 
-                                      // Formatar número de telefone
-                                      let telefoneFormatado = medico.telefone.replace(/\D/g, '');
-                                      if (telefoneFormatado.startsWith('0')) {
-                                        telefoneFormatado = telefoneFormatado.substring(1);
-                                      }
-                                      if (!telefoneFormatado.startsWith('55')) {
-                                        telefoneFormatado = '55' + telefoneFormatado;
-                                      }
-
                                       // Criar mensagem pré-definida
                                       const tituloMedico = medico.genero === 'F' ? 'Dra.' : 'Dr.';
                                       const mensagem = `Olá, ${tituloMedico} ${medico.nome}, estou enviando uma solicitação para cotação de um tratamento com Tirzepatida. Poderia me dar mais informações, por favor.`;
 
-                                      // Codificar mensagem para URL
-                                      const mensagemCodificada = encodeURIComponent(mensagem);
-
-                                      // Abrir WhatsApp
-                                      const whatsappUrl = `https://wa.me/${telefoneFormatado}?text=${mensagemCodificada}`;
+                                      const whatsappUrl = buildWhatsappUrl(phoneFieldsFromProfessional(medico), mensagem);
+                                      if (!whatsappUrl) {
+                                        alert('Médico não possui telefone cadastrado.');
+                                        return;
+                                      }
                                       window.open(whatsappUrl, '_blank');
                                     } catch (error) {
                                       console.error('Erro ao abrir WhatsApp:', error);
@@ -8781,76 +8316,39 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                     </div>
                   </div>
 
-                  {/* Seção de Mensagens - Apenas visualização, sem formulário */}
+                  {/* Comunicação estilo Gmail (médico, nutri e personal vinculados) */}
                   <div className="mt-6">
                     <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Comunicação</h4>
-                    
-                    {/* Mensagens recebidas do médico */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Mensagens do Médico</h5>
-                      {loadingMensagensPaciente && mensagensPaciente.length === 0 ? (
-                        <div className="text-center py-4 text-gray-500">Carregando mensagens...</div>
-                      ) : mensagensPaciente.length === 0 ? (
-                        <div className="text-center py-4 text-gray-500">Nenhuma mensagem recebida ainda</div>
-                      ) : (
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                          {mensagensPaciente.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className={`border rounded-lg p-3 ${msg.lida ? 'bg-gray-50' : 'bg-blue-50'}`}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-semibold text-gray-900">{msg.titulo}</span>
-                                    <span className={`px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300 capitalize ${
-                                      msg.tipo === 'clinico' ? 'text-gray-900' : 'text-gray-600'
-                                    }`}>
-                                      {msg.tipo}
-                                    </span>
-                                    {!msg.lida && (
-                                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
-                                        Nova
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{msg.mensagem}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {new Date(msg.criadoEm).toLocaleDateString('pt-BR')} às {new Date(msg.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                  </p>
-                                </div>
-                                {!msg.lida && (
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        await PacienteMensagemService.marcarComoLida(msg.id);
-                                        await loadMensagensPacienteAtual();
-                                      } catch (error) {
-                                        console.error('Erro ao marcar como lida:', error);
-                                      }
-                                    }}
-                                    className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                                  >
-                                    Marcar como lida
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div className="mt-3 text-center">
-                        <button
-                          onClick={() => {
-                            setShowMensagensMedicoModal(true);
-                            loadMensagensPacienteAtual();
-                          }}
-                          className="text-sm text-green-600 hover:text-green-700 font-medium"
-                        >
-                          Ver todas as mensagens →
-                        </button>
-                      </div>
-                    </div>
+                    {paciente && user && (medicoResponsavel || nutricionistaVinculado || personalVinculado || psiquiatraVinculado) ? (
+                      <OrganizacaoComunicacaoGmailPanel
+                        organizationId={METODO_ORGANIZATION_ID}
+                        currentUser={{
+                          userId: user.uid,
+                          role: 'paciente',
+                          profileId: paciente.id,
+                          nome: paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || user.displayName || 'Paciente',
+                          email: user.email || '',
+                          fotoUrl: user.photoURL || null,
+                        }}
+                        loadDestinatarios={() =>
+                          loadDestinatariosPaciente({
+                            medico: medicoResponsavel,
+                            nutricionista: nutricionistaVinculado,
+                            personal: personalVinculado,
+                            psiquiatra: psiquiatraVinculado,
+                          })
+                        }
+                        assinaturaDefaults={{
+                          role: 'paciente',
+                          displayName: paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || user.displayName || 'Paciente',
+                          telefone: paciente.telefone || paciente.dadosIdentificacao?.telefone || null,
+                          email: user.email || null,
+                          logoUrl: resolveAssinaturaLogoUrl({}),
+                        }}
+                        onNotify={(msg) => alert(msg)}
+                        className="h-[min(62vh,640px)] min-h-[380px]"
+                      />
+                    ) : null}
                   </div>
 
                   {/* Botão Abandonar Tratamento */}
@@ -8889,6 +8387,8 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                         setShowModalMedico(false);
                         setMedicoSelecionado(null);
                         setTelefonePaciente('');
+                        setTelefonePacienteDdi('');
+                        setTelefonePacientePais('');
                       }
                     }}
                     disabled={loadingSolicitacaoMedico}
@@ -8907,13 +8407,20 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Seu telefone *
                   </label>
-                  <input
-                    type="tel"
-                    value={telefonePaciente}
-                    onChange={(e) => setTelefonePaciente(e.target.value)}
-                    placeholder="(11) 98765-4321"
+                  <InternationalPhoneInput
+                    id="solicitacao-medico-telefone-simples"
+                    value={{
+                      telefone: telefonePaciente,
+                      telefoneDdi: telefonePacienteDdi,
+                      telefonePais: telefonePacientePais,
+                    }}
+                    onChange={(next) => {
+                      const phone = persistedPhoneForIdentificacao(next);
+                      setTelefonePaciente(phone.telefone);
+                      setTelefonePacienteDdi(phone.telefoneDdi);
+                      setTelefonePacientePais(phone.telefonePais);
+                    }}
                     disabled={loadingSolicitacaoMedico}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     O médico usará este telefone para entrar em contato com você.
@@ -8928,6 +8435,8 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                       setShowModalMedico(false);
                       setMedicoSelecionado(null);
                       setTelefonePaciente('');
+                      setTelefonePacienteDdi('');
+                      setTelefonePacientePais('');
                     }
                   }}
                   disabled={loadingSolicitacaoMedico}
@@ -8937,8 +8446,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                 </button>
                 <button
                   onClick={async () => {
-                    if (!telefonePaciente.trim()) {
-                      alert('Por favor, informe seu telefone.');
+                    if (
+                      !isValidIdentificacaoPhone({
+                        telefone: telefonePaciente,
+                        telefoneDdi: telefonePacienteDdi,
+                        telefonePais: telefonePacientePais,
+                      })
+                    ) {
+                      alert(IDENTIFICACAO_PHONE_ERROR);
                       return;
                     }
                     
@@ -8956,7 +8471,11 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                       await SolicitacaoMedicoService.criarSolicitacao({
                         pacienteEmail: user.email,
                         pacienteNome: paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || user.displayName || 'Paciente',
-                        pacienteTelefone: telefonePaciente.replace(/\D/g, ''),
+                        ...solicitacaoPhoneWriteFields({
+                          pacienteTelefone: telefonePaciente,
+                          pacienteTelefoneDdi: telefonePacienteDdi,
+                          pacienteTelefonePais: telefonePacientePais,
+                        }),
                         pacienteId: paciente.id,
                         medicoId: medicoSelecionado.id,
                         medicoNome: medicoSelecionado.nome,
@@ -8969,6 +8488,8 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                       setShowModalMedico(false);
                       setMedicoSelecionado(null);
                       setTelefonePaciente('');
+                      setTelefonePacienteDdi('');
+                      setTelefonePacientePais('');
                       
                       // Limpar referência de encaminhamento após criar a solicitação
                       if (emailIndicadorRef && typeof window !== 'undefined') {
@@ -8985,7 +8506,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                       setLoadingSolicitacaoMedico(false);
                     }
                   }}
-                  disabled={loadingSolicitacaoMedico || !telefonePaciente.trim()}
+                  disabled={
+                    loadingSolicitacaoMedico ||
+                    !isValidIdentificacaoPhone({
+                      telefone: telefonePaciente,
+                      telefoneDdi: telefonePacienteDdi,
+                      telefonePais: telefonePacientePais,
+                    })
+                  }
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {loadingSolicitacaoMedico ? 'Enviando...' : 'Enviar Solicitação'}
@@ -9416,12 +8944,17 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
 
   return (
     <div
-      className={`min-h-screen overflow-x-hidden ${
+      className={`meta-app-shell min-h-screen overflow-x-hidden ${
         activeMenu === 'personal'
           ? 'bg-gradient-to-br from-[#0A1F44] via-[#0d2a5a] to-[#0A1F44]'
           : 'bg-gray-50 dark:bg-gray-900'
       }`}
-      style={{ touchAction: 'pan-y', overscrollBehaviorX: 'none' }}
+      style={{
+        touchAction: 'pan-y',
+        overscrollBehaviorX: 'none',
+        ...metaUiBrandingCssVars(metaUiBranding),
+        ...organizationShellCssVars(shellChrome),
+      } as CSSProperties}
     >
       {/* Notificação NPS */}
       {!npsJaRespondido && mostrarNotificacaoNPS && (
@@ -9507,18 +9040,38 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         </div>
       )}
 
-      <div className="flex">
+      <div className="meta-app-body flex min-h-0 flex-1">
         {/* Sidebar - Desktop Only */}
-        <div className={`hidden lg:block fixed inset-y-0 left-0 bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`} style={{ zIndex: showProfileDropdown ? 9999 : 40, isolation: showProfileDropdown ? 'isolate' : 'auto' }}>
+        <div
+          data-organization-id={patientOrganization.organizationId || undefined}
+          data-organization-match={patientOrganization.organizationMatch ? 'true' : 'false'}
+          className={`hidden lg:block fixed inset-y-0 left-0 shadow-lg transition-all duration-300 backdrop-blur-md border-r border-white/10 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}
+          style={{
+            zIndex: showProfileDropdown ? 9999 : 40,
+            isolation: showProfileDropdown ? 'isolate' : 'auto',
+            backgroundColor: shellChrome.secondaryColor,
+          }}
+        >
           <div className="flex flex-col h-full" style={{ isolation: 'isolate' }}>
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-b border-white/10">
             {!sidebarCollapsed && (
               <div className="mb-4">
                 {medicoResponsavel && (
                   <div className="space-y-2">
+                    {shouldShowOrganizationLogoInMobileHeader(
+                      patientOrganization.organizationId,
+                      metaSidebarLogoSrc,
+                    ) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={metaSidebarLogoSrc}
+                        alt={metaUiBranding.publicName}
+                        className="h-6 w-auto object-contain"
+                      />
+                    ) : null}
                     <div className="flex items-center gap-2">
-                      <Stethoscope className="h-5 w-5 text-green-600" />
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      <Stethoscope className="h-5 w-5 text-[#4CCB7A]" />
+                      <p className="text-sm font-semibold text-[#E8EDED]">
                         {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
                       </p>
                       {medicoResponsavel.isVerificado ? (
@@ -9556,7 +9109,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                       )}
                     </div>
                     {paciente?.dadosIdentificacao?.nomeCompleto && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                      <p className="text-xs text-[#E8EDED]/70">
                         Paciente: {paciente.dadosIdentificacao.nomeCompleto}
                       </p>
                     )}
@@ -9568,7 +9121,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+                  className="p-2 rounded-md text-[#E8EDED] hover:bg-white/10 transition-colors"
                 >
                   {sidebarCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
                 </button>
@@ -9576,14 +9129,10 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             </div>
           </div>
 
-          <nav className="flex-1 px-4 py-4 space-y-2">
+          <nav className={`flex-1 py-4 space-y-2 ${sidebarCollapsed ? 'px-2' : 'px-4'}`}>
             <button
               onClick={() => setActiveMenu('estatisticas')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'estatisticas'
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+              className={metaDesktopSidebarItemClass(activeMenu === 'estatisticas', sidebarCollapsed, shellChrome)}
               title={sidebarCollapsed ? 'Estatísticas' : ''}
             >
               <BarChart3 className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
@@ -9592,11 +9141,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
 
             <button
               onClick={() => setActiveMenu('exames')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'exames'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={metaDesktopSidebarItemClass(activeMenu === 'exames', sidebarCollapsed, shellChrome)}
               title={sidebarCollapsed ? 'Exames' : ''}
             >
               <FlaskConical className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
@@ -9605,11 +9150,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
 
             <button
               onClick={() => setActiveMenu('aplicacoes')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'aplicacoes'
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+              className={metaDesktopSidebarItemClass(activeMenu === 'aplicacoes', sidebarCollapsed, shellChrome)}
               title={sidebarCollapsed ? 'Aplicações' : ''}
             >
               <Syringe className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
@@ -9619,11 +9160,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             {/* Médicos sempre visível: Buscar Médico e Minhas Solicitações */}
             <button
               onClick={() => setActiveMenu('medicos')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'medicos'
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+              className={metaDesktopSidebarItemClass(activeMenu === 'medicos', sidebarCollapsed, shellChrome)}
               title={sidebarCollapsed ? 'Médicos' : ''}
             >
               <Stethoscope className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
@@ -9632,11 +9169,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
 
             <button
               onClick={() => setActiveMenu('nutri')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'nutri'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={metaDesktopSidebarItemClass(activeMenu === 'nutri', sidebarCollapsed, shellChrome)}
               title={sidebarCollapsed ? 'Nutri' : ''}
             >
               <UtensilsCrossed className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
@@ -9645,11 +9178,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
 
             <button
               onClick={() => setActiveMenu('personal')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'personal'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+              className={metaDesktopSidebarItemClass(activeMenu === 'personal', sidebarCollapsed, shellChrome)}
               title={sidebarCollapsed ? 'Personal' : ''}
             >
               <Dumbbell className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
@@ -9658,11 +9187,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
 
             <button
               onClick={() => setActiveMenu('indicar')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeMenu === 'indicar'
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
+              className={metaDesktopSidebarItemClass(activeMenu === 'indicar', sidebarCollapsed, shellChrome)}
               title={sidebarCollapsed ? 'Encaminhar' : ''}
             >
               <UserPlus className={`w-5 h-5 ${sidebarCollapsed ? '' : 'mr-3'}`} />
@@ -9672,10 +9197,10 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             </nav>
 
           {/* Profile button with dropdown - Desktop */}
-          <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700 relative">
+          <div className="px-4 py-4 border-t border-white/10 relative">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-[#E8EDED]/90 hover:bg-white/10 rounded-md transition-colors"
               title={sidebarCollapsed ? 'Perfil' : ''}
             >
               {user?.photoURL ? (
@@ -9739,6 +9264,16 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                   </button>
                   <button
                     onClick={() => {
+                      setActiveMenu('medicos');
+                      setShowProfileDropdown(false);
+                    }}
+                    className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Stethoscope className="w-5 h-5 mr-3 text-gray-600 dark:text-gray-400" />
+                    Médicos
+                  </button>
+                  <button
+                    onClick={() => {
                       setActiveMenu('exames');
                       setShowProfileDropdown(false);
                     }}
@@ -9759,7 +9294,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                     <AlertTriangle className="w-5 h-5 mr-3 text-gray-600 dark:text-gray-400" />
                     Recomendações
                   </button>
-                  {medicoResponsavel && paciente?.statusTratamento === 'em_tratamento' && (
+                  {(medicoResponsavel || nutricionistaVinculado || personalVinculado || psiquiatraVinculado) && (
                     <button
                       onClick={() => {
                         setShowProfileDropdown(false);
@@ -9780,7 +9315,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                   <button
                     onClick={() => {
                       setShowProfileDropdown(false);
-                      gerarRelatorioCompleto();
+                      void abrirRelatorioFinal();
                     }}
                     className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
@@ -9792,14 +9327,6 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                       onClick={() => {
                         setShowProfileDropdown(false);
                         setShowContratoPacienteModal(true);
-                      }}
-                    />
-                  )}
-                  {planoTerapeuticoPaciente && (
-                    <PlanoTerapeuticoPacienteMenuItem
-                      onClick={() => {
-                        setShowProfileDropdown(false);
-                        setShowPlanoTerapeuticoPacienteModal(true);
                       }}
                     />
                   )}
@@ -9826,22 +9353,41 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         
         {/* Main Content - Full width on mobile, with sidebar offset on desktop */}
         <div
-          className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'} overflow-x-hidden pb-20 lg:pb-0 ${
+          className={`meta-app-scroll flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'} overflow-x-hidden ${
             activeMenu === 'personal'
-              ? 'bg-gradient-to-br from-[#0A1F44] via-[#0d2a5a] to-[#0A1F44]'
-              : 'bg-gray-50 dark:bg-gray-900'
+              ? 'flex flex-col bg-gradient-to-br from-[#0A1F44] via-[#0d2a5a] to-[#0A1F44] pb-0 lg:h-screen lg:overflow-hidden'
+              : 'bg-gray-50 dark:bg-gray-900 lg:pb-0'
           }`}
           style={{ touchAction: 'pan-y', overscrollBehaviorX: 'none', width: '100%', maxWidth: '100%', zIndex: 1, position: 'relative' }}
         >
-          {/* Mobile: barra superior + abas Exames/Prescrições (sticky, coladas) */}
-          <div className="lg:hidden sticky top-0 z-[38] bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-sm border-b border-gray-200/50 dark:border-gray-700">
-            <div className="px-4 py-3">
-            <div className="flex items-center justify-between">
+          {/* Mobile: barra superior — oculto no Personal (app fullscreen em /meta/personal) */}
+          {activeMenu !== 'personal' && (
+          <div className={`lg:hidden sticky top-0 z-[38] border-b ${
+            activeMenu === 'estatisticas'
+              ? 'bg-white border-gray-100'
+              : 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-sm border-gray-200/50 dark:border-gray-700'
+          }`}>
+            <div className={activeMenu === 'estatisticas' ? 'px-4 py-2.5' : 'px-4 py-3'}>
+            <div className="flex items-center justify-between gap-3">
+              {activeMenu === 'estatisticas' ? (
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-[22px] font-extrabold leading-tight tracking-tight text-[#0A1F44]">
+                    Olá, {getMetaHomeFirstName(user?.displayName, paciente?.dadosIdentificacao?.nomeCompleto || paciente?.nome)} 👋
+                  </h1>
+                  <p className="mt-0.5 text-[13px] leading-snug text-gray-500">Acompanhe sua evolução</p>
+                </div>
+              ) : (
               <div className="flex flex-col flex-1 min-w-0">
                 {/* Médico - quando vinculado, info fica no header; botão para abrir Médicos ao lado do perfil */}
                 {medicoResponsavel && (
                   <div className="flex items-center mb-1.5">
-                    <Stethoscope className="h-6 w-6 text-green-600 flex-shrink-0" />
+                    <OrganizationShellMobileMark
+                      organizationId={patientOrganization.organizationId}
+                      logoSrc={metaHeaderLogoSrc}
+                      alt={metaUiBranding.publicName}
+                    >
+                      <Stethoscope className="h-6 w-6 text-green-600 flex-shrink-0" />
+                    </OrganizationShellMobileMark>
                     <div className="ml-2 min-w-0 flex-1">
                       <div className="flex items-center gap-1 flex-wrap">
                         <div className="text-sm font-bold text-gray-900 truncate">
@@ -9950,8 +9496,36 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                   </div>
                 )}
               </div>
+              )}
               <div className="flex items-center space-x-2">
-                {/* Botão Médicos no header — sempre visível */}
+                {activeMenu === 'estatisticas' ? (
+                  <>
+                  <MatchHomeEntryButton />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (medicoResponsavel || nutricionistaVinculado || personalVinculado || psiquiatraVinculado) {
+                        setShowMensagensMedicoModal(true);
+                        loadMensagensPacienteAtual();
+                      }
+                    }}
+                    className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+                    aria-label={
+                      mensagensNaoLidasPaciente > 0
+                        ? `Notificações, ${mensagensNaoLidasPaciente} não lidas`
+                        : 'Notificações'
+                    }
+                    title="Notificações"
+                  >
+                    <Bell className="h-5 w-5" strokeWidth={2} />
+                    {mensagensNaoLidasPaciente > 0 && (
+                      <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
+                        {mensagensNaoLidasPaciente > 9 ? '9+' : mensagensNaoLidasPaciente}
+                      </span>
+                    )}
+                  </button>
+                  </>
+                ) : (
                 <button
                   onClick={() => setActiveMenu('medicos')}
                   className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -9959,6 +9533,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                 >
                   <Stethoscope className="w-6 h-6 text-green-600" />
                 </button>
+                )}
                 {/* Profile button with dropdown on mobile */}
                 <div className="relative">
                   <button
@@ -10050,6 +9625,16 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                           </button>
                           <button
                             onClick={() => {
+                              setActiveMenu('medicos');
+                              setShowProfileDropdown(false);
+                            }}
+                            className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <Stethoscope className="w-5 h-5 mr-3 text-gray-600" />
+                            Médicos
+                          </button>
+                          <button
+                            onClick={() => {
                               setActiveMenu('exames');
                               setShowProfileDropdown(false);
                             }}
@@ -10070,7 +9655,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                             <AlertTriangle className="w-5 h-5 mr-3 text-gray-600" />
                             Recomendações
                           </button>
-                          {medicoResponsavel && paciente?.statusTratamento === 'em_tratamento' && (
+                          {(medicoResponsavel || nutricionistaVinculado || personalVinculado || psiquiatraVinculado) && (
                             <button
                               onClick={() => {
                                 setShowProfileDropdown(false);
@@ -10091,7 +9676,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                           <button
                             onClick={() => {
                               setShowProfileDropdown(false);
-                              gerarRelatorioCompleto();
+                              void abrirRelatorioFinal();
                             }}
                             className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           >
@@ -10114,16 +9699,6 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                               onClick={() => {
                                 setShowProfileDropdown(false);
                                 setShowContratoPacienteModal(true);
-                              }}
-                              className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              iconClassName="w-5 h-5 mr-3 text-gray-600"
-                            />
-                          )}
-                          {planoTerapeuticoPaciente && (
-                            <PlanoTerapeuticoPacienteMenuItem
-                              onClick={() => {
-                                setShowProfileDropdown(false);
-                                setShowPlanoTerapeuticoPacienteModal(true);
                               }}
                               className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                               iconClassName="w-5 h-5 mr-3 text-gray-600"
@@ -10159,6 +9734,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
               </div>
             )}
           </div>
+          )}
 
           {activeMenu === 'exames' && !semMedicoNemSolicitacao && (
             <div className="hidden lg:flex sticky top-0 z-[35] w-full border-b border-gray-200 dark:border-gray-700 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm px-6 py-2 shadow-sm">
@@ -10169,12 +9745,22 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
           <main
             className={`relative ${
               activeMenu === 'personal'
-                ? 'px-0 py-3 sm:p-6 bg-transparent'
-                : 'p-6 bg-gray-50 dark:bg-gray-900'
+                ? 'flex min-h-0 flex-1 flex-col p-0 bg-transparent lg:h-full'
+                : activeMenu === 'nutri'
+                  ? 'px-2 py-4 sm:px-3 sm:py-5 bg-gray-50 dark:bg-gray-900'
+                  : activeMenu === 'estatisticas'
+                    ? 'px-4 py-3 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900'
+                    : activeMenu === 'exames'
+                      ? 'px-2 py-4 lg:py-6 bg-gray-50 dark:bg-gray-900'
+                      : activeMenu === 'aplicacoes'
+                        ? 'px-2 py-4 sm:py-6 bg-gray-50 dark:bg-gray-900'
+                        : activeMenu === 'perfil'
+                          ? 'px-8 py-5 lg:p-6 bg-gray-50 dark:bg-gray-900'
+                          : 'p-6 bg-gray-50 dark:bg-gray-900'
             }`}
           >
             {/* Barra: complete seus dados quando não tem médico nem solicitação em aberto, ou falta data de nascimento */}
-            {paciente?.id && !searchParams.get('pacienteId') && (semMedicoNemSolicitacao || !paciente.dadosIdentificacao?.dataNascimento) && (
+            {activeMenu !== 'personal' && paciente?.id && !searchParams.get('pacienteId') && (semMedicoNemSolicitacao || !paciente.dadosIdentificacao?.dataNascimento) && (
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200/80 bg-amber-50/95 dark:bg-amber-900/20 dark:border-amber-700/50 px-4 py-2.5 shadow-sm">
                 <p className="text-sm text-amber-800 dark:text-amber-200">
                   Complete seus dados para um melhor acompanhamento.
@@ -10353,14 +9939,15 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation - Fixed at bottom, no logout button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 lg:hidden z-50">
+      {/* Mobile Bottom Navigation — oculto no Personal (app fullscreen) */}
+      {activeMenu !== 'personal' && (
+      <div className="shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 lg:hidden z-50 pb-[env(safe-area-inset-bottom)]">
         <div className="flex justify-around items-center py-1.5">
           <button
             onClick={() => setActiveMenu('estatisticas')}
             className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'estatisticas'
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                ? organizationShellActiveClass(shellChrome, 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', 'light')
                 : 'text-gray-600 dark:text-gray-400'
             }`}
           >
@@ -10372,7 +9959,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             onClick={() => setActiveMenu('exames')}
             className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'exames'
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                ? organizationShellActiveClass(shellChrome, 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', 'light')
                 : 'text-gray-600 dark:text-gray-400'
             }`}
           >
@@ -10384,7 +9971,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             onClick={() => setActiveMenu('aplicacoes')}
             className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'aplicacoes'
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                ? organizationShellActiveClass(shellChrome, 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', 'light')
                 : 'text-gray-600 dark:text-gray-400'
             }`}
           >
@@ -10397,7 +9984,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             onClick={() => setActiveMenu('nutri')}
             className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'nutri'
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                ? organizationShellActiveClass(shellChrome, 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', 'light')
                 : 'text-gray-600 dark:text-gray-400'
             }`}
           >
@@ -10406,10 +9993,10 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
           </button>
 
           <button
-            onClick={() => setActiveMenu('personal')}
+            onClick={() => router.push('/meta/personal')}
             className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-lg transition-colors flex-1 ${
               activeMenu === 'personal'
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                ? organizationShellActiveClass(shellChrome, 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400', 'light')
                 : 'text-gray-600 dark:text-gray-400'
             }`}
           >
@@ -10419,6 +10006,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
 
         </div>
       </div>
+      )}
 
       {/* Botão Flutuante para Selecionar Data dos Exames */}
       {(() => {
@@ -10465,14 +10053,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
             {/* Botão flutuante */}
             <button
               onClick={() => setShowSeletorFlutuanteExames(!showSeletorFlutuanteExames)}
-              className="fixed bottom-20 right-4 bg-green-600 text-white rounded-full w-14 h-14 shadow-lg hover:bg-green-700 transition-colors flex items-center justify-center z-40"
+              className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition-colors hover:bg-green-700 lg:hidden"
             >
               <Calendar className="w-6 h-6" />
             </button>
             
             {/* Seletor flutuante */}
             {showSeletorFlutuanteExames && (
-              <div className="fixed bottom-32 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 z-40 border border-gray-200 dark:border-gray-700 w-64">
+              <div className="fixed bottom-32 right-4 z-40 w-64 rounded-lg border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-800 lg:hidden">
                 <div className="flex justify-between items-center mb-3">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Selecionar Exame
@@ -10784,6 +10372,8 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                     setShowModalMedico(false);
                     setMedicoSelecionado(null);
                     setTelefonePaciente('');
+                    setTelefonePacienteDdi('');
+                    setTelefonePacientePais('');
                     setPesoPacienteModal('');
                     setAlturaPacienteModal('');
                     setIsDraggingIMCModal(false);
@@ -10826,14 +10416,20 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
               {/* 1. Seu número de telefone */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Seu número de telefone *</label>
-                <input
-                  type="tel"
-                  value={telefonePaciente}
-                  onChange={(e) => setTelefonePaciente(e.target.value)}
-                  placeholder="(00) 00000-0000"
+                <InternationalPhoneInput
+                  id="solicitacao-medico-telefone"
+                  value={{
+                    telefone: telefonePaciente,
+                    telefoneDdi: telefonePacienteDdi,
+                    telefonePais: telefonePacientePais,
+                  }}
+                  onChange={(next) => {
+                    const phone = persistedPhoneForIdentificacao(next);
+                    setTelefonePaciente(phone.telefone);
+                    setTelefonePacienteDdi(phone.telefoneDdi);
+                    setTelefonePacientePais(phone.telefonePais);
+                  }}
                   disabled={loadingSolicitacaoMedico}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 disabled:bg-gray-100"
-                  required
                 />
                 <p className="mt-1 text-xs text-gray-500">O médico usará este número para entrar em contato com você</p>
               </div>
@@ -11016,6 +10612,8 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                     setShowModalMedico(false);
                     setMedicoSelecionado(null);
                     setTelefonePaciente('');
+                    setTelefonePacienteDdi('');
+                    setTelefonePacientePais('');
                     setPesoPacienteModal('');
                     setAlturaPacienteModal('');
                   }
@@ -11028,8 +10626,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
               <button
                 onClick={() => {
                   if (!user || !medicoSelecionado || loadingSolicitacaoMedico) return;
-                  if (!telefonePaciente.trim()) {
-                    alert('Por favor, informe seu número de telefone para que o médico possa entrar em contato.');
+                  if (
+                    !isValidIdentificacaoPhone({
+                      telefone: telefonePaciente,
+                      telefoneDdi: telefonePacienteDdi,
+                      telefonePais: telefonePacientePais,
+                    })
+                  ) {
+                    alert(IDENTIFICACAO_PHONE_ERROR);
                     return;
                   }
                   if (paciente?.statusTratamento === 'em_tratamento') {
@@ -11052,7 +10656,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                   }
                   setShowConfirmacaoSolicitarMedico(true);
                 }}
-                disabled={loadingSolicitacaoMedico || !telefonePaciente.trim()}
+                disabled={
+                  loadingSolicitacaoMedico ||
+                  !isValidIdentificacaoPhone({
+                    telefone: telefonePaciente,
+                    telefoneDdi: telefonePacienteDdi,
+                    telefonePais: telefonePacientePais,
+                  })
+                }
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {loadingSolicitacaoMedico ? 'Enviando...' : 'Confirmar Solicitação'}
@@ -11195,332 +10806,54 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         </div>
       )}
 
-      {/* Modal de Mensagens Médico-Paciente */}
-      {showMensagensMedicoModal && medicoResponsavel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Mensagens com Médico</h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowMensagensMedicoModal(false);
-                    setAbaAtivaMensagens('recebidas');
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
+      {/* Modal de Mensagens (médico / nutri / personal / psiquiatra) */}
+      {showMensagensMedicoModal && paciente && user && (medicoResponsavel || nutricionistaVinculado || personalVinculado || psiquiatraVinculado) && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-stretch justify-center lg:items-center lg:p-4">
+          <div className="bg-white w-full h-full lg:h-[min(90vh,820px)] lg:rounded-xl lg:w-full lg:max-w-5xl overflow-hidden flex flex-col">
+            <div className="px-4 sm:px-5 py-3 border-b border-gray-200 flex-shrink-0 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-gray-900 truncate">Mensagens</h2>
+                <p className="text-sm text-gray-500 truncate">Equipe assistencial vinculada</p>
               </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200 flex-shrink-0">
               <button
-                onClick={() => setAbaAtivaMensagens('recebidas')}
-                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  abaAtivaMensagens === 'recebidas'
-                    ? 'border-green-500 text-green-700 bg-green-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                type="button"
+                onClick={() => setShowMensagensMedicoModal(false)}
+                className="text-gray-400 hover:text-gray-600 rounded-md p-1.5 hover:bg-gray-100"
+                aria-label="Fechar"
               >
-                Mensagens Recebidas
-                {mensagensNaoLidasPaciente > 0 && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                    {mensagensNaoLidasPaciente}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setAbaAtivaMensagens('enviadas')}
-                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  abaAtivaMensagens === 'enviadas'
-                    ? 'border-green-500 text-green-700 bg-green-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Mensagens Enviadas
+                <X size={22} />
               </button>
             </div>
-
-            {/* Conteúdo */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {abaAtivaMensagens === 'recebidas' ? (
-                /* Mensagens Recebidas */
-                <div className="space-y-4">
-                  <div>
-                    {loadingMensagensPaciente && mensagensPaciente.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">Carregando mensagens...</div>
-                    ) : mensagensPaciente.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                        Nenhuma mensagem recebida ainda
-                      </div>
-                    ) : (
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {mensagensPaciente.map((msg) => (
-                          <div
-                            key={msg.id}
-                            className={`border rounded-lg p-4 ${msg.lida ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="font-semibold text-gray-900">{msg.titulo}</span>
-                                  <span className={`px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300 capitalize ${
-                                    msg.tipo === 'clinico' ? 'text-gray-900' : 'text-gray-600'
-                                  }`}>
-                                    {msg.tipo}
-                                  </span>
-                                  {!msg.lida && (
-                                    <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
-                                      Nova
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">{msg.mensagem}</p>
-                                <p className="text-xs text-gray-500">
-                                  {new Date(msg.criadoEm).toLocaleDateString('pt-BR')} às {new Date(msg.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                              </div>
-                              {!msg.lida && (
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      await PacienteMensagemService.marcarComoLida(msg.id);
-                                      await loadMensagensPacienteAtual();
-                                    } catch (error) {
-                                      console.error('Erro ao marcar como lida:', error);
-                                    }
-                                  }}
-                                  className="ml-3 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                >
-                                  Marcar como lida
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Botão para ir para aba de enviadas */}
-                  <div className="text-center pt-4 border-t border-gray-200">
-                    <button
-                      onClick={() => setAbaAtivaMensagens('enviadas')}
-                      className="text-sm text-green-600 hover:text-green-700 font-medium"
-                    >
-                      Enviar nova mensagem →
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Mensagens Enviadas */
-                <div className="space-y-4">
-                  <div>
-                    {loadingMensagensPaciente && mensagensEnviadasPaciente.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">Carregando mensagens...</div>
-                    ) : mensagensEnviadasPaciente.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                        <MessageSquare size={48} className="mx-auto text-gray-400 mb-4" />
-                        <p className="text-gray-600 mb-4">Nenhuma mensagem enviada ainda</p>
-                        <button
-                          onClick={() => setShowEnviarMensagemMedicoModal(true)}
-                          className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-1.5 mx-auto"
-                        >
-                          <Plus size={14} />
-                          Nova Mensagem
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
-                          {mensagensEnviadasPaciente.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className="border rounded-lg p-4 bg-green-50 border-green-200"
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="font-semibold text-gray-900">{msg.titulo}</span>
-                                    <span className={`px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300 capitalize ${
-                                      msg.tipo === 'clinico' ? 'text-gray-900' : 'text-gray-600'
-                                    }`}>
-                                      {msg.tipo}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">{msg.mensagem}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {new Date(msg.criadoEm).toLocaleDateString('pt-BR')} às {new Date(msg.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={async () => {
-                                    if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
-                                    
-                                    setLoadingMensagensPaciente(true);
-                                    try {
-                                      await PacienteMensagemService.deletarMensagem(msg.id);
-                                      await loadMensagensPacienteAtual();
-                                      alert('Mensagem excluída com sucesso!');
-                                    } catch (error) {
-                                      console.error('Erro ao excluir mensagem:', error);
-                                      alert('Erro ao excluir mensagem. Tente novamente.');
-                                    } finally {
-                                      setLoadingMensagensPaciente(false);
-                                    }
-                                  }}
-                                  className="ml-3 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center gap-1"
-                                  title="Excluir mensagem"
-                                >
-                                  <Trash2 size={12} />
-                                  Excluir
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex justify-center pt-3">
-                          <button
-                            onClick={() => setShowEnviarMensagemMedicoModal(true)}
-                            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-1.5"
-                          >
-                            <Plus size={14} />
-                            Nova Mensagem
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para Enviar Nova Mensagem ao Médico */}
-      {showEnviarMensagemMedicoModal && medicoResponsavel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Enviar Mensagem ao Médico</h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {medicoResponsavel.genero === 'F' ? 'Dra.' : 'Dr.'} {medicoResponsavel.nome}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowEnviarMensagemMedicoModal(false);
-                    setNovaMensagemMedico({ titulo: '', mensagem: '', tipo: 'clinico' });
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-                <input
-                  type="text"
-                  value={novaMensagemMedico.titulo}
-                  onChange={(e) => setNovaMensagemMedico({ ...novaMensagemMedico, titulo: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Ex: Dúvida sobre medicação"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Mensagem</label>
-                <select
-                  value={novaMensagemMedico.tipo}
-                  onChange={(e) => setNovaMensagemMedico({ ...novaMensagemMedico, tipo: e.target.value as any })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="clinico">Clínico</option>
-                  <option value="alerta">Alerta</option>
-                  <option value="orientacao">Orientação</option>
-                  <option value="revisao">Revisão</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem *</label>
-                <textarea
-                  value={novaMensagemMedico.mensagem}
-                  onChange={(e) => setNovaMensagemMedico({ ...novaMensagemMedico, mensagem: e.target.value })}
-                  rows={5}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Digite sua mensagem..."
-                />
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-2 flex-shrink-0">
-              <button
-                onClick={() => {
-                  setShowEnviarMensagemMedicoModal(false);
-                  setNovaMensagemMedico({ titulo: '', mensagem: '', tipo: 'clinico' });
+            <div className="min-h-0 flex-1 p-2 sm:p-3">
+              <OrganizacaoComunicacaoGmailPanel
+                organizationId={METODO_ORGANIZATION_ID}
+                currentUser={{
+                  userId: user.uid,
+                  role: 'paciente',
+                  profileId: paciente.id,
+                  nome: paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || user.displayName || 'Paciente',
+                  email: user.email || '',
+                  fotoUrl: user.photoURL || null,
                 }}
-                className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={async () => {
-                  if (!novaMensagemMedico.titulo.trim() || !novaMensagemMedico.mensagem.trim()) {
-                    alert('Título e mensagem são obrigatórios');
-                    return;
-                  }
-                  if (!paciente || !medicoResponsavel || !user) {
-                    alert('Erro ao enviar mensagem. Tente novamente.');
-                    return;
-                  }
-                  
-                  setLoadingMensagensPaciente(true);
-                  try {
-                    await PacienteMensagemService.criarMensagem({
-                      pacienteId: paciente.id,
-                      pacienteEmail: user.email || '',
-                      medicoId: medicoResponsavel.id,
-                      medicoEmail: medicoResponsavel.email,
-                      titulo: novaMensagemMedico.titulo.trim(),
-                      mensagem: novaMensagemMedico.mensagem.trim(),
-                      tipo: novaMensagemMedico.tipo,
-                      lida: false,
-                      criadoPor: user.email || '',
-                      direcao: 'paciente_para_medico',
-                      pacienteNome: paciente.nome
-                    });
-                    setNovaMensagemMedico({ titulo: '', mensagem: '', tipo: 'clinico' });
-                    setShowEnviarMensagemMedicoModal(false);
-                    alert('Mensagem enviada com sucesso!');
-                    await loadMensagensPacienteAtual();
-                    // Atualizar aba para mostrar a nova mensagem
-                    setAbaAtivaMensagens('enviadas');
-                  } catch (error) {
-                    console.error('Erro ao enviar mensagem:', error);
-                    alert('Erro ao enviar mensagem. Tente novamente.');
-                  } finally {
-                    setLoadingMensagensPaciente(false);
-                  }
+                loadDestinatarios={() =>
+                  loadDestinatariosPaciente({
+                    medico: medicoResponsavel,
+                    nutricionista: nutricionistaVinculado,
+                    personal: personalVinculado,
+                    psiquiatra: psiquiatraVinculado,
+                  })
+                }
+                assinaturaDefaults={{
+                  role: 'paciente',
+                  displayName: paciente.nome || paciente.dadosIdentificacao?.nomeCompleto || user.displayName || 'Paciente',
+                  telefone: paciente.telefone || paciente.dadosIdentificacao?.telefone || null,
+                  email: user.email || null,
+                  logoUrl: resolveAssinaturaLogoUrl({}),
                 }}
-                disabled={loadingMensagensPaciente || !novaMensagemMedico.titulo.trim() || !novaMensagemMedico.mensagem.trim()}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
-              >
-                <Send size={16} />
-                {loadingMensagensPaciente ? 'Enviando...' : 'Enviar Mensagem'}
-              </button>
+                onNotify={(msg) => alert(msg)}
+                hideHeaderTitle
+                className="h-full min-h-0 rounded-lg"
+              />
             </div>
           </div>
         </div>
@@ -11682,157 +11015,13 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         </div>
       )}
 
-      {/* Modal: Pagamentos / Vendas — detalhes de todas as vendas e parcelas */}
-      {showModalPagamentos && (
-        <div className="fixed inset-0 bg-black/30 z-[70] flex items-center justify-center p-4" onClick={() => setShowModalPagamentos(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-600" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0 gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 flex items-center justify-center shrink-0">
-                  <DollarSign className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Pagamentos</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Detalhes das vendas e parcelas</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowModalPagamentos(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 shrink-0"
-                aria-label="Fechar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingPagamento ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Loader2 className="w-10 h-10 animate-spin text-emerald-600 mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">Carregando pagamentos...</p>
-                </div>
-              ) : !pagamentoPaciente || !pagamentoPaciente.parcelas?.length || pagamentoPaciente.parcelas.every(p => (p.valor ?? 0) <= 0) ? (
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                  <DollarSign className="w-16 h-16 mx-auto mb-4 opacity-40" />
-                  <p className="font-medium">Nenhuma venda registrada</p>
-                  <p className="text-sm mt-1">As vendas e parcelas aparecerão aqui quando forem cadastradas.</p>
-                </div>
-              ) : (() => {
-                const toDate = (v: unknown): Date | null => {
-                  if (!v) return null;
-                  if (v instanceof Date) return v;
-                  const t = (v as { toDate?: () => Date })?.toDate?.();
-                  if (t) return t;
-                  const d = new Date(v as string | number);
-                  return isNaN(d.getTime()) ? null : d;
-                };
-                const parcelas = (pagamentoPaciente.parcelas || []).filter(p => (p.valor ?? 0) > 0);
-                const dataVendaFallback = toDate(pagamentoPaciente.dataVenda) || toDate(pagamentoPaciente.dataUltimaAtualizacao) || new Date();
-                type VendaComParcelas = { label: string; data: Date; valorTotal: number; parcelas: ParcelaPagamento[] };
-                const vendas: VendaComParcelas[] = [];
-                let i = 0;
-                if (!parcelas[0]?.dataVenda) {
-                  const grupo: ParcelaPagamento[] = [];
-                  while (i < parcelas.length && !parcelas[i].dataVenda) {
-                    grupo.push(parcelas[i]);
-                    i++;
-                  }
-                  vendas.push({
-                    label: 'Venda Inicial',
-                    data: dataVendaFallback,
-                    valorTotal: grupo.reduce((s, p) => s + (p.valor ?? 0), 0),
-                    parcelas: grupo,
-                  });
-                }
-                while (i < parcelas.length) {
-                  const primeira = parcelas[i];
-                  const dataVenda = primeira.dataVenda ? toDate(primeira.dataVenda) : null;
-                  const data = dataVenda || dataVendaFallback;
-                  const grupo: ParcelaPagamento[] = [];
-                  grupo.push(primeira);
-                  i++;
-                  while (i < parcelas.length && !parcelas[i].dataVenda) {
-                    grupo.push(parcelas[i]);
-                    i++;
-                  }
-                  vendas.push({
-                    label: `Venda ${vendas.length + 1}`,
-                    data,
-                    valorTotal: grupo.reduce((s, p) => s + (p.valor ?? 0), 0),
-                    parcelas: grupo,
-                  });
-                }
-                const totalGeral = vendas.reduce((s, v) => s + v.valorTotal, 0);
-                return (
-                  <div className="space-y-6">
-                    {vendas.map((venda, idx) => (
-                      <div key={idx} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/50">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-gray-900 dark:text-white">{venda.label}</h4>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Data da venda</p>
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {venda.data.toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          {venda.parcelas.map((parcela, pidx) => {
-                            const dataVen = toDate(parcela.dataVencimento);
-                            const dataPag = toDate(parcela.dataPagamento);
-                            const pago = parcela.status === 'paga';
-                            return (
-                              <div key={pidx} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Parcela {parcela.numero}
-                                  </span>
-                                  <span className={`text-xs px-2 py-0.5 rounded-full ${pago ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
-                                    {pago ? 'Pago' : 'Pendente'}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {pago && dataPag ? `Pago em ${dataPag.toLocaleDateString('pt-BR')}` : dataVen ? `Venc. ${dataVen.toLocaleDateString('pt-BR')}` : '—'}
-                                  </p>
-                                  <p className="font-semibold text-gray-900 dark:text-white">
-                                    R$ {(parcela.valor ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            Total da venda: R$ {venda.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="rounded-xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/20 p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-900 dark:text-white">Total vendido</span>
-                        <span className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
-                          R$ {totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-            {paciente?.id && planoTerapeuticoPaciente ? (
-              <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
-                <PropostaPlanoPagamentosButton
-                  pacienteId={paciente.id}
-                  plano={planoTerapeuticoPaciente}
-                  fullWidth
-                />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
+      <MetaPagamentosModal
+        open={showModalPagamentos}
+        onClose={() => setShowModalPagamentos(false)}
+        loading={loadingPagamento}
+        pagamento={pagamentoPaciente}
+        paciente={paciente}
+      />
 
       {/* Modal: Dados do Paciente — um único modal; Home/Exames/Nutri/Personal/Meu Perfil são atalhos para abri-lo */}
       {showModalDadosPaciente && !searchParams.get('pacienteId') && (
@@ -11851,9 +11040,13 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                 onClose={fecharModalDadosPaciente}
                 onSave={async (closeAfter, pacienteAtualizado) => {
                   const raw = pacienteAtualizado ?? paciente;
+                  const medicoResponsavelId = pickNonEmptyMedicoResponsavelId(
+                    raw.medicoResponsavelId,
+                    paciente?.medicoResponsavelId
+                  );
                   const p = {
                     ...raw,
-                    medicoResponsavelId: raw.medicoResponsavelId ?? paciente?.medicoResponsavelId ?? null,
+                    medicoResponsavelId,
                     medicoResponsavelAnteriorId:
                       (raw as any).medicoResponsavelAnteriorId ??
                       (paciente as any)?.medicoResponsavelAnteriorId ??
@@ -11905,12 +11098,11 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                     return;
                   }
                   const pacienteNome = pacienteAtualizado.nome || pacienteAtualizado.dadosIdentificacao?.nomeCompleto || user.displayName || 'Paciente';
-                  const pacienteTelefone = (pacienteAtualizado.dadosIdentificacao?.telefone as string)?.replace(/\D/g, '') || '';
                   await SolicitacaoMedicoService.criarSolicitacao({
                     pacienteId: pacienteAtualizado.id,
                     pacienteEmail: user.email,
                     pacienteNome,
-                    pacienteTelefone,
+                    ...solicitacaoPhoneWriteFieldsFromIdent(pacienteAtualizado.dadosIdentificacao),
                     medicoId: medico.id,
                     medicoNome: medico.nome,
                     status: 'pendente',
@@ -12092,6 +11284,21 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
           </div>
         </div>
       )}
+
+      {paciente?.id ? (
+        <BodyScanModal
+          aberto={modalBodyScanAberto}
+          onFechar={() => setModalBodyScanAberto(false)}
+          viewer="paciente"
+          pacienteId={paciente.id}
+          onBioImpedanciaSalva={(novos) => {
+            setPaciente((prev) => (prev ? { ...prev, bioimpedanciaRegistros: novos } : null));
+          }}
+          onLoad={() => loadBodyScansForMetaPatient(paciente.id)}
+          onDiscoverHistorical={() => discoverBodyScansForMetaPatient(paciente.id)}
+          onBackfillHistorical={() => backfillBodyScansForMetaPatient(paciente.id)}
+        />
+      ) : null}
 
       {modalFotosAplicacaoAberto && (
         <div

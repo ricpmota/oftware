@@ -13,6 +13,14 @@ type OrganizationsHubPanelProps = {
   activeOrganizationId: string;
   onSelectOrganization: (organizationId: string) => void;
   onNavigate: (menuId: string) => void;
+  onCreateOrganization?: (input: {
+    name: string;
+    organizationId: string;
+    domain: string;
+  }) => Promise<OrganizationDefinition>;
+  creatingOrganization?: boolean;
+  requestOpenCreate?: boolean;
+  onCreateModalOpenChange?: (open: boolean) => void;
 };
 
 const TABS: { id: OrganizationsHubView; menuId: string; label: string; icon: typeof Building2 }[] = [
@@ -26,6 +34,10 @@ export default function OrganizationsHubPanel({
   activeOrganizationId,
   onSelectOrganization,
   onNavigate,
+  onCreateOrganization,
+  creatingOrganization = false,
+  requestOpenCreate = false,
+  onCreateModalOpenChange,
 }: OrganizationsHubPanelProps) {
   return (
     <div className="space-y-6">
@@ -55,6 +67,10 @@ export default function OrganizationsHubPanel({
           organizations={organizations}
           activeOrganizationId={activeOrganizationId}
           onSelectOrganization={onSelectOrganization}
+          onCreateOrganization={onCreateOrganization}
+          creating={creatingOrganization}
+          requestOpenCreate={requestOpenCreate}
+          onCreateModalOpenChange={onCreateModalOpenChange}
         />
       ) : (
         <div className="-mx-2 md:-mx-4">

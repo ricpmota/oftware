@@ -29,7 +29,8 @@ export default function LeadsWhiteLabelAdmin({ embedded = false }: LeadsWhiteLab
           Leads White Label
         </h2>
         <p className="text-sm text-[#E8EDED]/60 mt-0.5">
-          Médicos interessados em adquirir uma organização na plataforma. {tabDescriptions[activeTab]}
+          Médicos, nutricionistas e personais interessados em adquirir uma organização na plataforma.{' '}
+          {tabDescriptions[activeTab]}
         </p>
       </div>
 

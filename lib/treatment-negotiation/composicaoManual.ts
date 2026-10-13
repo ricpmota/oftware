@@ -9,6 +9,7 @@ import type {
   ModoRecalculoNegociacao,
   ParametrosPlanoPersonalizadoEditavel,
 } from '@/lib/treatment-negotiation/types';
+import { calcularTotalInjetaveis } from '@/lib/treatment-negotiation/protocolosInjetaveis';
 
 function arredondarMoeda(valor: number): number {
   return Math.round(valor * 100) / 100;
@@ -98,6 +99,9 @@ export function montarComposicaoNegociada(args: {
 
     composicao = {
       ...auto,
+      custoMedicacaoBruto: custoMedicacaoLiquido,
+      descontoMedicacaoVolume: 0,
+      descontoMedicacaoVolumePercentual: 0,
       custoMedicacaoLiquido,
       custoKits,
       consultasAcompanhamento,
@@ -109,6 +113,16 @@ export function montarComposicaoNegociada(args: {
       descontoManual,
     };
   }
+
+  const custoInjetaveis = calcularTotalInjetaveis(parametros);
+  const subtotalAnteriorSemInjetaveis = arredondarMoeda(
+    composicao.subtotal - (composicao.custoInjetaveis ?? 0)
+  );
+  composicao = {
+    ...composicao,
+    custoInjetaveis,
+    subtotal: arredondarMoeda(subtotalAnteriorSemInjetaveis + custoInjetaveis),
+  };
 
   let valorTotal = calcularValorTotalPlanoInterativo(composicao);
 

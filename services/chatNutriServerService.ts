@@ -144,16 +144,48 @@ export async function incrementChatNutriDailyImageCount(patientId: string, dateK
   return next;
 }
 
+/** Garante doc do dia em chatNutri/{dateKey} para listagem de conversas (texto sem foto também). */
+export async function ensureChatNutriDay(patientId: string, dateKey: string): Promise<void> {
+  const db = getAdminFirestore();
+  const ref = db.collection(COL_PACIENTES).doc(patientId).collection('chatNutri').doc(dateKey);
+  await ref.set({ updatedAt: new Date().toISOString() }, { merge: true });
+}
+
+/** Datas com conversa/foto: docs em chatNutri + chatNutriDatasComFotos. */
+export async function listChatNutriDayKeys(patientId: string): Promise<string[]> {
+  const db = getAdminFirestore();
+  const keys = new Set<string>();
+  const dateKeyRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+  const patientSnap = await db.collection(COL_PACIENTES).doc(patientId).get();
+  const datasFotos = patientSnap.data()?.chatNutriDatasComFotos;
+  if (Array.isArray(datasFotos)) {
+    for (const k of datasFotos) {
+      if (typeof k === 'string' && dateKeyRegex.test(k)) keys.add(k);
+    }
+  }
+
+  const chatSnap = await db.collection(COL_PACIENTES).doc(patientId).collection('chatNutri').get();
+  chatSnap.docs.forEach((d) => {
+    if (dateKeyRegex.test(d.id)) keys.add(d.id);
+  });
+
+  return [...keys].sort((a, b) => b.localeCompare(a));
+}
+
 export async function saveChatNutriMessage(
   patientId: string,
   dateKey: string,
   message: (Omit<ChatNutriMessage, 'createdAt'> & { createdAt?: string }) | (Omit<ChatNutriMessage, 'id' | 'createdAt'> & { createdAt?: string })
 ): Promise<string> {
   const db = getAdminFirestore();
-  const colRef = db.collection(COL_PACIENTES).doc(patientId).collection('chatNutri').doc(dateKey).collection('messages');
+  const dayRef = db.collection(COL_PACIENTES).doc(patientId).collection('chatNutri').doc(dateKey);
+  const colRef = dayRef.collection('messages');
   const createdAt = message.createdAt ?? new Date().toISOString();
   const { id, ...rest } = message as ChatNutriMessage & { createdAt?: string };
   const data = { ...rest, createdAt };
+
+  await dayRef.set({ updatedAt: createdAt }, { merge: true });
 
   if (id) {
     await colRef.doc(id).set(data);
@@ -307,9 +339,14 @@ export async function listChatNutriMessages(patientId: string, dateKey: string):
     const createdAt = typeof data.createdAt === 'string'
       ? data.createdAt
       : (data.createdAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString());
+    const roleRaw = data.role;
+    const role: ChatNutriMessage['role'] =
+      roleRaw === 'user' || roleRaw === 'assistant' || roleRaw === 'professional'
+        ? roleRaw
+        : 'assistant';
     return {
       id: d.id,
-      role: data.role ?? 'assistant',
+      role,
       type: (data.type ?? 'chat') as ChatNutriMessage['type'],
       text: data.text ?? '',
       createdAt,
@@ -318,6 +355,9 @@ export async function listChatNutriMessages(patientId: string, dateKey: string):
       totals: data.totals,
       confidence: data.confidence,
       relatedMessageId: data.relatedMessageId ?? null,
+      authorKind: data.authorKind ?? null,
+      authorName: data.authorName ?? null,
+      authorId: data.authorId ?? null,
     } as ChatNutriMessage;
   });
 }

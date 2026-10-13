@@ -11,21 +11,74 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   query,
   where,
   orderBy,
   Timestamp,
   addDoc,
   writeBatch,
+  onSnapshot,
+  type QueryDocumentSnapshot,
+  type DocumentData,
 } from 'firebase/firestore';
 import type {
   TrainingSession,
   TrainingSessionExercise,
   TrainingReminderPrefs,
 } from '@/types/trainingSession';
+import {
+  normalizeTrainingExercisePrescription,
+  serializeTrainingPrescription,
+} from '@/lib/personal/trainingExerciseSeries';
+import { sanitizeTrainerNote } from '@/lib/personal/workoutDraft';
+import { isTrainingSessionActive } from '@/lib/personal/trainingSessionActive';
+import {
+  applySeriesPrescriptionPatchBySeriesId,
+  applySeriesPrescriptionToExercise,
+  findMatchingExercise,
+  sanitizeSeriesPrescriptionPatch,
+  selectUpcomingRecurrenceSessions,
+  type SeriesPrescriptionPatch,
+  type SeriesPrescriptionTarget,
+} from '@/lib/personal/propagateSeriesPrescription';
+import {
+  updatePendingExecutedSeriesPrescriptionByOrder,
+} from '@/lib/personal/trainingExecutionSeries';
+import { TrainingExerciseExecutionService } from '@/services/trainingExerciseExecutionService';
 
 const COLLECTION_SESSIONS = 'trainingSessions';
 const COLLECTION_REMINDER_PREFS = 'trainingReminderPrefs';
+
+function isMissingCompositeIndexError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? String((error as { code?: unknown }).code) : '';
+  const message = 'message' in error ? String((error as { message?: unknown }).message) : '';
+  return code === 'failed-precondition' || /requires an index/i.test(message);
+}
+
+function mapSessionDoc(id: string, data: DocumentData): TrainingSession {
+  return {
+    id,
+    ...data,
+    active: data.active !== false,
+    createdAt: data.createdAt?.toDate?.() || new Date(),
+    updatedAt: data.updatedAt?.toDate?.() || new Date(),
+  } as TrainingSession;
+}
+
+function mapSessionExerciseDoc(
+  docSnap: QueryDocumentSnapshot<DocumentData>
+): TrainingSessionExercise & { id: string } {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    ...data,
+    prescription: normalizeTrainingExercisePrescription(data.prescription),
+    trainerNote: sanitizeTrainerNote(data.trainerNote),
+    gifUrl: data.gifUrl || null,
+  } as TrainingSessionExercise & { id: string };
+}
 
 /** Retorna YYYY-MM-DD em horário local (evita problemas de fuso em getTodaySessions / calendário). */
 function toLocalYYYYMMDD(d: Date): string {
@@ -47,6 +100,7 @@ export const trainingSessionService = {
     
     const sessionData: Omit<TrainingSession, 'id'> = {
       ...session,
+      active: session.active !== false,
       createdAt: now,
       updatedAt: now,
     };
@@ -73,6 +127,7 @@ export const trainingSessionService = {
 
     const sessionData: Omit<TrainingSession, 'id'> = {
       ...session,
+      active: session.active !== false,
       createdAt: now,
       updatedAt: now,
     };
@@ -98,6 +153,7 @@ export const trainingSessionService = {
           exerciseData[key] = value;
         }
       });
+      exerciseData.prescription = serializeTrainingPrescription(exercise.prescription);
       batch.set(exerciseRef, exerciseData);
     });
 
@@ -116,13 +172,7 @@ export const trainingSessionService = {
       return null;
     }
 
-    const data = snapshot.data();
-    return {
-      id: snapshot.id,
-      ...data,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
-    } as TrainingSession;
+    return mapSessionDoc(snapshot.id, snapshot.data());
   },
 
   /**
@@ -141,15 +191,31 @@ export const trainingSessionService = {
       query(exercisesRef, orderBy('order', 'asc'))
     );
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id, // ID do documento Firestore (necessário para deletar)
-        ...data,
-        // Garantir que gifUrl seja preservado (pode estar como null ou undefined)
-        gifUrl: data.gifUrl || null,
-      } as TrainingSessionExercise & { id: string };
-    });
+    return snapshot.docs.map(mapSessionExerciseDoc);
+  },
+
+  subscribeSessionExercises(
+    sessionId: string,
+    onChange: (exercises: TrainingSessionExercise[]) => void,
+    onError?: (error: Error) => void
+  ): () => void {
+    if (!sessionId) return () => undefined;
+    const exercisesRef = collection(
+      db,
+      COLLECTION_SESSIONS,
+      sessionId,
+      'exercises'
+    );
+    return onSnapshot(
+      query(exercisesRef, orderBy('order', 'asc')),
+      (snapshot) => {
+        onChange(snapshot.docs.map(mapSessionExerciseDoc));
+      },
+      (error) => {
+        console.error('Erro ao acompanhar exercícios da sessão:', error);
+        onError?.(error);
+      }
+    );
   },
 
   /**
@@ -162,6 +228,8 @@ export const trainingSessionService = {
       startDate?: string;
       endDate?: string;
       status?: TrainingSession['status'];
+      /** Só treinos ligados (Hoje / Cronograma). Treinos Salvos não usa este filtro. */
+      activeOnly?: boolean;
     }
   ): Promise<TrainingSession[]> {
     // Query base: apenas filtro por patientId (não precisa de índice composto)
@@ -171,15 +239,7 @@ export const trainingSessionService = {
     );
 
     const snapshot = await getDocs(q);
-    let sessions = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as TrainingSession;
-    });
+    let sessions = snapshot.docs.map((docSnap) => mapSessionDoc(docSnap.id, docSnap.data()));
 
     // Filtrar em memória (evita índices compostos)
     if (options?.startDate) {
@@ -194,6 +254,10 @@ export const trainingSessionService = {
       sessions = sessions.filter((s) => s.status === options.status);
     }
 
+    if (options?.activeOnly) {
+      sessions = sessions.filter(isTrainingSessionActive);
+    }
+
     // Ordenar em memória por data (mais recente primeiro)
     sessions.sort((a, b) => {
       if (a.scheduledDate < b.scheduledDate) return 1;
@@ -205,16 +269,48 @@ export const trainingSessionService = {
   },
 
   /**
-   * Buscar sessões do dia atual (pode haver múltiplas sessões no mesmo dia)
+   * Sessões de um paciente no intervalo YYYY-MM-DD (query Firestore, não lê o histórico inteiro).
+   * Índice: trainingSessions (patientId ASC, scheduledDate ASC) em firestore.indexes.json.
+   * Se o índice ainda não estiver Enabled, filtra em memória (mesmo caminho do Histórico).
    */
-  async getTodaySessions(patientId: string): Promise<TrainingSession[]> {
-    const today = new Date();
-    const todayStr = toLocalYYYYMMDD(today);
+  async getPatientSessionsInDateRange(
+    patientId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<TrainingSession[]> {
+    try {
+      const q = query(
+        collection(db, COLLECTION_SESSIONS),
+        where('patientId', '==', patientId),
+        where('scheduledDate', '>=', startDate),
+        where('scheduledDate', '<=', endDate)
+      );
+      const snapshot = await getDocs(q);
+      const sessions = snapshot.docs.map((docSnap) => mapSessionDoc(docSnap.id, docSnap.data()));
+      sessions.sort((a, b) => {
+        if (a.scheduledDate < b.scheduledDate) return 1;
+        if (a.scheduledDate > b.scheduledDate) return -1;
+        return 0;
+      });
+      return sessions;
+    } catch (error) {
+      if (!isMissingCompositeIndexError(error)) throw error;
+      console.warn(
+        '[trainingSessionService] índice trainingSessions (patientId, scheduledDate) indisponível; filtrando em memória'
+      );
+      return trainingSessionService.getPatientSessions(patientId, { startDate, endDate });
+    }
+  },
 
+  /**
+   * Buscar sessões de uma data específica (YYYY-MM-DD local).
+   * Pode haver múltiplas sessões no mesmo dia.
+   */
+  async getSessionsForDate(patientId: string, dateStr: string): Promise<TrainingSession[]> {
     const q = query(
       collection(db, COLLECTION_SESSIONS),
       where('patientId', '==', patientId),
-      where('scheduledDate', '==', todayStr)
+      where('scheduledDate', '==', dateStr)
     );
 
     const snapshot = await getDocs(q);
@@ -222,15 +318,16 @@ export const trainingSessionService = {
       return [];
     }
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as TrainingSession;
-    });
+    return snapshot.docs
+      .map((docSnap) => mapSessionDoc(docSnap.id, docSnap.data()))
+      .filter(isTrainingSessionActive);
+  },
+
+  /**
+   * Buscar sessões do dia atual (pode haver múltiplas sessões no mesmo dia)
+   */
+  async getTodaySessions(patientId: string): Promise<TrainingSession[]> {
+    return this.getSessionsForDate(patientId, toLocalYYYYMMDD(new Date()));
   },
 
   /**
@@ -254,6 +351,23 @@ export const trainingSessionService = {
       ...updates,
       updatedAt: Timestamp.now(),
     });
+  },
+
+  /**
+   * Ativar ou desativar várias sessões (série recorrente ou treino único).
+   */
+  async setSessionsActive(sessionIds: string[], active: boolean): Promise<void> {
+    const ids = [...new Set(sessionIds.filter(Boolean))];
+    if (ids.length === 0) return;
+    const now = Timestamp.now();
+    const CHUNK = 450;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const batch = writeBatch(db);
+      for (const id of ids.slice(i, i + CHUNK)) {
+        batch.update(doc(db, COLLECTION_SESSIONS, id), { active, updatedAt: now });
+      }
+      await batch.commit();
+    }
   },
 
   /**
@@ -285,6 +399,177 @@ export const trainingSessionService = {
     });
   },
 
+  async unmarkExercise(sessionId: string, exerciseDocId: string): Promise<void> {
+    const exerciseRef = doc(db, COLLECTION_SESSIONS, sessionId, 'exercises', exerciseDocId);
+    await updateDoc(exerciseRef, {
+      status: deleteField(),
+      completedAt: deleteField(),
+    });
+  },
+
+  async updateExerciseTrainerNote(
+    sessionId: string,
+    exerciseDocId: string,
+    trainerNote: string
+  ): Promise<void> {
+    const exerciseRef = doc(db, COLLECTION_SESSIONS, sessionId, 'exercises', exerciseDocId);
+    await updateDoc(exerciseRef, {
+      trainerNote: sanitizeTrainerNote(trainerNote) || '',
+    });
+  },
+
+  async updateExercisePrescription(
+    sessionId: string,
+    exerciseDocId: string,
+    prescription: TrainingSessionExercise['prescription']
+  ): Promise<void> {
+    const exerciseRef = doc(db, COLLECTION_SESSIONS, sessionId, 'exercises', exerciseDocId);
+    await updateDoc(exerciseRef, {
+      prescription: serializeTrainingPrescription(prescription),
+    });
+  },
+
+  async updateExerciseOrder(
+    sessionId: string,
+    exerciseDocId: string,
+    order: number
+  ): Promise<void> {
+    const exerciseRef = doc(db, COLLECTION_SESSIONS, sessionId, 'exercises', exerciseDocId);
+    await updateDoc(exerciseRef, { order });
+  },
+
+  async addSessionExercise(
+    sessionId: string,
+    exercise: Omit<TrainingSessionExercise, 'id'>
+  ): Promise<string> {
+    const exerciseRef = doc(collection(db, COLLECTION_SESSIONS, sessionId, 'exercises'));
+    const exerciseData: Record<string, unknown> = {};
+    Object.keys(exercise).forEach((key) => {
+      const value = (exercise as Record<string, unknown>)[key];
+      if (value !== undefined) exerciseData[key] = value;
+    });
+    exerciseData.prescription = serializeTrainingPrescription(exercise.prescription);
+    await setDoc(exerciseRef, exerciseData);
+    await this.updateSession(sessionId, {});
+    return exerciseRef.id;
+  },
+
+  async deleteSessionExercise(sessionId: string, exerciseDocId: string): Promise<void> {
+    const exerciseRef = doc(db, COLLECTION_SESSIONS, sessionId, 'exercises', exerciseDocId);
+    await deleteDoc(exerciseRef);
+    await this.updateSession(sessionId, {});
+  },
+
+  async updateCurrentSessionSeriesPrescription(params: {
+    sessionId: string;
+    exercise: TrainingSessionExercise;
+    seriesId: string;
+    patch: SeriesPrescriptionPatch;
+  }): Promise<TrainingSessionExercise | null> {
+    const sessionId = String(params.sessionId || '').trim();
+    const exerciseDocId = String(params.exercise.id || '').trim();
+    const seriesId = String(params.seriesId || '').trim();
+    if (!sessionId || !exerciseDocId || !seriesId) return null;
+    const applied = applySeriesPrescriptionPatchBySeriesId(
+      params.exercise.prescription,
+      seriesId,
+      params.patch
+    );
+    if (!applied) return null;
+    const nextExercise = applied.changed
+      ? { ...params.exercise, prescription: serializeTrainingPrescription(applied.prescription) }
+      : params.exercise;
+    if (applied.changed) {
+      await this.updateExercisePrescription(sessionId, exerciseDocId, nextExercise.prescription);
+    }
+    return nextExercise;
+  },
+
+  /**
+   * Grava reps/carga/descanso da série na sessão atual e nos demais dias
+   * agendados do mesmo treino recorrente.
+   */
+  async propagateSeriesPrescriptionToUpcoming(params: {
+    patientId: string;
+    currentSessionId: string;
+    currentScheduledDate: string;
+    recurrenceGroupId?: string | null;
+    target: SeriesPrescriptionTarget;
+    patch: SeriesPrescriptionPatch;
+  }): Promise<{
+    currentExercise: TrainingSessionExercise | null;
+    updatedSessionIds: string[];
+  }> {
+    const patientId = String(params.patientId || '').trim();
+    const currentSessionId = String(params.currentSessionId || '').trim();
+    if (!patientId || !currentSessionId) {
+      return { currentExercise: null, updatedSessionIds: [] };
+    }
+
+    const sessions = await this.getPatientSessions(patientId, {
+      startDate: params.currentScheduledDate,
+      activeOnly: true,
+    });
+    const current = sessions.find((item) => item.id === currentSessionId) || (await this.getSession(currentSessionId));
+    const withCurrent = current
+      ? [current, ...sessions.filter((item) => item.id !== currentSessionId)]
+      : sessions;
+    const upcoming = selectUpcomingRecurrenceSessions(withCurrent, {
+      currentSessionId,
+      currentScheduledDate: params.currentScheduledDate,
+      recurrenceGroupId: params.recurrenceGroupId,
+    });
+
+    const updatedSessionIds: string[] = [];
+    let currentExercise: TrainingSessionExercise | null = null;
+    const prescribed = sanitizeSeriesPrescriptionPatch(params.patch);
+    const executionPatch = {
+      prescribedReps: prescribed.reps,
+      prescribedLoadKg: prescribed.loadKg,
+      prescribedRestSec: prescribed.restSec,
+    };
+
+    for (const session of upcoming) {
+      const sessionId = String(session.id || '').trim();
+      if (!sessionId) continue;
+      const exercises = await this.getSessionExercises(sessionId);
+      const match = findMatchingExercise(exercises, params.target);
+      if (!match?.id) continue;
+      const applied = applySeriesPrescriptionToExercise(match, params.target, params.patch);
+      if (!applied) continue;
+      if (sessionId === currentSessionId) {
+        currentExercise = applied.exercise;
+      }
+      if (applied.changed) {
+        await this.updateExercisePrescription(sessionId, match.id, applied.exercise.prescription);
+        updatedSessionIds.push(sessionId);
+      }
+      if (sessionId === currentSessionId) continue;
+      const executionDocId =
+        params.target.kind === 'intercalated'
+          ? applied.exercise.prescription.intercalations?.find(
+              (item) =>
+                item.exerciseId === params.target.intercalationExerciseId &&
+                item.slotOrder === params.target.intercalationSlotOrder
+            )?.id
+          : match.id;
+      if (!executionDocId) continue;
+      const execution = await TrainingExerciseExecutionService.get(sessionId, executionDocId);
+      if (!execution) continue;
+      const seriesOrder = params.target.kind === 'main' ? params.target.seriesOrder : 1;
+      const nextExecution = updatePendingExecutedSeriesPrescriptionByOrder(
+        execution,
+        seriesOrder,
+        executionPatch
+      );
+      if (nextExecution && nextExecution !== execution) {
+        await TrainingExerciseExecutionService.save(sessionId, nextExecution);
+      }
+    }
+
+    return { currentExercise, updatedSessionIds };
+  },
+
   /**
    * Deletar sessão
    */
@@ -297,10 +582,20 @@ export const trainingSessionService = {
       'exercises'
     );
     const exercisesSnapshot = await getDocs(exercisesRef);
+    const executionsRef = collection(
+      db,
+      COLLECTION_SESSIONS,
+      sessionId,
+      'exerciseExecutions'
+    );
+    const executionsSnapshot = await getDocs(executionsRef);
     const batch = writeBatch(db);
 
-    exercisesSnapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
+    exercisesSnapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    executionsSnapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
     });
 
     // Deletar sessão
@@ -359,6 +654,7 @@ export const trainingSessionService = {
     const sessions = await this.getPatientSessions(patientId, {
       startDate,
       endDate,
+      activeOnly: true,
     });
 
     const done = sessions.filter((s) => s.status === 'done').length;

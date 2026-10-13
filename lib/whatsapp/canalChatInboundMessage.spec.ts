@@ -133,6 +133,19 @@ describe('confirmação OK do Canal Chat', () => {
     expect(variants).toContain('83999999999');
   });
 
+  it('ETAPA 6 caracterização US: 17137326616 inclui E164 e variante 55; não inclui nacional', () => {
+    const variants = phoneLookupVariants('17137326616');
+    expect(variants).toContain('17137326616');
+    expect(variants).toContain('5517137326616');
+    expect(variants).not.toContain('7137326616');
+  });
+
+  it('ETAPA 6 caracterização PT: 351912345678 é o próprio E164; não inclui nacional', () => {
+    const variants = phoneLookupVariants('351912345678');
+    expect(variants).toContain('351912345678');
+    expect(variants).not.toContain('912345678');
+  });
+
   it('Teste A/B: Ok e OK ✅ normalizam como OK', () => {
     expect(isCanalChatOkText('Ok')).toBe(true);
     expect(isCanalChatOkText('OK ✅')).toBe(true);

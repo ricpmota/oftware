@@ -10,6 +10,13 @@ import {
 } from '@/lib/email/cronZeptoBatch';
 import { acquireCronLock, releaseCronLock } from '@/lib/email/cronExecutionLock';
 import { assertCronProductionEnvironment } from '@/lib/email/cronProductionGate';
+import {
+  auditEmailEnviosQuery,
+  beginEmailEnviosAuditScope,
+  endEmailEnviosAuditScope,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
+import { logEmailEnviosResidual } from '@/lib/email/emailEnviosResidualMetrics';
 
 const COL_SOLICITACOES_NUTRICIONISTA = 'solicitacoes_nutricionista';
 const COL_SOLICITACOES_PERSONAL_TRAINER = 'solicitacoes_personal_trainer';
@@ -111,6 +118,10 @@ export async function GET(request: NextRequest) {
 
   let db: ReturnType<typeof getFirebaseAdmin>['db'] | undefined;
   let lockInstanceId: string | null = null;
+  const auditScopeId = beginEmailEnviosAuditScope({
+    siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_LEADS_NUTRI_PERSONAL.id,
+    surface: 'cron',
+  });
 
   try {
     const firebase = getFirebaseAdmin();
@@ -143,8 +154,6 @@ export async function GET(request: NextRequest) {
     }
 
     const limitePorExecucao = getCronZeptoMaxSendsPerRun();
-    const janelaEnviosDias = Number(process.env.CRON_LEADS_EMAIL_LOOKBACK_DAYS || 180);
-    const dataMinEnvio = new Date(Date.now() - janelaEnviosDias * 24 * 60 * 60 * 1000);
 
     const emailTypes: EmailTipo[] = ['email1'];
     const templatesNutri: Record<string, { assunto: string; corpoHtml: string }> = {};
@@ -243,27 +252,72 @@ export async function GET(request: NextRequest) {
       if (solicitacaoMedicoEmails.has(email!) || pacientesComMedicoEmails.has(email!)) excludePersonal.add(u.uid);
     });
 
-    const [enviosNutriSnapshot, enviosPersonalSnapshot] = await Promise.all([
-      db
-        .collection('email_envios')
-        .where('emailTipo', '==', 'leads_nutri_email1')
-        .where('enviadoEm', '>=', dataMinEnvio)
-        .get(),
-      db
-        .collection('email_envios')
-        .where('emailTipo', '==', 'leads_personal_email1')
-        .where('enviadoEm', '>=', dataMinEnvio)
-        .get(),
-    ]);
+    auditEmailEnviosQuery({
+      scopeId: auditScopeId,
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_LEADS_NUTRI_PERSONAL.id,
+      surface: 'cron',
+      queryPattern: 'leadId_in',
+      emailTipos: ['leads_nutri_email1', 'leads_personal_email1'],
+      note: 'ETAPA 2.3 — dedup por leadId IN dos candidatos (sem full-scan enviadoEm>=)',
+    });
+
+    const candidatosNutriUids: string[] = [];
+    const candidatosPersonalUids: string[] = [];
+    if (ativoNutri || ativoPersonal) {
+      for (const u of allUsers) {
+        const email = u.email?.toLowerCase().trim();
+        if (!email || email === 'sem email' || email === '') continue;
+        if (ativoNutri && !excludeNutri.has(u.uid)) candidatosNutriUids.push(u.uid);
+        if (ativoPersonal && !excludePersonal.has(u.uid)) candidatosPersonalUids.push(u.uid);
+      }
+    }
+
+    const LEAD_IN_BATCH = 30;
     const leadIdsComEnvioNutriEmail1 = new Set<string>();
     const leadIdsComEnvioPersonalEmail1 = new Set<string>();
-    enviosNutriSnapshot.docs.forEach((docSnap) => {
-      const leadId = String(docSnap.data().leadId || '').trim();
-      if (leadId) leadIdsComEnvioNutriEmail1.add(leadId);
+    let residualDocsRead = 0;
+    let residualQueryCount = 0;
+    const residualStartedAt = Date.now();
+
+    const candidateSet = new Set<string>([
+      ...(ativoNutri ? candidatosNutriUids : []),
+      ...(ativoPersonal ? candidatosPersonalUids : []),
+    ]);
+    const allCandidateUids = [...candidateSet];
+
+    for (let i = 0; i < allCandidateUids.length; i += LEAD_IN_BATCH) {
+      const batch = allCandidateUids.slice(i, i + LEAD_IN_BATCH);
+      residualQueryCount += 1;
+      const snap = await db.collection('email_envios').where('leadId', 'in', batch).get();
+      residualDocsRead += snap.size;
+      snap.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        const leadId = String(data.leadId || '').trim();
+        if (!leadId) return;
+        const emailTipo = String(data.emailTipo || '');
+        if (emailTipo === 'leads_nutri_email1') leadIdsComEnvioNutriEmail1.add(leadId);
+        if (emailTipo === 'leads_personal_email1') leadIdsComEnvioPersonalEmail1.add(leadId);
+      });
+    }
+
+    auditEmailEnviosQuery({
+      scopeId: auditScopeId,
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.CRON_LEADS_NUTRI_PERSONAL.id,
+      surface: 'cron',
+      queryPattern: 'leadId_in',
+      docsReturned: residualDocsRead,
+      note: `nutriCandidates=${candidatosNutriUids.length} personalCandidates=${candidatosPersonalUids.length} queries=${residualQueryCount}`,
     });
-    enviosPersonalSnapshot.docs.forEach((docSnap) => {
-      const leadId = String(docSnap.data().leadId || '').trim();
-      if (leadId) leadIdsComEnvioPersonalEmail1.add(leadId);
+
+    logEmailEnviosResidual({
+      origin: 'cron/send-automatic-emails-leads-nutri-personal',
+      queryCount: residualQueryCount,
+      docsRead: residualDocsRead,
+      durationMs: Date.now() - residualStartedAt,
+      returnedDocs: residualDocsRead,
+      paginationUsed: true,
+      timeWindow: null,
+      note: 'dedup candidatos; sem lookback enviadoEm full-scan',
     });
 
     const usersList = allUsers.map(u => ({
@@ -421,6 +475,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   } finally {
+    endEmailEnviosAuditScope(auditScopeId, { cron: 'send-automatic-emails-leads-nutri-personal' });
     if (db && lockInstanceId) {
       await releaseCronLock(db, 'send-automatic-emails-leads-nutri-personal', lockInstanceId);
     }

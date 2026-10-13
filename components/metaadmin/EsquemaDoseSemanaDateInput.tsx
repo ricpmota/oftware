@@ -23,6 +23,8 @@ type EsquemaDoseSemanaDateInputProps = {
   dataAplicacaoFocoRef: MutableRefObject<{ semana: number; valor: string } | null>;
   onApplyYyyyMmDd: (semana: number, ymd: string) => void;
   onRemoveOverride: (semana: number) => void;
+  /** Somente apresentação do texto visível. O overlay type=date permanece igual. */
+  appearance?: 'default' | 'timeline';
 };
 
 export function EsquemaDoseSemanaDateInput({
@@ -31,6 +33,7 @@ export function EsquemaDoseSemanaDateInput({
   yyyyMmDdFromMap,
   dataAplicacaoFocoRef,
   onApplyYyyyMmDd,
+  appearance = 'default',
 }: EsquemaDoseSemanaDateInputProps) {
   const resolved = useMemo(() => {
     if (yyyyMmDdFromMap) {
@@ -75,18 +78,31 @@ export function EsquemaDoseSemanaDateInput({
     dataAplicacaoFocoRef.current = { semana, valor: ymdCanonical };
   };
 
+  const isTimeline = appearance === 'timeline';
+
   return (
-    <div className="relative w-full min-h-[28px]">
+    <div className={`relative w-full ${isTimeline ? 'min-h-[32px]' : 'min-h-[28px]'}`}>
       {/* Exibição DD/MM/AA — não recebe toque (mobile abre o date por cima) */}
-      <input
+      <div className="flex items-center justify-center">
+        {isTimeline ? (
+          <span className="pointer-events-none mr-0.5 hidden text-[11px] md:inline" aria-hidden>
+            📅
+          </span>
+        ) : null}
+        <input
         type="text"
         readOnly
         tabIndex={-1}
         aria-hidden
         placeholder="DD/MM/AA"
         value={text}
-        className="w-full text-[10px] border border-gray-300 rounded px-1 py-0.5 text-gray-900 text-center tabular-nums pointer-events-none bg-white dark:bg-gray-900"
+        className={
+          isTimeline
+            ? 'w-full rounded-md border-0 bg-transparent px-0 py-0.5 text-center text-[11px] tabular-nums text-[color:var(--text-secondary)] pointer-events-none'
+            : 'w-full text-[10px] border border-gray-300 rounded px-1 py-0.5 text-gray-900 text-center tabular-nums pointer-events-none bg-white dark:bg-gray-900'
+        }
       />
+      </div>
       {/* Date nativo cobrindo o campo: funciona com toque no iOS/Android (showPicker/sr-only não) */}
       <input
         type="date"
@@ -102,7 +118,7 @@ export function EsquemaDoseSemanaDateInput({
           setText(formatDateAsDDMMYY(d));
           confirmarESalvarYmd(ymd);
         }}
-        className="absolute inset-0 z-10 m-0 h-full w-full min-h-[28px] cursor-pointer opacity-0"
+        className={`absolute inset-0 z-10 m-0 h-full w-full cursor-pointer opacity-0 ${isTimeline ? 'min-h-[32px]' : 'min-h-[28px]'}`}
         style={{
           WebkitAppearance: 'none',
           appearance: 'none',

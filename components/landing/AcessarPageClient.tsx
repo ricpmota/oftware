@@ -18,6 +18,7 @@ const AREA_LABELS: Record<AppAccessPath, string> = {
   '/metaadmin': 'Médico',
   '/metanutri': 'Nutricionista',
   '/metapersonal': 'Personal',
+  '/metapsi': 'Psiquiatra',
 };
 
 export default function AcessarPageClient() {

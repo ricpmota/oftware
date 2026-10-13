@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, CheckCircle, CreditCard, DollarSign, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, CreditCard, DollarSign, FileText, Loader2 } from 'lucide-react';
 import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
 import type { OrganizationFinanceMetrics } from '@/lib/metaadmingeral/buildOrganizationFinanceMetrics';
 
@@ -128,6 +128,9 @@ export default function OrganizationFinanceiroPanel({
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#E8EDED]/70">
                     Valor pendente
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-[#E8EDED]/70">
+                    Relatório
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
@@ -166,6 +169,23 @@ export default function OrganizationFinanceiroPanel({
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-amber-300">
                       {formatBrl(row.valorPendente)}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.open(
+                            `/relatoriomedico/${encodeURIComponent(row.medicoId)}`,
+                            '_blank',
+                            'noopener,noreferrer',
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#4CCB7A] px-3 py-1.5 text-xs font-semibold text-[#0A1F44] transition hover:opacity-90"
+                        title={`Abrir relatório de ${row.medicoNome}`}
+                      >
+                        <FileText className="h-3.5 w-3.5" aria-hidden />
+                        Relatório
+                      </button>
                     </td>
                   </tr>
                 ))}

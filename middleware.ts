@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { isKamillaSiteHost } from '@/lib/kamilla-montenegro/siteHosts';
 import { ORGANIZACAO_METODO_PUBLIC_ORIGIN } from '@/lib/tenant/organizacaoPublicOrigin';
 
 const OFTWARE_ORIGIN = 'https://www.oftware.com.br';
@@ -93,6 +94,7 @@ function isMetodoStaticAsset(pathname: string): boolean {
 /** Rotas institucionais da Oftware — no domínio Método redirecionam para www.oftware.com.br. */
 const METODO_OFTWARE_ONLY_PREFIXES = [
   '/whitelabel',
+  '/50kgdepois',
   '/metaadmingeral',
   '/mentoria',
   '/apresentacao',
@@ -116,16 +118,26 @@ function isMetodoOrganizacaoOperationalRoute(pathname: string): boolean {
     pathname === '/metanutri' ||
     pathname.startsWith('/metanutri/') ||
     pathname === '/metapersonal' ||
-    pathname.startsWith('/metapersonal/')
+    pathname.startsWith('/metapersonal/') ||
+    pathname === '/metapsi' ||
+    pathname.startsWith('/metapsi/')
   ) {
     return true;
   }
   if (pathname.startsWith('/aplicacao/')) return true;
+  if (pathname.startsWith('/hidratacao/')) return true;
+  if (pathname.startsWith('/checkin-nutri/')) return true;
   if (pathname.startsWith('/conclusao/')) return true;
   if (pathname.startsWith('/relatorio/')) return true;
+  if (pathname === '/relatoriomedicos' || pathname.startsWith('/relatoriomedicos/')) return true;
+  if (pathname === '/relatoriomedico' || pathname.startsWith('/relatoriomedico/')) return true;
+  if (pathname.startsWith('/relatoriofinanceiro/')) return true;
   if (pathname.startsWith('/plano/')) return true;
   if (pathname.startsWith('/plano-terapeutico/')) return true;
   if (pathname.startsWith('/dr/')) return true;
+  if (pathname === '/contatochat' || pathname.startsWith('/contatochat/')) return true;
+  if (pathname.startsWith('/drprovisorio/')) return true;
+  if (pathname === '/homeprovisorio' || pathname.startsWith('/homeprovisorio/')) return true;
   if (pathname.startsWith('/instagram/') && pathname.length > '/instagram/'.length) return true;
   return false;
 }
@@ -184,7 +196,12 @@ function handleMetodoEmagrecerHost(
   }
 
   if (isMetodoOrganizacaoOperationalRoute(pathname)) {
-    return NextResponse.next();
+    const res = NextResponse.next();
+    if (pathname.startsWith('/hidratacao')) {
+      res.headers.set('Referrer-Policy', 'no-referrer');
+      res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+    return res;
   }
 
   return NextResponse.redirect(new URL(`${OFTWARE_ORIGIN}${pathnameRaw}${search}`));
@@ -224,6 +241,76 @@ function redirectOftwareDrLinksToMetodo(
 }
 
 /**
+ * Domínio endocrinokamillamontenegro.com (organização kamila-montenegro):
+ * - `/` reescreve internamente para `/kamillamontenegro` (a barra continua na raiz).
+ * - `/kamillamontenegro` → 308 para `/`, sem loop: a raiz reescreve, não redireciona.
+ * - Portais e demais rotas operacionais permanecem neste host.
+ * - Rotas institucionais da Oftware seguem para www.oftware.com.br.
+ * - Qualquer outra rota volta para a raiz deste domínio.
+ * Estes hosts não entram em METODO_SITE_HOSTS.
+ */
+function handleKamillaHost(
+  request: NextRequest,
+  host: string,
+  pathnameRaw: string,
+  pathname: string,
+  search: string
+): NextResponse | null {
+  if (!isKamillaSiteHost(host)) return null;
+
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith('/.well-known/')) {
+    return NextResponse.next();
+  }
+
+  if (
+    pathname === '/favicon.ico' ||
+    pathname === '/manifest.json' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sw.js'
+  ) {
+    return NextResponse.next();
+  }
+
+  if (pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/kamillamontenegro';
+    const res = NextResponse.rewrite(url);
+    res.headers.set('Vary', 'Host');
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res;
+  }
+
+  if (pathname === '/kamillamontenegro') {
+    const destination = new URL(request.url);
+    destination.pathname = '/';
+    destination.search = search;
+    return NextResponse.redirect(destination, 308);
+  }
+
+  if (isMetodoOrganizacaoOperationalRoute(pathname)) {
+    const res = NextResponse.next();
+    if (pathname.startsWith('/hidratacao')) {
+      res.headers.set('Referrer-Policy', 'no-referrer');
+      res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+    return res;
+  }
+
+  if (isMetodoOftwareOnlyRoute(pathname)) {
+    return NextResponse.redirect(new URL(`${OFTWARE_ORIGIN}${pathnameRaw}${search}`));
+  }
+
+  const home = new URL(request.url);
+  home.pathname = '/';
+  home.search = '';
+  return NextResponse.redirect(home, 308);
+}
+
+/**
  * Domínio próprio da landing (ex.: www.rafaelaalbuquerque.com):
  * - `/` reescreve internamente para `/rafaelaalbuquerque` (URL na barra permanece no domínio comprado).
  * - `/rafaelaalbuquerque` ou `/rafaelaalbuquerque/` → 308 para `/`.
@@ -249,6 +336,16 @@ export function middleware(request: NextRequest) {
 
   const drLegacyRedirect = redirectOftwareDrLinksToMetodo(host, pathnameRaw, search);
   if (drLegacyRedirect) return drLegacyRedirect;
+
+  if (pathname.startsWith('/hidratacao')) {
+    const res = NextResponse.next();
+    res.headers.set('Referrer-Policy', 'no-referrer');
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res;
+  }
+
+  const kamillaHostResponse = handleKamillaHost(request, host, pathnameRaw, pathname, search);
+  if (kamillaHostResponse) return kamillaHostResponse;
 
   if (!isRafaelaHost(host)) {
     return NextResponse.next();

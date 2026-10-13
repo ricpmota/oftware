@@ -35,7 +35,7 @@ function perfil(p: PacienteCompleto): PerfilMetabolicoV3 | undefined {
 
 export function blocoSonoCompleto(pm?: PerfilMetabolicoV3): boolean {
   const s = pm?.sono;
-  return !!(s?.qualidadeSono && s?.horasSonoMedias);
+  return !!(s?.qualidadeSono && s?.horasSonoMedias && s?.ronca && s?.acordaCansado);
 }
 
 export function blocoAtividadeCompleto(pm?: PerfilMetabolicoV3): boolean {
@@ -46,10 +46,10 @@ export function blocoAlimentacaoCompleto(pm?: PerfilMetabolicoV3): boolean {
   const a = pm?.alimentacao;
   if (!a) return false;
   return !!(
-    a.momentoMaisDificil ||
-    a.vontadeDoces ||
-    a.beliscaEntreRefeicoes ||
-    a.comeAnsiedadeEstresse ||
+    a.momentoMaisDificil &&
+    a.vontadeDoces &&
+    a.beliscaEntreRefeicoes &&
+    a.comeAnsiedadeEstresse &&
     a.perdaControleAlimentar
   );
 }

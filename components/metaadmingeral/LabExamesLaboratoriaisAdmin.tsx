@@ -5,7 +5,8 @@ import { auth } from '@/lib/firebase';
 import { FlaskConical, Save, RotateCcw, Loader2, AlertCircle, CheckCircle2, Printer } from 'lucide-react';
 import { getLabRange, calcularIdade, type LabLimitOverrides } from '@/utils/labRangesFromJson';
 import type { Sex } from '@/types/labRanges';
-import { LAB_SECTION_LABELS_PT } from '@/lib/labExames/labSectionLabels';
+import { LAB_SECTION_LABELS_PT, resolveLabSectionLabel } from '@/lib/labExames/labSectionLabels';
+import { normalizeLabCustomExams, type LabCustomExam } from '@/lib/labExames/labCustomExams';
 import {
   getDefaultLabOrderBySection,
   getExpectedLabExamKeys,
@@ -203,6 +204,8 @@ export default function LabExamesLaboratoriaisAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [customExams, setCustomExams] = useState<LabCustomExam[]>([]);
+  const [togglingCustomId, setTogglingCustomId] = useState<string | null>(null);
 
   const sectionIdsOrdered = useMemo(() => Object.keys(getDefaultLabOrderBySection()), []);
 
@@ -225,9 +228,26 @@ export default function LabExamesLaboratoriaisAdmin() {
       };
       setOrder(getDefaultLabOrderBySection());
       setOverrideDraft(mergeServerOverridesIntoDraft(allRefRows, j.labLimitOverrides));
+      const user = auth.currentUser;
+      if (user) {
+        const token = await user.getIdToken();
+        const adminRes = await fetch('/api/metaadmingeral/lab-exames', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (adminRes.ok) {
+          const adminJ = (await adminRes.json()) as { labCustomExams?: unknown };
+          setCustomExams(normalizeLabCustomExams(adminJ.labCustomExams));
+        } else {
+          setCustomExams([]);
+        }
+      } else {
+        setCustomExams([]);
+      }
     } catch {
       setOrder(getDefaultLabOrderBySection());
       setOverrideDraft(emptyCellDraft(allRefRows));
+      setCustomExams([]);
       setMessage({ type: 'err', text: 'Não foi possível carregar; exibindo padrão do código.' });
     } finally {
       setLoading(false);
@@ -305,6 +325,33 @@ export default function LabExamesLaboratoriaisAdmin() {
       type: 'ok',
       text: 'Ordem e overrides restaurados ao padrão nesta tela. Clique em Salvar para gravar no Firestore.',
     });
+  };
+
+  const handleToggleCustomExam = async (exam: LabCustomExam, enabled: boolean) => {
+    const user = auth.currentUser;
+    if (!user) {
+      setMessage({ type: 'err', text: 'Faça login novamente.' });
+      return;
+    }
+    setTogglingCustomId(exam.id);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/metaadmingeral/lab-exames', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customExamId: exam.id, enabled }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage({ type: 'err', text: j.error || 'Não foi possível atualizar a visibilidade.' });
+        return;
+      }
+      setCustomExams((prev) => prev.map((e) => (e.id === exam.id ? { ...e, enabled } : e)));
+    } catch {
+      setMessage({ type: 'err', text: 'Falha de rede ao atualizar visibilidade.' });
+    } finally {
+      setTogglingCustomId(null);
+    }
   };
 
   const handlePrint = () => {
@@ -406,6 +453,7 @@ ${sections}
             Por <strong>sistema</strong>, edite <strong>Ref. M</strong> e <strong>Ref. F</strong> na mesma linha quando a
             faixa etária for a mesma. Abaixo dos campos min/máx aparece a <strong>prévia</strong> do valor efetivo (~45
             anos ou meio da faixa). Células vazias = usar só o JSON base. Última coluna: sistema de agrupamento.
+            Exames criados por médicos ficam no bloco abaixo, com switch de visibilidade para toda a plataforma.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -467,6 +515,51 @@ ${sections}
         </div>
       ) : (
         <div className="space-y-8">
+          <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/10 bg-white/5">
+              <h3 className="text-lg font-semibold text-[#E8EDED]">Exames criados por médicos</h3>
+              <p className="text-xs text-[#E8EDED]/50 mt-0.5">
+                Entram no patrimônio global já visíveis. Desligue o switch para ocultar de todos os médicos e pacientes.
+              </p>
+            </div>
+            {customExams.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-[#E8EDED]/50">Nenhum exame criado por médico ainda.</p>
+            ) : (
+              <ul className="divide-y divide-white/10">
+                {customExams.map((ex) => {
+                  const setor = resolveLabSectionLabel(ex.sectionId, { [ex.sectionId]: ex.sectionLabel });
+                  return (
+                    <li key={ex.id} className="flex items-start gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-[#E8EDED]">{ex.label}</p>
+                        <p className="text-xs text-[#E8EDED]/55 mt-0.5">
+                          {setor} · {ex.min}–{ex.max} {ex.unit}
+                          {ex.createdByMedicoNome ? ` · ${ex.createdByMedicoNome}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={ex.enabled}
+                        disabled={togglingCustomId === ex.id}
+                        onClick={() => void handleToggleCustomExam(ex, !ex.enabled)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                          ex.enabled ? 'bg-[#4CCB7A]' : 'bg-white/20'
+                        }`}
+                        title={ex.enabled ? 'Visível para todos' : 'Oculto na plataforma'}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                            ex.enabled ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
           {sectionIdsOrdered.map((sectionId) => {
             const keys = order[sectionId] || [];
             const title = LAB_SECTION_LABELS_PT[sectionId] || sectionId;

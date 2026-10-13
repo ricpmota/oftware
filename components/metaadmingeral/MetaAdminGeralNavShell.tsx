@@ -17,6 +17,7 @@ import {
   type MetaAdminGeralNavLeaf,
 } from '@/lib/metaadmingeral/metaAdminGeralNavUx';
 import { META_ADMIN_GERAL_SHELL } from '@/lib/metaadmin/metaAdminGeralBranding';
+import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
 
 function navButtonClass(active: boolean, orgAccent = false) {
   const activeClass = orgAccent
@@ -32,10 +33,12 @@ type MetaAdminGeralNavShellProps = {
   navContext: MetaAdminGeralNavContext;
   activeMenu: string;
   activeOrganizationId: string;
+  organizations?: OrganizationDefinition[];
   sidebarCollapsed?: boolean;
   onNavContextChange: (ctx: MetaAdminGeralNavContext) => void;
   onOrganizationChange: (organizationId: string) => void;
   onSelectMenu: (menuId: string) => void;
+  onRequestCreateOrganization?: () => void;
 };
 
 function NavLeaf({
@@ -110,6 +113,9 @@ function CollapsibleDepartment({
           if (department.id === 'platform-patrimonio' && willExpand) {
             onSelectMenu('platform-patrimonio');
           }
+          if (department.id === 'platform-automacoes' && willExpand) {
+            onSelectMenu('automacoes-dashboard');
+          }
         }}
         className={`${navButtonClass(hasActiveChild && !expanded, orgAccent)} justify-between`}
       >
@@ -140,18 +146,23 @@ function CollapsibleDepartment({
 
 function OrganizationSwitcher({
   activeOrganizationId,
+  organizations,
   onOrganizationChange,
   onBackToPlatform,
   onOpenOrganizations,
+  onRequestCreateOrganization,
 }: {
   activeOrganizationId: string;
+  organizations: OrganizationDefinition[];
   onOrganizationChange: (id: string) => void;
   onBackToPlatform: () => void;
   onOpenOrganizations: () => void;
+  onRequestCreateOrganization?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const org = getNavOrganizationById(activeOrganizationId);
-  const organizations = listNavOrganizations();
+  const org =
+    organizations.find((item) => item.id === activeOrganizationId) ??
+    getNavOrganizationById(activeOrganizationId);
 
   return (
     <div className="border-b border-white/10 px-3 py-3 space-y-2">
@@ -199,8 +210,12 @@ function OrganizationSwitcher({
             ))}
             <button
               type="button"
-              disabled
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[#E8EDED]/40 cursor-not-allowed border-t border-white/10 mt-1"
+              onClick={() => {
+                setOpen(false);
+                if (onRequestCreateOrganization) onRequestCreateOrganization();
+                else onOpenOrganizations();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[#4CCB7A] hover:bg-white/10 border-t border-white/10 mt-1"
             >
               <Plus className="h-4 w-4" />
               Nova Organização
@@ -226,11 +241,18 @@ export default function MetaAdminGeralNavShell({
   navContext,
   activeMenu,
   activeOrganizationId,
+  organizations: organizationsProp,
   sidebarCollapsed,
   onNavContextChange,
   onOrganizationChange,
   onSelectMenu,
+  onRequestCreateOrganization,
 }: MetaAdminGeralNavShellProps) {
+  const organizations = organizationsProp?.length ? organizationsProp : listNavOrganizations();
+  const activeOrgName =
+    organizations.find((item) => item.id === activeOrganizationId)?.name ??
+    getNavOrganizationById(activeOrganizationId)?.name ??
+    'Organização';
   const resolvedMenu = resolveMetaAdminGeralMenuId(activeMenu);
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
 
@@ -301,6 +323,7 @@ export default function MetaAdminGeralNavShell({
     <nav className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <OrganizationSwitcher
         activeOrganizationId={activeOrganizationId}
+        organizations={organizations}
         onOrganizationChange={(id) => {
           onOrganizationChange(id);
           onSelectMenu('org-dashboard');
@@ -313,11 +336,12 @@ export default function MetaAdminGeralNavShell({
           onNavContextChange('platform');
           onSelectMenu('organizacoes');
         }}
+        onRequestCreateOrganization={onRequestCreateOrganization}
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1">
         <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-[#4CCB7A]/70">
-          {getNavOrganizationById(activeOrganizationId)?.name ?? 'Organização'}
+          {activeOrgName}
         </p>
 
         {META_ADMIN_GERAL_ORG_TOP.map((top) => {

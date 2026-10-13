@@ -24,7 +24,9 @@ interface VideoPlayerUrlProps {
   videoId?: string;
   /** Chamado ao assistir: timeupdate (throttled) e ao terminar (ended) para computar 0–100% */
   onProgressUpdate?: (videoId: string, updates: { lastPosition: number; watchedSeconds: number; watched?: boolean; duration?: number }) => void;
-  /** Esconder a barra de título (ex.: no mobile já tem título no overlay) */
+  /** Chamado ao pausar o vídeo (persistência de progresso) */
+  onPause?: () => void;
+  /** Oculta a barra de título acima do player */
   hideTitleBar?: boolean;
 }
 
@@ -39,12 +41,15 @@ export default function VideoPlayerUrl({
   videoId,
   onProgressUpdate,
   hideTitleBar = false,
+  onPause,
 }: VideoPlayerUrlProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const onDurationKnownRef = useRef(onDurationKnown);
   onDurationKnownRef.current = onDurationKnown;
   const onProgressUpdateRef = useRef(onProgressUpdate);
   onProgressUpdateRef.current = onProgressUpdate;
+  const onPauseRef = useRef(onPause);
+  onPauseRef.current = onPause;
   const startTimeRef = useRef(startTime);
   startTimeRef.current = startTime;
   const lastProgressAtRef = useRef(0);
@@ -229,6 +234,7 @@ export default function VideoPlayerUrl({
               onLoadedMetadata={handleLoadedMetadata}
               onTimeUpdate={handleTimeUpdate}
               onEnded={handleEnded}
+              onPause={() => onPauseRef.current?.()}
               onPlay={() => { setPlayOverlayVisible(false); setVideoError(null); }}
               onError={(e) => {
                 const err = e.currentTarget.error;

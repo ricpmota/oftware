@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import ComoFuncionaMobilePizza from '@/components/metodo/ComoFuncionaMobilePizza';
 import LandingPageHeader from '@/components/landing/LandingPageHeader';
 import InitialLoadingSplash from '@/components/landing/InitialLoadingSplash';
 import DepoimentosAnimatedBackdrop from '@/components/landing/DepoimentosAnimatedBackdrop';
@@ -16,8 +18,10 @@ import { withIndicacaoRef } from '@/lib/landing/appNavigation';
 import {
   Stethoscope,
   UserCheck,
+  User as UserIcon,
   UtensilsCrossed,
   Dumbbell,
+  Brain,
   ArrowRight,
   Shield,
   Zap,
@@ -34,6 +38,89 @@ import {
   Loader2,
 } from 'lucide-react';
 const DEEP_BLUE = '#0A1F44';
+const HERO_EQUIPE_SRC = '/images/equipe-multidisciplinar-hero.webp';
+const HERO_EQUIPE_MOBILE_SRC = '/images/equipe-multidisciplinar-hero-mobile.webp';
+const HAS_HERO_EQUIPE_MOBILE = false;
+
+const HERO_ACCESS_ROLES = [
+  {
+    icon: Stethoscope,
+    label: 'Médico',
+    href: '/metaadmin',
+    ariaLabel: 'Acessar área médica',
+  },
+  {
+    icon: UtensilsCrossed,
+    label: 'Nutricionista',
+    href: '/metanutri',
+    ariaLabel: 'Acessar área do nutricionista',
+  },
+  {
+    icon: Dumbbell,
+    label: 'Personal',
+    href: '/metapersonal',
+    ariaLabel: 'Acessar área do personal',
+  },
+  {
+    icon: Brain,
+    label: 'Psiquiatria',
+    href: '/metapsi',
+    ariaLabel: 'Acessar área de psiquiatria',
+  },
+] as const;
+
+function HeroEcosystemAccessHub({
+  onAccess,
+}: {
+  onAccess: (path: string) => void;
+}) {
+  const leftRoles = HERO_ACCESS_ROLES.slice(0, 2);
+  const rightRoles = HERO_ACCESS_ROLES.slice(2);
+  const shortcutClassName =
+    'inline-flex h-[48px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-[#0A1F44]/45 px-3.5 text-[12px] font-medium text-white/90 backdrop-blur-[2px] transition-colors hover:border-[#4CCB7A]/40 hover:bg-[#0A1F44]/65 hover:text-white xl:h-[50px] xl:px-4 xl:text-[13px]';
+
+  return (
+    <nav
+      className="flex items-center justify-start gap-2 xl:gap-2.5"
+      aria-label="Acessos do ecossistema"
+    >
+      {leftRoles.map(({ icon: Icon, label, href, ariaLabel }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => onAccess(href)}
+          aria-label={ariaLabel}
+          className={shortcutClassName}
+        >
+          <Icon className="h-4 w-4 text-[#4CCB7A]" aria-hidden />
+          {label}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => onAccess('/meta')}
+        aria-label="Acessar área do paciente"
+        className="mx-0.5 flex h-[68px] w-[68px] shrink-0 flex-col items-center justify-center rounded-full bg-[#4CCB7A] text-[#0A1F44] shadow-[0_0_22px_rgba(76,203,122,0.35)] transition-transform hover:scale-105 xl:h-[72px] xl:w-[72px]"
+      >
+        <UserIcon className="mb-0.5 h-5 w-5" aria-hidden />
+        <span className="text-[11px] font-bold leading-none">Paciente</span>
+      </button>
+      {rightRoles.map(({ icon: Icon, label, href, ariaLabel }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => onAccess(href)}
+          aria-label={ariaLabel}
+          className={shortcutClassName}
+        >
+          <Icon className="h-4 w-4 text-[#4CCB7A]" aria-hidden />
+          {label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 const MEDICO_EMAIL_DEPOIMENTOS = 'ricpmota.med@gmail.com';
 
 type DepoimentoItem = {
@@ -72,7 +159,7 @@ export default function MetodoPageClient() {
   const [cacheDepoimentosMedico, setCacheDepoimentosMedico] = useState<Record<string, DepoimentoItem[]>>({});
   const [medicosHome, setMedicosHome] = useState<MedicoHomeItem[]>([]);
   const [loadingMedicosHome, setLoadingMedicosHome] = useState(true);
-  const medicosMobileTrackRef = useRef<HTMLDivElement | null>(null);
+  const medicosTrackRef = useRef<HTMLDivElement | null>(null);
   const [canScrollMedicosLeft, setCanScrollMedicosLeft] = useState(false);
   const [canScrollMedicosRight, setCanScrollMedicosRight] = useState(false);
   const [ofertaAtivaIndex, setOfertaAtivaIndex] = useState(0);
@@ -122,7 +209,7 @@ export default function MetodoPageClient() {
   }, []);
 
   useEffect(() => {
-    const el = medicosMobileTrackRef.current;
+    const el = medicosTrackRef.current;
     if (!el) return;
 
     const updateArrows = () => {
@@ -140,10 +227,10 @@ export default function MetodoPageClient() {
     };
   }, [medicosHome]);
 
-  const scrollMedicosMobile = (direction: 'left' | 'right') => {
-    const el = medicosMobileTrackRef.current;
+  const scrollMedicos = (direction: 'left' | 'right') => {
+    const el = medicosTrackRef.current;
     if (!el) return;
-    const amount = Math.max(180, Math.round(el.clientWidth * 0.82));
+    const amount = Math.max(220, Math.round(el.clientWidth * 0.7));
     el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
   };
 
@@ -216,9 +303,9 @@ export default function MetodoPageClient() {
 
   const ofertas = [
     { icon: LayoutDashboard, title: 'Método', shortLabel: 'Método', desc: 'Processo definido e replicável. Cada etapa tem critério e sequência.' },
-    { icon: Shield, title: 'Protocolo', shortLabel: 'Protocolo', desc: 'Conduta médica, nutricional e de treino alinhadas em um único plano.' },
+    { icon: Shield, title: 'Protocolo', shortLabel: 'Protocolo', desc: 'Conduta médica, nutricional, de treino e, quando indicado, psiquiátrica — alinhadas em um único plano.' },
     { icon: BarChart3, title: 'Monitoramento', shortLabel: 'Monitoramento', desc: 'Acompanhamento contínuo com dados organizados para apoio à decisão clínica.' },
-    { icon: Zap, title: 'Estrutura Tecnológica', shortLabel: 'Estrutura', desc: 'Médico, nutri e personal no mesmo fluxo — conectados e em sincronia.' },
+    { icon: Zap, title: 'Estrutura Tecnológica', shortLabel: 'Estrutura', desc: 'Médico, nutricionista, psiquiatra e personal no mesmo fluxo — conectados e em sincronia.' },
   ];
   const ofertaAtiva = ofertas[ofertaAtivaIndex];
   const irParaOferta = (next: number) => {
@@ -251,13 +338,13 @@ export default function MetodoPageClient() {
       objetivo: 'Conduzir o tratamento e alinhar as decisões com toda a equipe.',
       detalhes: [
         'Define conduta e ajustes clínicos com base em dados, exames e evolução.',
-        'Compartilha o tratamento com Nutricionista e Personal.',
+        'Compartilha o tratamento com Nutricionista, Psiquiatra e Personal Trainer, quando integrados.',
       ],
     },
     {
       key: 'nutricionista',
       slot: 'Pilar 03',
-      shortLabel: 'Nutricionista',
+      shortLabel: 'Nutri',
       title: 'Nutricionista',
       icon: UtensilsCrossed,
       objetivo: 'Integrar alimentação e composição corporal ao tratamento com ajustes coordenados.',
@@ -268,8 +355,20 @@ export default function MetodoPageClient() {
       ],
     },
     {
-      key: 'personal',
+      key: 'psiquiatra',
       slot: 'Pilar 04',
+      shortLabel: 'Psiquiatra',
+      title: 'Psiquiatra',
+      icon: Brain,
+      objetivo: 'Acompanhar aspectos de saúde mental relacionados ao tratamento, quando indicados.',
+      detalhes: [
+        'Integra-se à equipe multidisciplinar nos casos em que o acompanhamento psiquiátrico é necessário.',
+        'Contribui com a leitura clínica dos aspectos psiquiátricos da jornada, sem substituir o médico responsável.',
+      ],
+    },
+    {
+      key: 'personal',
+      slot: 'Pilar 05',
       shortLabel: 'Personal',
       title: 'Personal',
       icon: Dumbbell,
@@ -318,7 +417,7 @@ export default function MetodoPageClient() {
         </div>
 
         {/* 1. HERO SECTION */}
-        <section className="relative overflow-hidden py-16 md:py-24 lg:py-32">
+        <section className="relative overflow-hidden py-16 md:py-24 lg:py-16 lg:pb-8">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#0d2a5a] to-[#0A1F44]" />
           <div className="absolute inset-0 opacity-20">
             {[...Array(12)].map((_, i) => (
@@ -336,59 +435,83 @@ export default function MetodoPageClient() {
               />
             ))}
           </div>
-          <div className="relative w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              <div>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#E8EDED] leading-tight mb-6">
-                  Sem método tudo vira tentativa.
-                  <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4CCB7A] to-[#2F8FA3]">
-                    E tentativa não sustenta continuidade.
-                  </span>
-                </h1>
-                <p className="text-lg md:text-xl text-[#E8EDED]/80 mb-8 max-w-xl">
-                  Acompanhamento médico estruturado com equipe multidisciplinar integrada.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button
-                    onClick={() => handleAcessar('/meta')}
-                    className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-[#0A1F44] bg-[#4CCB7A] hover:bg-[#45b86d] transition-all shadow-lg hover:shadow-[#4CCB7A]/30"
-                  >
-                    Iniciar acompanhamento
-                    <ArrowRight size={20} />
-                  </button>
-                  <button
-                    onClick={() => document.getElementById('como-funciona')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-[#E8EDED] border-2 border-[#E8EDED]/40 hover:border-[#4CCB7A] hover:text-[#4CCB7A] transition-all"
-                  >
-                    Como funciona
-                  </button>
-                </div>
+
+          <div
+            className="pointer-events-none absolute inset-y-0 -right-[4%] hidden w-[58%] lg:block"
+            aria-hidden
+            style={{
+              WebkitMaskImage:
+                'linear-gradient(to right, transparent 0%, transparent 10%, rgba(0,0,0,0.2) 22%, #000 40%, #000 94%, rgba(0,0,0,0.45) 98%, transparent 100%), linear-gradient(to bottom, transparent 0%, #000 10%, #000 58%, rgba(0,0,0,0.2) 82%, transparent 100%)',
+              maskImage:
+                'linear-gradient(to right, transparent 0%, transparent 10%, rgba(0,0,0,0.2) 22%, #000 40%, #000 94%, rgba(0,0,0,0.45) 98%, transparent 100%), linear-gradient(to bottom, transparent 0%, #000 10%, #000 58%, rgba(0,0,0,0.2) 82%, transparent 100%)',
+              WebkitMaskSize: '100% 100%, 100% 100%',
+              maskSize: '100% 100%, 100% 100%',
+              WebkitMaskRepeat: 'no-repeat, no-repeat',
+              maskRepeat: 'no-repeat, no-repeat',
+              WebkitMaskComposite: 'source-in',
+              maskComposite: 'intersect',
+            }}
+          >
+            <Image
+              src={HERO_EQUIPE_SRC}
+              alt="Equipe multidisciplinar de acompanhamento"
+              fill
+              priority
+              sizes="(min-width: 1024px) 58vw, 0px"
+              className="object-cover object-[46%_26%] select-none"
+            />
+          </div>
+
+          <div className="relative z-[2] mx-auto w-full px-4 sm:px-6 lg:px-8 lg:pl-[max(2rem,calc((100vw-1200px)/2+2rem))]">
+            <div className="max-w-xl lg:max-w-[36rem]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#E8EDED] leading-tight mb-6">
+                Sem método tudo vira tentativa.
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4CCB7A] to-[#2F8FA3]">
+                  E tentativa não sustenta resultado.
+                </span>
+              </h1>
+              <p className="text-lg md:text-xl text-[#E8EDED]/80 mb-8 max-w-xl">
+                Acompanhamento médico estruturado com equipe multidisciplinar integrada.
+              </p>
+            </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center lg:flex-nowrap">
+              <button
+                onClick={() => handleAcessar('/meta')}
+                className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-8 py-4 rounded-xl font-semibold text-[#0A1F44] bg-[#4CCB7A] hover:bg-[#45b86d] transition-all shadow-lg hover:shadow-[#4CCB7A]/30"
+              >
+                Iniciar acompanhamento
+                <ArrowRight size={20} />
+              </button>
+              <button
+                onClick={() => document.getElementById('como-funciona')?.scrollIntoView({ behavior: 'smooth' })}
+                className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-8 py-4 rounded-xl font-semibold text-[#E8EDED] border-2 border-[#E8EDED]/40 hover:border-[#4CCB7A] hover:text-[#4CCB7A] transition-all"
+              >
+                Como funciona
+              </button>
+              <div className="hidden min-w-0 lg:block">
+                <HeroEcosystemAccessHub onAccess={handleAcessar} />
               </div>
-              <div className="relative lg:block">
-                <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-sm p-6 shadow-2xl">
-                  <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { icon: Stethoscope, label: 'Médico', color: 'from-[#4CCB7A] to-[#2F8FA3]' },
-                      { icon: UserCheck, label: 'Paciente', color: 'from-[#2F8FA3] to-[#4CCB7A]' },
-                      { icon: UtensilsCrossed, label: 'Nutricionista', color: 'from-[#4CCB7A] to-[#2F8FA3]' },
-                      { icon: Dumbbell, label: 'Personal', color: 'from-[#2F8FA3] to-[#4CCB7A]' },
-                    ].map(({ icon: Icon, label, color }) => (
-                      <div
-                        key={label}
-                        className={`p-4 rounded-xl bg-gradient-to-br ${color} bg-opacity-20 border border-white/10`}
-                      >
-                        <Icon className="w-10 h-10 text-white mb-2" />
-                        <p className="text-sm font-semibold text-white">{label}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 p-3 rounded-lg bg-white/5 text-[#E8EDED]/80 text-sm">
-                    <p className="font-medium text-[#4CCB7A]">Ecossistema integrado</p>
-                    <p>Médico, nutri e personal conectados com monitoramento contínuo</p>
+            </div>
+
+            <div className="relative mt-6 lg:hidden">
+              {HAS_HERO_EQUIPE_MOBILE ? (
+                <div className="relative">
+                  <Image
+                    src={HERO_EQUIPE_MOBILE_SRC}
+                    alt="Equipe multidisciplinar de acompanhamento"
+                    width={1200}
+                    height={1500}
+                    sizes="100vw"
+                    className="h-auto w-full object-contain"
+                  />
+                  <div className="mt-6 flex justify-center">
+                    <HeroEcosystemAccessHub onAccess={handleAcessar} />
                   </div>
                 </div>
-              </div>
+              ) : (
+                <ComoFuncionaMobilePizza onAccess={handleAcessar} />
+              )}
             </div>
           </div>
         </section>
@@ -397,7 +520,7 @@ export default function MetodoPageClient() {
         <IndicadoresPlataforma hideWeightLossMetrics />
 
         {/* PROVA DE AUTORIDADE CLÍNICA */}
-        <section className="py-16 md:py-24">
+        <section className="py-16 md:py-24 overflow-hidden">
           <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-[#E8EDED] mb-3">Comece com acompanhamento médico estruturado</h2>
@@ -413,86 +536,54 @@ export default function MetodoPageClient() {
               </div>
             ) : medicosHome.length === 0 ? (
               <p className="text-center text-[#E8EDED]/70">Nenhum médico disponível no momento.</p>
-            ) : (
-              <>
-                <div className="sm:hidden">
-                  <div
-                    ref={medicosMobileTrackRef}
-                    className="relative -mx-4 px-4 overflow-x-auto scrollbar-hide"
-                    style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
-                  >
-                    <div className="flex gap-4 w-max pb-2 snap-x snap-mandatory">
-                    {medicosHome.map((medico) => (
-                      <div key={medico.id} className="snap-start w-[172px] shrink-0 text-center">
-                        <a href={`/dr/${medico.slug}`} className="group block">
-                          <div className="relative mx-auto w-32 h-32">
-                            <img
-                              src={medico.fotoPerfilUrl}
-                              alt={`${medico.genero === 'F' ? 'Dra.' : 'Dr.'} ${medico.nome}`}
-                              className="h-32 w-32 rounded-full object-cover border-2 border-white/30 group-hover:border-[#4CCB7A]/80 transition-colors shadow-xl"
-                            />
-                          </div>
-                          <p className="mt-3 text-[#E8EDED] font-semibold text-sm leading-tight">
-                            {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
-                          </p>
-                          <p className="mt-1 inline-flex items-center justify-center gap-1 text-xs text-[#4CCB7A]/90">
-                            <CheckCircle size={13} className="shrink-0" />
-                            Perfil verificado
-                          </p>
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => abrirDepoimentosMedico(medico)}
-                          className="mt-2 inline-flex items-center rounded-full border border-[#4CCB7A]/45 bg-[#4CCB7A]/10 px-3 py-1 text-[11px] font-semibold text-[#4CCB7A] hover:bg-[#4CCB7A]/20 transition-colors"
-                        >
-                          Experiências
-                        </button>
-                        <p className="mt-1.5 text-[10px] text-[#E8EDED]/45 leading-snug px-1">
-                          Relatos individuais compartilhados espontaneamente pelos pacientes.
-                        </p>
-                      </div>
-                    ))}
-                    </div>
-                  </div>
+            ) : null}
+          </div>
 
-                  <div className="mt-3 flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => scrollMedicosMobile('left')}
-                      disabled={!canScrollMedicosLeft}
-                      className="h-8 w-8 rounded-full border border-white/20 text-[#E8EDED]/80 disabled:opacity-30 disabled:cursor-not-allowed"
-                      aria-label="Ver médicos anteriores"
-                    >
-                      <ChevronLeft className="h-4 w-4 mx-auto" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => scrollMedicosMobile('right')}
-                      disabled={!canScrollMedicosRight}
-                      className="h-8 w-8 rounded-full border border-white/20 text-[#E8EDED]/80 disabled:opacity-30 disabled:cursor-not-allowed"
-                      aria-label="Ver próximos médicos"
-                    >
-                      <ChevronRight className="h-4 w-4 mx-auto" />
-                    </button>
-                  </div>
-                </div>
+          {!loadingMedicosHome && medicosHome.length > 0 ? (
+            <div className="relative w-full mt-2">
+              <button
+                type="button"
+                onClick={() => scrollMedicos('left')}
+                disabled={!canScrollMedicosLeft}
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-white/25 bg-[#0A1F44]/85 text-[#E8EDED] shadow-lg backdrop-blur-sm hover:bg-[#0A1F44] hover:border-[#4CCB7A]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Ver médicos anteriores"
+              >
+                <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 mx-auto" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollMedicos('right')}
+                disabled={!canScrollMedicosRight}
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-white/25 bg-[#0A1F44]/85 text-[#E8EDED] shadow-lg backdrop-blur-sm hover:bg-[#0A1F44] hover:border-[#4CCB7A]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Ver próximos médicos"
+              >
+                <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 mx-auto" />
+              </button>
 
-                <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-8 justify-items-center max-w-[980px] mx-auto">
+              <div
+                ref={medicosTrackRef}
+                className="overflow-x-auto scrollbar-hide"
+                style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+              >
+                <div className="flex gap-5 sm:gap-6 md:gap-8 w-max mx-auto px-14 sm:px-20 md:px-24 pb-2 snap-x snap-mandatory">
                   {medicosHome.map((medico) => (
-                    <div key={medico.id} className="text-center">
+                    <div
+                      key={medico.id}
+                      className="snap-start w-[148px] sm:w-[180px] md:w-[200px] shrink-0 text-center"
+                    >
                       <a href={`/dr/${medico.slug}`} className="group block">
-                        <div className="relative mx-auto w-40 h-40">
+                        <div className="relative mx-auto w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40">
                           <img
                             src={medico.fotoPerfilUrl}
                             alt={`${medico.genero === 'F' ? 'Dra.' : 'Dr.'} ${medico.nome}`}
-                            className="h-40 w-40 rounded-full object-cover border-2 border-white/30 group-hover:border-[#4CCB7A]/80 transition-colors shadow-xl"
+                            className="h-full w-full rounded-full object-cover border-2 border-white/30 group-hover:border-[#4CCB7A]/80 transition-colors shadow-xl"
                           />
                         </div>
-                        <p className="mt-3 text-[#E8EDED] font-semibold leading-tight">
+                        <p className="mt-3 text-[#E8EDED] font-semibold text-sm sm:text-base leading-tight">
                           {medico.genero === 'F' ? 'Dra.' : 'Dr.'} {medico.nome}
                         </p>
                         <p className="mt-1 inline-flex items-center justify-center gap-1 text-xs text-[#4CCB7A]/90">
-                          <CheckCircle size={14} className="shrink-0" />
+                          <CheckCircle size={13} className="shrink-0" />
                           Perfil verificado
                         </p>
                       </a>
@@ -503,15 +594,15 @@ export default function MetodoPageClient() {
                       >
                         Experiências
                       </button>
-                      <p className="mt-1.5 text-[11px] text-[#E8EDED]/45 leading-snug max-w-[200px] mx-auto">
+                      <p className="mt-1.5 text-[10px] sm:text-[11px] text-[#E8EDED]/45 leading-snug px-1 max-w-[200px] mx-auto">
                         Relatos individuais compartilhados espontaneamente pelos pacientes.
                       </p>
                     </div>
                   ))}
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         {/* SEÇÃO UNIFICADA: Falta de método + Problemas + Manifesto */}
@@ -527,8 +618,8 @@ export default function MetodoPageClient() {
                   </span>
                 </h1>
                 <p className="mt-6 text-lg md:text-xl text-[#E8EDED]/70 max-w-xl">
-                  A Oftware conecta médico, nutrição e treino em um único fluxo contínuo,
-                  organizando rotina, monitoramento e integração clínica em um fluxo contínuo.
+                  A Oftware conecta médico, nutricionista, psiquiatra e personal trainer em um único fluxo contínuo,
+                  organizando rotina, monitoramento e integração clínica — com cada profissional quando necessário.
                 </p>
                 <div className="mt-10 bg-white/5 border border-white/10 rounded-2xl p-6 md:p-8 max-w-xl w-full text-left">
                   <ul className="space-y-4 text-[#E8EDED]/80">
@@ -676,7 +767,7 @@ export default function MetodoPageClient() {
                 Como o acompanhamento se organiza na prática
               </h2>
               <p className="text-[#E8EDED]/70 max-w-2xl mx-auto text-lg">
-                Quatro pilares conectados em um fluxo único de acompanhamento.
+                Pilares conectados em um fluxo único de acompanhamento multidisciplinar.
               </p>
             </div>
 
@@ -704,7 +795,7 @@ export default function MetodoPageClient() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-4 border-b border-white/10 text-center text-[0.62rem] sm:text-xs font-semibold uppercase tracking-wide text-[#E8EDED]/60 bg-white/5">
+                <div className="grid grid-cols-5 border-b border-white/10 text-center text-[0.55rem] sm:text-[0.65rem] font-semibold uppercase tracking-wide text-[#E8EDED]/60 bg-white/5">
                   {pilaresConectados.map((pilar) => (
                     <div key={pilar.key} className="border-r border-white/10 py-2 last:border-r-0">
                       {pilar.shortLabel}
@@ -712,7 +803,7 @@ export default function MetodoPageClient() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 border-b border-white/10 p-2 sm:p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-0 border-b border-white/10 p-2 sm:p-3">
                   {pilaresConectados.map((pilar, index) => {
                     const ativo = index === pilarAtivoIndex;
                     const num = String(index + 1).padStart(2, '0');
@@ -727,9 +818,9 @@ export default function MetodoPageClient() {
                         aria-current={ativo ? 'step' : undefined}
                         aria-label={`${pilar.slot} — ${pilar.title}`}
                       >
-                        <span className="text-[0.62rem] font-medium uppercase text-[#E8EDED]/70">{pilar.slot}</span>
-                        <span className={`mt-1 text-xl sm:text-2xl font-bold tabular-nums ${ativo ? 'text-[#4CCB7A]' : 'text-[#E8EDED]'}`}>{num}</span>
-                        <span className="mt-1 text-[0.68rem] sm:text-xs font-medium text-[#E8EDED]/80">{pilar.title}</span>
+                        <span className="text-[0.55rem] sm:text-[0.62rem] font-medium uppercase text-[#E8EDED]/70">{pilar.slot}</span>
+                        <span className={`mt-1 text-lg sm:text-2xl font-bold tabular-nums ${ativo ? 'text-[#4CCB7A]' : 'text-[#E8EDED]'}`}>{num}</span>
+                        <span className="mt-1 text-[0.62rem] sm:text-[0.7rem] font-medium text-[#E8EDED]/80 leading-tight">{pilar.shortLabel}</span>
                       </button>
                     );
                   })}
@@ -766,7 +857,7 @@ export default function MetodoPageClient() {
                     <div className="border-b border-white/10 px-3 py-2 text-center">
                       <p className="text-xs font-semibold text-[#E8EDED]">Pilares conectados</p>
                     </div>
-                    <div className="grid grid-cols-4 text-center text-[0.62rem] font-semibold uppercase tracking-wide bg-white/5">
+                    <div className="grid grid-cols-5 text-center text-[0.55rem] font-semibold uppercase tracking-wide bg-white/5">
                       {pilaresConectados.map((pilar, index) => {
                         const ativo = index === pilarAtivoIndex;
                         return (
@@ -864,7 +955,7 @@ export default function MetodoPageClient() {
               </span>
             </p>
             <p className="text-[#E8EDED]/70 text-lg">
-              Tudo em um fluxo contínuo. Médico, nutrição e treino na mesma jornada.
+              Tudo em um fluxo contínuo. Médico, nutricionista, psiquiatra e personal trainer na mesma jornada — com acompanhamento integrado quando necessário.
             </p>
           </div>
         </section>
@@ -991,7 +1082,7 @@ export default function MetodoPageClient() {
             <div className="grid md:grid-cols-4 gap-8">
               {[
                 { step: 1, title: 'Entrada', desc: 'Você entra por indicação do médico ou escolhe um profissional qualificado para iniciar o acompanhamento.' },
-                { step: 2, title: 'Plano', desc: 'Recebe um protocolo personalizado — médico, nutrição e treino alinhados desde o início.' },
+                { step: 2, title: 'Plano', desc: 'Recebe um protocolo personalizado — médico, nutrição, treino e, quando indicado, psiquiatria alinhados desde o início.' },
                 { step: 3, title: 'Acompanhamento', desc: 'Monitoramento contínuo com suporte da equipe e organização do plano no dia a dia.' },
                 { step: 4, title: 'Monitoramento', desc: 'O plano evolui com base em dados, adesão e acompanhamento contínuo da equipe.' },
               ].map(({ step, title, desc }) => (
@@ -1108,6 +1199,7 @@ export default function MetodoPageClient() {
                   <li><a href="/meta" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Paciente</a></li>
                   <li><a href="/metaadmin" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Médico</a></li>
                   <li><a href="/metanutri" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Nutricionista</a></li>
+                  <li><a href="/metapsi" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Psiquiatra</a></li>
                   <li><a href="/metapersonal" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Personal</a></li>
                 </ul>
               </div>

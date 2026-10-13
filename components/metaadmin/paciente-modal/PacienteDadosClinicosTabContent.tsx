@@ -29,7 +29,7 @@ export function PacienteDadosClinicosTabContent({
 }: PacienteDadosClinicosTabContentProps) {
   return (
     <AnamneseTabShell>
-      <AnamneseSectionCard sectionId="2.1" title="Medidas Iniciais" icon={AnamneseIcons.medidas}>
+      <AnamneseSectionCard sectionId="2.1" title="Medidas iniciais" icon={AnamneseIcons.medidas}>
         <AnamneseMedidasIniciaisFields paciente={paciente} readOnly />
       </AnamneseSectionCard>
 

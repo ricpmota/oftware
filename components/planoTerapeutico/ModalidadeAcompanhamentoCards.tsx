@@ -163,6 +163,9 @@ type Props = {
   onSelect: (id: ModalidadePlanoId) => void;
   inclusoes: InclusoesPlanoUi;
   children?: ReactNode;
+  /** Nome customizado do plano personalizado (vindo da mesa de negociação). */
+  planoPersonalizadoTitulo?: string | null;
+  planoPersonalizadoSubtitulo?: string | null;
 };
 
 function seloAba(
@@ -266,8 +269,18 @@ export default function ModalidadeAcompanhamentoCards({
   onSelect,
   inclusoes,
   children,
+  planoPersonalizadoTitulo,
+  planoPersonalizadoSubtitulo,
 }: Props) {
-  const ativo = CARDS.find((c) => c.id === modalidade) ?? CARDS[0];
+  const cardBase = CARDS.find((c) => c.id === modalidade) ?? CARDS[0];
+  const ativo =
+    modalidade === 'personalizado' && (planoPersonalizadoTitulo?.trim() || planoPersonalizadoSubtitulo?.trim())
+      ? {
+          ...cardBase,
+          titulo: planoPersonalizadoTitulo?.trim() || cardBase.titulo,
+          subtitulo: planoPersonalizadoSubtitulo?.trim() || cardBase.subtitulo,
+        }
+      : cardBase;
   const temaAtivo = TEMAS[modalidade];
   const seloConteudo = seloAba(ativo.destaque, temaAtivo);
   const IconeAtivo = ativo.icon;
@@ -309,6 +322,10 @@ export default function ModalidadeAcompanhamentoCards({
               const tema = TEMAS[card.id];
               const selo = seloAba(card.destaque, tema);
               const Icone = card.icon;
+              const tituloAba =
+                card.id === 'personalizado' && planoPersonalizadoTitulo?.trim()
+                  ? planoPersonalizadoTitulo.trim()
+                  : card.titulo;
 
               return (
                 <button
@@ -348,11 +365,12 @@ export default function ModalidadeAcompanhamentoCards({
                   </span>
 
                   <span
-                    className={`block w-full text-[10px] sm:text-xs font-bold leading-tight tracking-tight ${
+                    className={`block w-full text-[10px] sm:text-xs font-bold leading-tight tracking-tight truncate px-0.5 ${
                       selecionado ? tema.text : 'text-slate-600 group-hover:text-slate-800'
                     }`}
+                    title={tituloAba}
                   >
-                    {card.titulo}
+                    {tituloAba}
                   </span>
 
                   {selo ? (

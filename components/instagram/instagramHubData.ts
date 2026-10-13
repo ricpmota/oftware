@@ -1,3 +1,5 @@
+import { getInstagramFounderWhatsAppUrl } from '@/lib/landing/instagramFounderWhatsApp';
+
 export type InstagramProfileIconKey = 'stethoscope' | 'utensils' | 'dumbbell' | 'heart' | 'rocket';
 
 export type InstagramProfileId = 'medico' | 'nutricionista' | 'personal' | 'emagrecer' | 'empreendedor';
@@ -38,51 +40,64 @@ export type InstagramFounderItem = InstagramHubItemBase & {
 
 export type InstagramHubItem = InstagramProfileItem | InstagramFounderItem;
 
-/** Perfis principais exibidos na hub. */
+/** URLs de plataforma usadas nas hubs white-label de outros médicos. */
+export const INSTAGRAM_PLATFORM_HREFS = {
+  nutricionista: 'https://www.oftware.com.br/metanutri',
+  personal: 'https://www.oftware.com.br/metapersonal',
+  medico: 'https://www.oftware.com.br',
+} as const;
+
+/** Perfis principais exibidos na hub `/instagram` (fundador). */
 export const INSTAGRAM_PROFILES: InstagramProfileItem[] = [
   {
     kind: 'profile',
     id: 'medico',
     title: 'Sou Médico',
-    ctaLabel: 'Ver Clínica Digital',
-    href: 'https://www.oftware.com.br',
+    ctaLabel: 'Falar no WhatsApp',
+    href: getInstagramFounderWhatsAppUrl('medico'),
     iconKey: 'stethoscope',
     accent: 'green',
     modalIntro:
-      'Transforme consultas em acompanhamento contínuo e construa uma clínica digital moderna.',
+      'Tenha sua própria plataforma para acompanhar pacientes e construir um programa de acompanhamento contínuo.',
     benefits: [
-      'Crie sua clínica digital',
-      'Acompanhe pacientes além da consulta',
-      'Menos dependência de plantões',
+      'Sua própria plataforma com sua marca',
+      'Acompanhamento contínuo dos pacientes',
+      'Prescrições, exames e evolução em um só lugar',
+      'Menos dependência de consultas isoladas',
     ],
   },
   {
     kind: 'profile',
     id: 'nutricionista',
     title: 'Sou Nutricionista',
-    ctaLabel: 'Ver Plataforma Nutricional',
-    href: 'https://www.oftware.com.br/metanutri',
+    ctaLabel: 'Falar no WhatsApp',
+    href: getInstagramFounderWhatsAppUrl('nutricionista'),
     iconKey: 'utensils',
     accent: 'blue',
-    modalIntro: 'Trabalhe em conjunto com médicos e personal trainers.',
+    modalIntro: 'Transforme seu acompanhamento nutricional em uma experiência premium para seus pacientes.',
     benefits: [
-      'Fidelize seus pacientes',
-      'Acompanhamento nutricional contínuo',
-      'Trabalhe integrado com a equipe',
+      'Plataforma personalizada com sua marca',
+      'Evolução alimentar e acompanhamento contínuo',
+      'Fotos, medidas e bioimpedância',
+      'Comunicação próxima com seus pacientes',
+      'Integração com médicos quando desejar',
     ],
   },
   {
     kind: 'profile',
     id: 'personal',
     title: 'Sou Personal',
-    ctaLabel: 'Ver Plataforma de Treino',
-    href: 'https://www.oftware.com.br/metapersonal',
+    ctaLabel: 'Falar no WhatsApp',
+    href: getInstagramFounderWhatsAppUrl('personal'),
     iconKey: 'dumbbell',
     accent: 'cyan',
+    modalIntro: 'Tenha sua própria plataforma para acompanhar seus alunos todos os dias.',
     benefits: [
-      'Transforme acompanhamento em resultado mensurável',
-      'Acompanhe resultados em tempo real',
-      'Integração com médico e nutricionista',
+      'Plataforma personalizada com sua marca',
+      'Treinos organizados',
+      'Evolução física',
+      'Fotos e medidas',
+      'Comunicação contínua com seus alunos',
     ],
   },
   {
@@ -101,6 +116,32 @@ export const INSTAGRAM_PROFILES: InstagramProfileItem[] = [
   },
 ];
 
+/**
+ * Copy legado dos cards nutri/personal nas hubs White Label de outros médicos.
+ * Mantido para não alterar o posicionamento das páginas WL.
+ */
+export const INSTAGRAM_WHITELABEL_PARTNER_COPY: Record<
+  'nutricionista' | 'personal',
+  { modalIntro?: string; benefits: string[]; ctaLabel: string }
+> = {
+  nutricionista: {
+    modalIntro: 'Trabalhe em conjunto com médicos e personal trainers.',
+    ctaLabel: 'Ver Plataforma Nutricional',
+    benefits: [
+      'Fidelize seus pacientes',
+      'Acompanhamento nutricional contínuo',
+      'Trabalhe integrado com a equipe',
+    ],
+  },
+  personal: {
+    ctaLabel: 'Ver Plataforma de Treino',
+    benefits: [
+      'Transforme acompanhamento em resultado mensurável',
+      'Acompanhe resultados em tempo real',
+      'Integração com médico e nutricionista',
+    ],
+  },
+};
 /**
  * Cards opcionais — altere `enabled` para `true` quando for publicar.
  * Reservado: 🚀 Quero empreender na medicina
@@ -128,23 +169,24 @@ export const INSTAGRAM_FOUNDER: InstagramFounderItem = {
   id: 'fundador',
   title: 'Falar com Dr. Ricardo',
   description:
-    'Médico, engenheiro e fundador da Oftware. Tire dúvidas, conheça a plataforma ou converse sobre uma possível parceria.',
+    'Médico, engenheiro e fundador da Oftware. Construindo uma nova forma de profissionais da saúde acompanharem seus pacientes.',
   modalTitle: 'Falar diretamente com o fundador',
   modalText:
-    'Sou médico, engenheiro e fundador da Oftware.\n\nSe você deseja conhecer a plataforma, entender como funciona uma clínica digital, discutir uma parceria ou tirar dúvidas sobre acompanhamento digital, fale diretamente comigo.\n\nRespondo pessoalmente.',
+    'Sou médico, engenheiro e fundador da Oftware.\n\nEstou construindo uma nova forma de profissionais da saúde acompanharem seus pacientes.\n\nSe você deseja conhecer a plataforma, entender como criar sua própria clínica digital, oferecer uma experiência premium aos seus pacientes ou conversar sobre uma parceria, será um prazer falar com você.\n\nEu mesmo respondo todas as mensagens.',
   ctaLabel: 'Falar com Dr. Ricardo',
   href: '#',
   benefits: [
-    'Demonstração da plataforma',
-    'Dúvidas sobre implementação',
-    'Parcerias e oportunidades',
-    'Estratégias para acompanhamento recorrente',
+    'Demonstração personalizada da plataforma',
+    'Estratégias para aumentar a recorrência dos pacientes',
+    'Como criar sua própria plataforma de atendimento',
+    'Parcerias e novos projetos',
   ],
 };
 
 export const INSTAGRAM_HUB_COPY = {
-  headline: 'Menos consultas isoladas. Mais acompanhamento.',
-  subtitle: 'Uma nova geração de clínicas digitais para profissionais da saúde e pacientes.',
+  headline: 'Sua própria plataforma. Sua marca. Seus pacientes.',
+  subtitle:
+    'Médicos, nutricionistas e personal trainers podem criar uma experiência completa de acompanhamento com sua própria marca.',
   profilePrompt: 'Escolha uma opção',
 } as const;
 

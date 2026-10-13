@@ -75,9 +75,9 @@
 
 | # | Etapa | Descrição |
 |---|-------|-----------|
-| 1 | **Criar org no MAG** | Formulário Nova Organização (nome, id, domínio) |
-| 2 | **Registry dinâmico** | Firestore como fonte de orgs (além de registry estático) |
-| 3 | **Branding seed automático** | Ao criar org, executar seed oficial |
+| 1 | **Criar org no MAG** | ✅ Formulário Nova Organização (nome, id, domínio) |
+| 2 | **Registry dinâmico** | ✅ Firestore + registry estático (Método); demos arquivadas |
+| 3 | **Branding seed automático** | ✅ Seed isolado ao criar org (sem assets do Método) |
 | 4 | **Primeiro médico** | Wizard pós-criação: cadastro médico fundador |
 | 5 | **Checklist integrado** | UI do checklist no MAG |
 | 6 | **Status da org** | Rascunho → Ativa → Suspensa |

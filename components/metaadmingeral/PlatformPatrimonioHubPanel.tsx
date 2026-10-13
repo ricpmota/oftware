@@ -3,11 +3,15 @@
 import Link from 'next/link';
 import {
   Activity,
+  Apple,
+  BookOpen,
   Brain,
   ChevronRight,
   FlaskConical,
+  HeartHandshake,
   MessageSquare,
   Pill,
+  Send,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -30,6 +34,13 @@ const PATRIMONIO_MODULES: PatrimonioModule[] = [
     href: '/metaadmingeral/chatinicial',
   },
   {
+    id: 'match-saudavel',
+    label: 'Match Saudável',
+    description: 'Quem entrou, quem se conectou e as mensagens do Canal Chat — automáticas e disparos.',
+    icon: HeartHandshake,
+    menuId: 'match-saudavel',
+  },
+  {
     id: 'exames-laboratoriais',
     label: 'Exames Laboratoriais',
     description: 'Catálogo global de exames e referências laboratoriais.',
@@ -44,6 +55,13 @@ const PATRIMONIO_MODULES: PatrimonioModule[] = [
     menuId: 'protocolos-prescricao',
   },
   {
+    id: 'alimentos-globais',
+    label: 'Alimentos',
+    description: 'Base global METANUTRI — catálogo nutricional compartilhado da Oftware.',
+    icon: Apple,
+    menuId: 'alimentos-globais',
+  },
+  {
     id: 'bio-impedancia',
     label: 'Bio Impedância',
     description: 'Referências e configuração de bioimpedância corporal.',
@@ -56,6 +74,20 @@ const PATRIMONIO_MODULES: PatrimonioModule[] = [
     description: 'Monitoramento da qualidade e evolução do modelo estatístico OI.',
     icon: Brain,
     href: '/metaadmingeral/oi-validation',
+  },
+  {
+    id: '50kg-depois',
+    label: '50 KG DEPOIS',
+    description: 'Banco biográfico e documental — entrevista de Antônio (153 kg → 103 kg).',
+    icon: BookOpen,
+    menuId: '50kg-depois',
+  },
+  {
+    id: 'disparos',
+    label: 'Disparos',
+    description: 'Importação de contatos e preparação de campanhas de mensagem.',
+    icon: Send,
+    menuId: 'disparos',
   },
 ];
 

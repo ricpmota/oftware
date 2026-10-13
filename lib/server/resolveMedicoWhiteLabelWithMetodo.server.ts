@@ -6,6 +6,11 @@ import {
 import { getOrSyncMetodoImagensTemplate } from '@/lib/metodo/metodoImagensService.server';
 import { isMetodoOrganizationMember } from '@/lib/organization/isMetodoOrganizationMember';
 import { getMetodoOrganizationBrandingForDualRead } from '@/lib/organization/getMetodoOrganizationBrandingForDualRead.server';
+import { loadOrganizationPublicBranding } from '@/lib/organization/loadOrganizationPublicBranding.server';
+import {
+  resolveOrganizationMedicoWhiteLabel,
+  resolvePublicPageIdentityRoute,
+} from '@/lib/whiteLabel/organizationPublicIdentity';
 
 export type MedicoWhiteLabelSourceWithMetodo = MedicoWhiteLabelSource & {
   metodoImagensAtivo?: boolean;
@@ -16,6 +21,12 @@ export type MedicoWhiteLabelSourceWithMetodo = MedicoWhiteLabelSource & {
 export async function resolveMedicoWhiteLabelWithMetodo(
   source: MedicoWhiteLabelSourceWithMetodo,
 ): Promise<MedicoWhiteLabelResolved> {
+  const route = resolvePublicPageIdentityRoute(source);
+  if (route.kind === 'organization') {
+    const organizationBranding = await loadOrganizationPublicBranding(route.organizationId);
+    return resolveOrganizationMedicoWhiteLabel(source, organizationBranding);
+  }
+
   const metodoAtivo = source.metodoImagensAtivo === true;
   const metodoTemplate = metodoAtivo ? await getOrSyncMetodoImagensTemplate() : null;
 

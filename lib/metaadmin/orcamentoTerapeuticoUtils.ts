@@ -668,6 +668,17 @@ export function configuracaoComercialFromPlanoSalvo(
   );
 }
 
+/** Snapshot do plano; se estiver sem R$/mg, usa a config atual do médico (igual à página pública). */
+export function resolverConfiguracaoComercialNegociacao(
+  usada: Omit<OrcamentoTerapeuticoConfig, 'medicoId' | 'createdAt' | 'updatedAt'>,
+  live?: OrcamentoTerapeuticoConfig | null
+): OrcamentoTerapeuticoConfig {
+  const snap = configuracaoComercialFromPlanoSalvo(usada);
+  if (snap.valorPorMg > 0) return snap;
+  if (live && live.valorPorMg > 0) return live;
+  return snap;
+}
+
 export function formatarMoedaBRL(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }

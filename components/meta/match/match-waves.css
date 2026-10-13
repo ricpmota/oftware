@@ -1,0 +1,57 @@
+.match-wave {
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: transform;
+}
+
+.match-wave-1 {
+  animation-name: match-wave-1;
+  animation-duration: 12s;
+}
+
+.match-wave-2 {
+  animation-name: match-wave-2;
+  animation-duration: 16s;
+}
+
+.match-wave-3 {
+  animation-name: match-wave-3;
+  animation-duration: 10s;
+}
+
+@keyframes match-wave-1 {
+  from {
+    transform: translate3d(-14px, 3px, 0);
+  }
+  to {
+    transform: translate3d(16px, -5px, 0);
+  }
+}
+
+@keyframes match-wave-2 {
+  from {
+    transform: translate3d(12px, -4px, 0);
+  }
+  to {
+    transform: translate3d(-18px, 6px, 0);
+  }
+}
+
+@keyframes match-wave-3 {
+  from {
+    transform: translate3d(-10px, 2px, 0);
+  }
+  to {
+    transform: translate3d(14px, -4px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-wave-1,
+  .match-wave-2,
+  .match-wave-3 {
+    animation: none;
+    transform: none;
+  }
+}

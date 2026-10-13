@@ -1,4 +1,8 @@
 import { Firestore } from 'firebase-admin/firestore';
+import {
+  auditEmailEnviosQuery,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 export const TIPOS_CAMPANHA_LEADS = ['email1', 'email2', 'email3', 'email4', 'email5'] as const;
 export type TipoCampanhaLead = (typeof TIPOS_CAMPANHA_LEADS)[number];
@@ -24,16 +28,44 @@ export type EnvioCampanhaLead = {
  */
 export async function fetchEnviosCampanhaPorLeadIds(
   db: Firestore,
-  leadIds: string[]
+  leadIds: string[],
+  auditScopeId?: string
 ): Promise<{ enviosPorLead: Map<string, EnvioCampanhaLead[]>; docsLidos: number }> {
   const enviosPorLead = new Map<string, EnvioCampanhaLead[]>();
   let docsLidos = 0;
   if (leadIds.length === 0) return { enviosPorLead, docsLidos: 0 };
 
+  const batchCount = leadIds.length === 0 ? 0 : Math.ceil(leadIds.length / LEAD_ID_IN_BATCH_SIZE);
+
   for (let i = 0; i < leadIds.length; i += LEAD_ID_IN_BATCH_SIZE) {
     const batch = leadIds.slice(i, i + LEAD_ID_IN_BATCH_SIZE);
+    const batchIndex = Math.floor(i / LEAD_ID_IN_BATCH_SIZE);
+
+    auditEmailEnviosQuery({
+      scopeId: auditScopeId,
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.LIB_FETCH_ENVIOS_CAMPANHA_BATCH.id,
+      surface: 'service',
+      queryPattern: 'leadId_in',
+      leadIdsCount: batch.length,
+      emailTipos: [...TIPOS_CAMPANHA_LEADS],
+      batchIndex,
+      batchCount,
+      note: 'filtro emailTipo em memória após query',
+    });
+
     const snapshot = await db.collection('email_envios').where('leadId', 'in', batch).get();
     docsLidos += snapshot.size;
+
+    auditEmailEnviosQuery({
+      scopeId: auditScopeId,
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.LIB_FETCH_ENVIOS_CAMPANHA_BATCH.id,
+      surface: 'service',
+      queryPattern: 'leadId_in',
+      leadIdsCount: batch.length,
+      docsReturned: snapshot.size,
+      batchIndex,
+      batchCount,
+    });
 
     for (const doc of snapshot.docs) {
       const data = doc.data();

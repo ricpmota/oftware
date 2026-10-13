@@ -9,6 +9,10 @@ import {
   isEasySignPhoneValidationError,
 } from '@/lib/signature/bryEasySign/bryEasySignPhone';
 import {
+  isEasySignNameValidationError,
+  sanitizeEasySignEnvelopeName,
+} from '@/lib/signature/bryEasySign/bryEasySignName';
+import {
   logEasySignError,
   logEasySignFlow,
   type EasySignFlowContext,
@@ -112,9 +116,12 @@ export async function createBryEasySignEnvelope(
       }));
     }
 
+    const envelopeName = sanitizeEasySignEnvelopeName(input.name, 'Contrato');
+    const clientName = sanitizeEasySignEnvelopeName(input.clientName, 'Medico');
+
     const body: Record<string, unknown> = {
-      name: input.name,
-      clientName: input.clientName,
+      name: envelopeName,
+      clientName,
       language: 'pt-br',
       signatureOrder: 'UNORDERED',
       expiration: input.expirationSeconds ?? 604800,
@@ -160,6 +167,11 @@ export async function createBryEasySignEnvelope(
       if (isEasySignPhoneValidationError(msg)) {
         throw new Error(
           'Telefone do paciente em formato inválido para o EasySign (E.164). Atualize o telefone no cadastro ou tente novamente.'
+        );
+      }
+      if (isEasySignNameValidationError(msg)) {
+        throw new Error(
+          'Nome do envelope ou do médico excede o limite do EasySign (50 caracteres). Tente novamente; se persistir, encurte o nome no cadastro.'
         );
       }
       throw new Error(msg);

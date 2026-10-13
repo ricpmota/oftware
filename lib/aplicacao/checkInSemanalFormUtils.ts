@@ -1,5 +1,6 @@
 import type { CheckInSemanalRespostas } from '@/lib/aplicacao/checkInSemanalQuestions';
 import { LOCAL_APLICACAO_LABEL_TO_VALUE } from '@/lib/aplicacao/checkInSemanalQuestions';
+import { ehPrimeiraSemanaDoProtocolo } from '@/lib/aplicacao/resolverWeekIndexAplicacaoPublica';
 import type { PacienteCompleto, SeguimentoSemanal } from '@/types/obesidade';
 
 export const LOCAL_APLICACAO_VALUE_TO_LABEL: Record<string, string> = {
@@ -146,7 +147,7 @@ export function calcularVariacoesSemanaCliente(
       ? circunferenciaAbdominal
       : null;
 
-  if (weekIndex === 1) {
+  if (ehPrimeiraSemanaDoProtocolo(paciente, weekIndex)) {
     return {
       variacaoPeso: 0,
       variacaoCircunferencia: circunfAtualNum != null ? 0 : null,

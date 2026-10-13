@@ -40,6 +40,9 @@ export interface LeadMedico {
   /** Qualificação do lead (1–5) na home / pipeline; 0 ou ausente = não classificado */
   estrelas?: number;
   telefone?: string;
+  /** DDI sem "+". Ausente = Brasil (legado). */
+  telefoneDdi?: string;
+  telefonePais?: string;
   cidade?: string;
   estado?: string;
   createdAt?: Date;

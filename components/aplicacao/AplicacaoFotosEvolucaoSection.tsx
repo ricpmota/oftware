@@ -3,15 +3,26 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Camera,
+  Check,
   ChevronDown,
-  ChevronUp,
   ImageIcon,
+  Lightbulb,
   Loader2,
+  Lock,
+  ScanLine,
+  Shirt,
+  Sun,
   Trash2,
+  UnfoldHorizontal,
   Upload,
+  UserRound,
   X,
 } from 'lucide-react';
+import { BodyScanModal } from '@/components/bodyscan/BodyScanModal';
+import type { BodyScanBackfillSummary } from '@/components/bodyscan/BodyScanModal';
 import { fetchPublicPatientApi } from '@/lib/public/fetchPublicPatientApi';
+import type { BodyScanPublicView } from '@/lib/bodyscan/bodyScanSerialize';
+import type { BioImpedanciaRegistro } from '@/types/bioImpedancia';
 
 export type FotoProgresso = {
   id: string;
@@ -27,10 +38,48 @@ export type FotoProgresso = {
 
 type Props = {
   token: string;
-  defaultAberto?: boolean;
+  /** Só altera o título. O restante da interface é o mesmo nos dois fluxos. */
+  context?: 'checkin' | 'marco-zero';
+  /** `dadosIdentificacao.sexoBiologico` já cadastrado. Só escolhe a ilustração vazia. */
+  sexoBiologico?: 'M' | 'F' | 'Outro' | null;
+  /**
+   * Raiz da API de fotos. Padrão: aplicação semanal.
+   * A conclusão usa `/api/conclusao/{token}`.
+   */
+  apiBase?: string;
 };
 
-export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = true }: Props) {
+/** Valores reais do cadastro: M, F ou Outro. Outro e ausente não escolhem modelo. */
+function sexoIlustracao(value: Props['sexoBiologico']): 'M' | 'F' | null {
+  if (value === 'M' || value === 'F') return value;
+  return null;
+}
+
+const BODYSCAN_SPRITE_W = 1536;
+const BODYSCAN_SPRITE_H = 1024;
+
+/**
+ * Recorte da sprite em px, medido no corpo (não no quadrante).
+ * Cada retângulo fica dentro do seu quadrante e tem o corpo no centro.
+ */
+const BODYSCAN_CROP = {
+  F: {
+    frontal: { x: 338, y: 27, w: 278, h: 445 },
+    perfil: { x: 969, y: 36, w: 171, h: 437 },
+  },
+  M: {
+    frontal: { x: 336, y: 515, w: 276, h: 460 },
+    perfil: { x: 972, y: 517, w: 166, h: 458 },
+  },
+} as const;
+
+export default function AplicacaoFotosEvolucaoSection({
+  token,
+  context = 'checkin',
+  sexoBiologico,
+  apiBase,
+}: Props) {
+  const apiRoot = apiBase ?? `/api/aplicacao/${encodeURIComponent(token)}`;
   const [fotoFrontalAtual, setFotoFrontalAtual] = useState<FotoProgresso | null>(null);
   const [fotoPerfilAtual, setFotoPerfilAtual] = useState<FotoProgresso | null>(null);
   const [historicoFrontal, setHistoricoFrontal] = useState<FotoProgresso[]>([]);
@@ -38,11 +87,14 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
   const [modalPreviewAberto, setModalPreviewAberto] = useState(false);
   const [previewImagemSelecionada, setPreviewImagemSelecionada] = useState<FotoProgresso | null>(null);
   const [compartilhamentoMedico, setCompartilhamentoMedico] = useState(true);
+  const [modalBodyScanAberto, setModalBodyScanAberto] = useState(false);
+  const [semanaBodyScan, setSemanaBodyScan] = useState<number | null>(null);
   const [uploadEmAndamentoFrontal, setUploadEmAndamentoFrontal] = useState(false);
   const [uploadEmAndamentoPerfil, setUploadEmAndamentoPerfil] = useState(false);
   const [erroFotos, setErroFotos] = useState<string | null>(null);
-  const [fotosDetalhesAbertos, setFotosDetalhesAbertos] = useState(defaultAberto);
-  const [fotoTabAtiva, setFotoTabAtiva] = useState<'frontal' | 'perfil'>('frontal');
+  const [dicasAbertas, setDicasAbertas] = useState(false);
+  const [privacidadeAberta, setPrivacidadeAberta] = useState(false);
+  const [historicoAberto, setHistoricoAberto] = useState(false);
   const [showModalFonteFoto, setShowModalFonteFoto] = useState(false);
   const [tipoFonteFoto, setTipoFonteFoto] = useState<'frontal' | 'perfil' | null>(null);
   const [applicationIdFotos, setApplicationIdFotos] = useState<string | null>(null);
@@ -61,27 +113,33 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
       return tb - ta;
     });
 
-  const atualizarHistoricos = (fotos: FotoProgresso[]) => {
+  const fotoDesteRegistro = (lista: FotoProgresso[], applicationId: string | null) => {
+    if (!applicationId) return null;
+    return lista.find((f) => f.applicationId === applicationId) || null;
+  };
+
+  const atualizarHistoricos = (fotos: FotoProgresso[], applicationId: string | null) => {
     const frontal = ordenarFotos(fotos.filter((f) => f.tipo === 'frontal'));
     const perfil = ordenarFotos(fotos.filter((f) => f.tipo === 'perfil'));
     setHistoricoFrontal(frontal);
     setHistoricoPerfil(perfil);
-    setFotoFrontalAtual(frontal[0] || null);
-    setFotoPerfilAtual(perfil[0] || null);
+    setFotoFrontalAtual(fotoDesteRegistro(frontal, applicationId));
+    setFotoPerfilAtual(fotoDesteRegistro(perfil, applicationId));
   };
 
   const carregarHistoricoFotos = async () => {
     if (!token) return;
     try {
-      const res = await fetchPublicPatientApi(`/api/aplicacao/${encodeURIComponent(token)}/fotos`);
+      const res = await fetchPublicPatientApi(`${apiRoot}/fotos`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erro ao carregar histórico de fotos');
       const fotos = Array.isArray(json.fotos) ? (json.fotos as FotoProgresso[]) : [];
-      setApplicationIdFotos(typeof json.applicationId === 'string' ? json.applicationId : null);
-      atualizarHistoricos(fotos);
+      const applicationId = typeof json.applicationId === 'string' ? json.applicationId : null;
+      setApplicationIdFotos(applicationId);
       if (typeof json.compartilharComMedico === 'boolean') {
-        setCompartilhamentoMedico(Boolean(json.compartilharComMedico));
+        setCompartilhamentoMedico(json.compartilharComMedico);
       }
+      atualizarHistoricos(fotos, applicationId);
     } catch (err) {
       setErroFotos(err instanceof Error ? err.message : 'Erro ao carregar histórico de fotos');
     }
@@ -89,15 +147,16 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
 
   useEffect(() => {
     if (!token) return;
-    carregarHistoricoFotos();
-  }, [token]);
+    void carregarHistoricoFotos();
+  }, [token, apiRoot]);
+
 
   const salvarMetadataFoto = async (tipo: 'frontal' | 'perfil', file: File): Promise<FotoProgresso> => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('tipo', tipo);
     formData.append('compartilharComMedico', String(compartilhamentoMedico));
-    const res = await fetch(`/api/aplicacao/${token}/fotos`, {
+    const res = await fetch(`${apiRoot}/fotos`, {
       method: 'POST',
       body: formData,
     });
@@ -129,11 +188,11 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
       if (tipo === 'frontal') {
         const next = ordenarFotos([foto, ...historicoFrontal.filter((f) => f.id !== foto.id)]);
         setHistoricoFrontal(next);
-        setFotoFrontalAtual(next[0] || foto);
+        setFotoFrontalAtual(foto);
       } else {
         const next = ordenarFotos([foto, ...historicoPerfil.filter((f) => f.id !== foto.id)]);
         setHistoricoPerfil(next);
-        setFotoPerfilAtual(next[0] || foto);
+        setFotoPerfilAtual(foto);
       }
     } catch (err) {
       setErroFotos(err instanceof Error ? err.message : 'Erro ao enviar foto');
@@ -175,10 +234,14 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
 
   const handleExcluirFoto = async (foto: FotoProgresso) => {
     if (!token || !foto?.id || foto.id.startsWith('tmp-')) return;
+    if (applicationIdFotos && foto.applicationId && foto.applicationId !== applicationIdFotos) {
+      setErroFotos('Esta foto pertence a um registro anterior e não pode ser apagada daqui.');
+      return;
+    }
     setDeletandoFotoId(foto.id);
     setErroFotos(null);
     try {
-      const res = await fetch(`/api/aplicacao/${token}/fotos?photoId=${encodeURIComponent(foto.id)}`, {
+      const res = await fetch(`${apiRoot}/fotos?photoId=${encodeURIComponent(foto.id)}`, {
         method: 'DELETE',
       });
       const json = await res.json();
@@ -216,7 +279,7 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
     const previous = compartilhamentoMedico;
     setCompartilhamentoMedico(value);
     try {
-      const res = await fetch(`/api/aplicacao/${token}/fotos/compartilhamento`, {
+      const res = await fetch(`${apiRoot}/fotos/compartilhamento`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ compartilharComMedico: value }),
@@ -244,153 +307,342 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
   const bloqueioUploadPerfilSemanaAtual =
     !!applicationIdFotos && historicoPerfil.some((f) => f.applicationId === applicationIdFotos);
 
-  const renderTab = (tipo: 'frontal' | 'perfil') => {
+  const fotosEnviadas = (fotoFrontalAtual ? 1 : 0) + (fotoPerfilAtual ? 1 : 0);
+  const bodyScanVisualDisponivel = Boolean(fotoFrontalAtual && fotoPerfilAtual);
+  const temHistorico = historicoFrontal.length > 0 || historicoPerfil.length > 0;
+  const titulo = context === 'marco-zero' ? 'Fotos iniciais' : 'Fotos da evolução';
+  const descricao =
+    context === 'marco-zero'
+      ? 'Registre suas fotos de referência para acompanhar sua evolução.'
+      : 'Registre duas fotos para acompanhar sua evolução e gerar o BodyScan.';
+
+  const renderCard = (tipo: 'frontal' | 'perfil') => {
     const atual = tipo === 'frontal' ? fotoFrontalAtual : fotoPerfilAtual;
-    const historico = tipo === 'frontal' ? historicoFrontal : historicoPerfil;
     const uploadEmAndamento = tipo === 'frontal' ? uploadEmAndamentoFrontal : uploadEmAndamentoPerfil;
     const bloqueio = tipo === 'frontal' ? bloqueioUploadFrontalSemanaAtual : bloqueioUploadPerfilSemanaAtual;
-    const dica =
-      tipo === 'frontal'
-        ? 'Fique de frente, com postura natural e corpo centralizado.'
-        : 'Fique de lado, mantendo o corpo inteiro visível no enquadramento.';
+    const tituloCard = tipo === 'frontal' ? 'Foto frontal' : 'Foto perfil';
+    const dicaCard = tipo === 'frontal' ? 'De frente, corpo inteiro' : 'De lado, corpo inteiro';
+    const sexo = sexoIlustracao(sexoBiologico);
+    const spriteCrop = sexo ? BODYSCAN_CROP[sexo][tipo] : null;
 
     return (
-      <>
-        <div className="mt-3 flex items-start justify-between gap-2">
-          <p className="text-xs text-slate-600">{dica}</p>
-          {uploadEmAndamento ? <Loader2 className="h-4 w-4 text-emerald-600 animate-spin" /> : null}
-        </div>
+      <div className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <p className="flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-800">
+          {atual && !atual.id.startsWith('tmp-') ? (
+            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+          ) : null}
+          <span className="truncate">{tituloCard}</span>
+        </p>
+
         {atual ? (
-          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-2">
-            <button type="button" onClick={() => handleAbrirPreview(atual)} className="w-full overflow-hidden rounded-lg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={atual.url} alt={`Foto ${tipo}`} className="w-full h-44 object-cover" />
-            </button>
-            {!atual.id.startsWith('tmp-') ? (
-              <button
-                type="button"
-                onClick={() => handleExcluirFoto(atual)}
-                disabled={deletandoFotoId === atual.id}
-                className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-xs font-semibold hover:bg-red-100 disabled:opacity-60"
+          <button
+            type="button"
+            onClick={() => handleAbrirPreview(atual)}
+            className="mt-2 w-full overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={atual.url} alt={tituloCard} className="h-28 w-full object-cover sm:h-36" />
+          </button>
+        ) : spriteCrop ? (
+          <div className="mt-2 overflow-hidden rounded-xl bg-emerald-50/80">
+            <div className="relative mx-auto aspect-[3/2] w-full max-w-[13.5rem]" aria-hidden>
+              <div
+                className="absolute left-1/2 top-1/2 h-[92%] -translate-x-1/2 -translate-y-1/2 overflow-hidden"
+                style={{ aspectRatio: `${spriteCrop.w} / ${spriteCrop.h}` }}
               >
-                {deletandoFotoId === atual.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                Excluir foto da semana
-              </button>
-            ) : null}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/bodyscan.png"
+                  alt=""
+                  draggable={false}
+                  className="pointer-events-none absolute max-w-none select-none"
+                  style={{
+                    width: `${(BODYSCAN_SPRITE_W / spriteCrop.w) * 100}%`,
+                    height: `${(BODYSCAN_SPRITE_H / spriteCrop.h) * 100}%`,
+                    left: `${(-spriteCrop.x / spriteCrop.w) * 100}%`,
+                    top: `${(-spriteCrop.y / spriteCrop.h) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <p className="px-1 pb-1.5 text-center text-[10px] leading-tight text-slate-500">{dicaCard}</p>
           </div>
+        ) : (
+          <div className="mt-2 flex h-28 flex-col items-center justify-center rounded-xl bg-emerald-50/80 sm:h-36">
+            <span
+              className={`flex h-10 w-8 items-end justify-center ${tipo === 'perfil' ? 'origin-bottom -rotate-12' : ''}`}
+              aria-hidden
+            >
+              <span className="flex flex-col items-center">
+                <span className="h-3 w-3 rounded-full bg-emerald-200" />
+                <span className={`mt-0.5 h-6 rounded-full bg-emerald-200/80 ${tipo === 'perfil' ? 'w-3' : 'w-6'}`} />
+              </span>
+            </span>
+            <p className="mt-1 px-1 text-center text-[10px] leading-tight text-slate-500">{dicaCard}</p>
+          </div>
+        )}
+
+        {uploadEmAndamento ? (
+          <p className="mt-2 inline-flex items-center justify-center gap-1.5 text-[11px] font-medium text-emerald-700">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Enviando foto...
+          </p>
         ) : null}
-        <div className="mt-3">
+
+        {atual && !atual.id.startsWith('tmp-') ? (
+          <button
+            type="button"
+            onClick={() => handleExcluirFoto(atual)}
+            disabled={deletandoFotoId === atual.id}
+            className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-[11px] font-semibold text-red-700 hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-60"
+          >
+            {deletandoFotoId === atual.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Excluir foto
+          </button>
+        ) : null}
+
+        {!bloqueio ? (
           <button
             type="button"
             onClick={() => handleAbrirModalFonteFoto(tipo)}
-            disabled={uploadEmAndamento || bloqueio}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-sm font-semibold transition-colors"
+            disabled={uploadEmAndamento}
+            className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-2 py-2 text-[11px] font-semibold text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-slate-400"
           >
-            <Upload className="h-4 w-4" />
-            Enviar foto {tipo === 'frontal' ? 'frontal' : 'de perfil'}
+            <Upload className="h-3.5 w-3.5" />
+            Adicionar foto
           </button>
-          {bloqueio ? (
-            <p className="mt-2 text-[11px] text-amber-700">
-              Você já registrou a foto {tipo === 'frontal' ? 'frontal' : 'de perfil'} desta semana.
-            </p>
-          ) : null}
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderCarrossel = (tipo: 'frontal' | 'perfil', fotos: FotoProgresso[]) => {
+    if (fotos.length === 0) return null;
+    return (
+      <div>
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          {tipo === 'frontal' ? 'Frontal' : 'Perfil'}
+        </p>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {fotos.map((foto) => (
+            <button
+              key={foto.id}
+              type="button"
+              onClick={() => handleAbrirPreview(foto)}
+              className="w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={foto.url} alt="" className="h-16 w-full object-cover" />
+              <span className="block bg-slate-50 px-1 py-1 text-[10px] font-medium text-slate-600">
+                {formatarBadgeFoto(foto)}
+              </span>
+            </button>
+          ))}
         </div>
-        <div className="mt-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 mb-2">
-            Histórico {tipo}
-          </p>
-          {historico.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {historico.map((foto) => (
-                <button
-                  key={foto.id}
-                  type="button"
-                  onClick={() => handleAbrirPreview(foto)}
-                  className="shrink-0 w-24 rounded-lg border border-slate-200 overflow-hidden bg-white"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={foto.url} alt="Miniatura" className="w-full h-20 object-cover" />
-                  <span className="block px-1.5 py-1 text-[10px] font-medium text-slate-600 bg-slate-50">
-                    {formatarBadgeFoto(foto)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-slate-300 p-3 text-center">
-              <ImageIcon className="h-4 w-4 mx-auto text-slate-400 mb-1" />
-              <p className="text-xs font-medium text-slate-700">Nenhuma foto registrada ainda</p>
-            </div>
-          )}
-        </div>
-      </>
+      </div>
     );
   };
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => setFotosDetalhesAbertos((v) => !v)}
-        className="w-full px-1 py-1 flex items-center justify-between"
-      >
-        <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-            <Camera className="h-4 w-4" />
-          </span>
-          Fotos do seu progresso
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+          <Camera className="h-4 w-4" aria-hidden />
         </span>
-        {fotosDetalhesAbertos ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
-      </button>
-
-      {fotosDetalhesAbertos && (
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => handleAtualizarCompartilhamento(!compartilhamentoMedico)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 flex items-center gap-3"
-          >
-            <span className="flex-1 text-left text-sm font-medium text-slate-800 leading-snug">
-              Permitir que minha equipe médica visualize minhas fotos
-            </span>
-            <span
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${
-                compartilhamentoMedico ? 'bg-emerald-500 border-emerald-500' : 'bg-red-600 border-red-700'
-              }`}
-            >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white border border-slate-300 shadow-md transition-transform mt-0.5 ${
-                  compartilhamentoMedico ? 'translate-x-5' : 'translate-x-0.5'
-                }`}
-              />
-            </span>
-          </button>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 p-1.5">
-              {(['frontal', 'perfil'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setFotoTabAtiva(tab)}
-                  className={`flex-1 rounded-lg px-3 py-2.5 text-xs sm:text-sm font-semibold border transition-all ${
-                    fotoTabAtiva === tab
-                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                      : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300'
-                  }`}
-                >
-                  Foto {tab}
-                </button>
-              ))}
-            </div>
-            {fotoTabAtiva === 'frontal' ? renderTab('frontal') : renderTab('perfil')}
-          </div>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-[#0A1F44]">{titulo}</h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{descricao}</p>
         </div>
-      )}
+      </div>
+
+      <div className="relative grid grid-cols-2 gap-2">
+        <div
+          className={`pointer-events-none absolute top-3.5 z-0 h-0.5 -translate-y-1/2 ${
+            fotosEnviadas > 0 ? 'bg-emerald-300' : 'bg-slate-200'
+          }`}
+          style={{ left: 'calc((100% - 0.5rem) / 4)', right: 'calc((100% - 0.5rem) / 4)' }}
+          aria-hidden
+        />
+        <div className="flex flex-col items-center">
+          <span
+            className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 ${
+              fotoFrontalAtual ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white text-transparent'
+            }`}
+            aria-hidden
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          </span>
+          <span className="mt-1 text-[11px] font-semibold text-slate-600">Frontal</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <span
+            className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 ${
+              fotoPerfilAtual ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white text-transparent'
+            }`}
+            aria-hidden
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          </span>
+          <span className="mt-1 text-[11px] font-semibold text-slate-600">Perfil</span>
+        </div>
+      </div>
+      <p className="text-center text-xs font-medium text-slate-500">{fotosEnviadas} de 2 fotos enviadas</p>
+
+      <div className="grid grid-cols-2 gap-2">
+        {renderCard('frontal')}
+        {renderCard('perfil')}
+      </div>
 
       {erroFotos ? (
-        <p className="text-xs font-medium text-red-600 rounded-xl bg-red-50 border border-red-100 px-3 py-2">{erroFotos}</p>
+        <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-600" role="alert">
+          {erroFotos}
+        </p>
       ) : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <p className="inline-flex items-center gap-2 text-sm font-semibold text-[#0A1F44]">
+            <ScanLine className="h-4 w-4 text-emerald-700" aria-hidden />
+            BodyScan
+          </p>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+              bodyScanVisualDisponivel ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {bodyScanVisualDisponivel ? 'Disponível' : 'Em breve'}
+          </span>
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+          {bodyScanVisualDisponivel
+            ? 'Suas fotos foram enviadas. Veja sua análise corporal.'
+            : 'Envie as duas fotos para acompanhar sua composição corporal.'}
+        </p>
+        {bodyScanVisualDisponivel ? (
+          <button
+            type="button"
+            onClick={() => setModalBodyScanAberto(true)}
+            className="mt-2 inline-flex min-h-10 w-full items-center justify-center text-sm font-semibold text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          >
+            Ver meu BodyScan →
+          </button>
+        ) : null}
+      </div>
+
+      {temHistorico ? (
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() => setHistoricoAberto((v) => !v)}
+            className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            aria-expanded={historicoAberto}
+            aria-controls="fotos-historico-painel"
+          >
+            <span className="text-sm font-medium text-[#0A1F44]">Histórico de fotos</span>
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${historicoAberto ? 'rotate-180' : ''}`} />
+          </button>
+          {historicoAberto ? (
+            <div id="fotos-historico-painel" className="space-y-3 border-t border-slate-100 px-3 py-3">
+              {renderCarrossel('frontal', historicoFrontal)}
+              {renderCarrossel('perfil', historicoPerfil)}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setDicasAbertas((v) => !v)}
+          className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          aria-expanded={dicasAbertas}
+          aria-controls="fotos-dicas-painel"
+        >
+          <span className="inline-flex items-center gap-2 text-sm font-medium text-[#0A1F44]">
+            <Lightbulb className="h-4 w-4 text-emerald-700" aria-hidden />
+            Como tirar uma boa foto
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${dicasAbertas ? 'rotate-180' : ''}`} />
+        </button>
+        {dicasAbertas ? (
+          <div id="fotos-dicas-painel" className="space-y-3 border-t border-slate-100 px-3 py-3">
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { icon: UserRound, title: 'Corpo inteiro', text: 'em pé e ereto' },
+                { icon: Shirt, title: 'Roupa justa', text: 'e clara' },
+                { icon: Sun, title: 'Boa iluminação', text: 'fundo simples' },
+                { icon: UnfoldHorizontal, title: 'Braços afastados', text: 'do tronco' },
+              ].map((item) => (
+                <div key={item.title} className="rounded-xl bg-emerald-50/70 px-2 py-2">
+                  <item.icon className="h-4 w-4 text-emerald-700" aria-hidden />
+                  <p className="mt-1 text-[11px] font-semibold leading-tight text-slate-800">{item.title}</p>
+                  <p className="text-[11px] leading-tight text-slate-500">{item.text}</p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-white px-2.5 py-2">
+              <p className="text-[11px] font-semibold text-emerald-900">Foto frontal</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                Olhe para a câmera, ombros alinhados, peso igualmente nas duas pernas. Mostre bem tronco, cintura e quadril.
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-white px-2.5 py-2">
+              <p className="text-[11px] font-semibold text-emerald-900">Foto perfil</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                Vire 90° (perfil verdadeiro), olhando para o lado. Não incline o tronco nem esconda o abdome. Mostre a silhueta lateral completa.
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setPrivacidadeAberta((v) => !v)}
+          className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          aria-expanded={privacidadeAberta}
+          aria-controls="fotos-privacidade-painel"
+        >
+          <span className="inline-flex items-center gap-2 text-sm font-medium text-[#0A1F44]">
+            <Lock className="h-4 w-4 text-emerald-700" aria-hidden />
+            Privacidade das suas fotos
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${privacidadeAberta ? 'rotate-180' : ''}`} />
+        </button>
+        {privacidadeAberta ? (
+          <div id="fotos-privacidade-painel" className="border-t border-slate-100 px-3 py-3">
+            <button
+              type="button"
+              onClick={() => handleAtualizarCompartilhamento(!compartilhamentoMedico)}
+              className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              aria-pressed={compartilhamentoMedico}
+            >
+              <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-slate-800">
+                Compartilhar fotos com minha equipe médica
+              </span>
+              <span
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors ${
+                  compartilhamentoMedico ? 'border-emerald-500 bg-emerald-500' : 'border-red-700 bg-red-600'
+                }`}
+              >
+                <span
+                  className={`mt-0.5 inline-block h-5 w-5 transform rounded-full border border-slate-300 bg-white shadow-md transition-transform ${
+                    compartilhamentoMedico ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </span>
+            </button>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+              Suas fotos podem ser visualizadas pela sua equipe médica para acompanhar sua evolução.
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       {(['frontal', 'perfil'] as const).flatMap((tipo) =>
         (['camera', 'galeria', 'arquivos'] as const).map((origem) => {
@@ -444,6 +696,11 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
             <h3 className="text-base font-semibold text-slate-900">
               Enviar foto {tipoFonteFoto === 'frontal' ? 'frontal' : 'de perfil'}
             </h3>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
+              {tipoFonteFoto === 'frontal'
+                ? 'Corpo inteiro de frente, ereto, braços afastados, luz frontal e fundo simples — isso melhora o BodyScan.'
+                : 'Corpo inteiro de lado (perfil verdadeiro), silhueta completa, sem esconder o abdome — isso melhora o BodyScan.'}
+            </p>
             <div className="mt-4 grid grid-cols-1 gap-2">
               <button type="button" onClick={() => handleEscolherOrigemFoto('camera')} className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 bg-emerald-600 text-white text-sm font-semibold">
                 <Camera className="h-4 w-4" /> Tirar foto
@@ -463,6 +720,84 @@ export default function AplicacaoFotosEvolucaoSection({ token, defaultAberto = t
           </div>
         </div>
       )}
+
+      <BodyScanModal
+        aberto={modalBodyScanAberto}
+        onFechar={() => setModalBodyScanAberto(false)}
+        viewer="paciente"
+        semanaAtual={semanaBodyScan}
+        onLoad={async () => {
+          const res = await fetchPublicPatientApi(`${apiRoot}/bodyscan`);
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Erro ao carregar BodyScan');
+          const week = Number(json.week);
+          setSemanaBodyScan(Number.isFinite(week) && week > 0 ? week : null);
+          return Array.isArray(json.scans) ? (json.scans as BodyScanPublicView[]) : [];
+        }}
+        bioStore={{
+          load: async () => {
+            const res = await fetchPublicPatientApi(`${apiRoot}/bioimpedancia`);
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Erro ao carregar bioimpedância');
+            return Array.isArray(json.registros) ? (json.registros as BioImpedanciaRegistro[]) : [];
+          },
+          save: async (registros) => {
+            const res = await fetchPublicPatientApi(`${apiRoot}/bioimpedancia`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ registros }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || 'Erro ao salvar bioimpedância');
+          },
+        }}
+        onDiscoverHistorical={async () => {
+          const res = await fetchPublicPatientApi(
+            `${apiRoot}/bodyscan/backfill`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dryRun: true }),
+            }
+          );
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Erro ao descobrir histórico');
+          return {
+            foundPhotoWeeks: Number(json.foundPhotoWeeks) || 0,
+            weeksWithFrontAndSide: Number(json.weeksWithFrontAndSide) || 0,
+            eligibleWeeks: Number(json.eligibleWeeks) || 0,
+            alreadyCompleted: Number(json.alreadyCompleted) || 0,
+            pendingGeneration: Number(json.pendingGeneration) || 0,
+            consentAccepted: true,
+            weeks: Array.isArray(json.weeks) ? json.weeks : undefined,
+          } satisfies BodyScanBackfillSummary;
+        }}
+        onBackfillHistorical={async () => {
+          const res = await fetchPublicPatientApi(
+            `${apiRoot}/bodyscan/backfill`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({}),
+            }
+          );
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Erro ao preparar BodyScan');
+          return {
+            summary: {
+              foundPhotoWeeks: Number(json.foundPhotoWeeks) || 0,
+              eligibleWeeks: Number(json.eligibleWeeks) || 0,
+              alreadyCompleted: Number(json.alreadyCompleted) || 0,
+              pendingGeneration: Number(json.pendingGeneration) || 0,
+              generated: Number(json.generated) || 0,
+              skipped: Number(json.skipped) || 0,
+              failed: Number(json.failed) || 0,
+              consentAccepted: true,
+            },
+            scans: Array.isArray(json.scans) ? (json.scans as BodyScanPublicView[]) : [],
+          };
+        }}
+      />
     </div>
   );
 }

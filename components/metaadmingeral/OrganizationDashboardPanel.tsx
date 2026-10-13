@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Users,
   UtensilsCrossed,
+  Brain,
 } from 'lucide-react';
 import type { OrganizationDefinition } from '@/lib/organization/organizationTypes';
 import type { OrganizationBrandingStored } from '@/lib/organization/organizationBrandingTypes';
@@ -227,6 +228,13 @@ export default function OrganizationDashboardPanel({
           onClick={() => onNavigate('personal_trainers')}
         />
         <MetricCard
+          label="Psiquiatras"
+          value={metrics.totalPsiquiatras}
+          hint={`${metrics.psiquiatrasVerificados} verificados`}
+          loading={loading.team}
+          onClick={() => onNavigate('psiquiatras')}
+        />
+        <MetricCard
           label="Pacientes"
           value={metrics.totalPacientes}
           hint={`${metrics.pacientesEmTratamento} em tratamento`}
@@ -328,11 +336,12 @@ export default function OrganizationDashboardPanel({
       {/* Seção 2 — Equipe */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#E8EDED]/50">Equipe</h3>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: 'Médicos', total: metrics.totalMedicos, verified: metrics.medicosVerificados, menuId: 'medicos', icon: Stethoscope },
             { label: 'Nutricionistas', total: metrics.totalNutricionistas, verified: metrics.nutricionistasVerificados, menuId: 'nutricionistas', icon: UtensilsCrossed },
             { label: 'Personais', total: metrics.totalPersonalTrainers, verified: metrics.personalTrainersVerificados, menuId: 'personal_trainers', icon: Dumbbell },
+            { label: 'Psiquiatras', total: metrics.totalPsiquiatras, verified: metrics.psiquiatrasVerificados, menuId: 'psiquiatras', icon: Brain },
           ].map(({ label, total, verified, menuId, icon: Icon }) => (
             <button
               key={menuId}

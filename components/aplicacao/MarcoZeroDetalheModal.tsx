@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { BarChart3, X } from 'lucide-react';
 import { MarcoZeroTimelineCard } from '@/app/metaadmin/components/paciente-modal/prontuario/MarcoZeroTimelineCard';
 import type { MarcoZeroDetalhe } from '@/lib/aplicacao/resolveMarcoZeroDetalhe';
 
@@ -9,6 +9,8 @@ type Props = {
   onClose: () => void;
   pacienteNome: string;
   detalhe: MarcoZeroDetalhe;
+  /** Abre o modal Gráfico e Registros do paciente. */
+  onOpenGrafico?: () => void;
 };
 
 function formatarDataRegistro(value: unknown): string | null {
@@ -27,7 +29,13 @@ function formatarDataRegistro(value: unknown): string | null {
   });
 }
 
-export function MarcoZeroDetalheModal({ open, onClose, pacienteNome, detalhe }: Props) {
+export function MarcoZeroDetalheModal({
+  open,
+  onClose,
+  pacienteNome,
+  detalhe,
+  onOpenGrafico,
+}: Props) {
   if (!open) return null;
 
   const dataRegistro = formatarDataRegistro(detalhe.registro.dataRegistro);
@@ -70,6 +78,26 @@ export function MarcoZeroDetalheModal({ open, onClose, pacienteNome, detalhe }: 
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
           <MarcoZeroTimelineCard marcoZero={detalhe.marcoZero} dataInicio={dataRegistro ?? undefined} />
+        </div>
+
+        <div className="flex-shrink-0 px-4 sm:px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            Fechar
+          </button>
+          {onOpenGrafico && (
+            <button
+              type="button"
+              onClick={onOpenGrafico}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors"
+            >
+              <BarChart3 size={16} aria-hidden />
+              Gráfico
+            </button>
+          )}
         </div>
       </div>
     </div>

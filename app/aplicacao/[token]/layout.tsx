@@ -5,6 +5,7 @@ import {
   buildWhiteLabelViewport,
 } from '@/lib/whiteLabel/buildWhiteLabelMetadata';
 import { getMedicoWhiteLabelByAplicacaoToken } from '@/lib/server/medicoWhiteLabelLookup.server';
+import { normalizeAplicacaoPublicToken } from '@/lib/aplicacao/aplicacaoPublicToken';
 
 type LayoutProps = {
   children: ReactNode;
@@ -12,7 +13,7 @@ type LayoutProps = {
 };
 
 export async function generateMetadata({ params }: LayoutProps): Promise<Metadata> {
-  const { token } = await params;
+  const token = normalizeAplicacaoPublicToken((await params).token);
   const resolved = await getMedicoWhiteLabelByAplicacaoToken(token);
   if (!resolved) {
     return { title: 'Registro de aplicação' };
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
 }
 
 export async function generateViewport({ params }: LayoutProps): Promise<Viewport> {
-  const { token } = await params;
+  const token = normalizeAplicacaoPublicToken((await params).token);
   const resolved = await getMedicoWhiteLabelByAplicacaoToken(token);
   if (!resolved) {
     return {};

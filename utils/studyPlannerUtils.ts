@@ -26,13 +26,15 @@ export function estimateDurationSeconds(sizeBytes: number): number {
  * @param endDateISO Data de fim (YYYY-MM-DD)
  * @param allowedWeekdays Array de dias da semana permitidos [0..6] onde 0=Domingo, 6=Sábado
  * @param hoursPerWeekday Horas por dia da semana { 0: 4, 1: 1, ... } (opcional)
+ * @param blockedDates Datas YYYY-MM-DD que não entram no cronograma
  * @returns Array de StudyDay
  */
 export function buildStudyDays(
   startDateISO: string,
   endDateISO: string,
   allowedWeekdays: number[],
-  hoursPerWeekday?: { [weekday: number]: number }
+  hoursPerWeekday?: { [weekday: number]: number },
+  blockedDates?: string[]
 ): StudyDay[] {
   const studyDays: StudyDay[] = [];
   
@@ -44,6 +46,7 @@ export function buildStudyDays(
   const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59, 999));
   
   const current = new Date(start);
+  const blocked = blockedDates && blockedDates.length > 0 ? new Set(blockedDates) : null;
   
   while (current <= end) {
     // Usar getUTCDay() para obter o dia da semana correto (0=Domingo, 6=Sábado)
@@ -55,6 +58,10 @@ export function buildStudyDays(
       const month = String(current.getUTCMonth() + 1).padStart(2, '0');
       const day = String(current.getUTCDate()).padStart(2, '0');
       const dateISO = `${year}-${month}-${day}`;
+      if (blocked?.has(dateISO)) {
+        current.setUTCDate(current.getUTCDate() + 1);
+        continue;
+      }
       
       const studyDay: StudyDay = {
         dateISO,

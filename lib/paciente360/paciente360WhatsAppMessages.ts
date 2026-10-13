@@ -1,6 +1,20 @@
 import type { LeadMedico } from '@/types/leadMedico';
 import type { Paciente360Summary } from '@/types/paciente360';
+import {
+  primeiroNomeLead,
+  renderWhatsAppLeadPresetBody,
+  suggestWhatsAppLeadPresetDefaultKey,
+  WHATSAPP_LEAD_PRESET_DEFAULTS,
+} from '@/lib/paciente360/whatsappLeadPresetDefaults';
+import {
+  buildWhatsappUrl,
+  type InternationalPhoneFields,
+} from '@/lib/phone/buildWhatsappUrl';
 
+/**
+ * Prefixador BR-only (legado CRM / tel:). Não é fonte de wa.me internacional.
+ * Links de WhatsApp devem usar `buildWhatsappUrl` / `buildPatientWhatsappUrl`.
+ */
 export function cleanPhoneBr(telefone?: string | null): string | null {
   if (!telefone) return null;
   const digits = telefone.replace(/\D/g, '');
@@ -9,42 +23,51 @@ export function cleanPhoneBr(telefone?: string | null): string | null {
 }
 
 function primeiroNome(lead: LeadMedico, summary?: Paciente360Summary): string {
-  const raw = lead.name || summary?.nome || '';
-  const first = raw.trim().split(/\s+/)[0];
-  return first || 'tudo bem';
+  return primeiroNomeLead(lead.name || summary?.nome);
 }
 
+export type BuildPaciente360WhatsAppMessageOptions = {
+  /** Nome público da organização do médico (nunca “Oftware”). */
+  organizationName?: string | null;
+};
+
+/**
+ * Mensagem contextual legada (um único texto). Preferir o seletor de presets no CRM.
+ * Usa o nome da organização, não Oftware.
+ */
 export function buildPaciente360WhatsAppMessage(
   summary: Paciente360Summary | undefined,
-  lead: LeadMedico
+  lead: LeadMedico,
+  options?: BuildPaciente360WhatsAppMessageOptions
 ): string {
-  const nome = primeiroNome(lead, summary);
-  const tipo = summary?.proximaAcao?.tipo;
-
-  if (tipo === 'cobrar_pagamento') {
-    return `Olá, ${nome}. Tudo bem? Estou passando para te lembrar sobre a pendência do seu acompanhamento. Podemos regularizar para manter seu tratamento em dia?`;
-  }
-
-  if (tipo === 'avaliar_aplicacao') {
-    return `Olá, ${nome}. Tudo bem? Vi aqui que precisamos revisar sua aplicação/seguimento. Pode me atualizar como você está?`;
-  }
-
-  if (
-    summary?.statusComposto === 'pendente' ||
-    summary?.statusComposto === 'aguardando_marco_zero' ||
-    summary?.proximaAcao?.label === 'Iniciar acompanhamento'
-  ) {
-    return `Olá, ${nome}. Tudo bem? Vamos dar continuidade ao seu acompanhamento pela Oftware?`;
-  }
-
-  return `Olá, ${nome}. Tudo bem? Estou acompanhando sua evolução por aqui. Como você está se sentindo nessa semana?`;
+  const key = suggestWhatsAppLeadPresetDefaultKey({
+    proximaAcaoTipo: summary?.proximaAcao?.tipo,
+    statusComposto: summary?.statusComposto,
+    proximaAcaoLabel: summary?.proximaAcao?.label,
+    leadStatus: lead.status,
+  });
+  const seed = WHATSAPP_LEAD_PRESET_DEFAULTS.find((d) => d.defaultKey === key)!;
+  return renderWhatsAppLeadPresetBody(seed.body, {
+    nome: primeiroNome(lead, summary),
+    organizacao: options?.organizationName,
+    referral: lead.referral,
+  });
 }
 
 export function buildPaciente360WhatsAppUrl(
   telefone: string | undefined | null,
-  message: string
+  message: string,
+  ident?: InternationalPhoneFields | null
 ): string | null {
-  const phone = cleanPhoneBr(telefone);
-  if (!phone) return null;
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  if (ident?.telefone || ident?.telefoneDdi || ident?.telefoneE164) {
+    return buildWhatsappUrl(
+      {
+        telefone: ident.telefone ?? telefone,
+        telefoneDdi: ident.telefoneDdi,
+        telefoneE164: ident.telefoneE164,
+      },
+      message
+    );
+  }
+  return buildWhatsappUrl({ telefone }, message);
 }

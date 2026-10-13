@@ -11,8 +11,13 @@ import {
   perfilMetabolicoV3Completo,
   resolveEffectiveChatStep,
 } from '@/lib/meta/perfilMetabolicoV3Chat';
-import { META_CHAT_INTRO_SESSION_KEY, META_CHAT_STEP_METAS } from './constants';
+import { cirurgiasInformadas } from './cirurgias';
+import { medicamentosDiabetesInformados, temDiabetesSelecionado } from './medicamentosDiabetes';
+import { respostaDepressao, respostaIdeacao } from './triagemHumor';
+import { META_CHAT_INTRO_SESSION_KEY, META_CHAT_STEP_CIRURGIAS, META_CHAT_STEP_DEPRESSAO, META_CHAT_STEP_IDEACAO_SUICIDA, META_CHAT_STEP_LOCALIZACAO, META_CHAT_STEP_MEDICAMENTOS_DIABETES, META_CHAT_STEP_METAS } from './constants';
 import { filterRiskQuestionsForSexo, isIntroSessionDone } from './helpers';
+import { localizacaoResidencialOficial } from './localizacaoResidencial';
+import { isValidIdentificacaoPhone } from '@/lib/phone/internationalPhoneValue';
 
 export function motivacaoPreenchida(p: PacienteCompleto): boolean {
   const m = p.dadosClinicos?.motivacao;
@@ -78,9 +83,13 @@ export function getFirstIncompleteStep(
   p: PacienteCompleto,
   introSessionKey: string = META_CHAT_INTRO_SESSION_KEY
 ): number {
-  const tel = (p.dadosIdentificacao?.telefone || '').replace(/\D/g, '');
-  if (tel.length < 10) return isIntroSessionDone(introSessionKey) ? 1 : 0;
-  if (!pacienteMetaTemDataNascimentoCadastro(p)) return 2;
+  if (!isValidIdentificacaoPhone(p.dadosIdentificacao)) {
+    return isIntroSessionDone(introSessionKey) ? 1 : 0;
+  }
+  if (!pacienteMetaTemDataNascimentoCadastro(p)) {
+    if (!localizacaoResidencialOficial(p)) return META_CHAT_STEP_LOCALIZACAO;
+    return 2;
+  }
   if (!p.dadosIdentificacao?.sexoBiologico) return 3;
   if (!p.dadosIdentificacao?.cpf || (p.dadosIdentificacao.cpf || '').replace(/\D/g, '').length !== 11) return 4;
   const mi = p.dadosClinicos?.medidasIniciais;
@@ -94,6 +103,9 @@ export function getFirstIncompleteStep(
   const tipos = (p.dadosClinicos as { diagnosticoPrincipalTipos?: string[] })?.diagnosticoPrincipalTipos;
   const tipo = p.dadosClinicos?.diagnosticoPrincipal?.tipo;
   if (!((tipos && tipos.length > 0) || tipo)) return 9;
+  if (temDiabetesSelecionado(p) && !medicamentosDiabetesInformados(p.dadosClinicos)) {
+    return META_CHAT_STEP_MEDICAMENTOS_DIABETES;
+  }
   const comb = p.dadosClinicos?.comorbidades as Record<string, unknown> | undefined;
   const comorbMarcada = comb && Object.keys(comb).some((k) => k !== 'outraDescricao' && comb[k]);
   const riscos = p.dadosClinicos?.riscos as Record<string, string> | undefined;
@@ -103,6 +115,7 @@ export function getFirstIncompleteStep(
     dc?.chatComorbidadesEnviado ||
     !!(riscos && riscos.pancreatitePrevia);
   if (!jaPassouComorbOuLegado) return 10;
+  if (!cirurgiasInformadas(p.dadosClinicos)) return META_CHAT_STEP_CIRURGIAS;
   const sexo = p.dadosIdentificacao?.sexoBiologico;
   const riskList = filterRiskQuestionsForSexo(sexo);
   const riscosOk = riskList.every((r) => riscos && (riscos as Record<string, string>)[r.key]);
@@ -113,6 +126,8 @@ export function getFirstIncompleteStep(
   const sintomas = p.dadosClinicos?.sintomasGI as Record<string, boolean> | undefined;
   const sintomasOk = sintomas && Object.keys(sintomas).some((k) => sintomas[k]);
   if (!sintomasOk) return 13;
+  if (!respostaDepressao(p.dadosClinicos)) return META_CHAT_STEP_DEPRESSAO;
+  if (!respostaIdeacao(p.dadosClinicos)) return META_CHAT_STEP_IDEACAO_SUICIDA;
   const obj = p.dadosClinicos?.objetivosTratamento as Record<string, unknown> | undefined;
   const objOk =
     !!obj &&
@@ -129,7 +144,16 @@ export function isMetaChatInicialCompleto(
   introSessionKey: string = META_CHAT_INTRO_SESSION_KEY
 ): boolean {
   const v2Step = getFirstIncompleteStep(p, introSessionKey);
-  if (v2Step <= META_CHAT_STEP_METAS) return false;
+  if (
+    v2Step === META_CHAT_STEP_LOCALIZACAO ||
+    v2Step === META_CHAT_STEP_CIRURGIAS ||
+    v2Step === META_CHAT_STEP_MEDICAMENTOS_DIABETES ||
+    v2Step === META_CHAT_STEP_DEPRESSAO ||
+    v2Step === META_CHAT_STEP_IDEACAO_SUICIDA ||
+    v2Step <= META_CHAT_STEP_METAS
+  ) {
+    return false;
+  }
   if (deveExibirPerfilMetabolicoV3(p) && !perfilMetabolicoV3Completo(p)) return false;
   const effective = resolveEffectiveChatStep(p, v2Step);
   if (isPerfilMetabolicoChatStep(effective)) return false;

@@ -60,4 +60,10 @@ describe('dose canônica do esquema', () => {
     expect(atualizado.evolucaoSeguimento?.[0].doseAplicada?.quantidade).toBe(7.5);
     expect(obterDoseMgSemanaPaciente(atualizado, 2)).toBe(7.5);
   });
+
+  it('aceita dose intermediária de 3,75 mg no esquema', () => {
+    const atualizado = pacienteComDoseMgSemanaAtualizada(pacienteBase(), 1, 3.75);
+    expect(atualizado.planoTerapeutico?.esquemaDosesCustomizado?.[1]).toBe(3.75);
+    expect(obterDoseMgSemanaPaciente(atualizado, 1)).toBe(3.75);
+  });
 });

@@ -3,6 +3,11 @@ import type { Medico } from '@/types/medico';
 import type { Prescricao } from '@/types/prescricao';
 import type { PrescricaoPdfPacienteContext } from '@/utils/prescricaoPdfDownload';
 import { itensTemConteudoUtil } from '@/lib/prescricao/prescricaoConteudoUnificado';
+import {
+  prescriptionPdfDateLocale,
+  simplePrescriptionPdfLabels,
+} from '@/lib/prescricao/prescriptionPrintLabels';
+import type { PrescriptionPrintLanguage } from '@/types/prescriptionPrintLanguage';
 
 import type { JsPDFDoc } from '@/utils/pdfMedicoLogo';
 import { addMedicoPdfLogoToDocument } from '@/utils/pdfMedicoLogo';
@@ -34,6 +39,7 @@ function medicoTituloNome(m: Medico | null): string {
 export type PrescricaoPdfBuildOptions = {
   /** Omitir linha/data "Assinatura do Médico" (PDF enviado à assinatura digital BRy). */
   omitManualSignatureBlock?: boolean;
+  language?: PrescriptionPrintLanguage;
 };
 
 /** Gera o jsPDF (prescrição ou recibo) sem salvar. */
@@ -44,6 +50,8 @@ export async function buildPrescricaoJsPdfDocument(
   options?: PrescricaoPdfBuildOptions
 ): Promise<JsPDFDoc> {
   const omitSignature = options?.omitManualSignatureBlock === true;
+  const language: PrescriptionPrintLanguage = options?.language === 'en' ? 'en' : 'pt';
+  const labels = simplePrescriptionPdfLabels(language);
   const darkColor: [number, number, number] = [44, 62, 80];
   const medicoNomeCompleto = medicoTituloNome(medico);
   const crmEstado = medico?.crm?.estado || 'XX';
@@ -144,16 +152,11 @@ export async function buildPrescricaoJsPdfDocument(
       docRec.addPage();
       yPos = 20;
     }
-    if (!omitSignature) {
-      yPos += 10;
-      docRec.setFontSize(9);
-      docRec.setFont('helvetica', 'normal');
-      docRec.text(`Data: ${dataReciboExibicao}`, 20, yPos);
-      yPos += 15;
-      docRec.line(20, yPos, 100, yPos);
-      docRec.setFontSize(8);
-      docRec.text('Assinatura do Médico', 20, yPos + 5);
-    }
+    // Recibo: data do atendimento; assinatura manual removida (padrão = digital).
+    yPos += 10;
+    docRec.setFontSize(9);
+    docRec.setFont('helvetica', 'normal');
+    docRec.text(`Data: ${dataReciboExibicao}`, 20, yPos);
     return docRec;
   }
 
@@ -173,18 +176,18 @@ export async function buildPrescricaoJsPdfDocument(
   let yPos = 40;
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('PRESCRIÇÃO MÉDICA', 20, yPos);
+  doc.text(labels.title, 20, yPos);
   yPos += 10;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Paciente: ${ctx.pacienteNome}`, 20, yPos);
+  doc.text(`${labels.patient}: ${ctx.pacienteNome}`, 20, yPos);
   yPos += 6;
   if (ctx.pacienteCpf) {
     doc.text(`CPF: ${ctx.pacienteCpf}`, 20, yPos);
     yPos += 6;
   }
   if (prescricaoParaImprimir.pesoPaciente != null) {
-    doc.text(`Peso: ${Number(prescricaoParaImprimir.pesoPaciente).toFixed(1)} kg`, 20, yPos);
+    doc.text(`${labels.weight}: ${Number(prescricaoParaImprimir.pesoPaciente).toFixed(1)} kg`, 20, yPos);
     yPos += 6;
   }
   yPos += 5;
@@ -202,7 +205,7 @@ export async function buildPrescricaoJsPdfDocument(
   if (itensTemConteudoUtil(prescricaoParaImprimir.itens)) {
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('MEDICAMENTOS/SUPLEMENTOS:', 20, yPos);
+  doc.text(labels.medications, 20, yPos);
   yPos += 8;
   prescricaoParaImprimir.itens.forEach((item, index) => {
     if (yPos > 270) {
@@ -214,15 +217,15 @@ export async function buildPrescricaoJsPdfDocument(
     doc.text(`${index + 1}. ${item.medicamento}`, 25, yPos);
     yPos += 6;
     doc.setFont('helvetica', 'normal');
-    doc.text(`   Dosagem: ${item.dosagem}`, 25, yPos);
+    doc.text(`   ${labels.dosage}: ${item.dosagem}`, 25, yPos);
     yPos += 5;
-    doc.text(`   Frequência: ${item.frequencia}`, 25, yPos);
+    doc.text(`   ${labels.frequency}: ${item.frequencia}`, 25, yPos);
     yPos += 5;
     const instrucoesLines = doc.splitTextToSize(`   ${item.instrucoes}`, 165);
     doc.text(instrucoesLines, 25, yPos);
     yPos += instrucoesLines.length * 5 + 3;
     if (item.quantidade) {
-      doc.text(`   Quantidade: ${item.quantidade}`, 25, yPos);
+      doc.text(`   ${labels.quantity}: ${item.quantidade}`, 25, yPos);
       yPos += 5;
     }
     yPos += 3;
@@ -236,7 +239,7 @@ export async function buildPrescricaoJsPdfDocument(
     yPos += 5;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('OBSERVAÇÕES:', 20, yPos);
+    doc.text(labels.notes, 20, yPos);
     yPos += 6;
     doc.setFont('helvetica', 'normal');
     const obsLines = doc.splitTextToSize(prescricaoParaImprimir.observacoes, 170);
@@ -251,12 +254,12 @@ export async function buildPrescricaoJsPdfDocument(
     yPos += 10;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    const dataAtual = new Date().toLocaleDateString('pt-BR');
-    doc.text(`Data: ${dataAtual}`, 20, yPos);
+    const dataAtual = new Date().toLocaleDateString(prescriptionPdfDateLocale(language));
+    doc.text(`${labels.date}: ${dataAtual}`, 20, yPos);
     yPos += 15;
     doc.line(20, yPos, 100, yPos);
     doc.setFontSize(8);
-    doc.text('Assinatura do Médico', 20, yPos + 5);
+    doc.text(labels.signature, 20, yPos + 5);
   }
   return doc;
 }

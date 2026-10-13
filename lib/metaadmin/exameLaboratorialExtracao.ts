@@ -110,7 +110,8 @@ export type NovoExameFormState = {
  * - Campos numéricos: só aplica valores > 0 finitos; chaves fora da allowlist são ignoradas.
  * - Campos já preenchidos: valores retornados pela IA sobrescrevem (médico pode corrigir depois).
  * - replaceLaboratorialFieldsPrior: remove do estado todos os campos da allowlist antes de aplicar
- *   a extração atual, para o laudo não ficar “misturado” com valores de um exame anterior no mesmo modal.
+ *   a extração atual (uso típico: modal de inclusão). Em edição, preferir false para acrescentar
+ *   valores do laudo sem apagar campos já preenchidos no exame aberto.
  */
 export function applyExameExtraidoToForm(
   prev: NovoExameFormState,

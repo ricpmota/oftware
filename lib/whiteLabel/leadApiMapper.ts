@@ -5,6 +5,7 @@ import {
   parseLeadCrmFromDoc,
   parseLeadScoreFromDoc,
 } from '@/lib/whiteLabel/leadCrmMapper';
+import { parseWhiteLabelProfissao } from '@/lib/whiteLabel/profissao';
 
 function toIsoDate(value: unknown): string | null {
   if (!value) return null;
@@ -22,8 +23,11 @@ export function mapLeadWhiteLabelDoc(id: string, d: FirebaseFirestore.DocumentDa
     id,
     nome: d.nome || '',
     whatsapp: d.whatsapp || '',
+    whatsappDdi: typeof d.whatsappDdi === 'string' && d.whatsappDdi.trim() ? d.whatsappDdi.trim() : undefined,
+    whatsappPais: typeof d.whatsappPais === 'string' && d.whatsappPais.trim() ? d.whatsappPais.trim() : undefined,
     email: d.email || '',
     instagram: d.instagram || '',
+    profissao: parseWhiteLabelProfissao(d.profissao, 'medico'),
     situacaoProfissional: d.situacaoProfissional || '',
     objetivo3Anos: d.objetivo3Anos || '',
     interesseReduzirPlantao: d.interesseReduzirPlantao || '',

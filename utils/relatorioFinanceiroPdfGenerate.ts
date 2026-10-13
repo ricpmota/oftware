@@ -5,6 +5,12 @@ import { desenharNumeracaoPaginasPlanoTerapeuticoPdf, type JsPDFDoc } from '@/ut
 import { formatarMoedaBRL } from '@/lib/metaadmin/orcamentoTerapeuticoUtils';
 import type { RelatorioFinanceiroAplicacao } from '@/utils/relatorioFinanceiroAplicacoes';
 import { desenharGraficoAplicacoesRelatorioFinanceiro } from '@/utils/relatorioFinanceiroAplicacoesChartPdf';
+import type { ObservacaoVenda } from '@/types/pagamento';
+import {
+  alertaDivergenciaObservacaoVenda,
+  linhasTextoObservacaoVenda,
+  observacaoVendaTemConteudo,
+} from '@/lib/metaadmin/observacaoVenda';
 
 function medicoTituloNome(m: Medico | null): string {
   const titulo = m?.genero === 'F' ? 'Dra.' : 'Dr.';
@@ -37,6 +43,7 @@ export type RelatorioFinanceiroVenda = {
   valorPago: number;
   valorPendente: number;
   parcelas: RelatorioFinanceiroParcela[];
+  observacao?: ObservacaoVenda;
 };
 
 export type RelatorioFinanceiroPdfContext = {
@@ -222,6 +229,52 @@ function desenharTabelaVendaCompacta(doc: JsPDFDoc, y: number, venda: RelatorioF
   return y + 4;
 }
 
+async function desenharObservacaoVendaPdf(
+  doc: JsPDFDoc,
+  y: number,
+  venda: RelatorioFinanceiroVenda,
+  medico: Medico | null,
+  darkColor: [number, number, number]
+): Promise<number> {
+  if (!observacaoVendaTemConteudo(venda.observacao)) return y;
+  const linhas = linhasTextoObservacaoVenda(venda.observacao);
+  const alerta = alertaDivergenciaObservacaoVenda(venda.observacao, venda.valorTotal);
+
+  y = await garantirEspaco(doc, y, 10, medico, darkColor);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...darkColor);
+  doc.text('Composição da venda', MARGEM_X, y);
+  y += 4.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+
+  for (const linha of linhas) {
+    y = await garantirEspaco(doc, y, 5, medico, darkColor);
+    const wrapped = doc.splitTextToSize(linha, LARGURA_TABELA);
+    for (const w of wrapped) {
+      y = await garantirEspaco(doc, y, 4.2, medico, darkColor);
+      doc.text(w, MARGEM_X, y);
+      y += 3.8;
+    }
+  }
+
+  if (alerta.diverge) {
+    y = await garantirEspaco(doc, y, 6, medico, darkColor);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(146, 64, 14);
+    doc.text(
+      `Atenção: a composição diverge ${formatarMoedaBRL(Math.abs(alerta.diferenca))} do total da venda.`,
+      MARGEM_X,
+      y
+    );
+    doc.setTextColor(...darkColor);
+    y += 5;
+  }
+
+  return y + 2;
+}
+
 function desenharResumoGeralCompacto(
   doc: JsPDFDoc,
   y: number,
@@ -269,15 +322,20 @@ export async function buildRelatorioFinanceiroJsPdfDocument(
   yPos += 6;
 
   for (const venda of vendas) {
-    const alturaEstimada = 14 + Math.max(1, venda.parcelas.length) * 4.5;
-    yPos = await garantirEspaco(doc, yPos, alturaEstimada, medico, darkColor);
+    const linhasObs = observacaoVendaTemConteudo(venda.observacao)
+      ? linhasTextoObservacaoVenda(venda.observacao)
+      : [];
+    const alturaEstimada = 14 + Math.max(1, venda.parcelas.length) * 4.5 + linhasObs.length * 4;
+    yPos = await garantirEspaco(doc, yPos, Math.min(alturaEstimada, 40), medico, darkColor);
     yPos = desenharTabelaVendaCompacta(doc, yPos, venda);
+    yPos = await desenharObservacaoVendaPdf(doc, yPos, venda, medico, darkColor);
   }
 
   yPos = await garantirEspaco(doc, yPos, 12, medico, darkColor);
   yPos = desenharResumoGeralCompacto(doc, yPos, totaisGerais);
 
-  if (observacoes?.trim()) {
+  const temObsEstruturada = vendas.some((v) => observacaoVendaTemConteudo(v.observacao));
+  if (observacoes?.trim() && !temObsEstruturada) {
     yPos += 2;
     yPos = await garantirEspaco(doc, yPos, 16, medico, darkColor);
     doc.setFontSize(9);

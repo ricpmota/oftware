@@ -4,11 +4,12 @@ import {
   formatSimuladoApostilaLabel,
   type OftpaySimuladoSelection,
 } from '@/types/oftpaySimulados';
-import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoMatchable } from '@/types/oftpayQuestaoCatalog';
 import type { QuestaoDificuldade } from '@/types/oftpayQuestoes';
 import { OFTREVIEW_APOSTILA_TOPICS_COLLECTION } from '@/types/oftreviewApostilaTopic';
 import type { ChatDuvidasImageAnalysis } from '@/lib/oftpay/chatDuvidasImage';
 import { buildPublishedTopicIndex, searchPublishedTopics } from '@/lib/oftpay/simuladoTopicSearch';
+import { loadPublishedQuestoesCatalogAdmin } from '@/lib/oftpay/publishedQuestoesCatalog.server';
 
 export interface MappedTopicRow {
   id: string;
@@ -176,7 +177,7 @@ export interface ChatDuvidasSimuladoSuggestion {
 
 export function buildFallbackSimuladoSuggestion(
   question: string,
-  publicadas: OftpayQuestaoDoc[],
+  publicadas: OftpayQuestaoMatchable[],
   mappedTopics: MappedTopicRow[]
 ): ChatDuvidasSimuladoSuggestion | null {
   const index = buildPublishedTopicIndex(publicadas);
@@ -221,7 +222,7 @@ export function buildFallbackSimuladoSuggestion(
 
 export function sanitizeSimuladoSuggestion(
   raw: unknown,
-  publicadas: OftpayQuestaoDoc[]
+  publicadas: OftpayQuestaoMatchable[]
 ): ChatDuvidasSimuladoSuggestion | null {
   if (!raw || typeof raw !== 'object') return null;
   const root = raw as Record<string, unknown>;
@@ -264,35 +265,11 @@ export function sanitizeSimuladoSuggestion(
   return { title, selections };
 }
 
-/** Carrega questões publicadas no servidor (admin). */
-export async function loadPublishedQuestoesAdmin(db: Firestore): Promise<OftpayQuestaoDoc[]> {
-  const snap = await db.collection('oftpayQuestoes').where('status', '==', 'publicado').get();
-  return snap.docs.map((doc) => {
-    const data = doc.data() as Record<string, unknown>;
-    const fonte = (data.fonte ?? {}) as Record<string, unknown>;
-    return {
-      id: doc.id,
-      courseId: 'oftreview' as const,
-      tema: String(data.tema ?? ''),
-      capituloTitulo: data.capituloTitulo != null ? String(data.capituloTitulo) : undefined,
-      subtema: data.subtema != null ? String(data.subtema) : undefined,
-      enunciado: String(data.enunciado ?? ''),
-      alternativas: Array.isArray(data.alternativas) ? (data.alternativas as OftpayQuestaoDoc['alternativas']) : [],
-      explicacao: String(data.explicacao ?? ''),
-      dificuldade:
-        data.dificuldade === 'facil' || data.dificuldade === 'medio' || data.dificuldade === 'dificil'
-          ? data.dificuldade
-          : 'medio',
-      status: 'publicado' as const,
-      fonte: {
-        apostilaTitulo: String(fonte.apostilaTitulo ?? ''),
-        sourceType: 'pdf_bucket' as const,
-        ...(fonte.pagina != null ? { pagina: Number(fonte.pagina) } : {}),
-        ...(fonte.trechoBase != null ? { trechoBase: String(fonte.trechoBase) } : {}),
-      },
-      criadoPor: String(data.criadoPor ?? ''),
-    };
-  });
+/** Carrega catálogo leve de questões publicadas (sem enunciado) — com cache TTL. */
+export async function loadPublishedQuestoesAdmin(
+  _db?: Firestore
+): Promise<OftpayQuestaoMatchable[]> {
+  return loadPublishedQuestoesCatalogAdmin();
 }
 
 export function summarizeTopicsForAnswer(topics: MappedTopicRow[]): string {
@@ -301,4 +278,22 @@ export function summarizeTopicsForAnswer(topics: MappedTopicRow[]): string {
     .slice(0, 3)
     .map((t) => `${formatSimuladoApostilaLabel(t.apostilaTitulo)} — ${t.topicTitle}`)
     .join('; ');
+}
+
+/** Fontes sintéticas a partir dos tópicos mapeados (fallback quando o Discovery não retorna trechos). */
+export function buildMappedTopicSources(
+  query: string,
+  topics: MappedTopicRow[],
+  limit = 6
+): Array<{ id: number; title: string; snippet: string }> {
+  return rankMappedTopics(query, topics, limit).map((t, i) => {
+    const parts = [t.topicTitle];
+    if (t.topicSummary) parts.push(t.topicSummary);
+    if (t.keywords?.length) parts.push(`Palavras-chave: ${t.keywords.join(', ')}`);
+    return {
+      id: i + 1,
+      title: formatSimuladoApostilaLabel(t.apostilaTitulo),
+      snippet: parts.join('\n'),
+    };
+  });
 }

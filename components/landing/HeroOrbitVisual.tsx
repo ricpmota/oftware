@@ -60,7 +60,7 @@ export default function HeroOrbitVisual() {
           <div className="animate-hero-ecosystem-float">
             <img
               src="/whitelabel2.png"
-              alt="Oftware — dashboard médico, calendário, app do paciente e área de treino integrados"
+              alt="Oftware — painel profissional, calendário, app do paciente e área de treino integrados"
               width={1200}
               height={900}
               className="lg:hidden w-full h-auto max-h-[min(58vh,640px)] object-contain select-none drop-shadow-[0_28px_70px_rgba(0,0,0,0.25)]"
@@ -70,7 +70,7 @@ export default function HeroOrbitVisual() {
             />
             <img
               src="/whitelabel.png"
-              alt="Oftware — dashboard médico, calendário, app do paciente e área de treino integrados"
+              alt="Oftware — painel profissional, calendário, app do paciente e área de treino integrados"
               width={1200}
               height={900}
               className="hidden lg:block w-full h-auto max-h-[min(61vh,648px)] object-contain select-none drop-shadow-[0_28px_70px_rgba(0,0,0,0.25)]"

@@ -15,6 +15,7 @@ import LeadsMedicoPipelineCard from '@/components/crm/medico/LeadsMedicoPipeline
 import PipelineStageHeaderMenu from '@/components/crm/medico/PipelineStageHeaderMenu';
 import { useMedicoLeadsCrmTheme } from '@/components/crm/medico/MedicoLeadsCrmProvider';
 import { getLeadStageKey } from '@/lib/crm/leadStageKey';
+import { leadPatientPhotoUrl } from '@/lib/crm/useLeadPatientPhotos';
 import {
   computeStageColumnTotal,
   formatStageColumnTotal,
@@ -48,6 +49,8 @@ function KanbanColumn({
   userEmail,
   pacientes = [],
   onReferralSaved,
+  organizationPublicName,
+  patientPhotos,
 }: {
   stage: ResolvedCrmPipelineStage;
   leads: LeadMedico[];
@@ -69,6 +72,8 @@ function KanbanColumn({
   userEmail?: string | null;
   pacientes?: PacienteCompleto[];
   onReferralSaved?: (leadId: string, referral: LeadReferralSnapshot) => void;
+  organizationPublicName?: string | null;
+  patientPhotos?: Record<string, string | null>;
 }) {
   const t = useMedicoLeadsCrmTheme();
   const { setNodeRef, isOver } = useDroppable({ id: stage.stageKey });
@@ -77,25 +82,30 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-[240px] sm:w-[280px] lg:w-[300px] xl:w-[320px] flex flex-col max-h-[calc(100vh-280px)] rounded-xl border transition-colors ${
+      className={`flex w-[240px] flex-shrink-0 flex-col max-h-[calc(100vh-280px)] rounded-xl border transition-colors sm:w-[280px] lg:w-[300px] lg:rounded-2xl ${
         isOver ? t.kanbanColumnOver : t.kanbanColumn
       }`}
     >
       <div
-        className={`px-3 py-2.5 border-b ${t.divider} sticky top-0 backdrop-blur-sm rounded-t-xl z-10`}
+        className={`sticky top-0 z-10 rounded-t-xl border-b px-3 py-2.5 backdrop-blur-sm lg:rounded-t-2xl ${t.divider}`}
         style={stageHeaderStyle(stage)}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h4 className="text-xs font-semibold leading-snug truncate">{stage.label}</h4>
-            <p className="text-[10px] font-medium mt-0.5 opacity-90">
+            <h4 className="truncate text-xs font-semibold leading-snug lg:text-sm">{stage.label}</h4>
+            <p className="mt-0.5 text-[10px] font-medium opacity-90 lg:text-xs">
               Total: {formatStageColumnTotal(columnTotal)}
             </p>
-            <p className="text-[10px] opacity-75">
+            <p className="text-[10px] opacity-75 lg:hidden">
               {leads.length} {leads.length === 1 ? 'negócio' : 'negócios'}
             </p>
           </div>
-          <PipelineStageHeaderMenu onEditCrm={onEditCrm} />
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="hidden min-w-[1.25rem] items-center justify-center rounded-full bg-black/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums lg:inline-flex">
+              {leads.length}
+            </span>
+            <PipelineStageHeaderMenu onEditCrm={onEditCrm} />
+          </div>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
@@ -107,6 +117,7 @@ function KanbanColumn({
               key={lead.id}
               lead={lead}
               paciente={paciente}
+              photoUrl={leadPatientPhotoUrl(paciente, patientPhotos)}
               paciente360Summary={summary}
               lembretes={lembretesByLeadId?.get(lead.id)}
               medicoId={medicoId}
@@ -125,6 +136,7 @@ function KanbanColumn({
               userEmail={userEmail}
               pacientes={pacientes}
               onReferralSaved={onReferralSaved}
+              organizationPublicName={organizationPublicName}
             />
           );
         })}
@@ -158,6 +170,8 @@ type Props = {
   userEmail?: string | null;
   pacientes?: PacienteCompleto[];
   onReferralSaved?: (leadId: string, referral: LeadReferralSnapshot) => void;
+  organizationPublicName?: string | null;
+  patientPhotos?: Record<string, string | null>;
 };
 
 export default function LeadsMedicoKanban({
@@ -182,6 +196,8 @@ export default function LeadsMedicoKanban({
   userEmail,
   pacientes = [],
   onReferralSaved,
+  organizationPublicName,
+  patientPhotos,
 }: Props) {
   const [activeLead, setActiveLead] = useState<LeadMedico | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -226,7 +242,7 @@ export default function LeadsMedicoKanban({
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
         {stageConfigs.map((col) => (
           <KanbanColumn
             key={col.stageKey}
@@ -250,18 +266,22 @@ export default function LeadsMedicoKanban({
             userEmail={userEmail}
             pacientes={pacientes}
             onReferralSaved={onReferralSaved}
+            organizationPublicName={organizationPublicName}
+            patientPhotos={patientPhotos}
           />
         ))}
       </div>
       <DragOverlay>
         {activeLead ? (
-          <div className="w-[240px] sm:w-[280px] lg:w-[300px] xl:w-[320px] rotate-2 opacity-95">
+          <div className="w-[240px] rotate-2 opacity-95 sm:w-[280px] lg:w-[300px]">
             <LeadsMedicoPipelineCard
               lead={activeLead}
               paciente={activePaciente}
+              photoUrl={leadPatientPhotoUrl(activePaciente, patientPhotos)}
               paciente360Summary={activeSummary}
               lembretes={lembretesByLeadId?.get(activeLead.id)}
               onOpen={() => undefined}
+              organizationPublicName={organizationPublicName}
             />
           </div>
         ) : null}

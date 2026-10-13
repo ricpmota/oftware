@@ -8,6 +8,9 @@ import {
   filterRiskQuestionsForSexo,
   riskOptionLabel,
 } from '@/lib/meta/metaChatInicial';
+import { rotulosMedicamentosDiabetes } from '@/lib/meta/metaChatInicial/medicamentosDiabetes';
+import { rotulosCirurgias } from '@/lib/meta/metaChatInicial/cirurgias';
+import { respostaDepressao, respostaIdeacao, rotuloSimNao } from '@/lib/meta/metaChatInicial/triagemHumor';
 
 export type AnamneseV2CardData = {
   id: string;
@@ -50,9 +53,10 @@ export function buildAnamneseV2Cards(
 
   const diagChips: string[] = [];
   const dcAny = dc as { diagnosticoPrincipalTipos?: string[] } | undefined;
-  const tipos =
+  const tiposRaw =
     dcAny?.diagnosticoPrincipalTipos ||
     (dc?.diagnosticoPrincipal?.tipo ? [dc.diagnosticoPrincipal.tipo] : []);
+  const tipos = Array.isArray(tiposRaw) ? tiposRaw : [];
   tipos.forEach((t) => {
     const lab = DIAGNOSTICO_LABELS[t] || t;
     if (t === 'outro' && dc?.diagnosticoPrincipal?.outro?.trim()) {
@@ -71,7 +75,16 @@ export function buildAnamneseV2Cards(
     comorbChips.push(c.outraDescricao.trim());
   }
 
-  const medChips = (dc?.medicacoesUsoAtual || [])
+  const cirurgiaChips = rotulosCirurgias(dc?.cirurgiasRealizadas as Record<string, unknown> | undefined);
+
+  const medDiabetesChips = rotulosMedicamentosDiabetes(
+    dc?.medicamentosDiabetes as Record<string, unknown> | undefined
+  );
+  const mostrarMedicamentosDiabetes =
+    tipos.includes('dm1') || tipos.includes('dm2') || medDiabetesChips.length > 0;
+
+  const medsAtuais = Array.isArray(dc?.medicacoesUsoAtual) ? dc.medicacoesUsoAtual : [];
+  const medChips = medsAtuais
     .filter((med) => med.categoria || med.nomeFarmaco?.trim())
     .map(formatMedicacaoChip);
 
@@ -113,10 +126,26 @@ export function buildAnamneseV2Cards(
     if (gi[key]) giChips.push(label);
   });
 
+  const depressao = respostaDepressao(dc);
+  const ideacao = respostaIdeacao(dc);
+  const depressaoChips = depressao ? [rotuloSimNao(depressao)] : [];
+  const ideacaoChips = ideacao ? [rotuloSimNao(ideacao)] : [];
+
   return [
     { id: 'motivacao', title: 'Motivação em relação ao peso', chips: motivacaoChips, informed: motivacaoChips.length > 0 },
     { id: 'diagnostico', title: 'Diagnóstico Principal', chips: diagChips, informed: diagChips.length > 0 },
+    ...(mostrarMedicamentosDiabetes
+      ? [
+          {
+            id: 'medicamentosDiabetes',
+            title: 'Medicamentos para o diabetes',
+            chips: medDiabetesChips,
+            informed: medDiabetesChips.length > 0,
+          },
+        ]
+      : []),
     { id: 'comorbidades', title: 'Comorbidades Associadas', chips: comorbChips, informed: comorbChips.length > 0 },
+    { id: 'cirurgias', title: 'Cirurgias realizadas', chips: cirurgiaChips, informed: cirurgiaChips.length > 0 },
     { id: 'medicacoes', title: 'Medicações em uso atual', chips: medChips, informed: medChips.length > 0 },
     { id: 'alergias', title: 'Alergias', chips: alergiaChips, informed: alergiaChips.length > 0 },
     {
@@ -131,6 +160,18 @@ export function buildAnamneseV2Cards(
       title: 'Sintomas basais relacionados ao trato GI',
       chips: giChips,
       informed: giChips.length > 0,
+    },
+    {
+      id: 'triagemDepressao',
+      title: 'Depressão ou perda de interesse',
+      chips: depressaoChips,
+      informed: depressaoChips.length > 0,
+    },
+    {
+      id: 'triagemIdeacao',
+      title: 'Pensamentos de tirar a própria vida',
+      chips: ideacaoChips,
+      informed: ideacaoChips.length > 0,
     },
   ];
 }

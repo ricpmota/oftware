@@ -6,6 +6,8 @@ const PUBLIC_LINK_COLLECTIONS = [
   'aplicacao_links',
   'conclusao_links',
   'relatorio_paciente_links',
+  'relatorio_financeiro_links',
+  'nutri_checkin_links',
 ] as const;
 
 export function buildPublicLinksAuditFromOrganizationScan(

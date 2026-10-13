@@ -4,6 +4,12 @@ import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationI
 import { normalizeLeadReferral, referralToFirestore } from '@/lib/crm/resolveLeadReferral';
 import { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 import type { LeadReferralSnapshot } from '@/types/leadMedico';
+import {
+  indicadoPorPhoneWriteFields,
+  indicacaoPhoneWriteFields,
+  optionalSolicitacaoDdiPais,
+  solicitacaoPhoneWriteFields,
+} from '@/lib/whatsapp/resolveIndicacaoSolicitacaoPhone';
 
 export type CriarSolicitacaoOptions = {
   emailIndicador?: string;
@@ -17,6 +23,7 @@ function mapSolicitacaoDoc(id: string, data: Record<string, unknown>): Solicitac
     pacienteEmail: (data.pacienteEmail as string) || '',
     pacienteNome: (data.pacienteNome as string) || '',
     pacienteTelefone: data.pacienteTelefone as string | undefined,
+    ...optionalSolicitacaoDdiPais(data),
     medicoId: (data.medicoId as string) || '',
     medicoNome: (data.medicoNome as string) || '',
     status: (data.status as SolicitacaoMedico['status']) || 'pendente',
@@ -59,9 +66,8 @@ export class SolicitacaoMedicoService {
         solicitacaoData.pacienteId = solicitacao.pacienteId;
       }
 
-      if (solicitacao.pacienteTelefone) {
-        solicitacaoData.pacienteTelefone = solicitacao.pacienteTelefone;
-      }
+      const phoneWrite = solicitacaoPhoneWriteFields(solicitacao);
+      Object.assign(solicitacaoData, phoneWrite);
 
       if (solicitacao.chatInicialCompleto === true) {
         solicitacaoData.chatInicialCompleto = true;
@@ -99,12 +105,19 @@ export class SolicitacaoMedicoService {
               dadosIdentificacao: pacientesSnapshot.docs[0].data().dadosIdentificacao || {}
             };
             
+            const identIndicador = pacienteIndicador?.dadosIdentificacao as
+              | { telefone?: string; telefoneDdi?: string; telefonePais?: string }
+              | undefined;
             const indicacaoId = await IndicacaoService.criarIndicacao({
               indicadoPor: opts.emailIndicador!,
               indicadoPorNome: pacienteIndicador?.nome || opts.emailIndicador!.split('@')[0],
-              indicadoPorTelefone: pacienteIndicador?.dadosIdentificacao?.telefone?.replace(/\D/g, '') || '',
+              ...indicadoPorPhoneWriteFields(identIndicador ?? {}),
               nomePaciente: solicitacao.pacienteNome,
-              telefonePaciente: solicitacao.pacienteTelefone.replace(/\D/g, ''),
+              ...indicacaoPhoneWriteFields({
+                telefonePaciente: solicitacao.pacienteTelefone,
+                telefonePacienteDdi: solicitacao.pacienteTelefoneDdi,
+                telefonePacientePais: solicitacao.pacienteTelefonePais,
+              }),
               estado: primeiraCidade.estado,
               cidade: primeiraCidade.cidade,
               medicoId: solicitacao.medicoId,
@@ -164,6 +177,26 @@ export class SolicitacaoMedicoService {
       } catch (emailError) {
         console.error('❌ Erro ao enviar e-mail de novo lead médico:', emailError);
         // Não bloquear o fluxo se o e-mail falhar
+      }
+
+      try {
+        const waResponse = await fetch('/api/send-whatsapp-novo-lead-medico', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ solicitacaoId: docRef.id }),
+        });
+        const waResult = await waResponse.json().catch(() => null);
+        if (!waResponse.ok) {
+          console.error('❌ Erro ao avisar médico no Canal Chat:', waResult);
+        } else if (waResult?.alreadySent) {
+          console.log('ℹ️ Aviso de solicitação já havia sido enviado ao médico');
+        } else if (waResult?.skipped) {
+          console.warn('ℹ️ Aviso de solicitação ao médico não enviado:', waResult.reason);
+        } else {
+          console.log('✅ Médico avisado no Canal Chat sobre nova solicitação:', waResult);
+        }
+      } catch (waError) {
+        console.error('❌ Erro ao avisar médico no Canal Chat:', waError);
       }
       
       return docRef.id;
@@ -232,7 +265,7 @@ export class SolicitacaoMedicoService {
       const solicitacoes = await this.getSolicitacoesPorPaciente(pacienteEmail);
       const alvo = solicitacoes.filter(
         (s) =>
-          s.status === 'pendente' &&
+          (s.status === 'pendente' || s.status === 'aceita') &&
           s.chatInicialCompleto !== true &&
           (!medicoId || s.medicoId === medicoId)
       );

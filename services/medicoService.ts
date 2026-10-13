@@ -56,8 +56,12 @@ export class MedicoService {
   static async createOrUpdateMedico(medico: Omit<Medico, 'id'>): Promise<string> {
     try {
       const normalizedEmail = this.normalizeEmail(medico.email);
+      const { uploadMentor: _omitUploadMentor, ...medicoWithoutUploadMentor } = medico as Medico & {
+        uploadMentor?: boolean;
+      };
+      void _omitUploadMentor;
       const medicoData = removeUndefined({
-        ...medico,
+        ...medicoWithoutUploadMentor,
         email: normalizedEmail,
         dataCadastro: new Date()
       });

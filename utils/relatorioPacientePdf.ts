@@ -13,8 +13,18 @@ export interface MedicoPerfilRelatorio {
   genero?: string;
   crm?: { estado?: string; numero?: string };
   telefone?: string;
+  telefoneDdi?: string;
+  telefonePais?: string;
   cidades?: Array<{ cidade?: string; estado?: string }>;
   localizacao?: { endereco?: string };
+  id?: string;
+  fotoPerfilUrl?: string | null;
+  isVerificado?: boolean;
+  slug?: string;
+  primaryColor?: string;
+  pageBg?: string;
+  pageText?: string;
+  instagramUsuario?: string | null;
 }
 
 function getStatusLabel(s: string): string {

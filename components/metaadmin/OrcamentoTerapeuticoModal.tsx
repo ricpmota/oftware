@@ -77,7 +77,7 @@ export default function OrcamentoTerapeuticoModal({
     const estV2 = calcularEstimativaPlanoInicialV2(ctx);
     setEstimativa(estV2);
     aplicarCalculoDesdeConfig(estV2, config);
-  }, [open, paciente, config, aplicarCalculoDesdeConfig]);
+  }, [open, paciente.id, config, aplicarCalculoDesdeConfig]);
 
   useEffect(() => {
     const pacienteId = paciente.id?.trim();
@@ -85,7 +85,20 @@ export default function OrcamentoTerapeuticoModal({
       setPlanoAtual(null);
       return;
     }
-    return subscribePlanoTerapeuticoAtual(pacienteId, setPlanoAtual);
+    return subscribePlanoTerapeuticoAtual(pacienteId, (next) => {
+      setPlanoAtual((prev) => {
+        if (
+          prev?.id === next?.id &&
+          prev?.updatedAt === next?.updatedAt &&
+          prev?.status === next?.status &&
+          JSON.stringify(prev?.negociacaoTerapeutica ?? null) ===
+            JSON.stringify(next?.negociacaoTerapeutica ?? null)
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    });
   }, [open, paciente.id]);
 
   const criarPlanoSemAbrir = useCallback(async (): Promise<boolean> => {
@@ -375,7 +388,7 @@ export default function OrcamentoTerapeuticoModal({
 
   return (
     <div
-      className="fixed inset-0 z-[75] flex flex-col overflow-hidden md:items-center md:justify-center md:bg-black/55 md:backdrop-blur-sm md:p-4"
+      className="fixed inset-0 z-[85] flex flex-col overflow-hidden md:items-center md:justify-center md:bg-black/55 md:backdrop-blur-sm md:p-4"
       onClick={onClose}
       role="presentation"
     >
@@ -532,6 +545,7 @@ export default function OrcamentoTerapeuticoModal({
           onClose={() => setMesaNegociacaoAberta(false)}
           plano={planoAtual}
           pesoAtual={contexto.pesoAtual}
+          configAtual={config}
           onPropostaEnviada={(msg) => onPlanoGerado?.(msg)}
           onPlanoAtualizado={setPlanoAtual}
           onAbrirPaginaPaciente={() => void handleReabrirPagina()}
@@ -539,7 +553,7 @@ export default function OrcamentoTerapeuticoModal({
       )}
 
       {mesaNegociacaoAberta && !planoAtual && (
-        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40">
           <div className="rounded-xl bg-white px-6 py-4 flex items-center gap-3 shadow-xl">
             <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
             <p className="text-sm text-slate-700">Preparando plano para negociação…</p>

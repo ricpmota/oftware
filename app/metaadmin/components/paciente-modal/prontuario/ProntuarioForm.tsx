@@ -30,13 +30,15 @@ const FORM_INICIAL: ProntuarioFormValues = {
 
 export type ProntuarioFormProps = {
   onSalvar: (values: ProntuarioFormValues) => Promise<void> | void;
+  /** Labels levemente genéricos no MetaPsi (sem catálogo clínico psi). */
+  variant?: 'medico' | 'psiquiatra';
 };
 
 function temInformacaoClinica(values: ProntuarioFormValues): boolean {
   return [values.evolucao, values.conduta, values.sintomas].some((v) => v.trim().length > 0);
 }
 
-export function ProntuarioForm({ onSalvar }: ProntuarioFormProps) {
+export function ProntuarioForm({ onSalvar, variant = 'medico' }: ProntuarioFormProps) {
   const [values, setValues] = useState<ProntuarioFormValues>(FORM_INICIAL);
   const [salvando, setSalvando] = useState(false);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export function ProntuarioForm({ onSalvar }: ProntuarioFormProps) {
             value={values.tipoRegistro}
             onChange={(e) => atualizar('tipoRegistro', e.target.value)}
           >
-            <option value="consulta">Consulta médica</option>
+            <option value="consulta">{variant === 'psiquiatra' ? 'Consulta' : 'Consulta médica'}</option>
             <option value="retorno">Retorno</option>
             <option value="teleconsulta">Teleconsulta</option>
             <option value="intercorrencia">Intercorrência</option>

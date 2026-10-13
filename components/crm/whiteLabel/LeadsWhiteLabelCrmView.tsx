@@ -13,13 +13,22 @@ import {
 } from '@/components/crm/whiteLabel/WhiteLabelCrmProvider';
 import type { WhiteLabelCrmApiConfig } from '@/lib/crm/whiteLabelCrmConfig';
 import type { WhiteLabelCrmThemeVariant } from '@/lib/crm/whiteLabelCrmTheme';
+import { buildLeadCadastroMap } from '@/lib/whiteLabel/matchLeadCadastro';
+import { tryResolvePhoneFromLeadDoc } from '@/lib/whatsapp/resolveLeadPhone';
 import type { WhiteLabelCrmKpis } from '@/lib/whiteLabel/leadCrmService';
+import type { CadastroMedicoWhiteLabel } from '@/types/cadastroMedicoWhiteLabel';
 import type { LeadWhiteLabel } from '@/types/leadWhiteLabel';
 import type { WhiteLabelCrmStage, WhiteLabelLeadScoreCategory } from '@/types/leadWhiteLabelCrm';
 
 type ApiLead = LeadWhiteLabel & {
   crm?: { stage: WhiteLabelCrmStage; owner?: string | null; updatedAt: string | null };
   leadScoreDetail?: { score: number; category: WhiteLabelLeadScoreCategory; updatedAt: string | null };
+};
+
+type ApiCadastro = CadastroMedicoWhiteLabel & {
+  createdAt: string | null;
+  updatedAt: string | null;
+  concluidoAt: string | null;
 };
 
 function parseLead(raw: ApiLead): LeadWhiteLabel {
@@ -45,6 +54,15 @@ function parseLead(raw: ApiLead): LeadWhiteLabel {
   };
 }
 
+function parseCadastro(raw: ApiCadastro): CadastroMedicoWhiteLabel {
+  return {
+    ...raw,
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : null,
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : null,
+    concluidoAt: raw.concluidoAt ? new Date(raw.concluidoAt) : null,
+  };
+}
+
 const EMPTY_KPIS: WhiteLabelCrmKpis = {
   totalLeads: 0,
   hotLeads: 0,
@@ -60,6 +78,7 @@ function LeadsWhiteLabelCrmViewInner() {
   const t = useWhiteLabelCrmTheme();
   const { api, authFetch } = useWhiteLabelCrmContext();
   const [leads, setLeads] = useState<LeadWhiteLabel[]>([]);
+  const [cadastros, setCadastros] = useState<CadastroMedicoWhiteLabel[]>([]);
   const [kpis, setKpis] = useState<WhiteLabelCrmKpis>(EMPTY_KPIS);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -68,6 +87,7 @@ function LeadsWhiteLabelCrmViewInner() {
     busca: '',
     stage: '',
     score: '',
+    profissao: '',
     especialidade: '',
     estado: '',
     cidade: '',
@@ -78,21 +98,39 @@ function LeadsWhiteLabelCrmViewInner() {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await authFetch(api.leads);
-      const data = (await res.json()) as { leads?: ApiLead[]; kpis?: WhiteLabelCrmKpis; error?: string };
-      if (!res.ok) throw new Error(data.error || 'Falha ao carregar leads.');
-      setLeads((data.leads || []).map(parseLead));
-      setKpis(data.kpis || EMPTY_KPIS);
+      const [leadsRes, cadastrosRes] = await Promise.all([
+        authFetch(api.leads),
+        authFetch(api.cadastros),
+      ]);
+      const leadsData = (await leadsRes.json()) as {
+        leads?: ApiLead[];
+        kpis?: WhiteLabelCrmKpis;
+        error?: string;
+      };
+      const cadastrosData = (await cadastrosRes.json()) as {
+        cadastros?: ApiCadastro[];
+        error?: string;
+      };
+      if (!leadsRes.ok) throw new Error(leadsData.error || 'Falha ao carregar leads.');
+      if (!cadastrosRes.ok) throw new Error(cadastrosData.error || 'Falha ao carregar cadastros.');
+      setLeads((leadsData.leads || []).map(parseLead));
+      setCadastros((cadastrosData.cadastros || []).map(parseCadastro));
+      setKpis(leadsData.kpis || EMPTY_KPIS);
     } catch (e) {
       setMessage({ type: 'err', text: (e as Error).message });
     } finally {
       setLoading(false);
     }
-  }, [api.leads, authFetch]);
+  }, [api.cadastros, api.leads, authFetch]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const leadCadastroById = useMemo(
+    () => buildLeadCadastroMap(leads, cadastros),
+    [cadastros, leads]
+  );
 
   const especialidades = useMemo(
     () => [...new Set(leads.map((l) => l.especialidade).filter(Boolean))] as string[],
@@ -106,6 +144,7 @@ function LeadsWhiteLabelCrmViewInner() {
   const leadsFiltrados = useMemo(() => {
     const q = filters.busca.trim().toLowerCase();
     return leads.filter((lead) => {
+      if (filters.profissao && (lead.profissao || 'medico') !== filters.profissao) return false;
       if (filters.stage && lead.crm?.stage !== filters.stage) return false;
       const cat = lead.leadScoreDetail?.category;
       if (filters.score && cat !== filters.score) return false;
@@ -114,10 +153,13 @@ function LeadsWhiteLabelCrmViewInner() {
       if (filters.cidade && !(lead.cidade || '').toLowerCase().includes(filters.cidade.toLowerCase())) return false;
       if (filters.meetingDate && lead.meeting?.date !== filters.meetingDate) return false;
       if (!q) return true;
+      const qDigits = q.replace(/\D/g, '');
+      const canonical = tryResolvePhoneFromLeadDoc(lead) || '';
       return (
         lead.nome.toLowerCase().includes(q) ||
         lead.email.toLowerCase().includes(q) ||
-        lead.whatsapp.includes(q.replace(/\D/g, '')) ||
+        lead.whatsapp.includes(qDigits) ||
+        canonical.includes(qDigits) ||
         (lead.crmMedico || '').toLowerCase().includes(q)
       );
     });
@@ -159,6 +201,8 @@ function LeadsWhiteLabelCrmViewInner() {
     [load]
   );
 
+  const selectedCadastro = selectedLead ? leadCadastroById.get(selectedLead.id) || null : null;
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -195,6 +239,7 @@ function LeadsWhiteLabelCrmViewInner() {
       ) : (
         <LeadsWhiteLabelKanban
           leads={leadsFiltrados}
+          cadastroByLeadId={leadCadastroById}
           onOpenLead={setSelectedLead}
           onStageChange={handleStageChange}
         />
@@ -203,6 +248,7 @@ function LeadsWhiteLabelCrmViewInner() {
       {selectedLead && (
         <LeadsWhiteLabelCrmSheet
           lead={selectedLead}
+          cadastro={selectedCadastro}
           onClose={() => setSelectedLead(null)}
           onUpdated={handleLeadUpdated}
           onDeleted={handleLeadDeleted}

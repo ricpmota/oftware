@@ -1,5 +1,5 @@
-import crypto from 'crypto';
 import type { Firestore } from 'firebase-admin/firestore';
+import { allocateUniquePublicLinkToken } from '@/lib/publicLinks/publicLinkToken';
 import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
 import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
 
@@ -9,6 +9,41 @@ export function toDataConclusaoKeyLocal(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/**
+ * Garante documento em conclusao_links e retorna token + URL pública /conclusao/{token}.
+ * Links novos usam código curto; documentos já existentes (incl. hex legado) são reaproveitados.
+ */
+export async function ensureConclusaoPublicLink(
+  db: Firestore,
+  params: { pacienteId: string; dataStr: string; medicoId: string },
+  baseUrl?: string
+): Promise<{ token: string; url: string }> {
+  const pid = params.pacienteId.trim();
+  const mid = params.medicoId.trim();
+  const dataStr = params.dataStr.trim();
+  const key = `conclusao_${pid}_${dataStr}`;
+  const snapshot = await db.collection('conclusao_links').where('key', '==', key).limit(1).get();
+
+  let token: string;
+  if (!snapshot.empty) {
+    token = snapshot.docs[0].id;
+  } else {
+    token = await allocateUniquePublicLinkToken(db, 'conclusao_links', {
+      pacienteId: pid,
+      data: dataStr,
+      medicoId: mid,
+      key,
+      createdAt: new Date(),
+      ...shadowOrganizationFields(),
+    });
+  }
+
+  return {
+    token,
+    url: buildOrganizacaoPublicUrl(`/conclusao/${token}`, baseUrl),
+  };
 }
 
 /**
@@ -26,24 +61,14 @@ export async function ensureConclusaoPublicUrl(
     return '';
   }
 
-  const dataStr = toDataConclusaoKeyLocal(params.data);
-  const key = `conclusao_${pid}_${dataStr}`;
-  const snapshot = await db.collection('conclusao_links').where('key', '==', key).limit(1).get();
-
-  let token: string;
-  if (!snapshot.empty) {
-    token = snapshot.docs[0].id;
-  } else {
-    token = crypto.randomBytes(32).toString('hex');
-    await db.collection('conclusao_links').doc(token).set({
+  const { url } = await ensureConclusaoPublicLink(
+    db,
+    {
       pacienteId: pid,
-      data: dataStr,
+      dataStr: toDataConclusaoKeyLocal(params.data),
       medicoId: mid,
-      key,
-      createdAt: new Date(),
-      ...shadowOrganizationFields(),
-    });
-  }
-
-  return buildOrganizacaoPublicUrl(`/conclusao/${token}`, baseUrl);
+    },
+    baseUrl
+  );
+  return url;
 }

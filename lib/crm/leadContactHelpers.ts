@@ -1,6 +1,11 @@
 import type { LeadMedico } from '@/types/leadMedico';
 import type { PacienteCompleto } from '@/types/obesidade';
-import { cleanPhoneBr } from '@/lib/paciente360/paciente360WhatsAppMessages';
+import {
+  phoneFieldsFromPaciente,
+  resolveWhatsappCanonicalDigits,
+  type InternationalPhoneFields,
+} from '@/lib/phone/buildWhatsappUrl';
+import { phoneFieldsFromLead } from '@/lib/whatsapp/resolveLeadPhone';
 
 type LooseRecord = Record<string, unknown>;
 
@@ -39,14 +44,31 @@ export function getLeadEmail(lead: LeadMedico, paciente?: PacienteCompleto | nul
   );
 }
 
-/** Telefone limpo com prefixo 55 para WhatsApp e tel: */
+/**
+ * Campos estruturados para wa.me / tel:.
+ * Preferência: identificação do paciente vinculado (Etapa 4);
+ * senão contrato do lead (DDI se existir, senão legado BR).
+ */
+export function getLeadPhoneFields(
+  lead: LeadMedico,
+  paciente?: PacienteCompleto | null,
+): InternationalPhoneFields {
+  const ident = paciente?.dadosIdentificacao;
+  if (ident?.telefone || ident?.telefoneDdi || ident?.telefoneE164) {
+    return phoneFieldsFromPaciente(paciente);
+  }
+  return phoneFieldsFromLead(lead);
+}
+
+/**
+ * Dígitos canônicos para WhatsApp/tel:.
+ * Preferência: identificação estruturada do paciente (DDI/E164);
+ * senão telefone do lead com DDI estruturado ou fallback legado BR.
+ */
 export function getLeadPhoneDigits(lead: LeadMedico, paciente?: PacienteCompleto | null): string | null {
-  return cleanPhoneBr(getLeadPhone(lead, paciente));
+  return resolveWhatsappCanonicalDigits(getLeadPhoneFields(lead, paciente));
 }
 
 export function isValidLeadPhone(lead: LeadMedico, paciente?: PacienteCompleto | null): boolean {
-  const digits = getLeadPhoneDigits(lead, paciente);
-  if (!digits) return false;
-  const local = digits.startsWith('55') ? digits.slice(2) : digits;
-  return local.length >= 10;
+  return Boolean(getLeadPhoneDigits(lead, paciente));
 }

@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { scheduleBodyScanGeneration } from '@/lib/bodyscan/tryGenerateBodyScan';
 
 type TipoFotoProgresso = 'frontal' | 'perfil';
 
@@ -191,6 +192,16 @@ export async function POST(request: NextRequest) {
       origem: 'meta_aplicacoes',
       createdAt: FieldValue.serverTimestamp(),
     });
+
+    if (Number.isFinite(semana) && semana > 0) {
+      after(() => {
+        scheduleBodyScanGeneration({
+          patientId: pacienteId,
+          week: semana,
+          date: dataAplicacao || undefined,
+        });
+      });
+    }
 
     return NextResponse.json({
       foto: {

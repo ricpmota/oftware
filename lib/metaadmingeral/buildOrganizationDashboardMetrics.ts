@@ -6,6 +6,7 @@ export type OrganizationDashboardMetricsInput = {
   medicos: { isVerificado?: boolean }[];
   nutricionistas: { isVerificado?: boolean }[];
   personalTrainers: { isVerificado?: boolean }[];
+  psiquiatras?: { isVerificado?: boolean }[];
   pacientes: Pick<PacienteCompleto, 'statusTratamento'>[];
   leadsByStatus: Record<LeadStatus, unknown[]>;
   npsEstatisticas: NPSEstatisticas | null;
@@ -20,6 +21,8 @@ export type OrganizationDashboardMetrics = {
   nutricionistasVerificados: number;
   totalPersonalTrainers: number;
   personalTrainersVerificados: number;
+  totalPsiquiatras: number;
+  psiquiatrasVerificados: number;
   totalPacientes: number;
   pacientesEmTratamento: number;
   pacientesPendentes: number;
@@ -44,6 +47,10 @@ export function buildOrganizationDashboardMetrics(
 
   const totalPersonalTrainers = input.personalTrainers.length;
   const personalTrainersVerificados = input.personalTrainers.filter((p) => p.isVerificado).length;
+
+  const psiquiatras = input.psiquiatras ?? [];
+  const totalPsiquiatras = psiquiatras.length;
+  const psiquiatrasVerificados = psiquiatras.filter((p) => p.isVerificado).length;
 
   let pacientesEmTratamento = 0;
   let pacientesPendentes = 0;
@@ -75,6 +82,8 @@ export function buildOrganizationDashboardMetrics(
     nutricionistasVerificados,
     totalPersonalTrainers,
     personalTrainersVerificados,
+    totalPsiquiatras,
+    psiquiatrasVerificados,
     totalPacientes: input.pacientes.length,
     pacientesEmTratamento,
     pacientesPendentes,

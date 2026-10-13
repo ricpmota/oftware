@@ -1,6 +1,10 @@
 import { calcularDoseTitulacaoMg, DOSE_INICIAL_PADRAO_MG } from '@/lib/tirzepatida/doseTitulacao';
+import { resolveMetaAbdominalCmLoss, resolveMetaPesoKgLoss } from '@/lib/paciente/metaProgresso';
 import type { PacienteCompleto } from '@/types/obesidade';
 import type { MetaAdminDepoimentoSlide } from '@/utils/conclusaoTratamentoHistorico';
+import { buildSemanasEsquemaDoses } from '@/utils/esquemaDosesSemana';
+import { montarPacienteDoProtocoloArquivado } from '@/utils/tirzepatidaNovoProtocolo';
+import { protocoloPorIndice, type ProtocoloTirzepatidaResumo } from '@/utils/tirzepatidaProtocoloDisplay';
 
 /** Mesmo formato do modal "Resultado do tratamento" na home (estatísticas) e no metaadmin. */
 export type DepoimentoResultadoModalData = {
@@ -19,8 +23,59 @@ export type DepoimentoResultadoModalData = {
   perdaAbdominalCm: number | null;
   perdaPercentualAbdominal: number | null;
   /** `peso` pode ser null nas semanas só com dose (igual à API de depoimentos). */
-  evolucao: { weekIndex: number; peso: number | null; doseMg: number; foiAplicado?: boolean }[];
+  evolucao: {
+    weekIndex: number;
+    peso: number | null;
+    doseMg: number;
+    foiAplicado?: boolean;
+    isConclusao?: boolean;
+    /** Usado só no rótulo acima da barra. A linha do gráfico continua no peso. */
+    circunferenciaCm?: number | null;
+  }[];
+  /** Ciclo exibido no gráfico (1 = protocolo inicial). Semanas do eixo são relativas a este ciclo. */
+  protocoloIndice?: number;
+  metaPesoKgLoss?: number | null;
+  metaAbdominalCmLoss?: number | null;
 };
+
+type PontoEvolucaoGrafico = DepoimentoResultadoModalData['evolucao'][number];
+
+/**
+ * A conclusão entra como último ponto do eixo. Se a última coluna já é essa
+ * medição (dose zero e o mesmo peso), só marca; senão acrescenta o ponto.
+ */
+function anexarPontoConclusao(
+  evolucao: PontoEvolucaoGrafico[],
+  conclusaoPeso: number | null,
+  conclusaoCirc?: number | null
+): PontoEvolucaoGrafico[] {
+  if (conclusaoPeso == null || !(conclusaoPeso > 0) || evolucao.length === 0) return evolucao;
+  const circ = conclusaoCirc != null && conclusaoCirc > 0 ? conclusaoCirc : null;
+  const ultimo = evolucao[evolucao.length - 1];
+  const ultimoJaEhConclusao =
+    ultimo.doseMg === 0 && ultimo.peso != null && Math.abs(ultimo.peso - conclusaoPeso) < 0.05;
+  if (ultimoJaEhConclusao) {
+    const marcado = evolucao.slice();
+    marcado[marcado.length - 1] = {
+      ...ultimo,
+      foiAplicado: false,
+      isConclusao: true,
+      circunferenciaCm: circ ?? ultimo.circunferenciaCm ?? null,
+    };
+    return marcado;
+  }
+  return [
+    ...evolucao,
+    {
+      weekIndex: ultimo.weekIndex + 1,
+      peso: conclusaoPeso,
+      doseMg: 0,
+      foiAplicado: false,
+      isConclusao: true,
+      circunferenciaCm: circ,
+    },
+  ];
+}
 
 function toDateDepoimentoMeta(val: unknown): Date | null {
   if (!val) return null;
@@ -130,11 +185,35 @@ function calcularDosePlanejadaSemana({
   return calcularDoseTitulacaoMg(doseInicial, semanasDesdeUltimoCiclo);
 }
 
+/**
+ * Mg de cada semana relativa do protocolo exibido.
+ * Mesma fonte do Esquema de Doses no plano terapêutico (customizado ou titulação do plano).
+ * Semanas canceladas ficam em 0. Retorna null se o plano ainda não tem data de início.
+ */
+function dosesMgPlanoExibido(
+  paciente: PacienteCompleto,
+  proto: ProtocoloTirzepatidaResumo
+): number[] | null {
+  const historico = paciente.planoTerapeutico?.historicoProtocolosTirzepatida || [];
+  let fonte: PacienteCompleto = paciente;
+  if (!proto.ativo) {
+    const snap = historico.find((h) => Number(h.indice) === proto.indice);
+    if (!snap) return null;
+    fonte = montarPacienteDoProtocoloArquivado(paciente, snap);
+  }
+  const built = buildSemanasEsquemaDoses(fonte);
+  if (!built) return null;
+  return built.semanas
+    .filter((item) => !item.isConclusao)
+    .map((item) => (item.isCancelada ? 0 : item.doseAtual || 0));
+}
+
 /** Alinhado a `app/api/depoimentos-medico/route.ts` para o gráfico e métricas do modal da home. */
 export function buildDepoimentoResultadoFromPaciente(
   paciente: PacienteCompleto,
   estrelas: number,
-  textoDepoimento: string
+  textoDepoimento: string,
+  opts?: { protocoloIndice?: number }
 ): DepoimentoResultadoModalData {
   const nome = (paciente.dadosIdentificacao?.nomeCompleto || paciente.nome || '').trim() || 'Paciente';
   const cidade = paciente.dadosIdentificacao?.endereco?.cidade?.trim();
@@ -165,63 +244,110 @@ export function buildDepoimentoResultadoFromPaciente(
     })
     .filter((p) => p.weekIndex > 0)
     .sort((a, b) => a.weekIndex - b.weekIndex);
-  const plano = paciente.planoTerapeutico as PlanoComConclusao | undefined;
-  const numeroSemanas = Math.max(Number(plano?.numeroSemanasTratamento) || 0, evolucaoOrdenadaBase.length);
-  const primeiraDosePlano = obterPrimeiraDosePlano(plano);
+
+  const proto = protocoloPorIndice(paciente, opts?.protocoloIndice);
+  const inicioCiclo = proto.semanaInicioCiclo;
+  const numeroSemanas = proto.numeroSemanasTratamento;
+  const planoCiclo: PlanoComConclusao = {
+    numeroSemanasTratamento: numeroSemanas,
+    currentDoseMg: proto.currentDoseMg,
+    esquemaDosesCustomizado: proto.esquemaDosesCustomizado,
+    semanasCanceladas: proto.semanasCanceladas,
+    startDate: proto.startDate,
+    dataInicioTratamento: proto.dataInicioTratamento,
+    injectionDayOfWeek: proto.injectionDayOfWeek,
+    conclusaoTratamento: proto.conclusaoTratamento as PlanoComConclusao['conclusaoTratamento'],
+  };
+  const primeiraDosePlano = obterPrimeiraDosePlano(planoCiclo);
+  const dosesPlano = dosesMgPlanoExibido(paciente, proto);
   const semanasCanceladas = new Set(
-    Array.isArray(plano?.semanasCanceladas)
-      ? plano!.semanasCanceladas!.map((w) => Number(w)).filter((w) => Number.isFinite(w) && w > 0)
+    Array.isArray(proto.semanasCanceladas)
+      ? proto.semanasCanceladas.map((w) => Number(w)).filter((w) => Number.isFinite(w) && w > 0)
       : []
   );
   const evolucaoOrdenada =
     numeroSemanas > 0
       ? Array.from({ length: numeroSemanas }, (_, idx) => {
-          const semana = idx + 1;
-          const atual = evolucaoOrdenadaBase.find((p) => p.weekIndex === semana);
-          const dosePlanejada = semanasCanceladas.has(semana)
-            ? 0
-            : calcularDosePlanejadaSemana({
-                semana,
-                plano,
-                evolucaoRaw,
-                primeiraDose: primeiraDosePlano,
-              });
-          return (
-            atual ?? {
-              weekIndex: semana,
-              peso: null,
+          const semanaGlobal = inicioCiclo + idx;
+          const semanaRelativa = idx + 1;
+          const atual = evolucaoOrdenadaBase.find((p) => p.weekIndex === semanaGlobal);
+          const esquema = proto.esquemaDosesCustomizado as Record<string | number, unknown> | undefined;
+          const customRaw = esquema?.[semanaGlobal] ?? esquema?.[String(semanaGlobal)];
+          const customDose = parseDoseNumber(customRaw);
+          const doseDoPlano = dosesPlano?.[idx];
+          const dosePlanejada =
+            doseDoPlano != null
+              ? doseDoPlano
+              : semanasCanceladas.has(semanaGlobal)
+                ? 0
+                : customDose != null && customDose > 0
+                  ? customDose
+                  : calcularDosePlanejadaSemana({
+                      semana: semanaRelativa,
+                      plano: { ...planoCiclo, esquemaDosesCustomizado: undefined },
+                      evolucaoRaw,
+                      primeiraDose: primeiraDosePlano,
+                    });
+          if (atual) {
+            return {
+              ...atual,
+              weekIndex: semanaRelativa,
               doseMg: dosePlanejada,
-              foiAplicado: false,
-              circunferenciaAbdominal: null,
-            }
-          );
+            };
+          }
+          return {
+            weekIndex: semanaRelativa,
+            peso: null,
+            doseMg: dosePlanejada,
+            foiAplicado: false,
+            circunferenciaAbdominal: null,
+          };
         })
-      : evolucaoOrdenadaBase;
+      : evolucaoOrdenadaBase.map((p) => ({
+          ...p,
+          weekIndex: p.weekIndex - inicioCiclo + 1,
+        }));
 
-  let pesoInicialKg: number | null = null;
-  let pesoAtualKg: number | null = null;
-  const primeiroPesoValido = evolucaoOrdenada.find((p) => p.peso != null && p.peso > 0)?.peso ?? null;
+  const medidas = paciente.dadosClinicos?.medidasIniciais;
+  const registroSemana1Ciclo = evolucaoOrdenadaBase.find((p) => p.weekIndex === inicioCiclo);
+  const primeiroPesoNoCiclo =
+    registroSemana1Ciclo?.peso ??
+    evolucaoOrdenada.find((p) => p.peso != null && p.peso > 0)?.peso ??
+    null;
   const ultimoPesoValido = [...evolucaoOrdenada].reverse().find((p) => p.peso != null && p.peso > 0)?.peso ?? null;
+  const conclusaoPeso =
+    typeof proto.conclusaoTratamento?.pesoFinalKg === 'number'
+      ? (proto.conclusaoTratamento.pesoFinalKg as number)
+      : null;
 
-  if (evolucaoOrdenada.length > 0) {
-    pesoInicialKg = primeiroPesoValido;
-    pesoAtualKg = ultimoPesoValido;
-  } else {
-    const medidas = paciente.dadosClinicos?.medidasIniciais;
-    pesoInicialKg = typeof medidas?.peso === 'number' ? medidas.peso : null;
-    const conclusaoPeso = plano?.conclusaoTratamento?.pesoFinalKg;
-    pesoAtualKg = typeof conclusaoPeso === 'number' ? conclusaoPeso : pesoInicialKg;
+  let pesoInicialKg: number | null = primeiroPesoNoCiclo;
+  if (pesoInicialKg == null && inicioCiclo === 1 && typeof medidas?.peso === 'number') {
+    pesoInicialKg = medidas.peso;
   }
+  let pesoAtualKg: number | null = ultimoPesoValido ?? conclusaoPeso;
+  if (pesoAtualKg == null && inicioCiclo === 1) pesoAtualKg = pesoInicialKg;
+
+  const primeiraCircNoCiclo =
+    registroSemana1Ciclo?.circunferenciaAbdominal ??
+    evolucaoOrdenada.find((p) => p.circunferenciaAbdominal != null)?.circunferenciaAbdominal ??
+    null;
+  let comprimentoAbdominalInicialCm: number | null = primeiraCircNoCiclo;
+  if (
+    comprimentoAbdominalInicialCm == null &&
+    inicioCiclo === 1 &&
+    typeof medidas?.circunferenciaAbdominal === 'number'
+  ) {
+    comprimentoAbdominalInicialCm = medidas.circunferenciaAbdominal;
+  }
+  const ultimaCirc =
+    [...evolucaoOrdenada].reverse().find((p) => p.circunferenciaAbdominal != null)?.circunferenciaAbdominal ??
+    null;
+  const conclusaoCirc = proto.conclusaoTratamento?.circunferenciaAbdominalFinalCm;
+  const comprimentoAbdominalAtualCm =
+    ultimaCirc ?? (typeof conclusaoCirc === 'number' && conclusaoCirc > 0 ? conclusaoCirc : null);
 
   let perdaTotalKg: number | null = null;
   let perdaPercentual: number | null = null;
-  const comprimentoAbdominalInicialCm =
-    typeof paciente.dadosClinicos?.medidasIniciais?.circunferenciaAbdominal === 'number'
-      ? paciente.dadosClinicos.medidasIniciais.circunferenciaAbdominal
-      : null;
-  const ultimaCirc = [...evolucaoOrdenada].reverse().find((p) => p.circunferenciaAbdominal != null)?.circunferenciaAbdominal ?? null;
-  const conclusaoCirc = plano?.conclusaoTratamento?.circunferenciaAbdominalFinalCm;
-  const comprimentoAbdominalAtualCm = ultimaCirc ?? (typeof conclusaoCirc === 'number' && conclusaoCirc > 0 ? conclusaoCirc : null);
   if (pesoInicialKg != null && pesoAtualKg != null) {
     perdaTotalKg = pesoInicialKg - pesoAtualKg;
     perdaPercentual = pesoInicialKg > 0 ? (perdaTotalKg / pesoInicialKg) * 100 : null;
@@ -235,12 +361,27 @@ export function buildDepoimentoResultadoFromPaciente(
       ? (perdaAbdominalCm / comprimentoAbdominalInicialCm) * 100
       : null;
 
-  const evolucao = evolucaoOrdenada.map((p) => ({
-    weekIndex: p.weekIndex,
-    peso: p.peso,
-    doseMg: p.doseMg,
-    foiAplicado: p.foiAplicado,
-  }));
+  const pacienteMetas = {
+    ...paciente,
+    planoTerapeutico: { ...(paciente.planoTerapeutico || {}), metas: proto.metas || { } },
+  } as PacienteCompleto;
+  const metaPesoKgLoss =
+    pesoInicialKg != null && pesoInicialKg > 0
+      ? resolveMetaPesoKgLoss(pacienteMetas, pesoInicialKg)
+      : null;
+  const metaAbdominalCmLoss = resolveMetaAbdominalCmLoss(pacienteMetas);
+
+  const evolucao = anexarPontoConclusao(
+    evolucaoOrdenada.map((p) => ({
+      weekIndex: p.weekIndex,
+      peso: p.peso,
+      doseMg: p.doseMg,
+      foiAplicado: p.foiAplicado,
+      circunferenciaCm: p.circunferenciaAbdominal,
+    })),
+    conclusaoPeso,
+    typeof conclusaoCirc === 'number' ? conclusaoCirc : null
+  );
 
   return {
     pacienteId: paciente.id,
@@ -258,6 +399,9 @@ export function buildDepoimentoResultadoFromPaciente(
     perdaAbdominalCm,
     perdaPercentualAbdominal,
     evolucao,
+    protocoloIndice: proto.indice,
+    metaPesoKgLoss,
+    metaAbdominalCmLoss,
   };
 }
 
@@ -276,12 +420,15 @@ export function buildDepoimentoResultadoFromDepoimentoSlide(
   const cidadeEstado = cidade && estado ? `${cidade}-${estado}` : cidade || estado || null;
   const idade = calcularIdadeDepoimentoMeta(paciente.dadosIdentificacao?.dataNascimento);
 
-  const evolucao = slide.evolucaoSnapshot.map((p) => ({
-    weekIndex: p.weekIndex,
-    peso: p.peso > 0 ? p.peso : null,
-    doseMg: p.doseMg,
-    foiAplicado: p.doseMg > 0,
-  }));
+  const evolucao = anexarPontoConclusao(
+    slide.evolucaoSnapshot.map((p) => ({
+      weekIndex: p.weekIndex,
+      peso: p.peso > 0 ? p.peso : null,
+      doseMg: p.doseMg,
+      foiAplicado: p.doseMg > 0,
+    })),
+    typeof slide.pesoFinalKg === 'number' ? slide.pesoFinalKg : null
+  );
 
   let pesoInicialKg = slide.pesoInicialKg;
   let pesoAtualKg = slide.pesoAtualKg;

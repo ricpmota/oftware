@@ -9,9 +9,13 @@ export interface PagamentoPaciente {
   valorPendente: number;
   parcelas?: ParcelaPagamento[];
   observacoes?: string;
+  /** Observação detalhada por venda (índice 0 = Venda Inicial, 1 = Venda 2...). */
+  observacoesPorVenda?: Record<string, ObservacaoVenda>;
   dataUltimaAtualizacao: Date;
   dataVencimento?: Date;
   dataPagamento?: Date;
+  /** Data da venda inicial (opcional; usado no Controle Financeiro). */
+  dataVenda?: Date;
 }
 
 export interface ParcelaPagamento {
@@ -38,10 +42,57 @@ export interface VendaAvulsa {
   valorPendente: number;
   parcelas?: ParcelaPagamento[];
   observacoes?: string;
+  /** Composição detalhada desta venda avulsa (aplicações, injetáveis, consulta, outros). */
+  observacaoVenda?: ObservacaoVenda;
   dataUltimaAtualizacao: Date;
   dataVencimento?: Date;
   dataPagamento?: Date;
   dataVenda: Date;
   medicoId: string; // ID do médico que criou a venda
 }
+
+export type ObservacaoVendaPasta = 'aplicacoes' | 'injetaveis' | 'consulta' | 'outros';
+
+export type ObservacaoVendaAplicacaoItem = {
+  id: string;
+  quantidade: number;
+  mg: number;
+  valorUnitario: number;
+  valorTotal: number;
+};
+
+export type ObservacaoVendaInjetavelItem = {
+  id: string;
+  tipo: string;
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+};
+
+export type ObservacaoVendaConsultaItem = {
+  id: string;
+  descricao: string;
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+};
+
+export type ObservacaoVendaOutroItem = {
+  id: string;
+  descricao: string;
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+};
+
+export type ObservacaoVenda = {
+  aplicacoes: ObservacaoVendaAplicacaoItem[];
+  notasAplicacoes?: string;
+  injetaveis: ObservacaoVendaInjetavelItem[];
+  notasInjetaveis?: string;
+  consultas: ObservacaoVendaConsultaItem[];
+  notasConsulta?: string;
+  outros: ObservacaoVendaOutroItem[];
+  notasOutros?: string;
+};
 

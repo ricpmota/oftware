@@ -6,6 +6,7 @@ export default defineConfig({
     environment: 'node',
     include: [
       'lib/**/*.spec.ts',
+      'utils/**/*.spec.ts',
       'services/**/*.spec.ts',
       'components/**/*.spec.ts',
       'app/**/*.spec.ts',

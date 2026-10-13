@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import { getQuestoesByIds } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoCatalogItem } from '@/types/oftpayQuestaoCatalog';
+import { auth } from '@/lib/firebase';
 import {
   createSimulado,
   deleteSimulado,
@@ -38,6 +41,7 @@ import {
 import SimuladoSubjectListPicker from './SimuladoSubjectListPicker';
 import SimuladoSmartSearchBuilder from './SimuladoSmartSearchBuilder';
 import AlunoResourceFolders, { type AlunoResourceFolderId } from './AlunoResourceFolders';
+import AlunoAssuntosQuestoesStrip from './AlunoAssuntosQuestoesStrip';
 import SimuladoChatDuvidasPanel from './SimuladoChatDuvidasPanel';
 import {
   getQuestaoCapituloDisplay,
@@ -65,7 +69,7 @@ type PanelView = 'home' | 'run' | 'result';
 interface OftpaySimuladoPanelProps {
   userId: string | null;
   userEmail?: string | null;
-  publicadas: OftpayQuestaoDoc[];
+  publicadas: OftpayQuestaoCatalogItem[];
   loadingPublicadas: boolean;
   onPerformanceRefresh?: () => void;
   /** Integrado na Área do Aluno — sem cabeçalho de aba separada. */
@@ -279,6 +283,7 @@ export default function OftpaySimuladoPanel({
   const [creating, setCreating] = useState(false);
 
   const [activeSimulado, setActiveSimulado] = useState<OftpaySimuladoDoc | null>(null);
+  const [runQuestions, setRunQuestions] = useState<OftpayQuestaoDoc[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answersMap, setAnswersMap] = useState<
     Map<string, { letra: AlternativaLetra; acertou: boolean }>
@@ -343,12 +348,7 @@ export default function OftpaySimuladoPanel({
     }
   }, [publicadas]);
 
-  const activeQuestions = useMemo(() => {
-    if (!activeSimulado) return [];
-    return activeSimulado.questionIds
-      .map((id) => publicadas.find((q) => q.id === id))
-      .filter((q): q is OftpayQuestaoDoc => Boolean(q));
-  }, [activeSimulado, publicadas]);
+  const activeQuestions = runQuestions;
 
   const currentQuestion = activeQuestions[currentIndex] ?? null;
 
@@ -461,7 +461,15 @@ export default function OftpaySimuladoPanel({
     setLoadingRun(true);
     setRunError(null);
     try {
-      const answers = await listSimuladoAnswers(simulado.id);
+      const user = auth.currentUser;
+      if (!user) throw new Error('Faça login para abrir o simulado.');
+      const [answers, questions] = await Promise.all([
+        listSimuladoAnswers(simulado.id),
+        getQuestoesByIds(simulado.questionIds, () => user.getIdToken()),
+      ]);
+      if (questions.length === 0) {
+        throw new Error('Não foi possível carregar as questões deste simulado.');
+      }
       const map = new Map<string, { letra: AlternativaLetra; acertou: boolean }>();
       for (const ans of answers) {
         map.set(ans.questionId, {
@@ -470,6 +478,7 @@ export default function OftpaySimuladoPanel({
         });
       }
       setAnswersMap(map);
+      setRunQuestions(questions);
       setActiveSimulado(simulado);
       const firstUnanswered = simulado.questionIds.findIndex((qid) => !map.has(qid));
       setCurrentIndex(firstUnanswered >= 0 ? firstUnanswered : 0);
@@ -543,6 +552,7 @@ export default function OftpaySimuladoPanel({
   const backToHome = () => {
     setView('home');
     setActiveSimulado(null);
+    setRunQuestions([]);
     setResultSimulado(null);
     setRunError(null);
     setCreateError(null);
@@ -561,6 +571,7 @@ export default function OftpaySimuladoPanel({
     }
     setView('home');
     setActiveSimulado(null);
+    setRunQuestions([]);
     setRunError(null);
     void loadSimulados();
   };
@@ -884,6 +895,7 @@ export default function OftpaySimuladoPanel({
               <BookOpen className="w-8 h-8 text-white/90" />
             </div>
           </div>
+          <AlunoAssuntosQuestoesStrip publicadas={publicadas} loading={loadingPublicadas} />
         </div>
       )}
 
@@ -972,7 +984,6 @@ export default function OftpaySimuladoPanel({
             </div>
 
             <SimuladoSubjectListPicker
-              publicadas={publicadas}
               groups={subjectGroups}
               onGroupsChange={setSubjectGroups}
             />

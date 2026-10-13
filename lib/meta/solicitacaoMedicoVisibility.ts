@@ -22,7 +22,8 @@ export function solicitacaoMedicoVisivelParaMedico(
 
 
 
-/** Aceitar só quando o paciente concluiu o cadastro inicial no app. */
+/** Aceitar normalmente só quando o paciente concluiu o cadastro inicial no app.
+ *  O médico ainda pode forçar o aceite e completar as etapas pendentes no metaadmin. */
 
 export function solicitacaoMedicoPodeSerAceita(
 

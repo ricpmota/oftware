@@ -238,7 +238,8 @@ export async function createPlanoEasySignPatientLink(args: {
 
     const envelope = await createBryEasySignEnvelope(
       {
-        name: `Plano Terapêutico - ${nomePaciente}`,
+        // BRy name/clientName: máx. 50 chars (sanitize no client)
+        name: `Plano - ${nomePaciente}`,
         clientName: medicoNome,
         pdfBuffer,
         signer: {

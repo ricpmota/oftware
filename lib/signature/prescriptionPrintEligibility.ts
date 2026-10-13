@@ -13,20 +13,15 @@ import { SANDBOX_MOCK_PROVIDER_ID } from '@/types/doctorSignatureProvider';
 export const PRESCRIPTION_PRINT_PROFILE_SETUP_MESSAGE =
   'Configure e conecte um provedor de assinatura digital em Meu Perfil para usar esta opção.';
 
-export const PRESCRIPTION_PRINT_SIGNED_RECIBO_DISABLED =
-  'Assinatura digital simulada disponível apenas para prescrições médicas (não recibo).';
-
 export type PrescriptionSignedPrintEligibility =
   | { allowed: true; mode: 'sandbox' }
   | { allowed: true; mode: 'bry_cloud'; sessionReconnectRecommended?: boolean }
   | { allowed: false; message: string };
 
-/** Habilita o botão “Gerar PDF com assinatura digital” no modal de prescrição. */
+/** Habilita o botão “Gerar PDF com assinatura digital” no modal de prescrição/recibo. */
 export function isPrescriptionSignedPrintButtonEnabled(
-  providerConfig: DoctorSignatureProvider | null | undefined,
-  options?: { isRecibo?: boolean }
+  providerConfig: DoctorSignatureProvider | null | undefined
 ): boolean {
-  if (options?.isRecibo) return false;
   if (!providerConfig || providerConfig.provider === 'none') return false;
   if (
     isPhysicalCertificateProvider(providerConfig.provider) ||
@@ -38,13 +33,8 @@ export function isPrescriptionSignedPrintButtonEnabled(
 }
 
 export function getPrescriptionSignedPrintEligibility(
-  providerConfig: DoctorSignatureProvider | null | undefined,
-  options?: { isRecibo?: boolean }
+  providerConfig: DoctorSignatureProvider | null | undefined
 ): PrescriptionSignedPrintEligibility {
-  if (options?.isRecibo) {
-    return { allowed: false, message: PRESCRIPTION_PRINT_SIGNED_RECIBO_DISABLED };
-  }
-
   if (!providerConfig || providerConfig.provider === 'none') {
     return { allowed: false, message: PRESCRIPTION_PRINT_PROFILE_SETUP_MESSAGE };
   }

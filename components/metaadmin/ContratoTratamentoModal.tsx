@@ -63,6 +63,10 @@ export type ContratoTratamentoModalProps = {
 
   zIndexClass?: string;
 
+  /** Renderiza como painel da aba (sem overlay/portal), dentro do modal do paciente. */
+
+  embedded?: boolean;
+
 };
 
 
@@ -94,6 +98,8 @@ export default function ContratoTratamentoModal({
   onDocumentoAtualizado,
 
   zIndexClass = 'z-[10050]',
+
+  embedded = false,
 
 }: ContratoTratamentoModalProps) {
 
@@ -348,7 +354,7 @@ export default function ContratoTratamentoModal({
 
   useEffect(() => {
 
-    if (!open) return;
+    if (!open || embedded) return;
 
     const prev = document.body.style.overflow;
 
@@ -370,7 +376,7 @@ export default function ContratoTratamentoModal({
 
     };
 
-  }, [open, onClose]);
+  }, [open, embedded, onClose]);
 
 
 
@@ -604,7 +610,9 @@ export default function ContratoTratamentoModal({
 
 
 
-  if (!open || typeof document === 'undefined') return null;
+  if (!open) return null;
+
+  if (!embedded && typeof document === 'undefined') return null;
 
 
 
@@ -614,33 +622,27 @@ export default function ContratoTratamentoModal({
 
 
 
-  return createPortal(
-
-    <>
-
-      <div
-
-        className={`fixed inset-0 ${zIndexClass} flex items-stretch justify-center sm:items-center sm:p-4 bg-black/50`}
-
-        role="presentation"
-
-        onClick={onClose}
-
-      >
+  const panel = (
 
         <div
 
-          role="dialog"
+          role={embedded ? 'region' : 'dialog'}
 
-          aria-modal="true"
+          aria-modal={embedded ? undefined : 'true'}
 
           aria-labelledby="contrato-tratamento-titulo"
 
-          className="bg-white text-gray-900 flex flex-col overflow-hidden border-gray-200
+          className={
 
-            h-[100dvh] max-h-[100dvh] w-full min-h-0 sm:h-auto sm:max-h-[min(90vh,800px)] sm:max-w-2xl sm:rounded-xl shadow-2xl sm:border"
+            embedded
 
-          onClick={(e) => e.stopPropagation()}
+              ? 'bg-white text-gray-900 flex flex-col overflow-hidden h-full min-h-0 w-full rounded-xl border border-gray-200 shadow-sm'
+
+              : 'bg-white text-gray-900 flex flex-col overflow-hidden border-gray-200 h-[100dvh] max-h-[100dvh] w-full min-h-0 sm:h-auto sm:max-h-[min(90vh,800px)] sm:max-w-2xl sm:rounded-xl shadow-2xl sm:border'
+
+          }
+
+          onClick={embedded ? undefined : (e) => e.stopPropagation()}
 
         >
 
@@ -654,29 +656,37 @@ export default function ContratoTratamentoModal({
 
               </h3>
 
-              <p className="text-xs text-gray-600 mt-0.5">
+              {!embedded ? (
 
-                {paciente.dadosIdentificacao?.nomeCompleto || paciente.nome}
+                <p className="text-xs text-gray-600 mt-0.5">
 
-              </p>
+                  {paciente.dadosIdentificacao?.nomeCompleto || paciente.nome}
+
+                </p>
+
+              ) : null}
 
             </div>
 
-            <button
+            {!embedded ? (
 
-              type="button"
+              <button
 
-              onClick={onClose}
+                type="button"
 
-              className="p-2 rounded-lg text-gray-600 hover:bg-gray-200"
+                onClick={onClose}
 
-              aria-label="Fechar"
+                className="p-2 rounded-lg text-gray-600 hover:bg-gray-200"
 
-            >
+                aria-label="Fechar"
 
-              <X className="h-5 w-5" />
+              >
 
-            </button>
+                <X className="h-5 w-5" />
+
+              </button>
+
+            ) : null}
 
           </div>
 
@@ -962,9 +972,29 @@ export default function ContratoTratamentoModal({
 
         </div>
 
-      </div>
+  );
 
-    </>,
+
+
+  if (embedded) return panel;
+
+
+
+  return createPortal(
+
+    <div
+
+      className={`fixed inset-0 ${zIndexClass} flex items-stretch justify-center sm:items-center sm:p-4 bg-black/50`}
+
+      role="presentation"
+
+      onClick={onClose}
+
+    >
+
+      {panel}
+
+    </div>,
 
     document.body
 

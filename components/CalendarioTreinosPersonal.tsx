@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, X, Calendar } from 'lucide-react';
 import { trainingSessionService } from '@/services/trainingSessionService';
 import type { TrainingSession, TrainingSessionExercise } from '@/types/trainingSession';
+import { isTrainingSessionActive } from '@/lib/personal/trainingSessionActive';
 import {
   translateExerciseName,
   translateTarget,
   translateEquipment,
 } from '@/data/exerciseTranslations';
+import { formatTrainingSeriesSummary } from '@/lib/personal/trainingExerciseSeries';
 
 type Visualizacao = 'mes' | 'semana';
 
@@ -104,7 +106,7 @@ export default function CalendarioTreinosPersonal({
           }
         }
       }
-      const list = Array.from(byId.values());
+      const list = Array.from(byId.values()).filter(isTrainingSessionActive);
       if (wideRange && typeof window !== 'undefined') {
         console.warn('[CalendarioTreinosPersonal] total sessoes', { patientId, pacienteId, idsToTry, count: list.length });
       }
@@ -305,8 +307,7 @@ export default function CalendarioTreinosPersonal({
                       </div>
                       {ex.prescription && (
                         <p className="mt-2 text-sm text-gray-600">
-                          {ex.prescription.sets} séries × {ex.prescription.reps} repetições • Descanso:{' '}
-                          {ex.prescription.restSec}s
+                          {formatTrainingSeriesSummary(ex.prescription)}
                         </p>
                       )}
                     </div>
@@ -559,7 +560,7 @@ function CalendarioMes({
                             <span className="text-gray-700 truncate">{translateExerciseName(ex.name)}</span>
                             {ex.prescription && (
                               <span className="text-xs text-gray-500 shrink-0">
-                                {ex.prescription.sets}×{ex.prescription.reps}
+                                {formatTrainingSeriesSummary(ex.prescription)}
                               </span>
                             )}
                           </li>
@@ -810,7 +811,7 @@ function CalendarioSemana({
                             <span className="text-gray-700 truncate">{translateExerciseName(ex.name)}</span>
                             {ex.prescription && (
                               <span className="text-xs text-gray-500 shrink-0">
-                                {ex.prescription.sets}×{ex.prescription.reps}
+                                {formatTrainingSeriesSummary(ex.prescription)}
                               </span>
                             )}
                           </li>

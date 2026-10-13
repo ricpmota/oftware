@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import { LeadEmailStatus } from '@/types/emailConfig';
 import { Mail, CheckCircle, XCircle, Clock, TrendingUp, Users, Send } from 'lucide-react';
 import { EmailTipo } from '@/types/emailConfig';
+import {
+  auditEmailEnviosClientTrigger,
+  EMAIL_ENVIOS_AUDIT_SITES,
+} from '@/lib/auditoria/emailEnviosAudit';
 
 export default function LeadsEmailDashboard() {
   const [status, setStatus] = useState<LeadEmailStatus[]>([]);
@@ -26,6 +30,14 @@ export default function LeadsEmailDashboard() {
   }, []);
 
   const loadStatus = async () => {
+    auditEmailEnviosClientTrigger({
+      siteId: EMAIL_ENVIOS_AUDIT_SITES.CLIENT_LEADS_EMAIL_DASHBOARD.id,
+      component: 'LeadsEmailDashboard',
+      hook: 'loadStatus',
+      page: '/metaadmingeral (EmailManagement → Gestão Visual)',
+      note: 'fetch GET /api/leads-email-status',
+    });
+
     setLoading(true);
     try {
       const response = await fetch('/api/leads-email-status');

@@ -17,6 +17,19 @@ export function useMedicoLeadsCrmTheme(): WhiteLabelCrmTheme {
   return theme;
 }
 
+/** Permite reutilizar componentes do CRM médico (ex.: TagManager) sob outro provider de tema. */
+export function MedicoLeadsCrmThemeBridge({
+  theme,
+  children,
+}: {
+  theme: WhiteLabelCrmTheme;
+  children: ReactNode;
+}) {
+  return (
+    <MedicoLeadsCrmThemeContext.Provider value={theme}>{children}</MedicoLeadsCrmThemeContext.Provider>
+  );
+}
+
 export function MedicoLeadsCrmProvider({
   children,
   themeVariant = 'metaadmin-dark',

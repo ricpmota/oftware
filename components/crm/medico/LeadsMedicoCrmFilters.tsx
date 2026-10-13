@@ -33,21 +33,21 @@ export default function LeadsMedicoCrmFilters({ filters, onChange, estados }: Pr
   const t = useMedicoLeadsCrmTheme();
 
   return (
-    <div className={`${t.panelBg} border ${t.panelBorder} rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2`}>
-      <div className="relative sm:col-span-2 lg:col-span-1">
+    <div className={`${t.panelBg} border ${t.panelBorder} grid grid-cols-1 gap-2 rounded-xl p-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-2 lg:rounded-2xl`}>
+      <div className="relative sm:col-span-2 lg:min-w-[16rem] lg:flex-1">
         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${t.inputIcon}`} />
         <input
           type="search"
           placeholder="Buscar nome, e-mail ou telefone..."
           value={filters.busca}
           onChange={(e) => onChange({ ...filters, busca: e.target.value })}
-          className={`${t.input} pl-9`}
+          className={`${t.input} pl-9 lg:h-10 lg:rounded-lg`}
         />
       </div>
       <select
         value={filters.status}
         onChange={(e) => onChange({ ...filters, status: e.target.value as LeadMedicoStatus | '' })}
-        className={t.input}
+        className={`${t.input} lg:h-10 lg:w-44 lg:shrink-0 lg:rounded-lg`}
       >
         <option value="">Todos os estágios</option>
         {LEAD_MEDICO_CRM_STAGES.map((s) => (
@@ -61,7 +61,7 @@ export default function LeadsMedicoCrmFilters({ filters, onChange, estados }: Pr
         onChange={(e) =>
           onChange({ ...filters, origem: e.target.value as MedicoCrmFiltersState['origem'] })
         }
-        className={t.input}
+        className={`${t.input} lg:h-10 lg:w-40 lg:shrink-0 lg:rounded-lg`}
       >
         {ORIGEM_OPTIONS.map((o) => (
           <option key={o.value || 'all'} value={o.value}>
@@ -72,7 +72,7 @@ export default function LeadsMedicoCrmFilters({ filters, onChange, estados }: Pr
       <select
         value={filters.estado}
         onChange={(e) => onChange({ ...filters, estado: e.target.value })}
-        className={t.input}
+        className={`${t.input} lg:h-10 lg:w-40 lg:shrink-0 lg:rounded-lg`}
       >
         <option value="">Todos os estados</option>
         {estados.map((uf) => (
@@ -84,7 +84,7 @@ export default function LeadsMedicoCrmFilters({ filters, onChange, estados }: Pr
       <select
         value={filters.minEstrelas}
         onChange={(e) => onChange({ ...filters, minEstrelas: e.target.value })}
-        className={t.input}
+        className={`${t.input} lg:h-10 lg:w-48 lg:shrink-0 lg:rounded-lg`}
       >
         <option value="">Qualquer classificação</option>
         <option value="1">1+ estrelas</option>

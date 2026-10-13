@@ -1,25 +1,24 @@
 /**
  * POST /api/chat
- * 1) Busca no Discovery Engine (search, não answer).
- * 2) Extrai trechos (snippets / extractive segments) dos resultados.
- * 3) Envia os trechos ao Gemini (Vertex AI) para reescrever como resposta clínica curta.
- * 4) Retorna apenas a resposta do Gemini.
+ * 1) Busca evidências nas apostilas (Discovery + fallback tópicos mapeados).
+ * 2) Envia ao Gemini (Vertex AI) para resposta clínica didática.
+ * 3) Retorna answer + sources.
  *
  * Configuração no Vercel:
  * - GOOGLE_VERTEX_CREDENTIALS_JSON: JSON da chave com Vertex AI / Discovery Engine.
- * - DISCOVERY_ENGINE_ID ou DISCOVERY_DATA_STORE_ID: ID do app de busca.
+ * - DISCOVERY_ENGINE_ID ou DISCOVERY_DATA_STORE_ID: ID do app de busca (recomendado).
  * Runtime: Node.js (não Edge).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { JWT } from 'google-auth-library';
 import { resolveGeminiModelId } from '@/lib/gcp/geminiConfig';
+import { getGoogleVertexCredentials, getVertexAccessToken } from '@/lib/gcp/googleVertexAuth';
 import { loadKnowledge } from '@/lib/knowledge/knowledgeLoader';
 import { buildKnowledgeBlock } from '@/lib/knowledge/buildKnowledgeBlock';
+import { searchApostilaEvidence } from '@/lib/oftpay/apostilaEvidenceSearch';
+import { buildApostilaRetrievalQuery, isApostilaProductQuestion } from '@/lib/oftpay/apostilaRetrievalQuery';
 
 export const runtime = 'nodejs';
-
-const DISCOVERY_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
 /** Limite de caracteres (Unicode) da base local; sobrescrever com CHAT_KNOWLEDGE_MAX_CHARS se necessário. */
 const CHAT_KNOWLEDGE_MAX_CHARS = Math.max(
@@ -28,9 +27,10 @@ const CHAT_KNOWLEDGE_MAX_CHARS = Math.max(
 );
 
 const GEMINI_SYSTEM_PROMPT = `Você é um médico preceptor ensinando para prova e prática clínica.
-Responda em português (Brasil), em Markdown, com tópicos curtos (bullets).
+Responda em português (Brasil), em Markdown, com bullets (-).
 Use sempre listas com - e não use * misturado.
-Não escreva parágrafos longos.
+Quando houver EVIDÊNCIAS suficientes, escreva de 4 a 8 bullets objetivos e didáticos (cada um com 1–3 frases).
+Não seja telegráfico: explique o raciocínio clínico quando as evidências permitirem.
 
 CONHECIMENTO_BASE (no início do contexto do usuário): regras do produto, contexto estrutural, linguagem, glossário e políticas internas. Não trate como citação factual de apostila nem use para afirmar conteúdo clínico que deva vir das apostilas indexadas.
 
@@ -51,152 +51,21 @@ Quando NÃO houver EVIDÊNCIAS:
 - Para conteúdo clínico ou factual de apostila: diga que não encontrou nas apostilas indexadas (não invente [n]).
 - Para dúvidas estruturais do produto, linguagem ou políticas internas: pode responder usando apenas o CONHECIMENTO_BASE, sem numerar como apostila.`;
 
-interface GoogleCreds {
-  projectId: string;
-  clientEmail: string;
-  privateKey: string;
-}
-
-function getCredentials(): GoogleCreds | null {
-  const jsonEnv = process.env.GOOGLE_VERTEX_CREDENTIALS_JSON;
-  if (jsonEnv) {
-    try {
-      const parsed = JSON.parse(jsonEnv) as { project_id?: string; client_email?: string; private_key?: string };
-      const key = typeof parsed.private_key === 'string' ? parsed.private_key.replace(/\\n/g, '\n') : '';
-      if (parsed.project_id && parsed.client_email && key) {
-        return { projectId: parsed.project_id, clientEmail: parsed.client_email, privateKey: key };
-      }
-    } catch (e) {
-      console.error('GOOGLE_VERTEX_CREDENTIALS_JSON parse error:', e);
-    }
-  }
-  const projectId = process.env.GOOGLE_PROJECT_ID;
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  const rawKey = process.env.GOOGLE_PRIVATE_KEY;
-  if (projectId && clientEmail && rawKey) {
-    return { projectId, clientEmail, privateKey: rawKey.replace(/\\n/g, '\n') };
-  }
-  return null;
-}
-
-function getAccessToken(creds: GoogleCreds): Promise<string> {
-  const client = new JWT({
-    email: creds.clientEmail,
-    key: creds.privateKey,
-    scopes: [DISCOVERY_SCOPE],
-  });
-  return client.authorize().then((t) => (t as { access_token?: string }).access_token || '');
-}
-
-/** Extrai texto dos resultados do search: derivedStructData (snippets, extractive), chunk.content */
-function extractSnippetsFromSearchResponse(data: Record<string, unknown>): string[] {
-  const results = data.results as Array<Record<string, unknown>> | undefined;
-  if (!Array.isArray(results)) return [];
-
-  const texts: string[] = [];
-  for (const r of results) {
-    const doc = r.document as Record<string, unknown> | undefined;
-    if (doc?.derivedStructData && typeof doc.derivedStructData === 'object') {
-      const d = doc.derivedStructData as Record<string, unknown>;
-      if (Array.isArray(d.snippets)) {
-        for (const s of d.snippets) {
-          const snip = typeof s === 'object' && s !== null && 'snippet' in s ? (s as { snippet?: string }).snippet : s;
-          if (typeof snip === 'string' && snip.trim()) texts.push(snip.trim());
-        }
-      }
-      if (Array.isArray(d.extractive_segments)) {
-        for (const seg of d.extractive_segments) {
-          const content = typeof seg === 'object' && seg !== null && 'content' in seg ? (seg as { content?: string }).content : seg;
-          if (typeof content === 'string' && content.trim()) texts.push(content.trim());
-        }
-      }
-      if (Array.isArray(d.extractive_answers)) {
-        for (const a of d.extractive_answers) {
-          const content = typeof a === 'object' && a !== null && 'content' in a ? (a as { content?: string }).content : a;
-          if (typeof content === 'string' && content.trim()) texts.push(content.trim());
-        }
-      }
-    }
-    const chunk = r.chunk as Record<string, unknown> | undefined;
-    if (chunk && typeof chunk.content === 'string' && chunk.content.trim()) {
-      texts.push(chunk.content.trim());
-    }
-  }
-  return [...new Set(texts)];
-}
-
-const MAX_SOURCES = 6;
-
-export interface Source {
+export type Source = {
   id: number;
   title: string;
   snippet: string;
   page?: number;
   uri?: string;
-}
+  docId?: string;
+};
 
-/** Extrai fontes dos resultados do search. Deduplica por (title+snippet), limita a MAX_SOURCES, ordenado por relevância (ordem do search). */
-function extractSourcesFromSearchResponse(data: Record<string, unknown>): Source[] {
-  const results = data.results as Array<Record<string, unknown>> | undefined;
-  if (!Array.isArray(results)) return [];
-
-  const seen = new Set<string>();
-  const raw: { title: string; snippet: string; page?: number; uri?: string }[] = [];
-
-  for (const r of results) {
-    if (raw.length >= MAX_SOURCES) break;
-
-    const doc = r.document as Record<string, unknown> | undefined;
-    const chunk = r.chunk as Record<string, unknown> | undefined;
-    const docMeta = chunk?.documentMetadata as Record<string, unknown> | undefined;
-    const title = (typeof docMeta?.title === 'string' ? docMeta.title : null) ??
-      (doc?.derivedStructData && typeof doc.derivedStructData === 'object' && (doc.derivedStructData as Record<string, unknown>).title) as string | undefined ??
-      (typeof doc?.title === 'string' ? doc.title : null) ?? 'Apostila';
-    const pageIdentifier = docMeta?.pageIdentifier;
-    const pageNum = typeof pageIdentifier === 'number' && Number.isFinite(pageIdentifier)
-      ? pageIdentifier
-      : typeof pageIdentifier === 'string'
-        ? parseInt(pageIdentifier.replace(/\D/g, ''), 10) || undefined
-        : undefined;
-    const uri = typeof docMeta?.uri === 'string' ? docMeta.uri : (doc?.derivedStructData && typeof doc.derivedStructData === 'object' && (doc.derivedStructData as Record<string, unknown>).link) as string | undefined ?? undefined;
-
-    const push = (snippet: string) => {
-      const key = `${title}\0${snippet}`;
-      if (!snippet.trim() || seen.has(key)) return;
-      seen.add(key);
-      raw.push({ title, snippet: snippet.trim(), ...(pageNum != null && { page: pageNum }), ...(uri && { uri }) });
-    };
-
-    if (doc?.derivedStructData && typeof doc.derivedStructData === 'object') {
-      const d = doc.derivedStructData as Record<string, unknown>;
-      if (Array.isArray(d.snippets)) {
-        for (const s of d.snippets) {
-          const snip = typeof s === 'object' && s !== null && 'snippet' in s ? (s as { snippet?: string }).snippet : s;
-          if (typeof snip === 'string') push(snip);
-        }
-      }
-      if (Array.isArray(d.extractive_segments)) {
-        for (const seg of d.extractive_segments) {
-          const content = typeof seg === 'object' && seg !== null && 'content' in seg ? (seg as { content?: string }).content : seg;
-          if (typeof content === 'string') push(content);
-        }
-      }
-      if (Array.isArray(d.extractive_answers)) {
-        for (const a of d.extractive_answers) {
-          const content = typeof a === 'object' && a !== null && 'content' in a ? (a as { content?: string }).content : a;
-          if (typeof content === 'string') push(content);
-        }
-      }
-    }
-    if (chunk && typeof chunk.content === 'string') push(chunk.content);
-  }
-
-  return raw.slice(0, MAX_SOURCES).map((s, i) => ({ ...s, id: i + 1 }));
-}
+const NO_EVIDENCE_ANSWER =
+  'Não encontrei essa informação nas apostilas disponíveis. Tente reformular a pergunta com o nome da doença, da estrutura ou do exame.';
 
 export async function POST(request: NextRequest) {
   try {
-    const creds = getCredentials();
+    const creds = getGoogleVertexCredentials();
     if (!creds) {
       return NextResponse.json(
         { error: 'Discovery Engine não configurado.', hint: 'Defina GOOGLE_VERTEX_CREDENTIALS_JSON no Vercel.' },
@@ -204,65 +73,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const dataStoreId = process.env.DISCOVERY_DATA_STORE_ID;
-    const engineId = process.env.DISCOVERY_ENGINE_ID;
-    if (!dataStoreId && !engineId) {
-      return NextResponse.json(
-        { error: 'Discovery Engine não configurado.', hint: 'Defina DISCOVERY_DATA_STORE_ID ou DISCOVERY_ENGINE_ID no Vercel.' },
-        { status: 500 }
-      );
-    }
-
     const body = await request.json().catch(() => ({}));
     const message = typeof body.message === 'string' ? body.message.trim() : '';
     const conversationId = typeof body.conversationId === 'string' ? body.conversationId.trim() : undefined;
+    const priorUserMessages = Array.isArray(body.priorUserMessages)
+      ? body.priorUserMessages
+          .filter((item: unknown): item is string => typeof item === 'string')
+          .map((item: string) => item.trim())
+          .filter(Boolean)
+          .slice(-4)
+      : [];
     if (!message) {
       return NextResponse.json({ error: 'Campo "message" é obrigatório.' }, { status: 400 });
     }
 
-    const accessToken = await getAccessToken(creds);
-    const servingPath = engineId
-      ? `engines/${engineId}/servingConfigs/default_search`
-      : `dataStores/${dataStoreId}/servingConfigs/default_search`;
-    const searchUrl = `https://discoveryengine.googleapis.com/v1/projects/${creds.projectId}/locations/global/collections/default_collection/${servingPath}:search`;
+    const surface = typeof body.surface === 'string' ? body.surface.trim() : 'general';
+    const retrievalQuery =
+      surface === 'chatnutri' ? message : buildApostilaRetrievalQuery(message, priorUserMessages);
+    const evidence = await searchApostilaEvidence(retrievalQuery);
+    const { sources, evidenceText, evidenceSource, discoveryResultCount } = evidence;
 
-    // 1) Discovery Engine search (não answer)
-    const searchPayload = {
-      query: message,
-      pageSize: 10,
-      contentSearchSpec: {
-        snippetSpec: { returnSnippet: true },
-        extractiveContentSpec: {
-          maxExtractiveSegmentCount: 8,
-        },
-      },
-    };
-
-    const searchRes = await fetch(searchUrl, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(searchPayload),
-    });
-
-    const searchData = await searchRes.json().catch(() => ({}));
-    if (!searchRes.ok) {
-      const errMsg = (searchData as { error?: { message?: string } }).error?.message || searchRes.statusText;
-      console.error('Discovery Engine search error:', searchRes.status, errMsg, searchData);
-      return NextResponse.json(
-        { error: 'Falha ao obter resposta do assistente. Tente novamente.' },
-        { status: searchRes.status >= 500 ? 502 : 400 }
-      );
+    if (surface !== 'chatnutri' && !evidence.evidenceText.trim() && !isApostilaProductQuestion(message)) {
+      const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() || '-' : '-';
+      return NextResponse.json({
+        answer: NO_EVIDENCE_ANSWER,
+        sessionId,
+        relatedQuestions: [],
+        sources: [],
+        ...(conversationId && { conversationId }),
+      });
     }
-
-    // 2) Extrair fontes (id 1..N) e montar bloco EVIDÊNCIAS para o Gemini
-    const searchPayloadTyped = searchData as Record<string, unknown>;
-    const snippets = extractSnippetsFromSearchResponse(searchPayloadTyped);
-    const sources = extractSourcesFromSearchResponse(searchPayloadTyped);
-    const evidenceText = sources.length > 0
-      ? sources.map((s) => `[${s.id}] ${s.title}\n${s.snippet}`).join('\n\n')
-      : snippets.length > 0
-        ? snippets.join('\n\n---\n\n')
-        : '';
 
     const knowledge = await loadKnowledge({
       surface: 'oftreview',
@@ -273,28 +113,35 @@ export async function POST(request: NextRequest) {
       ? `${knowledgeText.trim()}\n\n---\n\n`
       : '';
 
-    console.info('[api/chat] local knowledge', {
-      sourceCount: knowledge.sources.length,
-      knowledgeTextChars: knowledgeText.length,
+    console.info('[api/chat] evidence', {
+      evidenceSource,
+      discoveryResultCount,
+      sourceCount: sources.length,
+      knowledgeSourceCount: knowledge.sources.length,
+      retrievalRewritten: retrievalQuery !== message,
     });
 
-    // 3) Gemini (Vertex AI Generative API)
+    const accessToken = await getVertexAccessToken(creds);
     const location = process.env.VERTEX_AI_LOCATION || 'us-central1';
     const geminiModel = resolveGeminiModelId();
     const geminiUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${creds.projectId}/locations/${location}/publishers/google/models/${geminiModel}:generateContent`;
 
     let userPrompt: string;
     if (evidenceText) {
-      userPrompt = `${knowledgePrefix}EVIDÊNCIAS:\n\n${evidenceText}\n\n---\n\nPergunta: ${message}`;
+      const evidenceLabel =
+        evidenceSource === 'mapped_topics'
+          ? 'EVIDÊNCIAS (tópicos mapeados das apostilas — use como base factual):'
+          : 'EVIDÊNCIAS (trechos das apostilas indexadas):';
+      userPrompt = `${knowledgePrefix}${evidenceLabel}\n\n${evidenceText}\n\n---\n\nPergunta: ${message}`;
     } else if (knowledgePrefix) {
       userPrompt =
         `${knowledgePrefix}` +
-        `Não há EVIDÊNCIAS (trechos do Discovery) para esta pergunta.\n` +
-        `Para conteúdo clínico ou factual de apostila, diga que não encontrou nas apostilas indexadas.\n` +
+        `Não há EVIDÊNCIAS das apostilas para esta pergunta.\n` +
+        `Para conteúdo clínico ou factual de apostila, diga que não encontrou nas apostilas indexadas e sugira reformular com termos mais específicos (doença, estrutura, exame).\n` +
         `Para dúvidas estruturais do produto, linguagem ou políticas internas, use apenas o CONHECIMENTO_BASE acima.\n\n` +
         `Pergunta: ${message}`;
     } else {
-      userPrompt = `Não há evidências indexadas para esta pergunta. Responda apenas: "Não encontrei isso nas apostilas indexadas."`;
+      userPrompt = `Não há evidências indexadas para esta pergunta. Responda apenas: "Não encontrei isso nas apostilas indexadas. Tente reformular com termos mais específicos (ex.: nome da doença ou do exame)."`;
     }
 
     const geminiPayload = {
@@ -306,7 +153,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       generationConfig: {
-        maxOutputTokens: 512,
+        maxOutputTokens: 2048,
         temperature: 0.3,
       },
     };

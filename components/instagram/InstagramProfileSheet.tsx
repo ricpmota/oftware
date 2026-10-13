@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Check, X } from 'lucide-react';
 import InstagramFounderWhatsAppPicker from '@/components/instagram/InstagramFounderWhatsAppPicker';
+import InstagramQuestionnaireGateModal from '@/components/instagram/InstagramQuestionnaireGateModal';
 import {
   ACCENT_STYLES,
   type InstagramFounderItem,
@@ -12,11 +13,61 @@ import {
 } from '@/components/instagram/instagramHubData';
 import { resolveInstagramHubIcon } from '@/components/instagram/resolveInstagramHubIcon';
 import { trackInstagramHubProfileEvent } from '@/lib/analytics/instagramHubAnalytics';
+import type { InstagramFounderContactProfile } from '@/lib/landing/instagramFounderWhatsApp';
+import { isInstagramFounderContactProfile } from '@/lib/whiteLabel/whiteLabelInstagramFlow';
 
 type Props = {
   item: InstagramHubItem | null;
   onClose: () => void;
   enableAnalytics?: boolean;
+};
+
+const listContainerVariants = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.09,
+      delayChildren: 0.14,
+    },
+  },
+};
+
+const listItemVariants = {
+  hidden: {
+    opacity: 0,
+    y: 22,
+    filter: 'blur(8px)',
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: {
+      type: 'spring',
+      stiffness: 420,
+      damping: 30,
+      mass: 0.65,
+    },
+  },
+};
+
+const introVariants = {
+  hidden: { opacity: 0, y: 14, filter: 'blur(6px)' },
+  show: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+const ctaVariants = {
+  hidden: { opacity: 0, y: 16 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { delay: 0.42, duration: 0.4, ease: [0.22, 1, 0.36, 1] },
+  },
 };
 
 function isFounderItem(item: InstagramHubItem): item is InstagramFounderItem {
@@ -27,9 +78,18 @@ function isProfileItem(item: InstagramHubItem): item is InstagramProfileItem {
   return item.kind === 'profile';
 }
 
+function splitFounderParagraphs(text: string): string[] {
+  return text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
 export default function InstagramProfileSheet({ item, onClose, enableAnalytics = true }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const [showWhatsAppPicker, setShowWhatsAppPicker] = useState(false);
+  const [questionnaireGateProfile, setQuestionnaireGateProfile] =
+    useState<InstagramFounderContactProfile | null>(null);
 
   useEffect(() => {
     if (!item) return;
@@ -60,6 +120,13 @@ export default function InstagramProfileSheet({ item, onClose, enableAnalytics =
   const profile = item && isProfileItem(item) ? item : null;
   const styles = profile ? ACCENT_STYLES[profile.accent] : null;
   const Icon = profile ? resolveInstagramHubIcon(profile.iconKey) : null;
+  const founderParagraphs = founder ? splitFounderParagraphs(founder.modalText) : [];
+  const benefitCount = item?.benefits.length ?? 0;
+  const founderContactProfile =
+    profile && isInstagramFounderContactProfile(profile.id) ? profile.id : null;
+  const showQuestionnaireGate = Boolean(
+    profile && profile.href.startsWith('https://wa.me') && founderContactProfile
+  );
 
   const founderDirectWhatsApp =
     Boolean(founder?.openWhatsAppDirectly && founder.href.startsWith('https://wa.me'));
@@ -71,7 +138,7 @@ export default function InstagramProfileSheet({ item, onClose, enableAnalytics =
       : '';
 
   const handleBackdropClose = () => {
-    if (showWhatsAppPicker) return;
+    if (showWhatsAppPicker || questionnaireGateProfile) return;
     onClose();
   };
 
@@ -137,37 +204,74 @@ export default function InstagramProfileSheet({ item, onClose, enableAnalytics =
                 </div>
 
                 {founder ? (
-                  <p className="mb-3 whitespace-pre-line text-[13px] leading-relaxed text-slate-300/95">
-                    {founder.modalText}
-                  </p>
+                  <motion.div
+                    key={`${item.id}-intro`}
+                    className="mb-4 space-y-3"
+                    variants={listContainerVariants}
+                    initial="hidden"
+                    animate="show"
+                  >
+                    {founderParagraphs.map((paragraph, index) => (
+                      <motion.p
+                        key={`${item.id}-p-${index}`}
+                        variants={listItemVariants}
+                        className="text-[15px] sm:text-base leading-relaxed text-slate-200/95"
+                      >
+                        {paragraph}
+                      </motion.p>
+                    ))}
+                  </motion.div>
                 ) : profile?.modalIntro ? (
-                  <p className="mb-3 text-[13px] leading-relaxed text-slate-300/95">{profile.modalIntro}</p>
+                  <motion.p
+                    key={`${item.id}-intro`}
+                    variants={introVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="mb-4 text-[15px] sm:text-base leading-relaxed text-slate-200/95"
+                  >
+                    {profile.modalIntro}
+                  </motion.p>
                 ) : null}
 
-                <ul className="mb-4 space-y-2">
+                <motion.ul
+                  key={`${item.id}-benefits`}
+                  className="mb-5 space-y-2.5"
+                  variants={listContainerVariants}
+                  initial="hidden"
+                  animate="show"
+                >
                   {item.benefits.map((benefit, index) => (
                     <motion.li
-                      key={benefit}
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05, duration: 0.2 }}
-                      className="flex items-center gap-2.5 text-[13px] leading-snug text-slate-200/95"
+                      key={`${item.id}-benefit-${index}`}
+                      variants={listItemVariants}
+                      className="group relative flex items-start gap-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.04] px-3.5 py-3 text-[15px] sm:text-[16px] leading-snug text-slate-100/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                     >
                       <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
+                        className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-transparent via-emerald-400/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                        aria-hidden
+                      />
+                      <span
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ring-1 ring-white/10 ${
                           founder ? 'bg-emerald-500/20' : styles?.iconBg
                         }`}
                       >
                         <Check
-                          className={`h-2.5 w-2.5 ${founder ? 'text-emerald-400' : styles?.iconText}`}
+                          className={`h-3 w-3 ${founder ? 'text-emerald-400' : styles?.iconText}`}
                           aria-hidden
                         />
                       </span>
-                      {benefit}
+                      <span className="min-w-0 flex-1 leading-relaxed">{benefit}</span>
                     </motion.li>
                   ))}
-                </ul>
+                </motion.ul>
 
+                <motion.div
+                  key={`${item.id}-cta`}
+                  variants={ctaVariants}
+                  initial="hidden"
+                  animate="show"
+                  transition={{ delay: 0.14 + benefitCount * 0.09 + 0.2 }}
+                >
                 {founder ? (
                   founderDirectWhatsApp ? (
                     <a
@@ -195,6 +299,18 @@ export default function InstagramProfileSheet({ item, onClose, enableAnalytics =
                       {item.ctaLabel}
                     </button>
                   )
+                ) : showQuestionnaireGate && founderContactProfile ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (enableAnalytics) trackInstagramHubProfileEvent(founderContactProfile, 'cta');
+                      setQuestionnaireGateProfile(founderContactProfile);
+                    }}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#25D366] to-emerald-400 px-4 py-3 text-sm font-semibold text-[#04210f] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1428]"
+                  >
+                    <span aria-hidden>💬</span>
+                    {item.ctaLabel}
+                  </button>
                 ) : (
                   <a
                     href={item.href}
@@ -215,6 +331,7 @@ export default function InstagramProfileSheet({ item, onClose, enableAnalytics =
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </a>
                 )}
+                </motion.div>
               </div>
             </motion.div>
           </>
@@ -228,6 +345,13 @@ export default function InstagramProfileSheet({ item, onClose, enableAnalytics =
           enableAnalytics={enableAnalytics}
         />
       ) : null}
+
+      <InstagramQuestionnaireGateModal
+        open={questionnaireGateProfile !== null}
+        profile={questionnaireGateProfile}
+        onClose={() => setQuestionnaireGateProfile(null)}
+        enableAnalytics={enableAnalytics}
+      />
     </>
   );
 }

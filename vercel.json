@@ -5,7 +5,7 @@
       "schedule": "0 6 * * *"
     },
     {
-      "path": "/api/cron/daily-notifications", 
+      "path": "/api/cron/daily-notifications",
       "schedule": "0 19 * * *"
     },
     {
@@ -39,6 +39,46 @@
     {
       "path": "/api/cron/send-email-agenda-diario",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/send-whatsapp-aplicacao",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/send-whatsapp-lembretes",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/send-whatsapp-calendario-lembretes",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/send-whatsapp-cobranca-automatica",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/rebuild-whatsapp-queue",
+      "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/rebuild-email-queue",
+      "schedule": "45 6 * * *"
+    },
+    {
+      "path": "/api/cron/check-whatsapp-connections",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/disparos-processar",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/hidratacao-checkin",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/hidratacao-adesao",
+      "schedule": "0 11 * * *"
     }
   ]
 }

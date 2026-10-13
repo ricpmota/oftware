@@ -10,6 +10,8 @@ export type PlanoDatasSlice = {
   dataInicioTratamento?: Date | string | { toDate?: () => Date };
   injectionDayOfWeek?: string;
   numeroSemanasTratamento?: number;
+  /** Primeira semana do ciclo ativo (1 no protocolo inicial; conclusão anterior + 1 nos seguintes). */
+  semanaInicioCiclo?: number;
   semanasCanceladas?: number[];
   datasAplicacaoIndividuais?: Record<string | number, string | undefined>;
 };
@@ -58,8 +60,32 @@ export function primeiraDoseDoPlano(plano: PlanoDatasSlice): Date | null {
   return start;
 }
 
-export function dataGradeSemanal(primeiraDose: Date, weekIndex: number): Date {
-  const dt = new Date(primeiraDose.getTime() + (weekIndex - 1) * 7 * 24 * 60 * 60 * 1000);
+/** Primeira semana do ciclo ativo. Protocolo 1 = 1; após conclusão na semana 8, o próximo começa em 9. */
+export function semanaInicioCicloDoPlano(plano: PlanoDatasSlice | undefined | null): number {
+  const n = Number(plano?.semanaInicioCiclo);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+
+/** Última semana de aplicação do ciclo ativo (não inclui a semana de Conclusão). */
+export function semanaFimAplicacoesDoPlano(plano: PlanoDatasSlice | undefined | null): number {
+  const inicio = semanaInicioCicloDoPlano(plano);
+  const n = Number(plano?.numeroSemanasTratamento);
+  const duracao = Number.isFinite(n) && n >= 1 ? Math.min(200, Math.floor(n)) : 18;
+  return inicio + duracao - 1;
+}
+
+export function dataGradeSemanal(
+  primeiraDose: Date,
+  weekIndex: number,
+  semanaInicioCiclo = 1
+): Date {
+  const inicio =
+    Number.isFinite(semanaInicioCiclo) && semanaInicioCiclo >= 1
+      ? Math.floor(semanaInicioCiclo)
+      : 1;
+  const dt = new Date(
+    primeiraDose.getTime() + (weekIndex - inicio) * 7 * 24 * 60 * 60 * 1000
+  );
   dt.setHours(0, 0, 0, 0);
   return dt;
 }
@@ -86,15 +112,16 @@ function leChaveConclusaoLiteral(plano: PlanoDatasSlice): string | undefined {
   return typeof v === 'string' && v.trim() ? v.trim() : undefined;
 }
 
-/** Última semana de dose não cancelada (1..N), igual ao Esquema / calendário. */
+/** Última semana de dose não cancelada do ciclo ativo, igual ao Esquema / calendário. */
 export function ultimaSemanaNaoCancelada(plano: PlanoDatasSlice): number {
-  const n = Number(plano.numeroSemanasTratamento) || 18;
+  const inicio = semanaInicioCicloDoPlano(plano);
+  const fim = semanaFimAplicacoesDoPlano(plano);
   const cancel = new Set(plano.semanasCanceladas || []);
   let ultima = 0;
-  for (let w = 1; w <= n; w++) {
+  for (let w = inicio; w <= fim; w++) {
     if (!cancel.has(w)) ultima = w;
   }
-  return ultima > 0 ? ultima : n;
+  return ultima > 0 ? ultima : fim;
 }
 
 /** Dias entre a última aplicação do plano e a data de Conclusão (semana seguinte à última dose). */
@@ -114,8 +141,9 @@ export function dataPrevistaSemanaTratamento(
   weekIndex: number,
   evolucao: EvolucaoSemanaRef[] | undefined
 ): Date {
-  const n = Number(plano.numeroSemanasTratamento) || 18;
-  if (weekIndex < 1 || weekIndex > n) {
+  const inicio = semanaInicioCicloDoPlano(plano);
+  const fim = semanaFimAplicacoesDoPlano(plano);
+  if (weekIndex < inicio || weekIndex > fim) {
     const fallback = new Date();
     fallback.setHours(0, 0, 0, 0);
     return fallback;
@@ -150,7 +178,7 @@ export function dataPrevistaSemanaTratamento(
     fallback.setHours(0, 0, 0, 0);
     return fallback;
   }
-  return dataGradeSemanal(p, weekIndex);
+  return dataGradeSemanal(p, weekIndex, inicio);
 }
 
 /**
@@ -215,9 +243,9 @@ function parseYmdLocal(s: string): Date | null {
 }
 
 /**
- * Reconstrói `datasAplicacaoIndividuais` para gravar no Firestore com chaves "1".."N"
+ * Reconstrói `datasAplicacaoIndividuais` para gravar no Firestore com as semanas do ciclo ativo
  * e a semana de Conclusão (`última dose ativa + 1`), alinhada ao calendário:
- * - semanas 1..N: registro → mapa existente → grade;
+ * - semanas do ciclo: registro → mapa existente → grade (data de início do ciclo + offset);
  * - conclusão: registro dessa semana → mapa (índice ou `conclusao`) → data da última semana ativa + 8 dias.
  */
 export type NormalizarDatasAplicacaoOpts = {
@@ -234,12 +262,13 @@ export function normalizarDatasAplicacaoIndividuaisParaFirestore(
   if (!primeira) return undefined;
 
   const ignorarMapa = opts?.ignorarMapaExistente ?? false;
-  const n = Number(plano.numeroSemanasTratamento) || 18;
+  const inicio = semanaInicioCicloDoPlano(plano);
+  const fim = semanaFimAplicacoesDoPlano(plano);
   const ev = evolucao || [];
   const out: Record<string, string> = {};
 
-  for (let w = 1; w <= n; w++) {
-    const gradeYmd = ymdLocal(dataGradeSemanal(primeira, w));
+  for (let w = inicio; w <= fim; w++) {
+    const gradeYmd = ymdLocal(dataGradeSemanal(primeira, w, inicio));
     const reg = registroEvolucaoPorSemana(ev as import('@/types/obesidade').SeguimentoSemanal[], w);
     const dr =
       (reg && contaComoDoseAplicada(reg) ? dataRealAplicacaoSeguimento(reg) : null) ??
@@ -309,4 +338,49 @@ export function mesclarPlanoComDatasReconstruidas(
     ignorarMapaExistente: opts?.ignorarMapaExistente ?? true,
   });
   return { ...merged, datasAplicacaoIndividuais: datas };
+}
+
+/**
+ * Atualiza `numeroSemanasTratamento` e reconstrói `datasAplicacaoIndividuais`
+ * para o novo N: mantém overrides das semanas que continuam no plano, gera as
+ * novas pela grade, remove semanas extras e recalcula a data de Conclusão.
+ * Sem isso, o calendário da Evolução/Seguimento fica com o mapa antigo.
+ */
+export function atualizarNumeroSemanasDoPlano(
+  plano: PlanoDatasSlice,
+  numeroSemanas: number,
+  evolucao?: EvolucaoSemanaRef[]
+): PlanoDatasSlice {
+  const n = Math.min(200, Math.max(1, Math.floor(numeroSemanas)));
+  const inicio = semanaInicioCicloDoPlano(plano);
+  const fim = inicio + n - 1;
+  const oldNVal = Number(plano.numeroSemanasTratamento);
+  const oldN = Number.isFinite(oldNVal) && oldNVal >= 1 ? Math.floor(oldNVal) : 0;
+  const oldConcl = oldN >= 1 ? semanaIndexConclusao(plano) : null;
+
+  const individuais: Record<string, string> = {};
+  const raw = plano.datasAplicacaoIndividuais;
+  if (raw && typeof raw === 'object') {
+    for (const [k, v] of Object.entries(raw)) {
+      if (k === 'conclusao') continue;
+      const num = Number(k);
+      if (!Number.isFinite(num) || num < inicio || num > fim) continue;
+      if (oldConcl != null && num === oldConcl) continue;
+      if (typeof v !== 'string' || !v.trim()) continue;
+      individuais[String(num)] = v.trim();
+    }
+  }
+
+  const canceladas = (plano.semanasCanceladas || []).filter((w) => w >= inicio && w <= fim);
+
+  return mesclarPlanoComDatasReconstruidas(
+    plano,
+    {
+      numeroSemanasTratamento: n,
+      datasAplicacaoIndividuais: individuais,
+      semanasCanceladas: canceladas.length > 0 ? canceladas : undefined,
+    },
+    evolucao,
+    { ignorarMapaExistente: false }
+  );
 }

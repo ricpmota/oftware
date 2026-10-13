@@ -10,6 +10,7 @@ import { listAvailableSlotsFromEngine } from '@/lib/whiteLabel/availabilityEngin
 import { WHITELABEL_AVAILABILITY_COLLECTION } from '@/lib/whiteLabel/availabilityFirestore';
 import { updateLeadMeeting } from '@/lib/whiteLabel/leadService';
 import { updateLeadCrmStage } from '@/lib/whiteLabel/leadCrmService';
+import { notifyWhiteLabelMeetingWhatsApp } from '@/lib/whiteLabel/notifyWhiteLabelMeetingWhatsApp';
 import { getFirestoreAdmin } from '@/lib/server/firebaseAdminOftware';
 
 export type CreateMeetingForLeadResult = {
@@ -61,6 +62,21 @@ export async function createMeetingForWhiteLabelLead(
     availabilityId,
     googleCalendarEventId: meeting.eventId,
     googleMeetLink: meeting.meetLink,
+  });
+
+  await notifyWhiteLabelMeetingWhatsApp({
+    leadNome: String(lead.nome || ''),
+    leadEmail: String(lead.email || ''),
+    leadWhatsapp: String(lead.whatsapp || ''),
+    leadWhatsappDdi: typeof lead.whatsappDdi === 'string' ? lead.whatsappDdi : undefined,
+    leadWhatsappPais: typeof lead.whatsappPais === 'string' ? lead.whatsappPais : undefined,
+    profissao: lead.profissao,
+    date: availability.date,
+    startTime: availability.startTime,
+    endTime: availability.endTime,
+    googleMeetLink: meeting.meetLink,
+  }).catch((err) => {
+    console.warn('[whiteLabel/meeting] WhatsApp confirmação falhou (não bloqueia reunião):', err);
   });
 
   return {

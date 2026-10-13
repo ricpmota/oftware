@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { BookOpen, Folder, ChevronDown, ChevronRight, ExternalLink, FileText, X, Search, MessageCircle } from 'lucide-react';
+import { BookOpen, Folder, ChevronDown, ChevronRight, ExternalLink, FileText, Search, MessageCircle } from 'lucide-react';
 import ChatLayout from './ChatLayout';
+import ApostilaPdfViewer from './ApostilaPdfViewer';
+import type { ChatConversationSource } from '@/types/chatConversation';
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -31,15 +33,73 @@ interface ApostilaLibraryProps {
   debug?: { prefix?: string; bucket?: string; totalInFolder?: number } | null;
   /** courseId para links de apostila no chatbot (ex: oftreview, propedeutics) */
   courseId?: string;
+  /** No desktop, abre a apostila no painel ao lado em vez do modal. */
+  onSelectApostila?: (item: ApostilaItem) => void;
+  selectedApostilaId?: string | null;
+  onSubTabChange?: (tab: 'apostilas' | 'chat') => void;
+  onNavigateSources?: (sources: ChatConversationSource[], content: string, activeId: number | null) => void;
+  onAssistantSources?: (sources: ChatConversationSource[], content: string) => void;
 }
 
-export default function ApostilaLibrary({ apostilas, loading = false, error = null, debug = null, courseId = 'oftreview' }: ApostilaLibraryProps) {
+export function ApostilaReader({
+  apostila,
+  onClose,
+  page = null,
+  onBackToSources,
+  sourceLabel,
+}: {
+  apostila: ApostilaItem | null;
+  onClose?: () => void;
+  /** Página de navegação. Não faz parte da URL salva da apostila. */
+  page?: number | null;
+  onBackToSources?: () => void;
+  sourceLabel?: string | null;
+}) {
+  if (!apostila) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center bg-gray-50 p-8">
+        <div className="text-center">
+          <BookOpen className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+          <p className="text-lg text-gray-400">Nenhuma apostila selecionada</p>
+          <p className="mt-2 text-sm text-gray-500">Clique no livro ao lado para abrir</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ApostilaPdfViewer
+      url={apostila.url}
+      title={apostila.name}
+      sourcePage={page}
+      sourceLabel={sourceLabel}
+      onBackToSources={onBackToSources}
+      onClose={onClose}
+    />
+  );
+}
+
+export default function ApostilaLibrary({
+  apostilas,
+  loading = false,
+  error = null,
+  debug = null,
+  courseId = 'oftreview',
+  onSelectApostila,
+  selectedApostilaId = null,
+  onSubTabChange,
+  onNavigateSources,
+  onAssistantSources,
+}: ApostilaLibraryProps) {
   const isMobile = useIsMobile();
   const [selectedPdf, setSelectedPdf] = useState<ApostilaItem | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [apostilaSubTab, setApostilaSubTab] = useState<'apostilas' | 'chat'>('apostilas');
+
+  useEffect(() => {
+    onSubTabChange?.(apostilaSubTab);
+  }, [apostilaSubTab, onSubTabChange]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -98,9 +158,9 @@ export default function ApostilaLibrary({ apostilas, loading = false, error = nu
   ) : null;
 
   return (
-    <div className="space-y-4">
+    <div className={apostilaSubTab === 'chat' ? 'flex h-full min-h-0 flex-col gap-3' : 'space-y-4'}>
       {/* Sub-abas: Apostilas | Chatbot Oftware */}
-      <div className="flex border-b border-gray-200 -mx-1">
+      <div className="flex shrink-0 border-b border-gray-200 -mx-1">
         <button
           type="button"
           onClick={() => setApostilaSubTab('apostilas')}
@@ -127,7 +187,14 @@ export default function ApostilaLibrary({ apostilas, loading = false, error = nu
         </button>
       </div>
 
-      {apostilaSubTab === 'chat' && <ChatLayout courseId={courseId} />}
+      {apostilaSubTab === 'chat' && (
+        <ChatLayout
+          courseId={courseId}
+          fill
+          onNavigateSources={onNavigateSources}
+          onAssistantSources={onAssistantSources}
+        />
+      )}
 
       {apostilaSubTab === 'apostilas' && (
         <>
@@ -180,7 +247,7 @@ export default function ApostilaLibrary({ apostilas, loading = false, error = nu
                 <ul className="divide-y divide-gray-100">
                   {items.map((item) => (
                     <li key={item.id}>
-                      <div className="flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 group">
+                      <div className={`flex items-center gap-2 px-3 py-2.5 group ${selectedApostilaId === item.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                         <div className="flex-shrink-0 w-10 h-12 rounded border border-gray-200 bg-gradient-to-b from-amber-50 to-amber-100/50 flex items-center justify-center shadow-sm">
                           <FileText className="w-5 h-5 text-amber-700" />
                         </div>
@@ -192,10 +259,14 @@ export default function ApostilaLibrary({ apostilas, loading = false, error = nu
                           <button
                             type="button"
                             onClick={() => {
+                              const desktop = window.matchMedia('(min-width: 768px)').matches;
+                              if (desktop && onSelectApostila) {
+                                onSelectApostila(item);
+                                return;
+                              }
                               setSelectedPdf(item);
-                              setPdfLoading(true);
                             }}
-                            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                            className={`p-2 rounded-lg text-blue-600 transition-colors ${selectedApostilaId === item.id ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
                             title="Abrir apostila"
                           >
                             <BookOpen className="w-4 h-4" />
@@ -221,48 +292,9 @@ export default function ApostilaLibrary({ apostilas, loading = false, error = nu
       </div>
 
       {/* Modal leitor PDF */}
-      {selectedPdf && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white">
-          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-200 bg-gray-50">
-            <span className="truncate flex-1 min-w-0 font-medium text-gray-900">{selectedPdf.name}</span>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <a
-                href={selectedPdf.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                Abrir em nova aba
-              </a>
-              <button
-                type="button"
-                onClick={() => { setSelectedPdf(null); setPdfLoading(false); }}
-                className="p-2 rounded-lg text-gray-500 hover:bg-gray-200"
-                aria-label="Fechar"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-          {/* Mobile: overflow-x-hidden para scroll só vertical; #view=FitH no PDF para encaixar na largura */}
-          <div className="flex-1 min-h-0 w-full relative overflow-y-auto overflow-x-hidden md:overflow-hidden max-w-[100vw] touch-pan-y">
-            {pdfLoading && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-100 text-gray-600">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-3" />
-                <p className="text-sm font-medium">Carregando PDF...</p>
-              </div>
-            )}
-            <iframe
-              src={
-                isMobile && selectedPdf.url && !selectedPdf.url.includes('#')
-                  ? `${selectedPdf.url}#view=FitH`
-                  : selectedPdf.url
-              }
-              title={selectedPdf.name}
-              className="w-full min-w-0 max-w-full h-full border-0"
-              onLoad={() => setPdfLoading(false)}
-            />
-          </div>
+      {selectedPdf && (isMobile || !onSelectApostila) && (
+        <div className="fixed inset-0 z-50 flex min-w-0 flex-col bg-white">
+          <ApostilaReader apostila={selectedPdf} onClose={() => setSelectedPdf(null)} />
         </div>
       )}
             </>

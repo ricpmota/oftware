@@ -1,19 +1,21 @@
-import type { OrganizationId } from './organizationTypes';
+import type { OrganizationDefinition, OrganizationId } from './organizationTypes';
 import type { OrganizationBrandingStored } from './organizationBrandingTypes';
 import {
   ORGANIZATION_BRANDING_LEGACY_SEED_VERSIONS,
   ORGANIZATION_BRANDING_SEED_VERSION,
 } from './organizationBrandingDefaults';
+import { buildNewOrganizationBrandingSeed } from './buildNewOrganizationBrandingSeed';
 import { buildOrganizationBrandingSeedPayload } from './organizationBrandingMerge';
 import {
   readOrganizationBrandingFromFirestore,
   readSourceMedicoWhiteLabel,
   writeOrganizationBrandingSeed,
 } from './organizationBrandingFirestore.server';
-import { getOrganizationById } from './organizationRegistry';
+import { METODO_ORGANIZATION_ID } from './organizationRegistry';
+import { resolveOrganizationDefinition } from './resolveOrganizationDefinition.server';
 import { getMetodoImagensTemplateFromFirestore } from '@/lib/metodo/metodoImagensService.server';
 
-function needsOfficialOwnershipMigration(
+export function needsOfficialOwnershipMigration(
   existing: OrganizationBrandingStored | null | undefined,
 ): boolean {
   if (!existing?.publicName?.trim()) return true;
@@ -28,13 +30,39 @@ function needsOfficialOwnershipMigration(
 }
 
 /**
- * Etapa 11.1 — consolida assets legados (platformSettings + ricpmota.whiteLabel + hardcodes)
- * em organizations/{id}.branding sem alterar URLs (snapshot das fontes atuais).
+ * Marca já gravada de organização white label: só alinha seedVersion.
+ * Seed neutro entra apenas quando ainda não existe branding.
+ */
+export function buildNonMetodoOwnershipMigrationBranding(
+  organization: OrganizationDefinition,
+  existing: OrganizationBrandingStored | null | undefined,
+  now: string,
+): OrganizationBrandingStored {
+  if (existing?.publicName?.trim()) {
+    return {
+      ...existing,
+      seedVersion: ORGANIZATION_BRANDING_SEED_VERSION,
+      seededAt: existing.seededAt ?? now,
+      updatedAt: now,
+    };
+  }
+
+  const seed = buildNewOrganizationBrandingSeed(organization);
+  return {
+    ...seed,
+    seededAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Etapa 11.1 — no Método, consolida assets legados em organizations/metodo.branding.
+ * Nas demais organizações, não substitui logos, cores nem páginas já cadastradas.
  */
 export async function ensureOfficialOrganizationBrandingOwnership(
   organizationId: OrganizationId,
 ): Promise<{ consolidatedNow: boolean; usedLegacySources: boolean }> {
-  const organization = getOrganizationById(organizationId);
+  const organization = await resolveOrganizationDefinition(organizationId);
   if (!organization) {
     throw new Error(`Organização não encontrada: ${organizationId}`);
   }
@@ -42,6 +70,17 @@ export async function ensureOfficialOrganizationBrandingOwnership(
   const existing = await readOrganizationBrandingFromFirestore(organizationId);
   if (!needsOfficialOwnershipMigration(existing)) {
     return { consolidatedNow: false, usedLegacySources: false };
+  }
+
+  const now = new Date().toISOString();
+
+  if (organizationId !== METODO_ORGANIZATION_ID) {
+    await writeOrganizationBrandingSeed(
+      organizationId,
+      organization,
+      buildNonMetodoOwnershipMigrationBranding(organization, existing, now),
+    );
+    return { consolidatedNow: true, usedLegacySources: false };
   }
 
   const [metodoImagens, sourceWhiteLabel] = await Promise.all([
@@ -55,7 +94,6 @@ export async function ensureOfficialOrganizationBrandingOwnership(
     sourceWhiteLabel,
   });
 
-  const now = new Date().toISOString();
   await writeOrganizationBrandingSeed(organizationId, organization, {
     ...legacySnapshot,
     seedVersion: ORGANIZATION_BRANDING_SEED_VERSION,

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { listQuestoesPublicadas, type OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoMatchable } from '@/types/oftpayQuestaoCatalog';
 import { listUserAttempts } from '@/services/oftpayQuestionAttemptsService';
 import {
   listSimuladoAnswers,
@@ -37,7 +38,7 @@ interface OftpayPerformancePanelProps {
   userId: string | null;
   userEmail?: string | null;
   refreshKey?: number;
-  publicadas?: OftpayQuestaoDoc[];
+  publicadas?: OftpayQuestaoMatchable[];
 }
 
 function formatDate(ms?: number): string {
@@ -186,7 +187,7 @@ export default function OftpayPerformancePanel({
 }: OftpayPerformancePanelProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [publicadas, setPublicadas] = useState<OftpayQuestaoDoc[]>(publicadasProp ?? []);
+  const [publicadas, setPublicadas] = useState<OftpayQuestaoMatchable[]>(publicadasProp ?? []);
   const [simulados, setSimulados] = useState<OftpaySimuladoDoc[]>([]);
   const [uniqueAnsweredIds, setUniqueAnsweredIds] = useState<Set<string>>(new Set());
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
@@ -209,14 +210,13 @@ export default function OftpayPerformancePanel({
     setError(null);
 
     try {
-      const [pub, attempts, sims, simAnswers] = await Promise.all([
-        publicadasProp ? Promise.resolve(publicadasProp) : listQuestoesPublicadas(),
+      const [attempts, sims, simAnswers] = await Promise.all([
         listUserAttempts(userId),
         listUserSimulados(userId),
         listUserSimuladoAnswers(userId),
       ]);
 
-      if (!publicadasProp) setPublicadas(pub);
+      if (publicadasProp) setPublicadas(publicadasProp);
       setSimulados(sims);
       setUniqueAnsweredIds(collectUniqueAnsweredQuestionIds(simAnswers, attempts.map((a) => a.questionId)));
     } catch (e) {

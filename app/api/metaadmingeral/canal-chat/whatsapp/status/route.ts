@@ -55,7 +55,11 @@ export async function GET(request: NextRequest) {
     let justConnected = false;
     const previousStatus = connection.status;
 
-    if (connection.status === 'qr_pending' || connection.status === 'connected') {
+    if (
+      connection.status === 'qr_pending' ||
+      connection.status === 'connected' ||
+      connection.status === 'error'
+    ) {
       const sync = await syncWhatsappConnectionWithProvider(connection);
       connection = sync.connection;
       justConnected = sync.justConnected;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, X } from 'lucide-react';
 import type { PacienteCompleto } from '@/types/obesidade';
 import type { Prescricao } from '@/types/prescricao';
 import type { Medico } from '@/types/medico';
@@ -10,8 +11,11 @@ import { ProntuarioNutriForm } from './ProntuarioNutriForm';
 import { ProntuarioTimeline } from './ProntuarioTimeline';
 import {
   criarEventoProntuarioNutri,
+  criarEventoProntuarioPersonal,
   desativarEventoProntuario,
   listarEventosProntuarioNutriPaginado,
+  listarEventosProntuarioPersonalPaginado,
+  normalizarEventoTimelinePersonal,
 } from './prontuarioService';
 import type { EventoTimelineMock, ProntuarioNutriFormValues } from './prontuarioTypes';
 import {
@@ -20,6 +24,7 @@ import {
   extrairEventosSincronosPaciente,
 } from './prontuarioEventosLoader';
 import { combinarEventosSemDuplicar, parseDataTimeline } from './prontuarioPlanoEventos';
+import { notifyMedicoNovaConsultaProntuarioClient } from '@/lib/nutri/prontuario/notifyMedicoNovaConsultaClient';
 
 export type ProntuarioNutriTabProps = {
   paciente: PacienteCompleto;
@@ -30,13 +35,26 @@ export type ProntuarioNutriTabProps = {
   onIrParaAba?: (aba: number) => void;
   /** Médico responsável (cabeçalho do PDF de prescrição). */
   medicoPrescricao?: Medico | null;
+  /** Preenche a altura do container pai (modal embutido / tela cheia). */
+  fillHeight?: boolean;
+  /** Mobile: timeline + botão (+) que abre o formulário em tela cheia (igual metaadmin). */
+  mobileMode?: boolean;
+  /** Textos e títulos: nutricional (padrão) ou educador físico (metapersonal). */
+  variant?: 'nutricionista' | 'personal';
 };
 
-const TITULO_POR_TIPO: Record<string, string> = {
+const TITULO_POR_TIPO_NUTRI: Record<string, string> = {
   consulta: 'Consulta nutricional',
   retorno: 'Retorno nutricional',
   teleconsulta: 'Teleconsulta nutricional',
   observacao: 'Observação nutricional',
+};
+
+const TITULO_POR_TIPO_PERSONAL: Record<string, string> = {
+  consulta: 'Consulta Educador Físico',
+  retorno: 'Retorno Educador Físico',
+  teleconsulta: 'Teleconsulta Educador Físico',
+  observacao: 'Observação Educador Físico',
 };
 
 function formatDataHoraAtual(): { data: string; hora: string } {
@@ -63,8 +81,18 @@ export function ProntuarioNutriTab({
   nutricionistaId,
   onIrParaAba,
   medicoPrescricao = null,
+  fillHeight = false,
+  mobileMode = false,
+  variant = 'nutricionista',
 }: ProntuarioNutriTabProps) {
   const id = pacienteId ?? paciente.id;
+  const isPersonal = variant === 'personal';
+  const tituloPorTipo = isPersonal ? TITULO_POR_TIPO_PERSONAL : TITULO_POR_TIPO_NUTRI;
+  const destaquePadrao = isPersonal ? 'Consulta Educador Físico' : 'Consulta nutricional';
+  const statusRegistro = isPersonal ? 'Registro do educador físico' : 'Registro do nutricionista';
+  const listarEventosPaginado = isPersonal
+    ? listarEventosProntuarioPersonalPaginado
+    : listarEventosProntuarioNutriPaginado;
   const [eventos, setEventos] = useState<EventoTimelineMock[]>([]);
   const [eventosLembretes, setEventosLembretes] = useState<EventoTimelineMock[]>([]);
   const [eventosAsync, setEventosAsync] = useState<EventoTimelineMock[]>([]);
@@ -74,6 +102,7 @@ export function ProntuarioNutriTab({
   const [temMaisTimeline, setTemMaisTimeline] = useState(false);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const [idsRemovidos, setIdsRemovidos] = useState<Set<string>>(() => new Set());
+  const [showMobileForm, setShowMobileForm] = useState(false);
   const idsLocaisRef = useRef<Set<string>>(new Set());
   const prescricoesMapRef = useRef<Map<string, Prescricao>>(new Map());
 
@@ -135,23 +164,25 @@ export function ProntuarioNutriTab({
       setErroCarregamento(null);
 
       try {
-        const page = await listarEventosProntuarioNutriPaginado(id, { pageSize: 30 });
+        const page = await listarEventosPaginado(id, { pageSize: 30 });
         if (cancelado) return;
 
         setTimelineCursor(page.nextCursor ?? null);
         setTemMaisTimeline(Boolean(page.nextCursor));
 
-        const convertidos: EventoTimelineMock[] = page.eventos.map((evento) => ({
-          id: evento.id,
-          tipo: evento.tipo,
-          titulo: evento.titulo,
-          descricao: evento.descricao,
-          data: evento.data,
-          hora: evento.hora,
-          origem: evento.origem,
-          destaque: evento.destaque,
-          dados: evento.dados,
-        }));
+        const convertidos: EventoTimelineMock[] = page.eventos.map((evento) =>
+          normalizarEventoTimelinePersonal({
+            id: evento.id,
+            tipo: evento.tipo,
+            titulo: evento.titulo,
+            descricao: evento.descricao,
+            data: evento.data,
+            hora: evento.hora,
+            origem: evento.origem,
+            destaque: evento.destaque,
+            dados: evento.dados,
+          })
+        );
 
         const idsFirestore = new Set(convertidos.map((e) => e.id));
         setEventos((prev) => {
@@ -172,27 +203,29 @@ export function ProntuarioNutriTab({
     return () => {
       cancelado = true;
     };
-  }, [id]);
+  }, [id, listarEventosPaginado]);
 
   const handleCarregarMais = useCallback(async () => {
     if (!id?.trim() || !timelineCursor || carregandoMais) return;
     setCarregandoMais(true);
     try {
-      const page = await listarEventosProntuarioNutriPaginado(id, {
+      const page = await listarEventosPaginado(id, {
         pageSize: 30,
         cursor: timelineCursor,
       });
-      const novos: EventoTimelineMock[] = page.eventos.map((evento) => ({
-        id: evento.id,
-        tipo: evento.tipo,
-        titulo: evento.titulo,
-        descricao: evento.descricao,
-        data: evento.data,
-        hora: evento.hora,
-        origem: evento.origem,
-        destaque: evento.destaque,
-        dados: evento.dados,
-      }));
+      const novos: EventoTimelineMock[] = page.eventos.map((evento) =>
+        normalizarEventoTimelinePersonal({
+          id: evento.id,
+          tipo: evento.tipo,
+          titulo: evento.titulo,
+          descricao: evento.descricao,
+          data: evento.data,
+          hora: evento.hora,
+          origem: evento.origem,
+          destaque: evento.destaque,
+          dados: evento.dados,
+        })
+      );
       setEventos((prev) => {
         const byId = new Map(prev.map((e) => [e.id, e]));
         novos.forEach((e) => byId.set(e.id, e));
@@ -205,7 +238,7 @@ export function ProntuarioNutriTab({
     } finally {
       setCarregandoMais(false);
     }
-  }, [id, timelineCursor, carregandoMais]);
+  }, [id, timelineCursor, carregandoMais, listarEventosPaginado]);
 
   const handleSalvar = useCallback(
     async (values: ProntuarioNutriFormValues) => {
@@ -223,19 +256,19 @@ export function ProntuarioNutriTab({
         hora = atual.hora;
       }
 
-      const titulo = TITULO_POR_TIPO[values.tipoRegistro] ?? TITULO_POR_TIPO.consulta;
+      const titulo = tituloPorTipo[values.tipoRegistro] ?? tituloPorTipo.consulta;
       const localId = `local-${Date.now()}`;
       const novoEvento: EventoTimelineMock = {
         id: localId,
-        tipo: 'nutricao',
+        tipo: isPersonal ? 'atividade_fisica' : 'nutricao',
         titulo,
         descricao: montarDescricaoNutri(values),
         data,
         hora,
-        origem: 'nutri',
-        destaque: 'Consulta nutricional',
+        origem: isPersonal ? 'personal' : 'nutri',
+        destaque: destaquePadrao,
         dados: {
-          status: 'Registro do nutricionista',
+          status: statusRegistro,
           ...(values.meta.trim() ? { meta: values.meta.trim() } : {}),
         },
       };
@@ -245,19 +278,36 @@ export function ProntuarioNutriTab({
 
       if (!id?.trim()) return;
 
-      const firestoreId = await criarEventoProntuarioNutri(id, nutricionistaId, {
-        titulo,
-        descricao: novoEvento.descricao,
-        data,
-        hora,
-        destaque: novoEvento.destaque,
-        dados: novoEvento.dados,
-      });
+      const firestoreId = isPersonal
+        ? await criarEventoProntuarioPersonal(id, nutricionistaId, {
+            titulo,
+            descricao: novoEvento.descricao,
+            data,
+            hora,
+            destaque: novoEvento.destaque,
+            dados: novoEvento.dados,
+          })
+        : await criarEventoProntuarioNutri(id, nutricionistaId, {
+            titulo,
+            descricao: novoEvento.descricao,
+            data,
+            hora,
+            destaque: novoEvento.destaque,
+            dados: novoEvento.dados,
+          });
 
       idsLocaisRef.current.delete(localId);
       setEventos((prev) => prev.map((e) => (e.id === localId ? { ...e, id: firestoreId } : e)));
+
+      notifyMedicoNovaConsultaProntuarioClient({
+        pacienteId: id,
+        data,
+        hora,
+        titulo,
+        variant: isPersonal ? 'personal' : 'nutricionista',
+      });
     },
-    [id, nutricionistaId]
+    [id, nutricionistaId, tituloPorTipo, destaquePadrao, statusRegistro, isPersonal]
   );
 
   const handleApagar = useCallback(
@@ -317,41 +367,126 @@ export function ProntuarioNutriTab({
     [medicoPrescricao, paciente]
   );
 
-  return (
-    <div className="space-y-4" data-paciente-id={id}>
-      {carregando && <p className="text-sm text-gray-500">Carregando prontuário...</p>}
-      {!carregando && erroCarregamento && (
-        <p className="text-sm text-amber-700">{erroCarregamento}</p>
+  const timeline = (
+    <>
+      <ProntuarioTimeline
+        variant="nutricionista"
+        eventos={eventosTimeline}
+        prontuarioVazio={!carregando && eventosTimeline.length === 0}
+        onIrParaAba={onIrParaAba}
+        onDownloadPrescricao={handleDownloadPrescricao}
+        onApagar={handleApagar}
+        podeApagarEvento={(e) =>
+          e.id.startsWith('lembrete-') ||
+          (isPersonal
+            ? e.origem === 'personal' && e.tipo === 'atividade_fisica'
+            : e.origem === 'nutri' && e.tipo === 'nutricao')
+        }
+      />
+      {temMaisTimeline && (
+        <div className="pt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => void handleCarregarMais()}
+            disabled={carregandoMais}
+            className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+          >
+            {carregandoMais ? 'Carregando...' : 'Carregar mais registros'}
+          </button>
+        </div>
       )}
+    </>
+  );
 
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 min-h-0">
-        <div className="min-h-0 lg:max-h-[calc(90vh-280px)] lg:overflow-y-auto pr-1">
-          <ProntuarioTimeline
-            variant="nutricionista"
-            eventos={eventosTimeline}
-            prontuarioVazio={!carregando && eventosTimeline.length === 0}
-            onIrParaAba={onIrParaAba}
-            onDownloadPrescricao={handleDownloadPrescricao}
-            onApagar={handleApagar}
-            podeApagarEvento={(e) =>
-              e.id.startsWith('lembrete-') || (e.origem === 'nutri' && e.tipo === 'nutricao')
-            }
-          />
-          {temMaisTimeline && (
-            <div className="pt-3 flex justify-center">
+  if (mobileMode) {
+    return (
+      <div className="relative h-full" data-paciente-id={id}>
+        {carregando && (
+          <p className="py-4 text-center text-sm text-gray-500">Carregando prontuário...</p>
+        )}
+        {!carregando && erroCarregamento && (
+          <p className="py-2 text-sm text-amber-700">{erroCarregamento}</p>
+        )}
+
+        <div className="overflow-y-auto pb-20">{timeline}</div>
+
+        <button
+          type="button"
+          onClick={() => setShowMobileForm(true)}
+          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition-transform hover:bg-green-700 active:scale-95"
+          aria-label="Nova consulta"
+        >
+          <Plus className="h-7 w-7" strokeWidth={2.5} />
+        </button>
+
+        {showMobileForm ? (
+          <div className="fixed inset-0 z-[10000] flex flex-col bg-white">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {isPersonal ? 'Nova consulta' : 'Nova consulta nutricional'}
+              </h3>
               <button
                 type="button"
-                onClick={() => void handleCarregarMais()}
-                disabled={carregandoMais}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                onClick={() => setShowMobileForm(false)}
+                className="p-2 text-gray-400 hover:text-gray-600"
+                aria-label="Fechar"
               >
-                {carregandoMais ? 'Carregando...' : 'Carregar mais registros'}
+                <X className="h-6 w-6" />
               </button>
             </div>
-          )}
+            <div className="flex-1 overflow-y-auto p-4">
+              <ProntuarioNutriForm
+                variant={variant}
+                onSalvar={async (values) => {
+                  await handleSalvar(values);
+                  setShowMobileForm(false);
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={
+        fillHeight
+          ? 'h-full min-h-0 flex flex-col gap-3 max-lg:h-auto'
+          : 'space-y-4'
+      }
+      data-paciente-id={id}
+    >
+      {carregando && <p className="text-sm text-gray-500 flex-shrink-0">Carregando prontuário...</p>}
+      {!carregando && erroCarregamento && (
+        <p className="text-sm text-amber-700 flex-shrink-0">{erroCarregamento}</p>
+      )}
+
+      <div
+        className={
+          fillHeight
+            ? 'grid grid-cols-1 lg:grid-cols-[3fr_2fr] lg:grid-rows-1 gap-6 min-h-0 flex-1'
+            : 'grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 min-h-0'
+        }
+      >
+        <div
+          className={
+            fillHeight
+              ? 'min-h-0 lg:overflow-y-auto pr-1'
+              : 'min-h-0 lg:max-h-[calc(90vh-280px)] lg:overflow-y-auto pr-1'
+          }
+        >
+          {timeline}
         </div>
-        <div className="min-h-0 lg:max-h-[calc(90vh-280px)] lg:overflow-y-auto pr-1">
-          <ProntuarioNutriForm onSalvar={handleSalvar} />
+        <div
+          className={
+            fillHeight
+              ? 'min-h-0 lg:overflow-y-auto pr-1'
+              : 'min-h-0 lg:max-h-[calc(90vh-280px)] lg:overflow-y-auto pr-1'
+          }
+        >
+          <ProntuarioNutriForm onSalvar={handleSalvar} variant={variant} />
         </div>
       </div>
     </div>

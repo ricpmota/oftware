@@ -13,12 +13,20 @@ export interface WhatsappConnection {
   status: WhatsappConnectionStatus;
   provider: WhatsappConnectionProvider;
   sessionId: string;
+  /** Token Bearer WPPConnect por sessão — apenas server-side; nunca expor na API pública. */
+  wppSessionToken?: string;
   phone?: string;
   profileName?: string;
   qrCode?: string;
   connectedAt?: Date;
   lastCheckAt?: Date;
   errorMessage?: string;
+  /** Envio automático de lembrete de aplicação no calendário. */
+  autoAplicacaoEnabled?: boolean;
+  /** Horário diário (HH:mm) em America/Sao_Paulo. */
+  autoAplicacaoHorario?: string;
+  /** Último envio automático — rate limit de 1 min entre pacientes. */
+  autoAplicacaoUltimoEnvioEm?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +44,8 @@ export interface WhatsappConnectionDto {
   connectedAt?: string;
   lastCheckAt?: string;
   errorMessage?: string;
+  autoAplicacaoEnabled?: boolean;
+  autoAplicacaoHorario?: string;
   createdAt?: string;
   updatedAt?: string;
 }

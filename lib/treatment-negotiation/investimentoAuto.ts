@@ -46,19 +46,20 @@ export function calcularTotalConsultas(
   return arredondarMoeda(Math.max(0, parametros.consultas) * unit);
 }
 
-function montarEstimativaInvestimento(
+/** Estimativa comercial única da mesa e da página do paciente. */
+export function montarEstimativaNegociada(
   parametros: ParametrosPlanoPersonalizadoEditavel
 ): EstimativaPlanoInicialV1 {
   const semanas = Math.max(1, parametros.semanasPrazo);
   return {
-    duracaoMeses: Math.max(1, parametros.mesesPrazo),
+    duracaoMeses: Math.max(1, parametros.mesesPrazo > 0 ? parametros.mesesPrazo : Math.ceil(semanas / 4)),
     duracaoSemanas: semanas,
     numeroAplicacoes: Math.max(0, parametros.aplicacoesTotal),
     quantidadeMedicacaoMg: totalMgDoses(parametros),
     consultasIncluidas: Math.max(0, parametros.consultas),
     bioimpedanciasIncluidas: Math.max(0, parametros.bioimpedancias),
     examesIncluidos: Math.max(0, parametros.exames),
-    nomePlanoSugerido: parametros.nomePlano,
+    nomePlanoSugerido: parametros.nomePlano || 'Plano personalizado',
     origemEstimativa: 'v2_deterministica',
   };
 }
@@ -111,26 +112,79 @@ export function sincronizarInvestimentoNegociado(
   };
 }
 
+function sincronizarParametrosParaCalculo(
+  parametros: ParametrosPlanoPersonalizadoEditavel,
+  config: OrcamentoTerapeuticoConfig
+): ParametrosPlanoPersonalizadoEditavel {
+  return sincronizarInvestimentoNegociado(
+    sincronizarQuantidadesPorFrequencia(parametros),
+    config
+  );
+}
+
+function valorTotalDeParametros(
+  parametros: ParametrosPlanoPersonalizadoEditavel,
+  config: OrcamentoTerapeuticoConfig
+): number {
+  const estimativa = montarEstimativaNegociada(parametros);
+  const { valorTotal } = montarComposicaoNegociada({
+    estimativa,
+    config,
+    parametros,
+    modoRecalculo: 'manter_manuais',
+  });
+  return valorTotal;
+}
+
 export function prepararParametrosNegociado(
   parametros: ParametrosPlanoPersonalizadoEditavel,
   config: OrcamentoTerapeuticoConfig
 ): ParametrosPlanoPersonalizadoEditavel {
-  return sincronizarInvestimentoNegociado(sincronizarQuantidadesPorFrequencia(parametros), config);
+  const sincronizado = sincronizarParametrosParaCalculo(
+    {
+      ...parametros,
+      protocolosInjetaveis: parametros.protocolosInjetaveis ?? [],
+    },
+    config
+  );
+
+  const locked = sincronizado.investimento.valorFinalManual;
+  if (locked == null) return sincronizado;
+
+  const baseSemOverride: ParametrosPlanoPersonalizadoEditavel = {
+    ...sincronizado,
+    descontoManual: 0,
+    investimento: {
+      ...sincronizado.investimento,
+      valorFinalManual: null,
+      descontoReais: 0,
+      descontoPercentual: 0,
+    },
+  };
+  const baseSemOverrideValor = valorTotalDeParametros(baseSemOverride, config);
+  const medOnly = sincronizado.investimento.valorMedicacao ?? 0;
+
+  // Override antigo travado só na medicação (ex.: blur no campo) — libera para somar o restante.
+  if (Math.abs(locked - medOnly) < 0.5 && baseSemOverrideValor > medOnly + 0.5) {
+    return {
+      ...sincronizado,
+      descontoManual: 0,
+      investimento: {
+        ...sincronizado.investimento,
+        valorFinalManual: null,
+        descontoReais: 0,
+      },
+    };
+  }
+
+  return sincronizado;
 }
 
 export function calcularValorFinalNegociado(
   parametros: ParametrosPlanoPersonalizadoEditavel,
   config: OrcamentoTerapeuticoConfig
 ): number {
-  const sincronizado = prepararParametrosNegociado(parametros, config);
-  const estimativa = montarEstimativaInvestimento(sincronizado);
-  const { valorTotal } = montarComposicaoNegociada({
-    estimativa,
-    config,
-    parametros: sincronizado,
-    modoRecalculo: 'manter_manuais',
-  });
-  return valorTotal;
+  return valorTotalDeParametros(prepararParametrosNegociado(parametros, config), config);
 }
 
 /** Valor final calculado sem override manual nem desconto (base para desconto). */
@@ -138,18 +192,18 @@ export function calcularValorFinalBaseNegociado(
   parametros: ParametrosPlanoPersonalizadoEditavel,
   config: OrcamentoTerapeuticoConfig
 ): number {
-  const base = prepararParametrosNegociado(parametros, config);
+  const sincronizado = sincronizarParametrosParaCalculo(parametros, config);
   const semDesconto: ParametrosPlanoPersonalizadoEditavel = {
-    ...base,
+    ...sincronizado,
     descontoManual: 0,
     investimento: {
-      ...base.investimento,
+      ...sincronizado.investimento,
       valorFinalManual: null,
       descontoReais: 0,
       descontoPercentual: 0,
     },
   };
-  return calcularValorFinalNegociado(semDesconto, config);
+  return valorTotalDeParametros(semDesconto, config);
 }
 
 export function descontoPorValorFinalManual(

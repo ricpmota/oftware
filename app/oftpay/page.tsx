@@ -6,7 +6,109 @@ import Link from 'next/link';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, User, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { OFTPAY_COURSES } from './coursesConfig';
-import { BookOpen, Video, User as UserIcon, ChevronDown, ClipboardList } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  CalendarDays,
+  ClipboardList,
+  Eye,
+  FileText,
+  ListChecks,
+  Map,
+  MonitorPlay,
+  Play,
+  Route,
+  ScanEye,
+  User as UserIcon,
+  ChevronDown,
+  Video,
+  type LucideIcon,
+} from 'lucide-react';
+
+type HomeBadge = { icon: LucideIcon; label: string };
+
+type HomeModule = {
+  key: string;
+  title: string;
+  description: string;
+  href: string;
+  enabled: boolean;
+  accent: string;
+  iconBg: string;
+  iconColor: string;
+  badgeClass: string;
+  Icon: LucideIcon;
+  Decoration: LucideIcon;
+  badges: HomeBadge[];
+  cta: string;
+};
+
+function ModuleCard({ module }: { module: HomeModule }) {
+  const { Icon, Decoration } = module;
+  const body = (
+    <>
+      <Decoration
+        className="pointer-events-none absolute -right-2 top-14 h-24 w-24 text-current opacity-[0.12] md:h-32 md:w-32"
+        aria-hidden
+        style={{ color: module.accent }}
+      />
+      <div className="relative flex items-start gap-4">
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${module.iconBg} ${module.iconColor}`}>
+          <Icon className="h-6 w-6" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
+          <p className="mt-1 text-sm leading-relaxed text-gray-500">{module.description}</p>
+        </div>
+      </div>
+      <ul className="relative mt-4 flex flex-wrap gap-2">
+        {module.badges.map((badge) => (
+          <li
+            key={badge.label}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${module.badgeClass}`}
+          >
+            <badge.icon className="h-3.5 w-3.5" aria-hidden />
+            {badge.label}
+          </li>
+        ))}
+      </ul>
+      <div className="relative mt-auto pt-5">
+      <span
+        className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold text-white transition duration-200 motion-reduce:transition-none ${
+          module.enabled ? 'group-hover:brightness-110' : 'bg-gray-300'
+        }`}
+        style={module.enabled ? { backgroundColor: module.accent } : undefined}
+      >
+        {module.enabled ? module.cta : 'Não liberado'}
+        <span className={`flex h-7 w-7 items-center justify-center rounded-full ${module.enabled ? 'bg-white' : 'bg-white/70'}`}>
+          <ArrowRight className="h-4 w-4" style={{ color: module.enabled ? module.accent : '#9ca3af' }} />
+        </span>
+      </span>
+      </div>
+    </>
+  );
+
+  const className = `group relative flex h-full flex-col overflow-hidden rounded-[20px] border border-gray-200 bg-white p-5 shadow-sm transition duration-200 motion-reduce:transition-none md:p-6 ${
+    module.enabled
+      ? 'hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A1F44] focus-visible:ring-offset-2 active:translate-y-0'
+      : 'cursor-not-allowed opacity-80'
+  }`;
+
+  if (module.enabled) {
+    return (
+      <Link href={module.href} className={className}>
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className} title={`${module.title} não liberado para sua conta`}>
+      {body}
+    </div>
+  );
+}
 
 function OftPayContent() {
   const router = useRouter();
@@ -180,9 +282,7 @@ function OftPayContent() {
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 p-6">
         <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-200 p-8">
           <div className="flex justify-center mb-6">
-            <div className="w-14 h-14 rounded-xl bg-blue-600 flex items-center justify-center">
-              <Video className="w-8 h-8 text-white" />
-            </div>
+            <img src="/oftware1.jpg" alt="Oftware" className="h-10 w-auto object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">OftPay</h1>
           <p className="text-center text-gray-600 mb-8">
@@ -229,9 +329,9 @@ function OftPayContent() {
 
   // Logado: lista de cursos (estilo app)
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">OftPay</h1>
+    <div className="min-h-screen bg-[#F8FAFC]">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+        <img src="/oftware1.jpg" alt="Oftware" className="h-8 w-auto object-contain md:h-9" />
         <div className="relative flex items-center" ref={userMenuRef}>
           <button
             type="button"
@@ -322,162 +422,106 @@ function OftPayContent() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Cursos disponíveis</h2>
-        <p className="text-gray-600 mb-6">Escolha um curso para começar.</p>
+      <main className="mx-auto max-w-5xl px-4 py-8 md:px-6 md:py-10">
+        <p className="text-xs font-semibold tracking-[0.18em] text-[#0A1F44]">APRENDIZADO</p>
+        <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[#0A1F44]">Cursos disponíveis</h2>
+        <p className="mt-2 max-w-xl text-sm text-gray-500 md:text-base">
+          Escolha um curso para começar e avance no seu aprendizado.
+        </p>
 
         {nothingLiberado && (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm mb-6">
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             Nenhum curso ou recurso liberado para sua conta. Entre em contato com o administrador para solicitar acesso.
           </div>
         )}
 
-        {/* Mobile: estilo app — ícone colorido se liberado, cinza se desativado */}
-        <div className="flex flex-wrap justify-center gap-10 md:hidden">
+        <div className="mt-8 grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 md:gap-6">
           {OFTPAY_COURSES.map((course) => {
-            const liberado = hasAccess(course.id);
-            const isPurple = course.theme === 'purple';
-            const iconBg = liberado
-              ? isPurple
-                ? 'bg-purple-100 text-purple-600 active:bg-purple-600 active:text-white'
-                : 'bg-blue-100 text-blue-600 active:bg-blue-600 active:text-white'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed';
-            const content = (
-              <>
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-md transition-colors ${iconBg}`}>
-                  <BookOpen className="w-10 h-10" />
-                </div>
-                <span className={`text-sm font-medium text-center max-w-[100px] ${liberado ? 'text-gray-800' : 'text-gray-400'}`}>
-                  {course.name}
-                </span>
-              </>
-            );
-            if (liberado) {
-              return (
-                <Link key={course.id} href={`/oftpay/curso/${course.id}`} className="group flex flex-col items-center gap-3 touch-manipulation">
-                  {content}
-                </Link>
-              );
-            }
-            return (
-              <div key={course.id} className="flex flex-col items-center gap-3 cursor-not-allowed opacity-80" title="Curso não liberado para sua conta">
-                {content}
-              </div>
-            );
+            const enabled = hasAccess(course.id);
+            const purple = course.id === 'propedeutics';
+            const laudo = course.id === 'laudo-exames';
+            const moduleCard: HomeModule = laudo
+              ? {
+                  key: course.id,
+                  title: course.name,
+                  description: course.description,
+                  href: `/oftpay/curso/${course.id}`,
+                  enabled,
+                  accent: '#2563EB',
+                  iconBg: 'bg-blue-50',
+                  iconColor: 'text-[#2563EB]',
+                  badgeClass: 'bg-blue-50 text-blue-800',
+                  Icon: Eye,
+                  Decoration: ScanEye,
+                  badges: [
+                    { icon: Map, label: 'Mapas' },
+                    { icon: FileText, label: 'Laudos' },
+                    { icon: Route, label: 'Guiado por etapas' },
+                  ],
+                  cta: 'Acessar curso',
+                }
+              : purple
+                ? {
+                    key: course.id,
+                    title: course.name,
+                    description: course.description,
+                    href: `/oftpay/curso/${course.id}`,
+                    enabled,
+                    accent: '#9333EA',
+                    iconBg: 'bg-purple-50',
+                    iconColor: 'text-[#9333EA]',
+                    badgeClass: 'bg-purple-50 text-purple-800',
+                    Icon: BookOpen,
+                    Decoration: FileText,
+                    badges: [
+                      { icon: BookOpen, label: 'Apostilas' },
+                      { icon: Video, label: 'Vídeos' },
+                      { icon: CalendarDays, label: 'Cronograma' },
+                    ],
+                    cta: 'Acessar curso',
+                  }
+                : {
+                    key: course.id,
+                    title: course.name,
+                    description: course.description,
+                    href: `/oftpay/curso/${course.id}`,
+                    enabled,
+                    accent: '#2563EB',
+                    iconBg: 'bg-blue-50',
+                    iconColor: 'text-[#2563EB]',
+                    badgeClass: 'bg-blue-50 text-blue-800',
+                    Icon: Play,
+                    Decoration: MonitorPlay,
+                    badges: [
+                      { icon: Video, label: 'Vídeos' },
+                      { icon: CalendarDays, label: 'Cronograma' },
+                      { icon: BarChart3, label: 'Progresso' },
+                    ],
+                    cta: 'Acessar curso',
+                  };
+            return <ModuleCard key={course.id} module={moduleCard} />;
           })}
-          {(() => {
-            const liberado = hasQuestoesAccess;
-            const iconBg = liberado
-              ? 'bg-emerald-100 text-emerald-600 active:bg-emerald-600 active:text-white'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed';
-            const content = (
-              <>
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-md transition-colors ${iconBg}`}>
-                  <ClipboardList className="w-10 h-10" />
-                </div>
-                <span className={`text-sm font-medium text-center max-w-[100px] ${liberado ? 'text-gray-800' : 'text-gray-400'}`}>
-                  Banco de Questões
-                </span>
-              </>
-            );
-            if (liberado) {
-              return (
-                <Link key="questoes" href="/oftpay/questoes" className="group flex flex-col items-center gap-3 touch-manipulation">
-                  {content}
-                </Link>
-              );
-            }
-            return (
-              <div key="questoes" className="flex flex-col items-center gap-3 cursor-not-allowed opacity-80" title="Banco de Questões não liberado para sua conta">
-                {content}
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Desktop: cards — colorido se liberado, cinza se desativado */}
-        <div className="hidden md:grid gap-4 sm:grid-cols-2">
-          {OFTPAY_COURSES.map((course) => {
-            const liberado = hasAccess(course.id);
-            const isPurple = course.theme === 'purple';
-            const cardBorder = liberado ? (isPurple ? 'hover:border-purple-200' : 'hover:border-blue-200') : '';
-            const iconBg = liberado
-              ? isPurple ? 'bg-purple-100 text-purple-600 group-hover:bg-purple-600' : 'bg-blue-100 text-blue-600 group-hover:bg-blue-600'
-              : 'bg-gray-100 text-gray-400';
-            const titleHover = liberado ? (isPurple ? 'group-hover:text-purple-600' : 'group-hover:text-blue-600') : '';
-            const linkColor = liberado ? (isPurple ? 'text-purple-600 group-hover:underline' : 'text-blue-600 group-hover:underline') : 'text-gray-400';
-            const baseClasses = `group block rounded-xl bg-white border border-gray-200 p-6 shadow-sm ${liberado ? 'hover:shadow-md ' + cardBorder : 'opacity-80 cursor-not-allowed'} transition-all`;
-            const inner = (
-              <div className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${iconBg} ${liberado ? 'group-hover:text-white' : ''}`}>
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className={`font-semibold transition-colors ${liberado ? `text-gray-900 ${titleHover}` : 'text-gray-500'}`}>
-                    {course.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                    {course.description}
-                  </p>
-                  <span className={`inline-block mt-3 text-sm font-medium ${linkColor}`}>
-                    {liberado ? 'Acessar curso →' : 'Não liberado'}
-                  </span>
-                </div>
-              </div>
-            );
-            if (liberado) {
-              return (
-                <Link key={course.id} href={`/oftpay/curso/${course.id}`} className={baseClasses}>
-                  {inner}
-                </Link>
-              );
-            }
-            return (
-              <div key={course.id} className={baseClasses} title="Curso não liberado para sua conta">
-                {inner}
-              </div>
-            );
-          })}
-          {(() => {
-            const liberado = hasQuestoesAccess;
-            const cardBorder = liberado ? 'hover:border-emerald-200' : '';
-            const iconBg = liberado
-              ? 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600'
-              : 'bg-gray-100 text-gray-400';
-            const titleHover = liberado ? 'group-hover:text-emerald-600' : '';
-            const linkColor = liberado ? 'text-emerald-600 group-hover:underline' : 'text-gray-400';
-            const baseClasses = `group block rounded-xl bg-white border border-gray-200 p-6 shadow-sm ${liberado ? 'hover:shadow-md ' + cardBorder : 'opacity-80 cursor-not-allowed'} transition-all`;
-            const inner = (
-              <div className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${iconBg} ${liberado ? 'group-hover:text-white' : ''}`}>
-                  <ClipboardList className="w-6 h-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className={`font-semibold transition-colors ${liberado ? `text-gray-900 ${titleHover}` : 'text-gray-500'}`}>
-                    Banco de Questões
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                    Simulados personalizados por tópico e acompanhamento de desempenho.
-                  </p>
-                  <span className={`inline-block mt-3 text-sm font-medium ${linkColor}`}>
-                    {liberado ? 'Acessar banco →' : 'Não liberado'}
-                  </span>
-                </div>
-              </div>
-            );
-            if (liberado) {
-              return (
-                <Link key="questoes" href="/oftpay/questoes" className={baseClasses}>
-                  {inner}
-                </Link>
-              );
-            }
-            return (
-              <div key="questoes" className={baseClasses} title="Banco de Questões não liberado para sua conta">
-                {inner}
-              </div>
-            );
-          })()}
+          <ModuleCard
+            module={{
+              key: 'questoes',
+              title: 'Banco de Questões',
+              description: 'Simulados personalizados por tópico e acompanhamento de desempenho.',
+              href: '/oftpay/questoes',
+              enabled: hasQuestoesAccess,
+              accent: '#059669',
+              iconBg: 'bg-emerald-50',
+              iconColor: 'text-[#059669]',
+              badgeClass: 'bg-emerald-50 text-emerald-800',
+              Icon: ClipboardList,
+              Decoration: ListChecks,
+              badges: [
+                { icon: BookOpen, label: 'Por assunto' },
+                { icon: BarChart3, label: 'Desempenho' },
+                { icon: ListChecks, label: 'Simulados' },
+              ],
+              cta: 'Acessar banco',
+            }}
+          />
         </div>
       </main>
     </div>

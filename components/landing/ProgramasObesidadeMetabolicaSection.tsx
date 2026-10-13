@@ -67,17 +67,22 @@ export default function ProgramasObesidadeMetabolicaSection() {
         {/* Cabeçalho */}
         <div className="max-w-3xl mb-14 md:mb-20">
           <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.22em] text-[#16A34A] mb-5">
-            Medicina metabólica
+            Programas de saúde
           </p>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#1D1D1D] leading-[1.1] tracking-tight mb-6">
-            Construída para programas de obesidade e medicina metabólica.
+            Construída para programas de obesidade e saúde metabólica.
           </h2>
           <p className="text-lg md:text-xl text-[#5A5A5A] leading-relaxed mb-4">
             A obesidade é uma doença crônica que exige acompanhamento contínuo, coordenação multidisciplinar e
             adesão de longo prazo.
           </p>
-          <p className="text-lg md:text-xl text-[#5A5A5A] leading-relaxed">
-            A Oftware foi criada para organizar toda essa jornada em uma única plataforma.
+          <p className="text-lg md:text-xl text-[#5A5A5A] leading-relaxed mb-4">
+            A Oftware organiza essa jornada em uma única estrutura digital — e o programa pode ser liderado por médico,
+            nutricionista, clínica, instituto ou equipe multiprofissional.
+          </p>
+          <p className="text-base md:text-lg text-[#5A5A5A] leading-relaxed">
+            O Método Emagrecer é uma aplicação prática dessa infraestrutura — não o único modelo possível de
+            organização.
           </p>
         </div>
 
@@ -111,7 +116,7 @@ export default function ProgramasObesidadeMetabolicaSection() {
             <p className="text-xl md:text-2xl font-semibold text-[#4ade80] mb-6">O diferencial está na coordenação.</p>
             <p className="text-base md:text-lg text-[#B8C2D1] leading-relaxed">
               Enquanto a maioria das soluções acompanha apenas uma parte do tratamento, a Oftware conecta paciente,
-              médico, nutricionista e personal em uma única jornada clínica.
+              médico, nutricionista e personal em uma única jornada — sob a organização que você lidera.
             </p>
           </div>
         </div>

@@ -9,6 +9,8 @@ Disallow: /_next/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
+Disallow: /oftpay/carplay
+Disallow: /carplay
 
 # Permitir recursos estáticos
 Allow: /icones/

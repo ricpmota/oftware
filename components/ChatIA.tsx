@@ -7,7 +7,7 @@ import type { IARole } from '@/lib/ia/orchestrate';
 import type { IAContextSurface } from '@/lib/ia/buildSystemPrompt';
 import type { ApiMealResponse, ChatNutriMealType } from '@/lib/chatnutri/types';
 import { prepareMealImageForUpload } from '@/utils/prepareMealImageForUpload';
-import { MessageCircle, X, Send, Loader2, Camera } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const MEAL_OPTIONS: { value: ChatNutriMealType; label: string }[] = [
   { value: 'cafe', label: 'Café' },
@@ -107,6 +107,7 @@ export default function ChatIA({
   chatNutriMedicoMeal,
 }: ChatIAProps) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -557,7 +558,13 @@ export default function ChatIA({
   };
 
   const busy = loading || uploadingMeal;
-  const posClass = floatPosition === 'left' ? 'left-4 sm:left-6' : 'right-4 sm:right-6';
+  const canCollapseFab = floatPosition === 'left';
+  const fabCollapsed = canCollapseFab && collapsed && !open;
+  const posClass = fabCollapsed
+    ? 'left-0'
+    : floatPosition === 'left'
+      ? 'left-4 sm:left-6'
+      : 'right-4 sm:right-6';
   const raSkin = contextSurface === 'rafaela_public';
 
   const patientsList = chatNutriMedicoMeal?.patients ?? [];
@@ -813,18 +820,51 @@ export default function ChatIA({
       className={`fixed z-[200] flex flex-col gap-2 ${posClass} bottom-[calc(1rem+1cm)] md:bottom-[calc(1rem+2cm)] ${className}`}
     >
       {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className={
-            raSkin
-              ? 'h-14 w-14 rounded-full bg-[#4099B3] text-white shadow-lg flex items-center justify-center hover:bg-[#2F7F96] focus:outline-none focus:ring-2 focus:ring-[#4099B3]/45'
-              : 'h-14 w-14 rounded-full bg-[#4CCB7A] text-[#0A1F44] shadow-lg flex items-center justify-center hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-[#4CCB7A]/50'
-          }
-          aria-label={raSkin ? 'Abrir chat de dúvidas jurídicas' : 'Abrir assistente Oftware'}
-        >
-          <MessageCircle className="h-7 w-7" />
-        </button>
+        fabCollapsed ? (
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className={
+              raSkin
+                ? 'h-14 w-7 rounded-r-2xl bg-[#4099B3] text-white shadow-lg flex items-center justify-center hover:bg-[#2F7F96] focus:outline-none focus:ring-2 focus:ring-[#4099B3]/45'
+                : 'h-14 w-7 rounded-r-2xl bg-[#4CCB7A] text-[#0A1F44] shadow-lg flex items-center justify-center hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-[#4CCB7A]/50'
+            }
+            aria-label="Mostrar assistente"
+            title="Mostrar assistente"
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden />
+          </button>
+        ) : (
+          <div className="flex items-center">
+            {canCollapseFab ? (
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                className={
+                  raSkin
+                    ? 'h-14 w-7 rounded-l-2xl bg-[#4099B3] text-white shadow-lg flex items-center justify-center hover:bg-[#2F7F96] focus:outline-none focus:ring-2 focus:ring-[#4099B3]/45'
+                    : 'h-14 w-7 rounded-l-2xl bg-[#4CCB7A] text-[#0A1F44] shadow-lg flex items-center justify-center hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-[#4CCB7A]/50'
+                }
+                aria-label="Recolher assistente"
+                title="Recolher assistente"
+              >
+                <ChevronLeft className="h-5 w-5" aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className={
+                raSkin
+                  ? `h-14 w-14 bg-[#4099B3] text-white shadow-lg flex items-center justify-center hover:bg-[#2F7F96] focus:outline-none focus:ring-2 focus:ring-[#4099B3]/45 ${canCollapseFab ? 'rounded-r-full' : 'rounded-full'}`
+                  : `h-14 w-14 bg-[#4CCB7A] text-[#0A1F44] shadow-lg flex items-center justify-center hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-[#4CCB7A]/50 ${canCollapseFab ? 'rounded-r-full' : 'rounded-full'}`
+              }
+              aria-label={raSkin ? 'Abrir chat de dúvidas jurídicas' : 'Abrir assistente Oftware'}
+            >
+              <MessageCircle className="h-7 w-7" />
+            </button>
+          </div>
+        )
       ) : (
         <div
           className={

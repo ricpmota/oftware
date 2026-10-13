@@ -329,20 +329,30 @@ export class SolicitacaoVinculoPersonalMedicoService {
       
       const solicitacoes = querySnapshot.docs.map((docSnap) => {
         const data = docSnap.data();
+        const personalTrainerId = String(
+          data.personalTrainerId ||
+            data.personaltrainerId ||
+            data.personal_trainer_id ||
+            data.personalId ||
+            data.profissionalId ||
+            ''
+        ).trim();
         return {
           id: docSnap.id,
-          personalTrainerId: data.personalTrainerId,
+          personalTrainerId,
           medicoId: data.medicoId,
           solicitadoPor: data.solicitadoPor || 'personal_trainer',
           status: data.status,
           criadoEm: data.criadoEm?.toDate() || new Date(),
-          aceitoEm: data.aceitoEm?.toDate(),
-          rejeitadoEm: data.rejeitadoEm?.toDate(),
-          canceladoEm: data.canceladoEm?.toDate(),
+          aceitoEm: data.aceitoEm?.toDate?.() || data.aceitoEm,
+          rejeitadoEm: data.rejeitadoEm?.toDate?.() || data.rejeitadoEm,
+          canceladoEm: data.canceladoEm?.toDate?.() || data.canceladoEm,
           motivoRejeicao: data.motivoRejeicao,
           motivoCancelamento: data.motivoCancelamento,
-          personalTrainerNome: data.personalTrainerNome,
-          personalTrainerEmail: data.personalTrainerEmail,
+          personalTrainerNome:
+            data.personalTrainerNome || data.personaltrainerNome || data.personalNome || data.nome,
+          personalTrainerEmail:
+            data.personalTrainerEmail || data.personaltrainerEmail || data.email,
           medicoNome: data.medicoNome,
         };
       });
@@ -355,6 +365,62 @@ export class SolicitacaoVinculoPersonalMedicoService {
     } catch (error) {
       console.error('Erro ao listar todas as solicitações do médico:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Vínculos profissionais ACEITOS médico↔personal
+   * (solicitacoes_vinculo_personal_medico).
+   */
+  static async listAcceptedVinculoMetaByMedico(
+    medicoId: string
+  ): Promise<
+    Array<{
+      personalTrainerId: string;
+      nome?: string;
+      email?: string;
+      status?: string;
+    }>
+  > {
+    const key = String(medicoId || '').trim();
+    if (!key) return [];
+    try {
+      const all = await this.listAllVinculoRequestsByMedico(key);
+      const out: Array<{
+        personalTrainerId: string;
+        nome?: string;
+        email?: string;
+        status?: string;
+      }> = [];
+      const seen = new Set<string>();
+      for (const s of all) {
+        const status = String(s.status || '')
+          .trim()
+          .toLowerCase();
+        const aceita =
+          status === SOLICITACAO_STATUS.ACEITA ||
+          status === 'accepted' ||
+          status === 'aprovada' ||
+          status === 'aprovado' ||
+          (s.aceitoEm != null &&
+            status !== SOLICITACAO_STATUS.REJEITADA &&
+            status !== SOLICITACAO_STATUS.CANCELADA &&
+            status !== SOLICITACAO_STATUS.PENDENTE);
+        if (!aceita) continue;
+        const id = String(s.personalTrainerId || '').trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({
+          personalTrainerId: id,
+          nome: s.personalTrainerNome || undefined,
+          email: s.personalTrainerEmail || undefined,
+          status: String(s.status || ''),
+        });
+      }
+      return out;
+    } catch (error) {
+      console.error('Erro ao listar vínculos personal aceitos por médico:', error);
+      return [];
     }
   }
 
@@ -428,31 +494,42 @@ export class SolicitacaoVinculoPersonalMedicoService {
       const personalRef = doc(db, COL_PERSONAL_TRAINERS, requestData.personalTrainerId);
       const personalSnap = await getDoc(personalRef);
 
+      // Resolve doc real do médico (request pode ter id do doc OU Auth UID legado)
+      const medicoResolved =
+        (await MedicoService.getMedicoById(requestData.medicoId).catch(() => null)) ||
+        (await MedicoService.getMedicoByUserId(requestData.medicoId).catch(() => null));
+      const medicoDocId = medicoResolved?.id || String(requestData.medicoId || '').trim();
+      const medicoKeys = Array.from(
+        new Set([medicoDocId, medicoResolved?.userId, requestData.medicoId].map((x) => String(x || '').trim()).filter(Boolean))
+      );
+
       if (personalSnap.exists()) {
         const personalData = personalSnap.data();
-        const medicoVinculadoIds = personalData.medicoVinculadoIds || [];
-        
-        // Adicionar médico se ainda não estiver na lista
-        if (!medicoVinculadoIds.includes(requestData.medicoId)) {
-          await updateDoc(personalRef, {
-            medicoVinculadoIds: [...medicoVinculadoIds, requestData.medicoId],
-          });
+        const medicoVinculadoIds = Array.isArray(personalData.medicoVinculadoIds)
+          ? personalData.medicoVinculadoIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+          : [];
+        const nextMedicoIds = Array.from(new Set([...medicoVinculadoIds, ...medicoKeys]));
+        if (nextMedicoIds.length !== medicoVinculadoIds.length) {
+          await updateDoc(personalRef, { medicoVinculadoIds: nextMedicoIds });
         }
       }
       
       // Atualizar documento do médico adicionando o personal trainer vinculado
-      const medicoRef = doc(db, 'medicos', requestData.medicoId);
-      const medicoSnap = await getDoc(medicoRef);
+      if (medicoDocId) {
+        const medicoRef = doc(db, 'medicos', medicoDocId);
+        const medicoSnap = await getDoc(medicoRef);
       
-      if (medicoSnap.exists()) {
-        const medicoData = medicoSnap.data();
-        const personalTrainerVinculadoIds = medicoData.personalTrainerVinculadoIds || [];
+        if (medicoSnap.exists()) {
+          const medicoData = medicoSnap.data();
+          const personalTrainerVinculadoIds = Array.isArray(medicoData.personalTrainerVinculadoIds)
+            ? medicoData.personalTrainerVinculadoIds.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+            : [];
         
-        // Adicionar personal trainer se ainda não estiver na lista
-        if (!personalTrainerVinculadoIds.includes(requestData.personalTrainerId)) {
-          await updateDoc(medicoRef, {
-            personalTrainerVinculadoIds: [...personalTrainerVinculadoIds, requestData.personalTrainerId],
-          });
+          if (!personalTrainerVinculadoIds.includes(requestData.personalTrainerId)) {
+            await updateDoc(medicoRef, {
+              personalTrainerVinculadoIds: [...personalTrainerVinculadoIds, requestData.personalTrainerId],
+            });
+          }
         }
       }
       

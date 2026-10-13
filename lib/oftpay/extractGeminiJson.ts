@@ -12,7 +12,12 @@ function tryParseJson(text: string): unknown | null {
 
 /** Extrai objetos completos de um array "topics" mesmo quando o JSON foi truncado. */
 function extractPartialObjectsFromTopicsArray(text: string): unknown[] {
-  const keyIdx = text.search(/"topics"\s*:\s*\[/i);
+  return extractPartialObjectsFromNamedArray(text, 'topics');
+}
+
+/** Extrai objetos completos de um array nomeado mesmo quando o JSON foi truncado. */
+function extractPartialObjectsFromNamedArray(text: string, key: string): unknown[] {
+  const keyIdx = text.search(new RegExp(`"${key}"\\s*:\\s*\\[`, 'i'));
   if (keyIdx < 0) return [];
 
   const arrStart = text.indexOf('[', keyIdx);
@@ -123,6 +128,11 @@ export function extractJsonFromGeminiText(text: string): unknown | null {
 
   const partialTopics = extractPartialObjectsFromTopicsArray(trimmed);
   if (partialTopics.length > 0) return { topics: partialTopics };
+
+  for (const key of ['foods', 'alimentos', 'items', 'foodItems'] as const) {
+    const partialFoods = extractPartialObjectsFromNamedArray(trimmed, key);
+    if (partialFoods.length > 0) return { foods: partialFoods };
+  }
 
   return null;
 }

@@ -35,6 +35,8 @@ describe('buildOrganizationDashboardMetrics', () => {
     expect(metrics.medicosVerificados).toBe(1);
     expect(metrics.totalNutricionistas).toBe(1);
     expect(metrics.totalPersonalTrainers).toBe(0);
+    expect(metrics.totalPsiquiatras).toBe(0);
+    expect(metrics.psiquiatrasVerificados).toBe(0);
     expect(metrics.totalPacientes).toBe(3);
     expect(metrics.pacientesEmTratamento).toBe(1);
     expect(metrics.pacientesPendentes).toBe(1);
@@ -44,5 +46,25 @@ describe('buildOrganizationDashboardMetrics', () => {
     expect(metrics.npsGeral).toBe(42.5);
     expect(metrics.solicitacoesPendentes).toBe(2);
     expect(metrics.pacientesCompartilhados).toBe(5);
+  });
+
+  it('agrega Psiquiatras sem misturar com médico/nutri/personal', () => {
+    const metrics = buildOrganizationDashboardMetrics({
+      medicos: [{ isVerificado: true }],
+      nutricionistas: [],
+      personalTrainers: [],
+      psiquiatras: [{ isVerificado: false }, { isVerificado: true }],
+      pacientes: [],
+      leadsByStatus: emptyLeadsByStatus,
+      npsEstatisticas: null,
+      solicitacoesPendentes: [],
+      totalPacientesCompartilhados: 0,
+    });
+
+    expect(metrics.totalMedicos).toBe(1);
+    expect(metrics.totalPsiquiatras).toBe(2);
+    expect(metrics.psiquiatrasVerificados).toBe(1);
+    expect(metrics.totalNutricionistas).toBe(0);
+    expect(metrics.totalPersonalTrainers).toBe(0);
   });
 });

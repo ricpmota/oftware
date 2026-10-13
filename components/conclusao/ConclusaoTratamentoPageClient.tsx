@@ -28,12 +28,15 @@ import {
 import { METODO_PACIENTE_META_URL, goToMetodoPacienteMeta } from '@/lib/tenant/metodoPublicOrigin';
 import { CONCLUSAO_QUESTIONS, type ConclusaoQuestion } from '@/lib/conclusao/conclusaoQuestions';
 import { formatarVariacaoMedida, toneVariacaoMedida } from '@/lib/aplicacao/formatarVariacaoMedida';
+import { DigitalMeasurePicker } from '@/components/aplicacao/DigitalMeasurePicker';
+import AplicacaoFotosEvolucaoSection from '@/components/aplicacao/AplicacaoFotosEvolucaoSection';
 
 const INTRO_STEP = 0;
 
 type FlowStep =
   | { kind: 'question'; question: ConclusaoQuestion }
   | { kind: 'stars' }
+  | { kind: 'fotos' }
   | { kind: 'review' };
 
 type DadosConclusao = {
@@ -46,6 +49,9 @@ type DadosConclusao = {
   jaClassificouMedico: boolean;
   pesoFinalKg?: number | null;
   circunferenciaAbdominalFinalCm?: number | null;
+  pesoReferenciaKg?: number | null;
+  circunferenciaReferenciaCm?: number | null;
+  sexoBiologico?: 'M' | 'F' | 'Outro' | null;
   depoimento?: string | null;
   percepcaoResultadoFinal?: string | null;
   principalConquista?: string | null;
@@ -54,11 +60,16 @@ type DadosConclusao = {
   circunferenciaAbdominalReduzidaCm?: number | null;
   linkRelatorio?: string | null;
   whiteLabel?: MedicoWhiteLabelResolved;
+  protocoloIndice?: number;
 };
 
 type FormState = Record<string, string>;
 
 const INITIAL_FORM: FormState = Object.fromEntries(CONCLUSAO_QUESTIONS.map((q) => [q.key, '']));
+
+function formatarMedidaForm(n: number, decimals: number): string {
+  return n.toFixed(decimals).replace('.', ',');
+}
 
 function toneDeltaClasses(tone: ReturnType<typeof toneVariacaoMedida>): string {
   if (tone === 'positivo') return 'text-emerald-600 dark:text-emerald-400';
@@ -233,10 +244,15 @@ export default function ConclusaoTratamentoPageClient() {
   const [evolucaoFromIndicar, setEvolucaoFromIndicar] = useState(false);
   const [evolucaoEscolhida, setEvolucaoEscolhida] = useState<boolean | null>(null);
   const [whiteLabel, setWhiteLabel] = useState<MedicoWhiteLabelResolved | null>(null);
+  const [medidasReferencia, setMedidasReferencia] = useState<{
+    peso: number | null;
+    circunferenciaAbdominal: number | null;
+  }>({ peso: null, circunferenciaAbdominal: null });
 
   const flowSteps = useMemo((): FlowStep[] => {
     const steps: FlowStep[] = CONCLUSAO_QUESTIONS.map((question) => ({ kind: 'question', question }));
     if (!dados?.jaClassificouMedico) steps.push({ kind: 'stars' });
+    steps.push({ kind: 'fotos' });
     steps.push({ kind: 'review' });
     return steps;
   }, [dados?.jaClassificouMedico]);
@@ -332,12 +348,31 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
         if (data.whiteLabel) setWhiteLabel(data.whiteLabel);
 
         const nextForm = { ...INITIAL_FORM };
-        if (data.pesoFinalKg != null) nextForm.pesoFinal = String(data.pesoFinalKg);
-        if (data.circunferenciaAbdominalFinalCm != null) nextForm.circunferenciaAbdominal = String(data.circunferenciaAbdominalFinalCm);
+        if (data.pesoFinalKg != null && data.pesoFinalKg > 0) {
+          nextForm.pesoFinal = formatarMedidaForm(data.pesoFinalKg, 1);
+        } else if (!data.jaPreenchido && data.pesoReferenciaKg != null && data.pesoReferenciaKg > 0) {
+          nextForm.pesoFinal = formatarMedidaForm(data.pesoReferenciaKg, 1);
+        }
+        if (data.circunferenciaAbdominalFinalCm != null && data.circunferenciaAbdominalFinalCm > 0) {
+          nextForm.circunferenciaAbdominal = formatarMedidaForm(data.circunferenciaAbdominalFinalCm, 2);
+        } else if (
+          !data.jaPreenchido &&
+          data.circunferenciaReferenciaCm != null &&
+          data.circunferenciaReferenciaCm > 0
+        ) {
+          nextForm.circunferenciaAbdominal = formatarMedidaForm(data.circunferenciaReferenciaCm, 2);
+        }
         if (data.depoimento) nextForm.depoimento = String(data.depoimento);
         if (data.percepcaoResultadoFinal) nextForm.percepcaoResultadoFinal = data.percepcaoResultadoFinal;
         if (data.principalConquista) nextForm.principalConquista = data.principalConquista;
         setForm(nextForm);
+        setMedidasReferencia({
+          peso: data.pesoReferenciaKg != null && data.pesoReferenciaKg > 0 ? data.pesoReferenciaKg : null,
+          circunferenciaAbdominal:
+            data.circunferenciaReferenciaCm != null && data.circunferenciaReferenciaCm > 0
+              ? data.circunferenciaReferenciaCm
+              : null,
+        });
         if (data.estrelasMedico) setEstrelasMedico(data.estrelasMedico);
 
         if (data.jaPreenchido && data.depoimento != null && String(data.depoimento).trim() !== '') {
@@ -362,7 +397,7 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
     if (isIntro) return true;
     if (!currentFlowStep) return true;
 
-    if (currentFlowStep.kind === 'stars' || currentFlowStep.kind === 'review') {
+    if (currentFlowStep.kind === 'stars' || currentFlowStep.kind === 'review' || currentFlowStep.kind === 'fotos') {
       setErro(null);
       return true;
     }
@@ -851,6 +886,14 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white leading-tight mb-2">
                   Conclusão do Tratamento
                 </h1>
+                {dados?.protocoloIndice != null && dados.protocoloIndice >= 1 ? (
+                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-2">
+                    Protocolo {dados.protocoloIndice}
+                    {dados.protocoloIndice > 1
+                      ? ' — este depoimento fica neste ciclo, não no protocolo anterior.'
+                      : ''}
+                  </p>
+                ) : null}
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 leading-relaxed">
                   Vamos registrar o resultado final da sua jornada. Isso ajuda sua equipe médica a acompanhar sua evolução e também permite que você visualize tudo que conquistou.
                 </p>
@@ -882,6 +925,15 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                       </div>
                     </div>
                   )}
+                  {dados?.protocoloIndice != null && dados.protocoloIndice >= 1 && (
+                    <div className="flex gap-3 items-center rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 p-3">
+                      <CheckCircle className="h-5 w-5 text-emerald-700 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase text-emerald-800 dark:text-emerald-300">Protocolo em conclusão</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">Protocolo {dados.protocoloIndice}</p>
+                      </div>
+                    </div>
+                  )}
                   {dados?.data && (
                     <div className="flex gap-3 items-center rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-3">
                       <Calendar className="h-5 w-5 text-sky-700 shrink-0" />
@@ -898,6 +950,10 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Revisão antes de enviar</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Confira suas respostas antes de registrar a conclusão.</p>
                 <div className="space-y-2">
+                  {renderReviewItem(
+                    'Protocolo',
+                    dados?.protocoloIndice != null ? `Protocolo ${dados.protocoloIndice}` : null
+                  )}
                   {renderReviewItem('Peso final', form.pesoFinal ? `${form.pesoFinal} kg` : null)}
                   {renderReviewItem('Circunferência abdominal', form.circunferenciaAbdominal ? `${form.circunferenciaAbdominal} cm` : null)}
                   {renderReviewItem('Percepção do resultado', form.percepcaoResultadoFinal)}
@@ -931,6 +987,12 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Opcional</p>
               </>
+            ) : currentFlowStep?.kind === 'fotos' ? (
+              <AplicacaoFotosEvolucaoSection
+                token={token}
+                apiBase={`/api/conclusao/${encodeURIComponent(token)}`}
+                sexoBiologico={dados?.sexoBiologico ?? null}
+              />
             ) : currentFlowStep?.kind === 'question' ? (
               (() => {
                 const q = currentFlowStep.question;
@@ -973,6 +1035,26 @@ Achei muito organizado e sério. Se tiver interesse, dá uma olhada 🙂`;
                         />
                         <p className="text-xs text-gray-500 mt-1">{(form[q.key] || '').length}/3000 caracteres · Opcional</p>
                       </>
+                    ) : q.key === 'pesoFinal' ? (
+                      <DigitalMeasurePicker
+                        value={form.pesoFinal || ''}
+                        onChange={(v) => updateField('pesoFinal', v)}
+                        unit="kg"
+                        step={0.1}
+                        decimals={1}
+                        referenceValue={medidasReferencia.peso}
+                        readOnly={bloqueado}
+                      />
+                    ) : q.key === 'circunferenciaAbdominal' ? (
+                      <DigitalMeasurePicker
+                        value={form.circunferenciaAbdominal || ''}
+                        onChange={(v) => updateField('circunferenciaAbdominal', v)}
+                        unit="cm"
+                        step={0.25}
+                        decimals={2}
+                        referenceValue={medidasReferencia.circunferenciaAbdominal}
+                        readOnly={bloqueado}
+                      />
                     ) : (
                       <input
                         type="text"

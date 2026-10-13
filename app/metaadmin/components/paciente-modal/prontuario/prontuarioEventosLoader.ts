@@ -27,7 +27,10 @@ import {
   type SolicitacaoExameData,
 } from './prontuarioEventExtractors';
 import type { EventoTimelineMock } from './prontuarioTypes';
-import type { SolicitacaoExamesSalva } from '@/utils/solicitacaoExamesPdfDownload';
+import {
+  mapSolicitacaoExamesFromFirestore,
+  type SolicitacaoExamesSalva,
+} from '@/utils/solicitacaoExamesPdfDownload';
 
 export type ProntuarioVisao = 'medico' | 'nutricionista';
 
@@ -197,22 +200,18 @@ export async function carregarEventosAsyncProntuario(options: {
       )
     );
     const solicitacoes: SolicitacaoExameData[] = solSnap.docs.map((d) => {
-      const data = d.data();
-      const salva: SolicitacaoExamesSalva = {
-        id: d.id,
-        pacienteId: id,
-        medicoId: (data.medicoId as string) ?? '',
-        exames: (data.exames as string[]) ?? [],
-        hipoteseDiagnostica: (data.hipoteseDiagnostica as string) ?? '',
-        criadoEm: data.criadoEm?.toDate?.() ?? new Date(),
-      };
+      const salva = mapSolicitacaoExamesFromFirestore(
+        d.id,
+        id,
+        d.data() as Record<string, unknown>
+      );
       solicitacoesExamesMap.set(d.id, salva);
       return {
         id: d.id,
         medicoId: salva.medicoId,
         exames: salva.exames,
         hipoteseDiagnostica: salva.hipoteseDiagnostica,
-        criadoEm: data.criadoEm,
+        criadoEm: d.data().criadoEm,
       };
     });
     resultados.push(...solicitacoesExamesParaEventos(solicitacoes));

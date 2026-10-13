@@ -4,7 +4,6 @@ import { IndicacaoService } from '@/services/indicacaoService';
 import { MedicoService } from '@/services/medicoService';
 import { metaadminSessionCache } from '@/lib/metaadmin/metaadminSessionCache';
 import {
-  pickTelefoneSolicitacao,
   resolvePacienteDaSolicitacao,
 } from '@/lib/metaadmin/resolvePacienteSolicitacao';
 import { isValidLeadPhone } from '@/lib/crm/leadContactHelpers';
@@ -14,7 +13,10 @@ import {
   findIndicacaoForLead,
   resolveLeadReferral,
 } from '@/lib/crm/resolveLeadReferral';
-import type { LeadMedico, LeadMedicoStatus } from '@/types/leadMedico';
+import { inferLeadStatusFromSolicitacao } from '@/lib/metaadmin/inferLeadStatusFromSolicitacao';
+import { leadPhoneWriteFieldsFromIdent } from '@/lib/whatsapp/resolveLeadPhone';
+import { identPhoneWriteFieldsFromSolicitacao } from '@/lib/whatsapp/resolveIndicacaoSolicitacaoPhone';
+import type { LeadMedico } from '@/types/leadMedico';
 import type { PacienteCompleto } from '@/types/obesidade';
 import type { SolicitacaoMedico } from '@/types/solicitacaoMedico';
 import type { Indicacao } from '@/types/indicacao';
@@ -24,6 +26,22 @@ export type LoadLeadsMedicoResult = {
   leadsByStatus: ReturnType<typeof groupLeadsByStatus>;
   pacientesLeads: PacienteCompleto[];
 };
+
+function pickLeadMedicoPhoneWrite(
+  solicitacao: Pick<
+    SolicitacaoMedico,
+    'pacienteTelefone' | 'pacienteTelefoneDdi' | 'pacienteTelefonePais'
+  >,
+  paciente?: PacienteCompleto | null
+): {
+  telefone?: string;
+  telefoneDdi?: string;
+  telefonePais?: string;
+} {
+  const fromIdent = leadPhoneWriteFieldsFromIdent(paciente?.dadosIdentificacao);
+  if (fromIdent.telefone) return fromIdent;
+  return identPhoneWriteFieldsFromSolicitacao(solicitacao);
+}
 
 function mergeLeadsPreservingFirestoreIds(
   fromSolicitacoes: LeadMedico[],
@@ -108,17 +126,6 @@ function isLeadRelevantForMedico(
   return recomendado === medicoId || responsavel === medicoId;
 }
 
-function inferLeadStatusFromSolicitacao(
-  solicitacao: SolicitacaoMedico,
-  paciente: PacienteCompleto | null,
-  medicoId: string
-): LeadMedicoStatus {
-  if (paciente?.medicoResponsavelId === medicoId) return 'em_tratamento';
-  if (solicitacao.status === 'aceita') return 'em_tratamento';
-  if (solicitacao.status === 'rejeitada' || solicitacao.status === 'desistiu') return 'excluido';
-  return 'nao_qualificado';
-}
-
 function filterRelevantLeads(
   leads: LeadMedico[],
   medicoId: string,
@@ -162,10 +169,13 @@ async function backfillLeadsTelefone(params: {
 
       if (isValidLeadPhone(lead, paciente)) return lead;
 
-      const telefone = pickTelefoneSolicitacao(solicitacao ?? { pacienteTelefone: undefined }, paciente);
-      if (!telefone) return lead;
+      const phoneWrite = pickLeadMedicoPhoneWrite(
+        solicitacao ?? { pacienteTelefone: undefined },
+        paciente
+      );
+      if (!phoneWrite.telefone) return lead;
 
-      const leadAtualizado: LeadMedico = { ...lead, telefone };
+      const leadAtualizado: LeadMedico = { ...lead, ...phoneWrite };
       try {
         await LeadMedicoService.createOrUpdateLead(leadAtualizado);
       } catch (e) {
@@ -290,7 +300,7 @@ export async function loadLeadsMedicoData(options: {
         pacientesMap.get(solicitacao.pacienteId || '') ||
         pacientesMap.get(email) ||
         null;
-      const telefone = pickTelefoneSolicitacao(solicitacao, paciente);
+      const phoneWrite = pickLeadMedicoPhoneWrite(solicitacao, paciente);
       const leadExistente = leadsExistentesMap.get(email);
       const referralFromSolicitacao = solicitacao.referral;
 
@@ -298,7 +308,7 @@ export async function loadLeadsMedicoData(options: {
         const leadAtualizado: LeadMedico = {
           ...leadExistente,
           name: solicitacao.pacienteNome,
-          telefone,
+          ...phoneWrite,
           cidade: paciente?.dadosIdentificacao?.endereco?.cidade,
           estado: paciente?.dadosIdentificacao?.endereco?.estado,
           solicitacaoId: solicitacao.id,
@@ -310,12 +320,12 @@ export async function loadLeadsMedicoData(options: {
         return leadAtualizado;
       }
 
-      const statusInicial = inferLeadStatusFromSolicitacao(solicitacao, paciente, medicoId);
+      const statusInicial = inferLeadStatusFromSolicitacao(solicitacao, paciente);
       const novoLead: Omit<LeadMedico, 'id'> = {
         uid: paciente?.userId || solicitacao.pacienteId || email,
         email: solicitacao.pacienteEmail,
         name: solicitacao.pacienteNome,
-        telefone,
+        ...phoneWrite,
         cidade: paciente?.dadosIdentificacao?.endereco?.cidade,
         estado: paciente?.dadosIdentificacao?.endereco?.estado,
         createdAt: solicitacao.criadoEm,
@@ -361,13 +371,13 @@ export async function loadLeadsMedicoData(options: {
       solicitacoesPendentesSemLead.map(async (solicitacao) => {
         const email = solicitacao.pacienteEmail.toLowerCase();
         const paciente = await resolvePacienteDaSolicitacao(solicitacao);
-        const telefone = pickTelefoneSolicitacao(solicitacao, paciente);
-        const statusInicial = inferLeadStatusFromSolicitacao(solicitacao, paciente, medicoId);
+        const phoneWrite = pickLeadMedicoPhoneWrite(solicitacao, paciente);
+        const statusInicial = inferLeadStatusFromSolicitacao(solicitacao, paciente);
         const novoLead: Omit<LeadMedico, 'id'> = {
           uid: paciente?.userId || solicitacao.pacienteId || email,
           email: solicitacao.pacienteEmail,
           name: solicitacao.pacienteNome,
-          telefone,
+          ...phoneWrite,
           cidade: paciente?.dadosIdentificacao?.endereco?.cidade,
           estado: paciente?.dadosIdentificacao?.endereco?.estado,
           createdAt: solicitacao.criadoEm,

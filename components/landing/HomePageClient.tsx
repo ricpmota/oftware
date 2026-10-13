@@ -10,6 +10,7 @@ import {
   UserCheck,
   UtensilsCrossed,
   Dumbbell,
+  Brain,
   ArrowRight,
   Shield,
   Zap,
@@ -172,7 +173,7 @@ export default function HomePageClient() {
                   </span>
                 </h1>
                 <p className="text-lg md:text-xl text-[#E8EDED]/80 mb-8 max-w-xl">
-                  Plataforma que une medicina, nutrição e treinamento em um único ecossistema.
+                  Plataforma que une medicina, nutrição, psiquiatria e treinamento em um único ecossistema.
                   Dados em tempo real, acompanhamento contínuo e decisões baseadas em evidências.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -198,8 +199,8 @@ export default function HomePageClient() {
                   <div className="grid grid-cols-2 gap-4">
                     {[
                       { icon: Stethoscope, label: 'Médico', color: 'from-[#4CCB7A] to-[#2F8FA3]' },
-                      { icon: UserCheck, label: 'Paciente', color: 'from-[#2F8FA3] to-[#4CCB7A]' },
                       { icon: UtensilsCrossed, label: 'Nutricionista', color: 'from-[#4CCB7A] to-[#2F8FA3]' },
+                      { icon: Brain, label: 'Psiquiatra', color: 'from-[#2F8FA3] to-[#4CCB7A]' },
                       { icon: Dumbbell, label: 'Personal', color: 'from-[#2F8FA3] to-[#4CCB7A]' },
                     ].map(({ icon: Icon, label, color }) => (
                       <div
@@ -213,7 +214,7 @@ export default function HomePageClient() {
                   </div>
                   <div className="mt-4 p-3 rounded-lg bg-white/5 text-[#E8EDED]/80 text-sm">
                     <p className="font-medium text-[#4CCB7A]">Ecossistema integrado</p>
-                    <p>Médico, nutri e personal conectados em tempo real</p>
+                    <p>Médico, nutricionista, psiquiatra e personal conectados — com acompanhamento integrado quando necessário</p>
                   </div>
                 </div>
               </div>
@@ -315,8 +316,8 @@ export default function HomePageClient() {
             </p>
             <div className="grid md:grid-cols-4 gap-8">
               {[
-                { step: 1, title: 'Cadastre-se', desc: 'Médicos, nutricionistas e personais criam suas contas.' },
-                { step: 2, title: 'Vincule a equipe', desc: 'Conecte médicos, nutri e personais em rede multidisciplinar.' },
+                { step: 1, title: 'Cadastre-se', desc: 'Médicos, nutricionistas, psiquiatras e personais criam suas contas.' },
+                { step: 2, title: 'Vincule a equipe', desc: 'Conecte médicos, nutri, psiquiatra e personais em rede multidisciplinar.' },
                 { step: 3, title: 'Engaje pacientes', desc: 'Pacientes acessam planos, treinos e acompanhamento.' },
                 { step: 4, title: 'Acompanhe resultados', desc: 'Dados em tempo real, métricas e evolução clínica.' },
               ].map(({ step, title, desc }) => (
@@ -632,7 +633,7 @@ export default function HomePageClient() {
               <div className="md:col-span-2">
                 <img src="/logo-site.jpg" alt="Oftware" className="h-10 w-auto mb-4" />
                 <p className="text-[#E8EDED]/70 text-sm max-w-md">
-                  Plataforma de gestão médica integrada. Medicina, nutrição e treinamento em um único ecossistema.
+                  Plataforma de gestão médica integrada. Medicina, nutrição, psiquiatria e treinamento em um único ecossistema.
                 </p>
               </div>
               <div>
@@ -642,6 +643,7 @@ export default function HomePageClient() {
                   <li><a href="/meta" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Paciente</a></li>
                   <li><a href="/metaadmin" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Médico</a></li>
                   <li><a href="/metanutri" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Nutricionista</a></li>
+                  <li><a href="/metapsi" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Psiquiatra</a></li>
                   <li><a href="/metapersonal" className="text-[#E8EDED]/70 hover:text-[#4CCB7A] text-sm">Área do Personal</a></li>
                 </ul>
               </div>

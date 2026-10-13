@@ -69,6 +69,32 @@ export type ParcelamentoNegociado = {
 
 export type VistaPropostaNegociacao = 'medico' | 'paciente';
 
+/** Item de um protocolo injetável no orçamento negociado. */
+export type ItemProtocoloInjetavelNegociado = {
+  medicamento: string;
+  dosagem: string;
+  frequencia: string;
+  /** R$ por semana deste item. Se preenchido, entra na soma semanal do protocolo. */
+  valorUnitario: number;
+};
+
+/** Protocolo injetável incluído no Plano Personalizado (vários por orçamento). */
+export type ProtocoloInjetavelNegociado = {
+  id: string;
+  protocoloId: string;
+  protocoloNome: string;
+  itens: ItemProtocoloInjetavelNegociado[];
+  semanas: number;
+  /** Semanas do plano em que este protocolo é aplicado (1-based). */
+  semanasAplicacao: number[];
+  /** Observação por semana (chave = número da semana). Padrão: nome da substância. */
+  observacoesPorSemana: Record<string, string>;
+  /** R$ por semana do protocolo (usado se os itens não tiverem preço). */
+  valorUnitario: number;
+  /** Override do total da linha (semanas × unitário). */
+  valorTotalManual: number | null;
+};
+
 /** Valores de investimento editáveis manualmente. */
 export type InvestimentoManualNegociado = {
   /** Preço por mg — multiplicado pela dose total do plano. */
@@ -138,6 +164,9 @@ export type ParametrosPlanoPersonalizadoEditavel = {
   examesDescricao: string;
   examesValorUnitario: number | null;
   examesValorTotalManual: number | null;
+
+  /** Protocolos injetáveis (catálogo) somados ao investimento. */
+  protocolosInjetaveis: ProtocoloInjetavelNegociado[];
 
   /** 9. Consolidação / pós-meta */
   consolidacaoHabilitada: boolean;

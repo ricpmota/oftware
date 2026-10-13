@@ -1,11 +1,10 @@
 'use client';
 
-import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
 import {
-  countAvailableForSubjectAndDifficulty,
-  countAvailableForTopicAndDifficulty,
   maxSimuladoQuantidade,
   parseQuantidadeInput,
+  subjectDisponiveisFromConfig,
+  topicDisponiveisFromConfig,
   type SubjectGroupConfig,
 } from '@/lib/oftpay/simuladoSubjectListPicker';
 import type { QuestaoDificuldade } from '@/types/oftpayQuestoes';
@@ -40,13 +39,11 @@ function DisponiveisComTodas({
 }
 
 interface SimuladoSubjectListPickerProps {
-  publicadas: OftpayQuestaoDoc[];
   groups: SubjectGroupConfig[];
   onGroupsChange: (groups: SubjectGroupConfig[]) => void;
 }
 
 export default function SimuladoSubjectListPicker({
-  publicadas,
   groups,
   onGroupsChange,
 }: SimuladoSubjectListPickerProps) {
@@ -112,11 +109,7 @@ export default function SimuladoSubjectListPicker({
       <ul className="space-y-3 max-h-[520px] overflow-y-auto overscroll-y-contain pr-1">
         {groups.map((group) => {
           const selectedTopicsCount = group.topics.filter((t) => t.included).length;
-          const subjectDisponiveis = countAvailableForSubjectAndDifficulty(
-            publicadas,
-            group.label,
-            group.dificuldade
-          );
+          const subjectDisponiveis = subjectDisponiveisFromConfig(group);
           const isActive = group.included || selectedTopicsCount > 0;
 
           return (
@@ -174,11 +167,7 @@ export default function SimuladoSubjectListPicker({
                           value={group.dificuldade}
                           onChange={(e) => {
                             const dificuldade = e.target.value as QuestaoDificuldade;
-                            const disp = countAvailableForSubjectAndDifficulty(
-                              publicadas,
-                              group.label,
-                              dificuldade
-                            );
+                            const disp = subjectDisponiveisFromConfig(group, dificuldade);
                             updateSubjectGroup(group.key, {
                               dificuldade,
                               quantidade: Math.min(
@@ -234,12 +223,7 @@ export default function SimuladoSubjectListPicker({
                     </p>
                     <ul className="space-y-2">
                       {group.topics.map((topic) => {
-                        const topicDisponiveis = countAvailableForTopicAndDifficulty(
-                          publicadas,
-                          topic.label,
-                          topic.dificuldade,
-                          group.label
-                        );
+                        const topicDisponiveis = topicDisponiveisFromConfig(topic);
                         const topicDisabled = group.included;
 
                         return (
@@ -288,12 +272,7 @@ export default function SimuladoSubjectListPicker({
                                       value={topic.dificuldade}
                                       onChange={(e) => {
                                         const dificuldade = e.target.value as QuestaoDificuldade;
-                                        const disp = countAvailableForTopicAndDifficulty(
-                                          publicadas,
-                                          topic.label,
-                                          dificuldade,
-                                          group.label
-                                        );
+                                        const disp = topicDisponiveisFromConfig(topic, dificuldade);
                                         updateTopicRow(group.key, topic.key, {
                                           dificuldade,
                                           quantidade: Math.min(

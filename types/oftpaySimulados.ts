@@ -4,8 +4,7 @@
  */
 
 import type { AlternativaLetra, QuestaoDificuldade } from '@/types/oftpayQuestoes';
-import { getQuestaoCapituloDisplay } from '@/types/oftpayQuestoes';
-import type { OftpayQuestaoDoc } from '@/services/oftpayQuestoesService';
+import type { OftpayQuestaoMatchable } from '@/types/oftpayQuestaoCatalog';
 
 export const OFTPAY_SIMULADOS_COLLECTION = 'oftpaySimulados';
 export const OFTPAY_SIMULADO_ANSWERS_COLLECTION = 'oftpaySimuladoAnswers';
@@ -142,13 +141,19 @@ export function formatSimuladoApostilaLabel(apostilaTitulo: string): string {
   return apostilaTitulo.replace(/\.(cdr|pdf)$/i, '').trim() || 'Sem assunto';
 }
 
-function getQuestionApostilaLabel(questao: OftpayQuestaoDoc): string {
+function getQuestionApostilaLabel(questao: OftpayQuestaoMatchable): string {
   const raw = (questao.fonte?.apostilaTitulo ?? '').trim();
   return raw ? formatSimuladoApostilaLabel(raw) : 'Sem assunto';
 }
 
-function getQuestionApostilaKey(questao: OftpayQuestaoDoc): string {
+function getQuestionApostilaKey(questao: OftpayQuestaoMatchable): string {
   return normalizeKey(getQuestionApostilaLabel(questao));
+}
+
+function getMatchableCapituloDisplay(questao: OftpayQuestaoMatchable): string {
+  const cap = questao.capituloTitulo?.trim();
+  if (cap) return cap;
+  return (questao.tema ?? '').trim();
 }
 
 /** Rótulo principal do assunto para seleção/cobertura. */
@@ -161,7 +166,7 @@ export function getSelectionLabel(sel: OftpaySimuladoSelection): string {
 }
 
 export function matchQuestionToSelection(
-  questao: OftpayQuestaoDoc,
+  questao: OftpayQuestaoMatchable,
   selection: OftpaySimuladoSelection
 ): boolean {
   if (questao.dificuldade !== selection.dificuldade) return false;
@@ -176,7 +181,7 @@ export function matchQuestionToSelection(
   if (apSel && getQuestionApostilaKey(questao) !== normalizeKey(apSel)) return false;
 
   if (capSel) {
-    const qCap = getQuestaoCapituloDisplay(questao).trim();
+    const qCap = getMatchableCapituloDisplay(questao);
     if (normalizeKey(qCap) !== normalizeKey(capSel)) return false;
   }
 
@@ -187,7 +192,7 @@ export function matchQuestionToSelection(
 }
 
 export function countAvailableQuestions(
-  publicadas: OftpayQuestaoDoc[],
+  publicadas: OftpayQuestaoMatchable[],
   selection: OftpaySimuladoSelection,
   excludeIds?: Set<string>
 ): number {
@@ -206,7 +211,7 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 export function buildSimuladoQuestionIds(
-  publicadas: OftpayQuestaoDoc[],
+  publicadas: OftpayQuestaoMatchable[],
   selections: OftpaySimuladoSelection[]
 ): { questionIds: string[]; warnings: string[] } {
   const used = new Set<string>();
@@ -292,7 +297,7 @@ export function computePerformanceBySubject(
 
 /** Cobertura = questões únicas respondidas / total publicadas por tópico (lista plana). */
 export function computeStudyCoverageByTopic(
-  publicadas: OftpayQuestaoDoc[],
+  publicadas: OftpayQuestaoMatchable[],
   answeredQuestionIds: Set<string>
 ): TopicStudyCoverage[] {
   return computeStudyCoverageBySubject(publicadas, answeredQuestionIds)
@@ -312,7 +317,7 @@ export function computeStudyCoverageByTopic(
 }
 
 function buildStudyCoverageByDifficulty(
-  questions: OftpayQuestaoDoc[],
+  questions: OftpayQuestaoMatchable[],
   answeredQuestionIds: Set<string>
 ): StudyCoverageByDifficulty {
   const build = (diff: StudyCoverageDifficultyFilter): CoverageDifficultyStats => {
@@ -337,22 +342,22 @@ function buildStudyCoverageByDifficulty(
 
 /** Cobertura agrupada por assunto (apostila) com tópicos mapeados e stats por dificuldade. */
 export function computeStudyCoverageBySubject(
-  publicadas: OftpayQuestaoDoc[],
+  publicadas: OftpayQuestaoMatchable[],
   answeredQuestionIds: Set<string>
 ): SubjectStudyCoverage[] {
   const subjectMap = new Map<
     string,
     {
       label: string;
-      questions: OftpayQuestaoDoc[];
-      topics: Map<string, { label: string; questions: OftpayQuestaoDoc[] }>;
+      questions: OftpayQuestaoMatchable[];
+      topics: Map<string, { label: string; questions: OftpayQuestaoMatchable[] }>;
     }
   >();
 
   for (const q of publicadas) {
     const subjectLabel = getQuestionApostilaLabel(q);
     const subjectKey = normalizeKey(subjectLabel);
-    const topicLabel = getQuestaoCapituloDisplay(q) || q.tema || 'Sem tópico';
+    const topicLabel = getMatchableCapituloDisplay(q) || q.tema || 'Sem tópico';
     const topicKey = normalizeKey(topicLabel);
 
     let subject = subjectMap.get(subjectKey);
@@ -416,7 +421,7 @@ export interface SimuladoSubjectGroup {
 
 /** Assuntos (apostilas) com tópicos mapeados que possuem questões publicadas. */
 export function computeSubjectGroupsFromPublicadas(
-  publicadas: OftpayQuestaoDoc[]
+  publicadas: OftpayQuestaoMatchable[]
 ): SimuladoSubjectGroup[] {
   const subjectMap = new Map<
     string,
@@ -426,7 +431,7 @@ export function computeSubjectGroupsFromPublicadas(
   for (const q of publicadas) {
     const subjectLabel = getQuestionApostilaLabel(q);
     const subjectKey = normalizeKey(subjectLabel);
-    const topicLabel = getQuestaoCapituloDisplay(q) || q.tema || 'Sem tópico';
+    const topicLabel = getMatchableCapituloDisplay(q) || q.tema || 'Sem tópico';
     const topicKey = normalizeKey(topicLabel);
 
     let subject = subjectMap.get(subjectKey);
@@ -478,13 +483,13 @@ export function computeSubjectGroupsFromPublicadas(
 
 /** Tópicos/capítulos disponíveis a partir das questões publicadas. */
 export function computeTopicOptionsFromPublicadas(
-  publicadas: OftpayQuestaoDoc[]
+  publicadas: OftpayQuestaoMatchable[]
 ): SimuladoTopicOption[] {
   return computeSubjectGroupsFromPublicadas(publicadas).flatMap((group) => group.topics);
 }
 
 export function countAvailableForTopicAndDifficulty(
-  publicadas: OftpayQuestaoDoc[],
+  publicadas: OftpayQuestaoMatchable[],
   capituloTitulo: string,
   dificuldade: QuestaoDificuldade,
   apostilaTitulo?: string
@@ -498,11 +503,26 @@ export function countAvailableForTopicAndDifficulty(
 }
 
 export function countAvailableForSubjectAndDifficulty(
-  publicadas: OftpayQuestaoDoc[],
+  publicadas: OftpayQuestaoMatchable[],
   apostilaTitulo: string,
   dificuldade: QuestaoDificuldade
 ): number {
   return countAvailableQuestions(publicadas, { apostilaTitulo, dificuldade, quantidade: 1 });
+}
+
+/** Contagem O(1) a partir do índice pré-agregado (evita re-filtrar 30k docs no render). */
+export function countFromSubjectGroup(
+  group: SimuladoSubjectGroup,
+  dificuldade: QuestaoDificuldade
+): number {
+  return group.topics.reduce((sum, t) => sum + (t[dificuldade] ?? 0), 0);
+}
+
+export function countFromTopicOption(
+  topic: Pick<SimuladoTopicOption, 'facil' | 'medio' | 'dificil'>,
+  dificuldade: QuestaoDificuldade
+): number {
+  return topic[dificuldade] ?? 0;
 }
 
 export function createEmptySelection(): OftpaySimuladoSelection {

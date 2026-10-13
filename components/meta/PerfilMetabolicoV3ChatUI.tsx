@@ -54,10 +54,6 @@ function subLabelClass(wizardMode: boolean) {
   return wizardMode ? 'text-sm font-medium text-slate-800' : 'text-sm font-medium text-[#E8EDED]';
 }
 
-function hintClass(wizardMode: boolean) {
-  return wizardMode ? 'text-xs text-slate-500' : 'text-xs text-[#E8EDED]/60';
-}
-
 function EnviarRow({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
   return (
     <button
@@ -157,33 +153,33 @@ export default function PerfilMetabolicoV3ChatUI({
           </div>
         </div>
 
-        <div className="space-y-2.5">
-          <SubLabel wizardMode={wizardMode}>Horas de sono em média</SubLabel>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ['menos_5', 'Menos de 5h'],
-                ['5_6', '5–6h'],
-                ['7_8', '7–8h'],
-                ['mais_8', 'Mais de 8h'],
-              ] as const
-            ).map(([v, l]) => (
-              <button
-                key={v}
-                type="button"
-                className={optionBtnClass(wizardMode, s.horasSonoMedias === v)}
-                onClick={() => setSono({ horasSonoMedias: v })}
-              >
-                {l}
-              </button>
-            ))}
+        {s.qualidadeSono ? (
+          <div className="space-y-2.5">
+            <SubLabel wizardMode={wizardMode}>Horas de sono em média</SubLabel>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['menos_5', 'Menos de 5h'],
+                  ['5_6', '5–6h'],
+                  ['7_8', '7–8h'],
+                  ['mais_8', 'Mais de 8h'],
+                ] as const
+              ).map(([v, l]) => (
+                <button
+                  key={v}
+                  type="button"
+                  className={optionBtnClass(wizardMode, s.horasSonoMedias === v)}
+                  onClick={() => setSono({ horasSonoMedias: v })}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        <div className={wizardMode ? 'space-y-4' : 'rounded-xl border border-white/10 bg-white/5 p-4 space-y-3'}>
-          {simNao('ronca', 'Você costuma roncar?')}
-          {simNao('acordaCansado', 'Você acorda cansado?')}
-        </div>
+        {s.horasSonoMedias ? simNao('ronca', 'Você costuma roncar?') : null}
+        {s.ronca ? simNao('acordaCansado', 'Você acorda cansado?') : null}
 
         {!wizardMode && onSubmit && (
           <EnviarRow
@@ -245,21 +241,25 @@ export default function PerfilMetabolicoV3ChatUI({
             </button>
           ))}
         </div>
-        <p className={hintClass(wizardMode)}>O que mais dificulta? (opcional)</p>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['faltaTempo', 'Falta de tempo'],
-              ['dor', 'Dor'],
-              ['desanimo', 'Desânimo'],
-              ['nenhuma', 'Nenhuma'],
-            ] as const
-          ).map(([k, l]) => (
-            <button key={k} type="button" className={optionBtnClass(wizardMode, !!dif[k])} onClick={() => toggleDif(k)}>
-              {l}
-            </button>
-          ))}
-        </div>
+        {a.rotinaMovimento ? (
+          <>
+            <SubLabel wizardMode={wizardMode}>O que mais dificulta? (opcional)</SubLabel>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['faltaTempo', 'Falta de tempo'],
+                  ['dor', 'Dor'],
+                  ['desanimo', 'Desânimo'],
+                  ['nenhuma', 'Nenhuma'],
+                ] as const
+              ).map(([k, l]) => (
+                <button key={k} type="button" className={optionBtnClass(wizardMode, !!dif[k])} onClick={() => toggleDif(k)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
         {!wizardMode && onSubmit && (
           <EnviarRow
             disabled={!blocoAtividadeCompleto(pm)}
@@ -278,15 +278,37 @@ export default function PerfilMetabolicoV3ChatUI({
       setPaciente((p) =>
         mergePerfilMetabolicoV3(p, { alimentacao: { ...(p.dadosClinicos?.perfilMetabolicoV3?.alimentacao || {}), ...patch } })
       );
-    const tri = (
+    const perguntaSimNao = (
       field: 'vontadeDoces' | 'beliscaEntreRefeicoes' | 'comeAnsiedadeEstresse' | 'perdaControleAlimentar',
-      v: 'sim' | 'nao' | 'as_vezes',
-      l: string
+      pergunta: string
     ) => (
-      <button key={`${field}-${v}`} type="button" className={optionBtnClass(wizardMode, a[field] === v)} onClick={() => setAli({ [field]: v })}>
-        {l}
-      </button>
+      <div className="space-y-2.5">
+        <SubLabel wizardMode={wizardMode}>{pergunta}</SubLabel>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ['sim', 'Sim'],
+              ['nao', 'Não'],
+              ['as_vezes', 'Às vezes'],
+            ] as const
+          ).map(([v, l]) => (
+            <button
+              key={`${field}-${v}`}
+              type="button"
+              className={optionBtnClass(wizardMode, a[field] === v)}
+              onClick={() => setAli({ [field]: v })}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
     );
+    const respostaAli = (label: string, valor?: string) => {
+      if (valor === 'sim') return label;
+      if (valor === 'as_vezes') return `${label} (às vezes)`;
+      return '';
+    };
     const momentoLabels: Record<string, string> = {
       manha: 'Manhã',
       tarde: 'Tarde',
@@ -295,41 +317,45 @@ export default function PerfilMetabolicoV3ChatUI({
     };
     const replyParts: string[] = [];
     if (a.momentoMaisDificil) replyParts.push(momentoLabels[a.momentoMaisDificil]);
-    if (a.vontadeDoces === 'sim') replyParts.push('Vontade de doces');
-    if (a.beliscaEntreRefeicoes === 'sim') replyParts.push('Belisca');
-    if (a.comeAnsiedadeEstresse === 'sim') replyParts.push('Come por ansiedade');
-    if (a.perdaControleAlimentar === 'sim') replyParts.push('Perda de controle');
+    const doces = respostaAli('Vontade de doces', a.vontadeDoces);
+    const belisca = respostaAli('Belisca entre refeições', a.beliscaEntreRefeicoes);
+    const ansiedade = respostaAli('Come por ansiedade', a.comeAnsiedadeEstresse);
+    const controle = respostaAli('Perde o controle ao comer', a.perdaControleAlimentar);
+    if (doces) replyParts.push(doces);
+    if (belisca) replyParts.push(belisca);
+    if (ansiedade) replyParts.push(ansiedade);
+    if (controle) replyParts.push(controle);
     return (
-      <div className="space-y-3">
-        <SubLabel wizardMode={wizardMode}>Momento mais difícil</SubLabel>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['manha', 'Manhã'],
-              ['tarde', 'Tarde'],
-              ['noite', 'Noite'],
-              ['fim_de_semana', 'Fim de semana'],
-            ] as const
-          ).map(([v, l]) => (
-            <button key={v} type="button" className={optionBtnClass(wizardMode, a.momentoMaisDificil === v)} onClick={() => setAli({ momentoMaisDificil: v })}>
-              {l}
-            </button>
-          ))}
+      <div className="space-y-5">
+        <div className="space-y-2.5">
+          <SubLabel wizardMode={wizardMode}>Em que momento do dia comer fica mais difícil?</SubLabel>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ['manha', 'Manhã'],
+                ['tarde', 'Tarde'],
+                ['noite', 'Noite'],
+                ['fim_de_semana', 'Fim de semana'],
+              ] as const
+            ).map(([v, l]) => (
+              <button key={v} type="button" className={optionBtnClass(wizardMode, a.momentoMaisDificil === v)} onClick={() => setAli({ momentoMaisDificil: v })}>
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
-        <SubLabel wizardMode={wizardMode}>Marque o que se aplica</SubLabel>
-        <div className="flex flex-wrap gap-2">
-          {tri('vontadeDoces', 'sim', 'Doces: sim')}
-          {tri('beliscaEntreRefeicoes', 'sim', 'Belisca')}
-          {tri('comeAnsiedadeEstresse', 'sim', 'Ansiedade/estresse')}
-          {tri('perdaControleAlimentar', 'sim', 'Perda de controle')}
-          <button
-            type="button"
-            className={optionBtnClass(wizardMode, a.vontadeDoces === 'nao')}
-            onClick={() => setAli({ vontadeDoces: 'nao', beliscaEntreRefeicoes: 'nao', comeAnsiedadeEstresse: 'nao', perdaControleAlimentar: 'nao' })}
-          >
-            Nada disso
-          </button>
-        </div>
+        {a.momentoMaisDificil
+          ? perguntaSimNao('vontadeDoces', 'Você sente vontade de comer doces?')
+          : null}
+        {a.vontadeDoces
+          ? perguntaSimNao('beliscaEntreRefeicoes', 'Você belisca entre as refeições?')
+          : null}
+        {a.beliscaEntreRefeicoes
+          ? perguntaSimNao('comeAnsiedadeEstresse', 'Você come por ansiedade ou estresse?')
+          : null}
+        {a.comeAnsiedadeEstresse
+          ? perguntaSimNao('perdaControleAlimentar', 'Você sente que perde o controle ao comer?')
+          : null}
         {!wizardMode && onSubmit && (
           <EnviarRow
             disabled={!blocoAlimentacaoCompleto(pm)}
@@ -354,37 +380,44 @@ export default function PerfilMetabolicoV3ChatUI({
       setEn({ barreirasRotina: { ...bar, [k]: !bar[k] } });
     const reply = [e.nivelEnergiaDiaria ? nivLabels[e.nivelEnergiaDiaria] : '', bar.faltaTempo ? 'Tempo' : '', bar.faltaMotivacao ? 'Motivação' : '', bar.faltaPlanejamento ? 'Planejamento' : '', bar.faltaApoio ? 'Apoio' : '', bar.nenhuma ? 'Nenhuma barreira' : ''].filter(Boolean).join(', ');
     return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['alta', 'Alta'],
-              ['media', 'Média'],
-              ['baixa', 'Baixa'],
-              ['muito_baixa', 'Muito baixa'],
-            ] as const
-          ).map(([v, l]) => (
-            <button key={v} type="button" className={optionBtnClass(wizardMode, e.nivelEnergiaDiaria === v)} onClick={() => setEn({ nivelEnergiaDiaria: v })}>
-              {l}
-            </button>
-          ))}
+      <div className="space-y-5">
+        <div className="space-y-2.5">
+          <SubLabel wizardMode={wizardMode}>Como está sua energia no dia a dia?</SubLabel>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ['alta', 'Alta'],
+                ['media', 'Média'],
+                ['baixa', 'Baixa'],
+                ['muito_baixa', 'Muito baixa'],
+              ] as const
+            ).map(([v, l]) => (
+              <button key={v} type="button" className={optionBtnClass(wizardMode, e.nivelEnergiaDiaria === v)} onClick={() => setEn({ nivelEnergiaDiaria: v })}>
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
-        <SubLabel wizardMode={wizardMode}>O que atrapalha sua rotina?</SubLabel>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['faltaTempo', 'Tempo'],
-              ['faltaMotivacao', 'Motivação'],
-              ['faltaPlanejamento', 'Planejamento'],
-              ['faltaApoio', 'Apoio'],
-              ['nenhuma', 'Nenhuma'],
-            ] as const
-          ).map(([k, l]) => (
-            <button key={k} type="button" className={optionBtnClass(wizardMode, !!bar[k])} onClick={() => toggleBar(k)}>
-              {l}
-            </button>
-          ))}
-        </div>
+        {e.nivelEnergiaDiaria ? (
+          <>
+            <SubLabel wizardMode={wizardMode}>O que atrapalha sua rotina?</SubLabel>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['faltaTempo', 'Tempo'],
+                  ['faltaMotivacao', 'Motivação'],
+                  ['faltaPlanejamento', 'Planejamento'],
+                  ['faltaApoio', 'Apoio'],
+                  ['nenhuma', 'Nenhuma'],
+                ] as const
+              ).map(([k, l]) => (
+                <button key={k} type="button" className={optionBtnClass(wizardMode, !!bar[k])} onClick={() => toggleBar(k)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
         {!wizardMode && onSubmit && (
           <EnviarRow
             disabled={!blocoEnergiaCompleto(pm)}
@@ -463,39 +496,52 @@ export default function PerfilMetabolicoV3ChatUI({
     const replyParts: string[] = [];
     if (m.usouMedicacaoParaEmagrecer === 'nao') replyParts.push('Nunca usou');
     else Object.keys(meds).filter((k) => k !== 'outroDescricao' && meds[k as keyof typeof meds]).forEach((k) => replyParts.push(medLabels[k] || k));
+    const escolheuMedicamento = (['semaglutida', 'tirzepatida', 'sibutramina', 'orlistate', 'outro'] as const).some(
+      (k) => meds[k]
+    );
     return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={optionBtnClass(wizardMode, m.usouMedicacaoParaEmagrecer === 'sim')} onClick={() => setM({ usouMedicacaoParaEmagrecer: 'sim' })}>
-            Sim, já usei
-          </button>
-          <button type="button" className={optionBtnClass(wizardMode, m.usouMedicacaoParaEmagrecer === 'nao')} onClick={() => setM({ usouMedicacaoParaEmagrecer: 'nao', medicacoes: { nenhuma: true } })}>
-            Não
-          </button>
+      <div className="space-y-5">
+        <div className="space-y-2.5">
+          <SubLabel wizardMode={wizardMode}>Já usou algum medicamento para emagrecer?</SubLabel>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={optionBtnClass(wizardMode, m.usouMedicacaoParaEmagrecer === 'sim')} onClick={() => setM({ usouMedicacaoParaEmagrecer: 'sim' })}>
+              Sim, já usei
+            </button>
+            <button type="button" className={optionBtnClass(wizardMode, m.usouMedicacaoParaEmagrecer === 'nao')} onClick={() => setM({ usouMedicacaoParaEmagrecer: 'nao', medicacoes: { nenhuma: true } })}>
+              Não
+            </button>
+          </div>
         </div>
         {m.usouMedicacaoParaEmagrecer === 'sim' && (
           <>
-            <div className="flex flex-wrap gap-2">
-              {(['semaglutida', 'tirzepatida', 'sibutramina', 'orlistate', 'outro'] as const).map((k) => (
-                <button key={k} type="button" className={optionBtnClass(wizardMode, !!meds[k])} onClick={() => toggleMed(k)}>
-                  {medLabels[k]}
-                </button>
-              ))}
+            <div className="space-y-2.5">
+              <SubLabel wizardMode={wizardMode}>Qual você já usou?</SubLabel>
+              <div className="flex flex-wrap gap-2">
+                {(['semaglutida', 'tirzepatida', 'sibutramina', 'orlistate', 'outro'] as const).map((k) => (
+                  <button key={k} type="button" className={optionBtnClass(wizardMode, !!meds[k])} onClick={() => toggleMed(k)}>
+                    {medLabels[k]}
+                  </button>
+                ))}
+              </div>
             </div>
-            <SubLabel wizardMode={wizardMode}>Teve efeitos colaterais?</SubLabel>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ['sim', 'Sim'],
-                  ['nao', 'Não'],
-                  ['nao_aplicavel', 'Não se aplica'],
-                ] as const
-              ).map(([v, l]) => (
-                <button key={v} type="button" className={optionBtnClass(wizardMode, m.teveEfeitosColaterais === v)} onClick={() => setM({ teveEfeitosColaterais: v })}>
-                  {l}
-                </button>
-              ))}
-            </div>
+            {escolheuMedicamento ? (
+              <div className="space-y-2.5">
+                <SubLabel wizardMode={wizardMode}>Teve efeitos colaterais?</SubLabel>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ['sim', 'Sim'],
+                      ['nao', 'Não'],
+                      ['nao_aplicavel', 'Não se aplica'],
+                    ] as const
+                  ).map(([v, l]) => (
+                    <button key={v} type="button" className={optionBtnClass(wizardMode, m.teveEfeitosColaterais === v)} onClick={() => setM({ teveEfeitosColaterais: v })}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </>
         )}
         {!wizardMode && onSubmit && (

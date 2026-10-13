@@ -1,4 +1,10 @@
-import type { ChatNutriMessage, ApiChatSuccessResponse, ApiErrorResponse } from '@/lib/chatnutri/types';
+import type {
+  ChatNutriMessage,
+  ApiChatSuccessResponse,
+  ApiErrorResponse,
+  ChatNutriHumanAuthorKind,
+} from '@/lib/chatnutri/types';
+import { mapChatNutriMessagesToGeminiHistory } from '@/lib/chatnutri/mapHistoryForGemini';
 import {
   getPatientStatusTratamento,
   saveChatNutriMessage,
@@ -6,7 +12,7 @@ import {
   getChatNutriDayTotals,
   getPatientContextForChat,
 } from '@/services/chatNutriServerService';
-import { chatNutriTextReply, type ChatHistoryEntry } from '@/services/chatNutriGeminiService';
+import { chatNutriTextReply } from '@/services/chatNutriGeminiService';
 
 export type ChatNutriTurnError = {
   ok: false;
@@ -25,16 +31,22 @@ export type ChatNutriTurnResult = ChatNutriTurnSuccess | ChatNutriTurnError;
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Um turno de texto ChatNutri: validação, Firestore, Gemini (via chatNutriTextReply), persistência.
- * Usado por /api/chatnutri/chat e por /api/chat com surface=chatnutri.
+ * "Analisar com IA": grava o texto do solicitante, chama Gemini, grava assistant.
+ * Usado por POST /api/chatnutri/chat.
  */
 export async function executeChatNutriTextTurn(params: {
   patientId: string;
   dateKey: string;
   text: string;
+  authorKind?: ChatNutriHumanAuthorKind;
+  authorName?: string;
+  authorId?: string;
 }): Promise<ChatNutriTurnResult> {
   const { patientId, dateKey, text } = params;
   const trimmed = text.trim();
+  const authorKind: ChatNutriHumanAuthorKind = params.authorKind ?? 'patient';
+  const authorName = params.authorName?.trim() || undefined;
+  const authorId = params.authorId?.trim() || undefined;
 
   if (!patientId || !dateKey || !trimmed) {
     return {
@@ -67,10 +79,14 @@ export async function executeChatNutriTextTurn(params: {
     getPatientContextForChat(patientId),
   ]);
 
-  const history: ChatHistoryEntry[] = messages.map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    text: m.text,
-  }));
+  const history = mapChatNutriMessagesToGeminiHistory(messages);
+
+  const isProfessional = authorKind === 'doctor' || authorKind === 'nutritionist';
+  const userTextForGemini = isProfessional
+    ? `[Pedido explícito Analisar com IA — ${
+        authorKind === 'doctor' ? 'Médico' : 'Nutricionista'
+      }${authorName ? ` (${authorName})` : ''}]: ${trimmed}`
+    : trimmed;
 
   let replyText: string;
   try {
@@ -78,7 +94,7 @@ export async function executeChatNutriTextTurn(params: {
       history,
       dayTotals,
       patientContext,
-      userText: trimmed,
+      userText: userTextForGemini,
     });
   } catch (e) {
     console.error('[executeChatNutriTextTurn] Gemini error:', e);
@@ -86,12 +102,16 @@ export async function executeChatNutriTextTurn(params: {
   }
 
   const now = new Date().toISOString();
+  const promptRole: ChatNutriMessage['role'] = isProfessional ? 'professional' : 'user';
 
   await saveChatNutriMessage(patientId, dateKey, {
-    role: 'user',
+    role: promptRole,
     type: 'chat',
     text: trimmed,
     createdAt: now,
+    authorKind,
+    authorName: authorName ?? null,
+    authorId: authorId ?? null,
   });
 
   const assistantMsg: ApiChatSuccessResponse['message'] = {

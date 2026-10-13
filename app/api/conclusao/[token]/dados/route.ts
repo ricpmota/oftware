@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import crypto from 'crypto';
 import { calcularDeltaAcumuladoMedida } from '@/lib/aplicacao/formatarVariacaoMedida';
 import { resolveMedicoWhiteLabelWithMetodo } from '@/lib/server/resolveMedicoWhiteLabelWithMetodo.server';
-import { buildOrganizacaoPublicUrl } from '@/lib/tenant/organizacaoPublicOrigin';
-import { shadowOrganizationFields } from '@/lib/organization/shadowOrganizationId';
+import { ensureRelatorioPacientePublicLink } from '@/lib/relatorio/ensureRelatorioPacientePublicLink';
+import {
+  isValidPublicLinkToken,
+  normalizePublicLinkToken,
+} from '@/lib/publicLinks/publicLinkToken';
+import { semanaInicioCicloDoPlano } from '@/utils/datasAplicacaoSemanaPlano';
+import { ehRegistroConclusaoSeguimento } from '@/lib/metaadmin/proximoRegistroSeguimento';
+import type { SeguimentoSemanal } from '@/types/obesidade';
 
 function getFirebaseAdmin() {
   const existingApps = getApps();
@@ -55,8 +60,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = await params;
-    if (!token || token.length < 16) {
+    const token = normalizePublicLinkToken((await params).token);
+    if (!isValidPublicLinkToken(token)) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
     }
 
@@ -79,10 +84,19 @@ export async function GET(
 
     const paciente = pacienteSnap.data() as {
       nome?: string;
-      dadosIdentificacao?: { nomeCompleto?: string };
-      evolucaoSeguimento?: Array<{ weekIndex?: number; numeroSemana?: number; peso?: number; circunferenciaAbdominal?: number }>;
+      dadosIdentificacao?: { nomeCompleto?: string; sexoBiologico?: 'M' | 'F' | 'Outro' };
+      evolucaoSeguimento?: Array<{
+        id?: string;
+        weekIndex?: number;
+        numeroSemana?: number;
+        peso?: number;
+        circunferenciaAbdominal?: number;
+        comentarioMedico?: string;
+      }>;
       dadosClinicos?: { medidasIniciais?: { peso?: number; circunferenciaAbdominal?: number } };
       planoTerapeutico?: {
+        semanaInicioCiclo?: number;
+        historicoProtocolosTirzepatida?: unknown[];
         conclusaoTratamento?: {
           pesoFinalKg?: number;
           circunferenciaAbdominalFinalCm?: number;
@@ -90,6 +104,7 @@ export async function GET(
           percepcaoResultadoFinal?: string;
           principalConquista?: string;
           estrelasMedico?: number;
+          protocoloIndice?: number;
         };
       };
     };
@@ -108,7 +123,14 @@ export async function GET(
     const estrelasMedico = estrelasClassificacao ?? conclusao?.estrelasMedico ?? null;
 
     const evolucaoBase = paciente?.evolucaoSeguimento || [];
-    const primeiroRegistro = evolucaoBase.find((e: any) => (e.weekIndex ?? e.numeroSemana) === 1);
+    const inicioCiclo = semanaInicioCicloDoPlano(paciente?.planoTerapeutico || {});
+    const protocoloIndice =
+      (paciente?.planoTerapeutico?.conclusaoTratamento?.protocoloIndice != null
+        ? Number(paciente.planoTerapeutico.conclusaoTratamento.protocoloIndice)
+        : (paciente?.planoTerapeutico?.historicoProtocolosTirzepatida || []).length + 1) || 1;
+    const primeiroRegistro = evolucaoBase.find(
+      (e: any) => (e.weekIndex ?? e.numeroSemana) === inicioCiclo
+    );
     const medidasIniciais = paciente?.dadosClinicos?.medidasIniciais as Record<string, unknown> | undefined;
     const pesoInicialKg = primeiroRegistro?.peso ?? (medidasIniciais?.peso as number) ?? null;
     const toNum = (v: unknown): number | null => {
@@ -123,6 +145,18 @@ export async function GET(
       ? (toNum(medIni.circunferenciaAbdominal) ?? toNum(medIni.circAbdominal) ?? toNum(medIni.comprimentoAbdominal) ?? toNum((pac.medidasIniciais as Record<string, unknown>)?.circunferenciaAbdominal))
       : toNum((pac.medidasIniciais as Record<string, unknown>)?.circunferenciaAbdominal);
     const circunferenciaInicialCm = circDoRegistro ?? circMedidas ?? null;
+    const evolucaoReferencia = [...evolucaoBase]
+      .filter((e) => !ehRegistroConclusaoSeguimento(e as SeguimentoSemanal))
+      .sort(
+        (a, b) => (b.weekIndex ?? b.numeroSemana ?? 0) - (a.weekIndex ?? a.numeroSemana ?? 0)
+      );
+    const ultimoPeso = evolucaoReferencia.find((e) => toNum(e.peso) != null);
+    const ultimoCirc = evolucaoReferencia.find((e) => toNum(e.circunferenciaAbdominal) != null);
+    const pesoReferenciaKg = toNum(ultimoPeso?.peso) ?? toNum(pesoInicialKg);
+    const circunferenciaReferenciaCm = toNum(ultimoCirc?.circunferenciaAbdominal) ?? circunferenciaInicialCm;
+    const sexoRaw = paciente?.dadosIdentificacao?.sexoBiologico;
+    const sexoBiologico = sexoRaw === 'M' || sexoRaw === 'F' || sexoRaw === 'Outro' ? sexoRaw : null;
+
     const pesoPerdidoAcumulado = calcularDeltaAcumuladoMedida(pesoInicialKg, pesoFinalKg);
     const circunferenciaAbdominalReduzidaCm = calcularDeltaAcumuladoMedida(
       circunferenciaInicialCm,
@@ -131,19 +165,8 @@ export async function GET(
 
     let linkRelatorio: string | null = null;
     if (jaPreenchido) {
-      const relatorioSnap = await db.collection('relatorio_paciente_links').where('pacienteId', '==', pacienteId).limit(1).get();
-      let relatorioToken: string;
-      if (!relatorioSnap.empty) {
-        relatorioToken = relatorioSnap.docs[0].id;
-      } else {
-        relatorioToken = crypto.randomBytes(32).toString('hex');
-        await db.collection('relatorio_paciente_links').doc(relatorioToken).set({
-          pacienteId,
-          createdAt: new Date(),
-          ...shadowOrganizationFields(),
-        });
-      }
-      linkRelatorio = buildOrganizacaoPublicUrl(`/relatorio/${relatorioToken}`);
+      const { url } = await ensureRelatorioPacientePublicLink(db, pacienteId);
+      linkRelatorio = url;
     }
 
     const medicoSnap = await db.collection('medicos').doc(medicoId).get();
@@ -202,6 +225,9 @@ export async function GET(
       jaClassificouMedico,
       pesoFinalKg,
       circunferenciaAbdominalFinalCm,
+      pesoReferenciaKg,
+      circunferenciaReferenciaCm,
+      sexoBiologico,
       depoimento,
       percepcaoResultadoFinal,
       principalConquista,
@@ -209,6 +235,7 @@ export async function GET(
       pesoPerdidoAcumulado,
       circunferenciaAbdominalReduzidaCm,
       linkRelatorio,
+      protocoloIndice: Number.isFinite(protocoloIndice) && protocoloIndice >= 1 ? Math.floor(protocoloIndice) : 1,
     });
   } catch (error) {
     console.error('Erro ao obter dados da conclusão:', error);

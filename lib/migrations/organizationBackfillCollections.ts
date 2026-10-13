@@ -20,6 +20,8 @@ export const ORGANIZATION_BACKFILL_COLLECTIONS = [
   'aplicacao_links',
   'conclusao_links',
   'relatorio_paciente_links',
+  'relatorio_financeiro_links',
+  'nutri_checkin_links',
 ] as const;
 
 export type OrganizationBackfillCollection = (typeof ORGANIZATION_BACKFILL_COLLECTIONS)[number];

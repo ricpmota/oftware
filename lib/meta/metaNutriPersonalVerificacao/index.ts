@@ -1,17 +1,21 @@
 import type { NutricionistaDoc } from '@/features/metaNutri/metaNutri.types';
 import type { PersonalTrainerDoc } from '@/features/metaPersonal/metaPersonal.types';
+import type { PsiquiatraDoc } from '@/features/metaPsi/metaPsi.types';
+import { isValidIdentificacaoPhone } from '@/lib/phone/internationalPhoneValue';
 import {
   getNutriPersonalIntroKey,
   META_NUTRI_PERSONAL_STEP_COMPLETO,
-  META_NUTRI_CHAT_INTRO_SESSION_KEY,
-  META_PERSONAL_CHAT_INTRO_SESSION_KEY,
+  type NutriPersonalWizardTipo,
 } from './constants';
 
 export {
   META_NUTRI_CHAT_INTRO_SESSION_KEY,
   META_PERSONAL_CHAT_INTRO_SESSION_KEY,
+  META_PSI_CHAT_INTRO_SESSION_KEY,
   getNutriPersonalIntroKey,
   nutriPersonalStepTexts,
+  nutriPersonalRegistroLabel,
+  wizardTipoToUploadProfissao,
   META_NUTRI_PERSONAL_STEP_INTRO,
   META_NUTRI_PERSONAL_STEP_NOME,
   META_NUTRI_PERSONAL_STEP_TELEFONE,
@@ -23,15 +27,21 @@ export {
   META_NUTRI_PERSONAL_STEP_COMPLETO,
   META_NUTRI_PERSONAL_WIZARD_PROGRESS_STEPS,
 } from './constants';
+export type { NutriPersonalWizardTipo } from './constants';
 
-export type ProfissionalVerificacaoDoc = NutricionistaDoc | PersonalTrainerDoc;
+export type ProfissionalVerificacaoDoc = NutricionistaDoc | PersonalTrainerDoc | PsiquiatraDoc;
 
-export function isIntroNutriPersonalSessionDone(tipo: 'nutri' | 'personal'): boolean {
+export function getCrmUfFromProfissional(p: ProfissionalVerificacaoDoc): string {
+  if ('crmUf' in p && typeof p.crmUf === 'string') return p.crmUf.trim().toUpperCase();
+  return '';
+}
+
+export function isIntroNutriPersonalSessionDone(tipo: NutriPersonalWizardTipo): boolean {
   if (typeof window === 'undefined') return true;
   return sessionStorage.getItem(getNutriPersonalIntroKey(tipo)) === '1';
 }
 
-export function markIntroNutriPersonalSessionDone(tipo: 'nutri' | 'personal'): void {
+export function markIntroNutriPersonalSessionDone(tipo: NutriPersonalWizardTipo): void {
   try {
     sessionStorage.setItem(getNutriPersonalIntroKey(tipo), '1');
   } catch {
@@ -67,15 +77,19 @@ export function calcularSimilaridade(str1: string, str2: string): number {
 
 export function getFirstIncompleteNutriPersonalStep(
   p: ProfissionalVerificacaoDoc | null | undefined,
-  tipo: 'nutri' | 'personal'
+  tipo: NutriPersonalWizardTipo
 ): number {
   if (!p) return 0;
   if (!isIntroNutriPersonalSessionDone(tipo)) return 0;
   if (!(p.nome || '').trim()) return 1;
-  const tel = (p.telefone || '').replace(/\D/g, '');
-  if (tel.length < 10) return 2;
+  if (!isValidIdentificacaoPhone({
+    telefone: p.telefone,
+    telefoneDdi: p.telefoneDdi,
+    telefonePais: p.telefonePais,
+  })) return 2;
   const reg = (p.registroNumero || '').replace(/\D/g, '');
   if (reg.length < 1) return 3;
+  if (tipo === 'psi' && !(ESTADOS_BR as readonly string[]).includes(getCrmUfFromProfissional(p))) return 3;
   if (!p.cidades?.length) return 4;
   if (!(p.docVerificacaoCnhUrl || '').trim()) return 5;
   if (!(p.docVerificacaoSelfieUrl || '').trim()) return 6;
@@ -85,7 +99,7 @@ export function getFirstIncompleteNutriPersonalStep(
 
 export function isNutriPersonalVerificacaoWizardCompleto(
   p: ProfissionalVerificacaoDoc | null | undefined,
-  tipo: 'nutri' | 'personal'
+  tipo: NutriPersonalWizardTipo
 ): boolean {
   return getFirstIncompleteNutriPersonalStep(p, tipo) === META_NUTRI_PERSONAL_STEP_COMPLETO;
 }

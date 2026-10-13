@@ -60,8 +60,13 @@ exports.default = {
     logger: ['console'],
   },
   createOptions: {
+    // Evita pin quebrado (log: Version not available for 2.3000.10305x).
+    // null = deixa o WPP pegar a versão WEB disponível no momento.
     whatsappVersion: null,
     autoClose: 0,
+    // CRÍTICO: padrão do WPP é 180000ms (3 min). Se o histórico do celular
+    // demora mais que isso, o Chromium é fechado no meio do sync → sessão
+    // fantasma + isSendFailure. 0 = não matar enquanto sincroniza.
     deviceSyncTimeout: 0,
     disableWelcome: true,
     browserArgs: [

@@ -38,6 +38,7 @@ export function buildGoogleCalendarAddUrl(input: {
   title: string;
   details?: string;
   location?: string;
+  guests?: string[];
 }): string {
   const toGcal = (date: string, time: string) =>
     `${date.replace(/-/g, '')}T${time.replace(':', '')}00`;
@@ -51,6 +52,8 @@ export function buildGoogleCalendarAddUrl(input: {
   });
   if (input.details) params.set('details', input.details);
   if (input.location) params.set('location', input.location);
+  const guests = [...new Set((input.guests || []).map((email) => email.trim().toLowerCase()).filter(Boolean))];
+  if (guests.length > 0) params.set('add', guests.join(','));
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 

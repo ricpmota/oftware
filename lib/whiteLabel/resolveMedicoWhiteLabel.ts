@@ -35,6 +35,14 @@ export interface MedicoWhiteLabelResolved {
   primaryColor: string;
   publicPages: MedicoPublicPagesResolved;
   showPoweredByOftware: boolean;
+  /** Presente só para organização diferente do Método. Ausente mantém o visual legado. */
+  organizationIdentity?: {
+    organizationId: string | null;
+    /** Logo para fundo claro (rodapé do /dr). `null` não exibe imagem. */
+    footerLogoUrl: string | null;
+    /** Texto legível sobre `primaryColor`. */
+    accentTextColor: string;
+  };
 }
 
 export interface MedicoWhiteLabelSource {

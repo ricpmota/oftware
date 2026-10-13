@@ -203,7 +203,14 @@ export default function MetanutriNutriPacientePage() {
       {/* Conteúdo principal */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-          <NutriContent paciente={paciente} setPaciente={setPaciente} modoNutricionista />
+          <NutriContent
+            paciente={paciente}
+            setPaciente={setPaciente}
+            modoNutricionista
+            habilitarPlanosTemplates
+            chatNutriAuthorKind="nutritionist"
+            chatNutriAuthorId={user?.uid}
+          />
         </div>
       </main>
     </div>

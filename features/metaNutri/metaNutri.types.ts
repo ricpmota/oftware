@@ -19,7 +19,11 @@ export interface NutricionistaDoc {
   email: string;
   nome: string;
   registroNumero: string; // CRN ou registro profissional (apenas números)
-  telefone: string; // Telefone para contato
+  telefone: string; // Telefone para contato (nacional, sem DDI concatenado)
+  /** DDI sem '+'. Ausente = legado Brasil. */
+  telefoneDdi?: string;
+  /** ISO-3166 alpha-2 (ex.: "BR", "US", "PT"). */
+  telefonePais?: string;
   cidades: {
     estado: string;
     cidade: string;
@@ -33,6 +37,22 @@ export interface NutricionistaDoc {
   docVerificacaoSelfieUrl?: string;
   /** Foto do registro profissional (CRN). */
   docVerificacaoRegistroUrl?: string;
+  // Campos de endereço do local de atendimento
+  cep?: string;
+  nomeLocal?: string;
+  endereco?: string;
+  numero?: string;
+  pontoReferencia?: string;
+  googleMapsUrl?: string;
+  // Redes sociais
+  instagramUsuario?: string;
+  // Gênero
+  genero?: 'M' | 'F' | '';
+  /** Foto de perfil (circular). */
+  fotoPerfilUrl?: string | null;
+  /** Organização da equipe (mesmo critério do metaadmingeral). */
+  organizationId?: string | null;
+  metodoImagensAtivo?: boolean | null;
 }
 
 /**

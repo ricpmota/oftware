@@ -7,11 +7,16 @@ import {
   type WhiteLabelCrmStage,
   type WhiteLabelLeadScoreCategory,
 } from '@/types/leadWhiteLabelCrm';
+import {
+  WHITELABEL_PROFISSAO_OPTIONS,
+  type WhiteLabelProfissao,
+} from '@/lib/whiteLabel/profissao';
 
 export type CrmFiltersState = {
   busca: string;
   stage: WhiteLabelCrmStage | '';
   score: WhiteLabelLeadScoreCategory | '';
+  profissao: WhiteLabelProfissao | '';
   especialidade: string;
   estado: string;
   cidade: string;
@@ -36,11 +41,25 @@ export default function LeadsWhiteLabelCrmFilters({ filters, onChange, especiali
           type="text"
           value={filters.busca}
           onChange={(e) => onChange({ busca: e.target.value })}
-          placeholder="Buscar por nome, CRM, WhatsApp ou e-mail..."
+          placeholder="Buscar por nome, registro, WhatsApp ou e-mail..."
           className={`${t.input} pl-9`}
         />
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+        <select
+          value={filters.profissao}
+          onChange={(e) => onChange({ profissao: e.target.value as WhiteLabelProfissao | '' })}
+          className={t.input}
+        >
+          <option value="" style={{ backgroundColor: t.selectOptionBg }}>
+            Todas as profissões
+          </option>
+          {WHITELABEL_PROFISSAO_OPTIONS.map((p) => (
+            <option key={p.value} value={p.value} style={{ backgroundColor: t.selectOptionBg }}>
+              {p.label}
+            </option>
+          ))}
+        </select>
         <select
           value={filters.stage}
           onChange={(e) => onChange({ stage: e.target.value as WhiteLabelCrmStage | '' })}

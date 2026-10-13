@@ -91,6 +91,7 @@ export function calcularComposicaoPlanoInterativo(
     bioimpedancia,
     exames,
     outrosCustos,
+    custoInjetaveis: 0,
     subtotal,
     margem,
     descontoManual: arredondarMoeda(Math.max(0, descontoManual)),
